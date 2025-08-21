@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCM系统性能监控面板</title>
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .card-icon {
+            font-size: 2em;
+            margin-right: 15px;
+            width: 50px;
+            text-align: center;
+        }
+        
+        .card-title {
+            font-size: 1.4em;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 12px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+        
+        .metric-label {
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .metric-value {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .status-good { color: #27ae60; }
+        .status-warning { color: #f39c12; }
+        .status-error { color: #e74c3c; }
+        .status-info { color: #3498db; }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        
+        .progress-fill.warning {
+            background: linear-gradient(90deg, #f39c12, #e67e22);
+        }
+        
+        .progress-fill.error {
+            background: linear-gradient(90deg, #e74c3c, #c0392b);
+        }
+        
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .refresh-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #e74c3c;
+        }
+        
+        .chart-container {
+            height: 200px;
+            margin: 15px 0;
+            position: relative;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .refresh-btn {
+                bottom: 20px;
+                right: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 TCM系统性能监控</h1>
+            <p>实时监控中医智能问诊系统的运行状态和性能指标</p>
+        </div>
+        
+        <div class="dashboard" id="dashboard">
+            <!-- 动态加载的监控卡片 -->
+        </div>
+        
+        <button class="refresh-btn" onclick="refreshData()" title="刷新数据">
+            🔄
+        </button>
+    </div>
+
+    <script>
+        const API_BASE = window.location.protocol + '//' + window.location.host;
+        let autoRefreshInterval = null;
+        let isAutoRefresh = false;
+        
+        // 监控卡片配置
+        const monitorCards = [
+            {
+                id: 'system-status',
+                title: '系统状态',
+                icon: '🖥️',
+                endpoint: '/debug_status'
+            },
+            {
+                id: 'cache-performance', 
+                title: '缓存性能',
+                icon: '⚡',
+                endpoint: '/debug_status'
+            },
+            {
+                id: 'database-stats',
+                title: '数据库状态',
+                icon: '🗄️',
+                endpoint: '/db_stats'
+            },
+            {
+                id: 'service-health',
+                title: '服务健康',
+                icon: '💓',
+                endpoint: '/health'
+            }
+        ];
+        
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(API_BASE + endpoint);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`Failed to fetch ${endpoint}:`, error);
+                return { error: error.message };
+            }
+        }
+        
+        function createCard(config) {
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">${config.icon}</div>
+                        <div class="card-title">${config.title}</div>
+                    </div>
+                    <div id="${config.id}-content" class="loading">
+                        加载中...
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderSystemStatus(data) {
+            if (data.error) {
+                return `<div class="error-message">❌ 无法获取系统状态: ${data.error}</div>`;
+            }
+            
+            const serverStatus = data.server_status === 'running' ? 'status-good' : 'status-error';
+            const apiKeyStatus = data.api_key_configured ? 'status-good' : 'status-error';
+            const cacheStatus = data.cache_system_available ? 'status-good' : 'status-warning';
+            
+            return `
+                <div class="metric-row">
+                    <span class="metric-label">服务状态</span>
+                    <span class="metric-value ${serverStatus}">
+                        ${data.server_status === 'running' ? '✅ 运行中' : '❌ 异常'}
+                    </span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">API密钥</span>
+                    <span class="metric-value ${apiKeyStatus}">
+                        ${data.api_key_configured ? '✅ 已配置' : '❌ 未配置'}
+                    </span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">缓存系统</span>
+                    <span class="metric-value ${cacheStatus}">
+                        ${data.cache_system_available ? '✅ 已启用' : '⚠️ 未启用'}
+                    </span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">学习系统</span>
+                    <span class="metric-value ${data.learning_system_initialized ? 'status-good' : 'status-warning'}">
+                        ${data.learning_system_initialized ? '✅ 已初始化' : '⚠️ 未初始化'}
+                    </span>
+                </div>
+            `;
+        }
+        
+        function renderCachePerformance(data) {
+            if (data.error || !data.cache_system_available) {
+                return `<div class="error-message">缓存系统不可用</div>`;
+            }
+            
+            const stats = data.cache_stats || {};
+            const hitRate = parseFloat(stats.hit_rate || 0) * 100;
+            const entries = stats.total_entries || 0;
+            const sizeMb = parseFloat(stats.cache_size_mb || 0).toFixed(2);
+            
+            const hitRateClass = hitRate > 50 ? 'status-good' : hitRate > 20 ? 'status-warning' : 'status-error';
+            const progressClass = hitRate > 50 ? '' : hitRate > 20 ? 'warning' : 'error';
+            
+            return `
+                <div class="metric-row">
+                    <span class="metric-label">命中率</span>
+                    <span class="metric-value ${hitRateClass}">${hitRate.toFixed(1)}%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill ${progressClass}" style="width: ${hitRate}%"></div>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">缓存条目</span>
+                    <span class="metric-value status-info">${entries}</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">缓存大小</span>
+                    <span class="metric-value status-info">${sizeMb} MB</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">最后清理</span>
+                    <span class="metric-value status-info">${stats.last_cleanup ? new Date(stats.last_cleanup).toLocaleString() : '未知'}</span>
+                </div>
+            `;
+        }
+        
+        function renderDatabaseStats(data) {
+            if (data.error) {
+                return `<div class="error-message">❌ 数据库连接失败: ${data.error}</div>`;
+            }
+            
+            return `
+                <div class="metric-row">
+                    <span class="metric-label">连接池状态</span>
+                    <span class="metric-value status-good">✅ 正常</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">活跃连接</span>
+                    <span class="metric-value status-info">${data.active_connections || 0}</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">总查询数</span>
+                    <span class="metric-value status-info">${data.total_queries || 0}</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">运行时长</span>
+                    <span class="metric-value status-info">${data.uptime_minutes || 0} 分钟</span>
+                </div>
+            `;
+        }
+        
+        function renderServiceHealth(data) {
+            if (data.error) {
+                return `<div class="error-message">❌ 服务健康检查失败: ${data.error}</div>`;
+            }
+            
+            const status = data.status || 'unknown';
+            const statusClass = status === 'healthy' ? 'status-good' : 'status-error';
+            
+            return `
+                <div class="metric-row">
+                    <span class="metric-label">整体状态</span>
+                    <span class="metric-value ${statusClass}">
+                        ${status === 'healthy' ? '✅ 健康' : '❌ 异常'}
+                    </span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">响应时间</span>
+                    <span class="metric-value status-info">${data.response_time || 'N/A'}ms</span>
+                </div>
+                <div class="metric-row">
+                    <span class="metric-label">检查时间</span>
+                    <span class="metric-value status-info">${new Date().toLocaleString()}</span>
+                </div>
+            `;
+        }
+        
+        async function loadCardData(config) {
+            const data = await fetchData(config.endpoint);
+            const contentDiv = document.getElementById(`${config.id}-content`);
+            
+            if (!contentDiv) return;
+            
+            let content = '';
+            switch (config.id) {
+                case 'system-status':
+                    content = renderSystemStatus(data);
+                    break;
+                case 'cache-performance':
+                    content = renderCachePerformance(data);
+                    break;
+                case 'database-stats':
+                    content = renderDatabaseStats(data);
+                    break;
+                case 'service-health':
+                    content = renderServiceHealth(data);
+                    break;
+                default:
+                    content = `<div class="error-message">未知卡片类型</div>`;
+            }
+            
+            contentDiv.innerHTML = content;
+        }
+        
+        function initDashboard() {
+            const dashboard = document.getElementById('dashboard');
+            dashboard.innerHTML = monitorCards.map(card => createCard(card)).join('');
+            
+            // 添加自动刷新控制
+            dashboard.innerHTML += `
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon">⚙️</div>
+                        <div class="card-title">监控设置</div>
+                    </div>
+                    <div class="auto-refresh">
+                        <input type="checkbox" id="auto-refresh-toggle" onchange="toggleAutoRefresh()">
+                        <label for="auto-refresh-toggle">自动刷新 (30秒)</label>
+                        <span id="refresh-status" class="metric-value status-info">已关闭</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">最后更新</span>
+                        <span class="metric-value status-info" id="last-update">从未</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        async function refreshData() {
+            const refreshBtn = document.querySelector('.refresh-btn');
+            refreshBtn.style.transform = 'rotate(360deg)';
+            
+            // 并行加载所有卡片数据
+            const promises = monitorCards.map(card => loadCardData(card));
+            await Promise.all(promises);
+            
+            // 更新最后更新时间
+            const lastUpdateElement = document.getElementById('last-update');
+            if (lastUpdateElement) {
+                lastUpdateElement.textContent = new Date().toLocaleString();
+            }
+            
+            setTimeout(() => {
+                refreshBtn.style.transform = '';
+            }, 500);
+        }
+        
+        function toggleAutoRefresh() {
+            const toggle = document.getElementById('auto-refresh-toggle');
+            const status = document.getElementById('refresh-status');
+            
+            isAutoRefresh = toggle.checked;
+            
+            if (isAutoRefresh) {
+                autoRefreshInterval = setInterval(refreshData, 30000);
+                status.textContent = '已启用';
+                status.className = 'metric-value status-good';
+            } else {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                }
+                status.textContent = '已关闭';
+                status.className = 'metric-value status-info';
+            }
+        }
+        
+        // 页面加载时初始化
+        window.onload = function() {
+            initDashboard();
+            refreshData();
+        };
+        
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+                e.preventDefault();
+                refreshData();
+            }
+        });
+    </script>
+</body>
+</html>

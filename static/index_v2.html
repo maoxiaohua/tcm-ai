@@ -1,0 +1,4111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 中医智能问诊 - 专业版</title>
+    
+    <!-- Open Graph / 微信分享优化 -->
+    <meta property="og:title" content="🏥 AI 中医智能问诊助手 - 专业版">
+    <meta property="og:description" content="基于AI的中医智能诊断系统，支持症状问诊、证候分析、方剂推荐。集成5大中医流派，提供个性化中医治疗建议。适用于临床辅助诊断。">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://mxh0510.cn/static/tcm_share_card_enhanced.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AI中医智能问诊助手 - 专业医疗诊断工具">
+    <meta property="og:url" content="https://mxh0510.cn/">
+    <meta property="og:site_name" content="TCM AI 中医智能诊断系统">
+    
+    <!-- 微信分享专用标签 -->
+    <meta name="description" content="AI中医智能问诊助手，专业的中医诊断辅助工具，支持症状分析、证候判断、方剂推荐">
+    <meta name="keywords" content="中医,AI诊断,智能问诊,中药方剂,证候分析,传统中医,人工智能">
+    <meta name="author" content="TCM AI Team">
+    
+    <!-- 微信小程序分享卡片优化 -->
+    <meta property="wx:card" content="summary_large_image">
+    <meta property="wx:title" content="🏥 AI 中医智能问诊助手">
+    <meta property="wx:description" content="专业AI中医诊断辅助工具，集成5大流派，提供个性化治疗建议">
+    <meta property="wx:image" content="https://mxh0510.cn/static/tcm_share_card_enhanced.png">
+    
+    <!-- 微信安全验证 -->
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    
+    <!-- 微信验证文件标识 -->
+    <meta name="wechat-enable" content="true">
+    <meta name="applicable-device" content="mobile">
+    
+    <!-- Twitter Card 标签 -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="🏥 AI 中医智能问诊助手">
+    <meta name="twitter:description" content="基于AI的中医智能诊断系统，专业医疗辅助工具">
+    <meta name="twitter:image" content="https://mxh0510.cn/static/tcm_share_card_enhanced.png">
+    
+    <!-- 版本标识: v1.2.4 更新时间: 2025-08-03 20:20 分享优化版 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            background: #f5f7fa;
+            overflow: hidden;
+        }
+
+        /* 主布局容器 */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* 顶部导航栏 */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header-title h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .header-subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .history-btn, .new-chat-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .history-btn:hover, .new-chat-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .history-btn {
+            background: rgba(255,255,255,0.15);
+        }
+
+        /* 页面导航下拉菜单 */
+        .nav-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .nav-dropdown-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-dropdown-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .nav-dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 8px;
+            background: white;
+            min-width: 250px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            z-index: 1000;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+        }
+
+        .nav-dropdown-content.show {
+            display: block;
+        }
+
+        .nav-dropdown-header {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #374151;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .nav-dropdown-section {
+            padding: 8px 0;
+        }
+
+        .nav-dropdown-section:not(:last-child) {
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .nav-dropdown-item {
+            display: block;
+            padding: 10px 16px;
+            color: #374151;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .nav-dropdown-item:hover {
+            background: #f3f4f6;
+            color: #1f2937;
+        }
+
+        .nav-dropdown-item.primary {
+            color: #3b82f6;
+            font-weight: 500;
+        }
+
+        .nav-dropdown-item.secondary {
+            color: #6b7280;
+        }
+
+        /* 移动端导航 */
+        @media (max-width: 768px) {
+            .nav-dropdown {
+                display: none; /* 移动端隐藏下拉菜单 */
+            }
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            justify-content: center;
+            background: #f5f7fa;
+        }
+
+        /* 内容容器 - 居中显示 */
+        .content-wrapper {
+            display: flex;
+            width: 100%;
+            max-width: 1400px;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        /* 左侧栏 */
+        .sidebar {
+            width: 320px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* 医生选择区域 */
+        .doctor-section {
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .doctors-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .doctor-card {
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #fafafa;
+        }
+
+        .doctor-card:hover {
+            border-color: #667eea;
+            background: #f8faff;
+        }
+
+        .doctor-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+
+        .doctor-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .doctor-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .doctor-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .doctor-details h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 2px;
+        }
+
+        .doctor-school {
+            font-size: 12px;
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 2px 8px;
+            border-radius: 8px;
+        }
+
+        .selection-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #d1d5db;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .doctor-card.selected .selection-indicator {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .doctor-specialty {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+
+        /* 工具区域 */
+        .tools-section {
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .tool-group {
+            margin-bottom: 20px;
+        }
+
+        .tool-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .tool-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f8faff;
+        }
+
+        .upload-area.has-file {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        .upload-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        /* 多图片上传样式 */
+        .upload-section {
+            margin-bottom: 15px;
+        }
+
+        .upload-subtitle {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .upload-status {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .status-item:last-child {
+            margin-bottom: 0;
+        }
+
+        /* 移动端图片选择弹窗 - 微信兼容修复 */
+        .mobile-image-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999999;  /* 提高z-index层级，确保在最上层 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .mobile-modal-hidden {
+            display: none !important;
+        }
+        
+        .mobile-modal-visible {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+
+        .mobile-image-modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 350px;
+            min-width: 280px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            margin: 0 auto;
+            position: relative;
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 20px 10px 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6b7280;
+        }
+
+        .modal-options {
+            padding: 20px;
+        }
+
+        .image-option-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+
+        .image-option-btn:hover {
+            border-color: #667eea;
+            background: #f8faff;
+        }
+
+        .image-option-btn:last-child {
+            margin-bottom: 0;
+        }
+
+        .option-icon {
+            font-size: 24px;
+            margin-right: 15px;
+        }
+
+        .option-text {
+            text-align: left;
+        }
+
+        .option-text strong {
+            display: block;
+            margin-bottom: 4px;
+            color: #111827;
+        }
+
+        .option-text span {
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .upload-status-mobile {
+            padding: 15px 20px;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            font-size: 14px;
+        }
+
+        .mobile-status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .mobile-status-item:last-child {
+            margin-bottom: 0;
+        }
+
+        /* 微信浏览器特殊适配 */
+        @media screen and (max-width: 480px) {
+            .mobile-image-modal {
+                padding: 15px;
+            }
+            
+            .mobile-image-modal-content {
+                max-width: calc(100vw - 30px);
+                min-width: 260px;
+            }
+            
+            .modal-header {
+                padding: 15px 15px 10px 15px;
+            }
+            
+            .modal-header h3 {
+                font-size: 16px;
+            }
+            
+            .modal-options {
+                padding: 15px;
+            }
+            
+            .image-option-btn {
+                padding: 12px;
+            }
+        }
+
+        /* 极小屏幕适配 */
+        @media screen and (max-width: 360px) {
+            .mobile-image-modal-content {
+                max-width: calc(100vw - 20px);
+                border-radius: 8px;
+            }
+            
+            .modal-header {
+                padding: 12px;
+            }
+            
+            .modal-options {
+                padding: 12px;
+            }
+        }
+
+        .upload-text {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .voice-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .voice-btn {
+            padding: 10px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .voice-btn:hover {
+            border-color: #667eea;
+            background: #f8faff;
+        }
+
+        .voice-btn.recording {
+            background: #ef4444;
+            color: white;
+            border-color: #ef4444;
+        }
+
+        .auto-speak {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #6b7280;
+            cursor: pointer;
+        }
+
+        /* 右侧对话区域 */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        /* 当前医生信息条 */
+        .current-doctor-bar {
+            background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+            border-bottom: 1px solid #e5e7eb;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .current-doctor-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .current-doctor-info h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 4px;
+        }
+
+        .current-doctor-desc {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        /* 对话消息区域 */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: #fafafa;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 24px;
+            animation: messageSlide 0.3s ease-out;
+        }
+
+        @keyframes messageSlide {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            margin: 0 12px;
+        }
+
+        .user .message-avatar {
+            background: #10b981;
+            color: white;
+        }
+
+        .ai .message-avatar {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .message-content {
+            max-width: 70%;
+            background: white;
+            border-radius: 16px;
+            padding: 16px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .user .message-content {
+            background: #10b981;
+            color: white;
+        }
+
+        .message-content::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            width: 0;
+            height: 0;
+            border: 8px solid transparent;
+        }
+
+        .ai .message-content::before {
+            left: -16px;
+            border-right-color: white;
+        }
+
+        .user .message-content::before {
+            right: -16px;
+            border-left-color: #10b981;
+        }
+
+        .message-text {
+            line-height: 1.6;
+            font-size: 14px;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+        .message-text h3, .message-text h4 {
+            margin: 12px 0 8px 0;
+            line-height: 1.4;
+        }
+        .message-text strong {
+            font-weight: 600;
+        }
+        .message-text hr {
+            margin: 12px 0;
+            border: none;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 8px;
+        }
+
+        /* 反馈按钮 */
+        .feedback-controls {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .feedback-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .rating-buttons {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .rating-btn {
+            padding: 4px 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        .rating-btn:hover {
+            border-color: #667eea;
+            background: #f8faff;
+        }
+
+        /* 输入区域 */
+        .input-area {
+            border-top: 1px solid #e5e7eb;
+            padding: 20px 24px;
+            background: white;
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            background: #f9fafb;
+            border: 1px solid #d1d5db;
+            border-radius: 24px;
+            padding: 12px 16px;
+            transition: all 0.2s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .message-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 14px;
+            line-height: 1.4;
+            resize: none;
+            min-height: 20px;
+            max-height: 100px;
+        }
+
+        .send-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .send-btn:hover {
+            background: #5a67d8;
+        }
+
+        .send-btn:disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+        }
+
+        /* 加载动画 */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 默认隐藏移动端容器 */
+        .mobile-page-container {
+            display: none;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 1440px) {
+            .content-wrapper {
+                max-width: 95%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                position: relative;
+                overflow: hidden;
+            }
+            
+            /* 移动端页面容器 */
+            .mobile-page-container {
+                display: flex !important; /* 覆盖默认的隐藏 */
+                position: relative;
+                width: 200%;
+                height: 100vh;
+                min-height: 100vh;
+                transition: transform 0.3s ease-in-out;
+                overflow: hidden;
+            }
+            
+            .mobile-page-container.show-chat {
+                transform: translateX(-50%);
+            }
+            
+            /* 医生选择页面 */
+            .mobile-doctor-page {
+                width: 50%;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
+            
+            .mobile-doctor-header {
+                padding: 20px;
+                text-align: center;
+                color: white;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 16px;
+            }
+
+            .mobile-header-content {
+                flex: 1;
+            }
+            
+            .mobile-doctor-header h1 {
+                font-size: 1.5rem;
+                margin-bottom: 8px;
+            }
+            
+            .mobile-doctor-header p {
+                font-size: 0.9rem;
+                opacity: 0.9;
+            }
+
+            .mobile-header-actions {
+                display: flex;
+                gap: 10px;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+
+            .mobile-action-btn {
+                background: rgba(255,255,255,0.15);
+                color: white;
+                border: 1px solid rgba(255,255,255,0.3);
+                padding: 6px 12px;
+                border-radius: 16px;
+                font-size: 13px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                backdrop-filter: blur(10px);
+                font-weight: 500;
+                min-width: 60px;
+            }
+
+            .mobile-action-btn:hover,
+            .mobile-action-btn:active {
+                background: rgba(255,255,255,0.25);
+                transform: translateY(-1px);
+            }
+
+            .mobile-chat-actions {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+
+            .mobile-action-btn-small {
+                background: rgba(255,255,255,0.15);
+                color: white;
+                border: 1px solid rgba(255,255,255,0.3);
+                padding: 6px;
+                border-radius: 12px;
+                font-size: 14px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                backdrop-filter: blur(10px);
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .mobile-action-btn-small:hover,
+            .mobile-action-btn-small:active {
+                background: rgba(255,255,255,0.25);
+                transform: scale(1.05);
+            }
+            
+            .mobile-doctors-container {
+                flex: 1;
+                background: white;
+                border-radius: 20px 20px 0 0;
+                padding: 24px 16px 120px 16px; /* 增加底部内边距避免被遮挡 */
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch; /* iOS平滑滚动 */
+            }
+            
+            .mobile-doctors-title {
+                text-align: center;
+                font-size: 1.2rem;
+                font-weight: 600;
+                color: #374151;
+                margin-bottom: 20px;
+            }
+            
+            .mobile-doctors-grid {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            .mobile-doctor-card {
+                background: white;
+                border: 2px solid #e5e7eb;
+                border-radius: 12px;
+                padding: 20px;
+                cursor: pointer;
+                transition: all 0.2s;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            
+            .mobile-doctor-card:hover,
+            .mobile-doctor-card:active {
+                border-color: #3b82f6;
+                background: #eff6ff;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            }
+            
+            .mobile-doctor-info {
+                display: flex;
+                align-items: center;
+                margin-bottom: 12px;
+            }
+            
+            .mobile-doctor-avatar {
+                font-size: 2.5rem;
+                margin-right: 16px;
+            }
+            
+            .mobile-doctor-details h3 {
+                font-size: 1.1rem;
+                font-weight: 600;
+                color: #374151;
+                margin-bottom: 4px;
+            }
+            
+            .mobile-doctor-details .school {
+                font-size: 0.85rem;
+                color: #6b7280;
+            }
+            
+            .mobile-doctor-specialty {
+                font-size: 0.9rem;
+                color: #4b5563;
+                line-height: 1.4;
+            }
+            
+            .mobile-doctor-specialty strong {
+                color: #374151;
+            }
+            
+            /* 聊天页面 */
+            .mobile-chat-page {
+                width: 50%;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                background: white;
+            }
+            
+            .mobile-chat-header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 12px 16px;
+                display: flex;
+                align-items: center;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                flex-shrink: 0;
+            }
+            
+            .mobile-back-btn {
+                background: none;
+                border: none;
+                color: white;
+                font-size: 1.2rem;
+                padding: 8px;
+                margin-right: 12px;
+                cursor: pointer;
+                border-radius: 50%;
+                transition: background 0.2s;
+            }
+            
+            .mobile-back-btn:hover {
+                background: rgba(255,255,255,0.2);
+            }
+            
+            .mobile-current-doctor {
+                flex: 1;
+                display: flex;
+                align-items: center;
+            }
+            
+            .mobile-current-doctor .avatar {
+                font-size: 1.5rem;
+                margin-right: 12px;
+            }
+            
+            .mobile-current-doctor .info h2 {
+                font-size: 1rem;
+                margin-bottom: 2px;
+            }
+            
+            .mobile-current-doctor .info p {
+                font-size: 0.8rem;
+                opacity: 0.9;
+            }
+            
+            .mobile-messages-container {
+                flex: 1;
+                padding: 16px;
+                overflow-y: auto;
+                background: #f9fafb;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .mobile-input-container {
+                padding: 12px 16px;
+                background: white;
+                border-top: 1px solid #e5e7eb;
+                flex-shrink: 0;
+            }
+
+            .mobile-input-helper {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 8px;
+                padding: 0 4px;
+                flex-wrap: wrap;
+            }
+
+            .mobile-guidance-trigger {
+                background: linear-gradient(135deg, #28a745, #20c997);
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 16px;
+                font-size: 12px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                flex-shrink: 0;
+            }
+
+            .mobile-guidance-trigger:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+            }
+
+            .mobile-upload-trigger {
+                background: linear-gradient(135deg, #007bff, #0056b3);
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 16px;
+                font-size: 12px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+
+            .mobile-upload-trigger:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+            }
+
+            .mobile-upload-trigger.has-file {
+                background: linear-gradient(135deg, #28a745, #20c997);
+            }
+
+            .mobile-helper-text {
+                font-size: 11px;
+                color: #6b7280;
+                flex: 1;
+                min-width: 100px;
+            }
+            
+            .mobile-input-wrapper {
+                display: flex;
+                gap: 8px;
+                align-items: flex-end;
+            }
+            
+            .mobile-input-wrapper textarea {
+                flex: 1;
+                border: 1px solid #d1d5db;
+                border-radius: 20px;
+                padding: 12px 16px;
+                font-size: 16px;
+                resize: none;
+                max-height: 100px;
+                min-height: 44px;
+                -webkit-appearance: none;
+                -webkit-border-radius: 20px;
+            }
+            
+            .mobile-send-btn {
+                width: 44px;
+                height: 44px;
+                background: #3b82f6;
+                color: white;
+                border: none;
+                border-radius: 50%;
+                font-size: 1.2rem;
+                cursor: pointer;
+                transition: background 0.2s;
+                flex-shrink: 0;
+            }
+            
+            .mobile-send-btn:hover {
+                background: #2563eb;
+            }
+            
+            .mobile-send-btn:disabled {
+                background: #9ca3af;
+                cursor: not-allowed;
+            }
+            
+            /* PC端元素正常显示 - 移除了隐藏规则 */
+        }
+        
+        @media (max-width: 480px) {
+            .header {
+                padding: 8px 12px;
+            }
+            
+            .header-title h1 {
+                font-size: 1.1rem;
+            }
+            
+            .header-subtitle {
+                font-size: 0.7rem;
+            }
+            
+            .messages-container {
+                padding: 8px;
+            }
+            
+            .message-content {
+                max-width: 95%;
+                font-size: 0.85rem;
+                padding: 10px 12px;
+            }
+            
+            .input-container {
+                padding: 8px;
+            }
+            
+            .new-chat-btn {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+            
+            .sidebar {
+                max-height: 120px !important;
+            }
+            
+            .doctor-section {
+                padding: 6px 8px !important;
+            }
+            
+            .doctor-card {
+                min-width: 100px !important;
+                padding: 6px 8px !important;
+            }
+        }
+        
+        @media (max-width: 320px) {
+            .header-title h1 {
+                font-size: 1.0rem;
+            }
+            
+            .message-content {
+                font-size: 0.8rem;
+                padding: 8px 10px;
+            }
+            
+            .input-wrapper input {
+                font-size: 14px;
+                padding: 10px 12px;
+            }
+            
+            .sidebar {
+                max-height: 100px !important;
+            }
+            
+            .doctor-section {
+                padding: 4px 6px !important;
+            }
+            
+            .doctor-section .section-title {
+                font-size: 0.8rem !important;
+                margin-bottom: 4px !important;
+            }
+            
+            .doctor-card {
+                min-width: 90px !important;
+                padding: 4px 6px !important;
+                font-size: 0.7rem !important;
+            }
+            
+            .doctor-card .doctor-name {
+                font-size: 0.7rem !important;
+            }
+            
+            .doctor-card .doctor-desc {
+                font-size: 0.6rem !important;
+            }
+        }
+
+        /* 滚动条样式 */
+        .messages-container::-webkit-scrollbar,
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .messages-container::-webkit-scrollbar-track,
+        .sidebar::-webkit-scrollbar-track {
+            background: #f9fafb;
+        }
+
+        .messages-container::-webkit-scrollbar-thumb,
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+
+        .messages-container::-webkit-scrollbar-thumb:hover,
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+        /* 问诊指导样式 */
+        .input-helper {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 0 16px;
+        }
+
+        .guidance-trigger {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 16px;
+            cursor: pointer;
+            font-size: 13px;
+            margin-right: 10px;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        .guidance-trigger:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        .helper-text {
+            font-size: 12px;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .guidance-tips {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1000;
+            animation: fadeInScale 0.3s ease-out;
+        }
+
+        .tips-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tips-header h4 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .close-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .tips-content {
+            padding: 20px;
+        }
+
+        .tip-section {
+            margin-bottom: 20px;
+        }
+
+        .tip-section h5 {
+            color: #333;
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .tip-section ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .tip-section li {
+            margin-bottom: 5px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .tip-footer {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .tip-footer p {
+            margin: 0;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        .guidance-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .guidance-tips {
+                max-width: 95vw;
+                max-height: 80vh;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%, -50%);
+                margin: 0;
+                border-radius: 16px;
+                padding: 0;
+            }
+            
+            .tips-header {
+                padding: 16px 20px;
+                border-bottom: 1px solid #e5e7eb;
+            }
+            
+            .tips-header h4 {
+                font-size: 18px;
+                margin: 0;
+            }
+            
+            .tips-content {
+                padding: 16px 20px;
+                max-height: calc(80vh - 80px);
+                overflow-y: auto;
+            }
+            
+            .tip-section {
+                margin-bottom: 16px;
+            }
+            
+            .tip-section h5 {
+                font-size: 15px;
+                margin-bottom: 8px;
+                color: #374151;
+            }
+            
+            .tip-section ul {
+                padding-left: 16px;
+                margin: 0;
+            }
+            
+            .tip-section li {
+                font-size: 14px;
+                line-height: 1.5;
+                margin-bottom: 4px;
+                color: #4b5563;
+            }
+            
+            .close-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 18px;
+            }
+        }
+            
+            .input-helper {
+                display: flex !important;
+                padding: 0 12px;
+                flex-wrap: wrap;
+                gap: 5px;
+                margin-bottom: 12px;
+            }
+            
+            .guidance-trigger {
+                font-size: 14px !important;
+                padding: 8px 12px !important;
+                border-radius: 6px !important;
+                min-height: 36px;
+            }
+            
+            .helper-text {
+                font-size: 11px;
+                line-height: 1.3;
+                flex: 1;
+                min-width: 100%;
+                margin-top: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 移动端页面容器 -->
+        <div class="mobile-page-container" id="mobilePageContainer">
+            <!-- 医生选择页面 -->
+            <div class="mobile-doctor-page">
+                <div class="mobile-doctor-header">
+                    <div class="mobile-header-content">
+                        <h1>AI 中医智能问诊</h1>
+                        <p>传统中医 × 人工智能</p>
+                    </div>
+                    <div class="mobile-header-actions">
+                        <button class="mobile-action-btn" onclick="showMobileNavigation()" title="页面导航">
+                            🔗 导航
+                        </button>
+                        <button class="mobile-action-btn" onclick="openRegisterPage()" title="注册账户">
+                            👤 注册
+                        </button>
+                        <button class="mobile-action-btn" onclick="openHistoryPage()" title="查看历史">
+                            📋 历史
+                        </button>
+                    </div>
+                </div>
+                <div class="mobile-doctors-container">
+                    <h2 class="mobile-doctors-title">👨‍⚕️ 中医师团队</h2>
+                    <div class="mobile-doctors-grid" id="mobileDoctorsGrid">
+                        <!-- 医生卡片将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 聊天页面 -->
+            <div class="mobile-chat-page">
+                <div class="mobile-chat-header">
+                    <button class="mobile-back-btn" onclick="showMobileDoctorPage()">←</button>
+                    <div class="mobile-current-doctor">
+                        <div class="avatar" id="mobileDoctorAvatar">🤖</div>
+                        <div class="info">
+                            <h2 id="mobileDoctorName">医师姓名</h2>
+                            <p id="mobileDoctorDesc">医师描述</p>
+                        </div>
+                    </div>
+                    <div class="mobile-chat-actions">
+                        <button class="mobile-action-btn-small" onclick="openRegisterPage()" title="注册">
+                            👤
+                        </button>
+                        <button class="mobile-action-btn-small" onclick="openHistoryPage()" title="历史">
+                            📋
+                        </button>
+                        <button class="mobile-action-btn-small" onclick="startNewChat()" title="新对话">
+                            ✨
+                        </button>
+                    </div>
+                </div>
+                <div class="mobile-messages-container" id="mobileMessagesContainer">
+                    <!-- 消息将通过JavaScript动态生成 -->
+                </div>
+                <div class="mobile-input-container">
+                    <div class="mobile-input-helper">
+                        <button onclick="showGuidance()" class="mobile-guidance-trigger">💡 问诊指导</button>
+                        <button onclick="showMobileImageOptions()" class="mobile-upload-trigger" id="mobileUploadTrigger">
+                            📷 <span id="mobileUploadText">上传舌苔和面象照片</span>
+                        </button>
+                        <span class="mobile-helper-text">不知道怎么描述症状？</span>
+                    </div>
+                    <!-- 移动端多图片上传 -->
+                    <input type="file" id="mobileTongueUpload" accept="image/*" style="display: none;" onchange="handleMobileTongueUpload(event)">
+                    <input type="file" id="mobileFaceUpload" accept="image/*" style="display: none;" onchange="handleMobileFaceUpload(event)">
+                    
+                    <!-- 移动端图片选择弹窗已移动到body底部 -->
+                    <div class="mobile-input-wrapper">
+                        <textarea 
+                            id="mobileMessageInput" 
+                            placeholder="请描述您的症状或问题..."
+                            rows="1"
+                            onkeydown="handleMobileKeyPress(event)"
+                            oninput="adjustMobileTextareaHeight()"
+                            onfocus="ensureMobileInputVisible()"
+                            ontouchstart="ensureMobileInputVisible()"
+                        ></textarea>
+                        <button class="mobile-send-btn" id="mobileSendBtn" onclick="sendMobileMessage()">→</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 桌面端：顶部导航栏 -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-title">
+                    <h1>AI 中医智能问诊</h1>
+                    <p class="header-subtitle">传统中医 × 人工智能 - 专业版</p>
+                </div>
+                <div class="header-actions">
+                    <!-- 页面导航下拉菜单 -->
+                    <div class="nav-dropdown">
+                        <button class="nav-dropdown-btn" onclick="toggleNavDropdown()">
+                            🔗 页面导航 ▼
+                        </button>
+                        <div class="nav-dropdown-content" id="navDropdown">
+                            <div class="nav-dropdown-header">系统页面导航</div>
+                            
+                            <div class="nav-dropdown-section">
+                                <button class="nav-dropdown-item primary" onclick="navigateToPage('/')">
+                                    🏠 主页 - AI中医问诊
+                                </button>
+                                <button class="nav-dropdown-item primary" onclick="navigateToPage('/prescription/checker')">
+                                    🏥 智能处方检测
+                                </button>
+                                <button class="nav-dropdown-item" onclick="navigateToPage('/register')">
+                                    👤 用户注册
+                                </button>
+                                <button class="nav-dropdown-item" onclick="navigateToPage('/phone-binding')">
+                                    📱 手机绑定
+                                </button>
+                                <button class="nav-dropdown-item" onclick="navigateToPage('/history')">
+                                    📋 历史记录
+                                </button>
+                            </div>
+                            
+                            <div class="nav-dropdown-section">
+                                <button class="nav-dropdown-item primary" onclick="navigateToPage('/doctor/portal')">
+                                    👨‍⚕️ 医生门户
+                                </button>
+                                <button class="nav-dropdown-item" onclick="navigateToPage('/doctor/thinking-v2')">
+                                    🧠 医生思维录入 (推荐)
+                                </button>
+                                <button class="nav-dropdown-item secondary" onclick="navigateToPage('/doctor/thinking')">
+                                    🧠 医生思维录入 (旧版)
+                                </button>
+                                <button class="nav-dropdown-item" onclick="navigateToPage('/doctor/management')">
+                                    🔧 医生管理
+                                </button>
+                            </div>
+                            
+                            <div class="nav-dropdown-section">
+                                <button class="nav-dropdown-item" onclick="navigateToPage('/system/monitor')">
+                                    🖥️ 系统性能与模块安全监控
+                                </button>
+                                <button class="nav-dropdown-item" onclick="navigateToPage('/qr_gallery')">
+                                    📱 二维码画廊
+                                </button>
+                                <button class="nav-dropdown-item secondary" onclick="navigateToPage('/static/wechat_share.html')">
+                                    💬 微信分享页面
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="history-btn" onclick="openRegisterPage()" title="注册账户">
+                        👤 注册
+                    </button>
+                    <button class="history-btn" onclick="openHistoryPage()" title="查看问诊历史">
+                        📋 历史记录
+                    </button>
+                    <button class="new-chat-btn" onclick="startNewChat()">
+                        ✨ 新对话
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <div class="content-wrapper">
+                <!-- 左侧栏 -->
+                <aside class="sidebar">
+                <!-- 医生选择区域 -->
+                <div class="doctor-section">
+                    <h3 class="section-title">👨‍⚕️ 选择医师</h3>
+                    <div class="doctors-grid" id="doctorsGrid">
+                        <!-- 医生卡片将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+
+                <!-- 工具区域 -->
+                <div class="tools-section">
+                    <!-- 多图片上传 - 舌诊 + 面诊 -->
+                    <div class="tool-group">
+                        <h4 class="tool-title">📸 图像诊断</h4>
+                        
+                        <!-- 舌诊图片上传 -->
+                        <div class="upload-section">
+                            <h5 class="upload-subtitle">👅 舌诊图片</h5>
+                            <div class="upload-area" id="tongueUploadArea" onclick="triggerTongueUpload()">
+                                <div class="upload-icon">📷</div>
+                                <div class="upload-text">点击上传舌诊照片</div>
+                            </div>
+                            <input type="file" id="tongueImageUpload" accept="image/*" style="display: none;" onchange="handleTongueImageUpload(event)">
+                        </div>
+                        
+                        <!-- 面诊图片上传 -->
+                        <div class="upload-section">
+                            <h5 class="upload-subtitle">😊 面诊图片</h5>
+                            <div class="upload-area" id="faceUploadArea" onclick="triggerFaceUpload()">
+                                <div class="upload-icon">📷</div>
+                                <div class="upload-text">点击上传面诊照片</div>
+                            </div>
+                            <input type="file" id="faceImageUpload" accept="image/*" style="display: none;" onchange="handleFaceImageUpload(event)">
+                        </div>
+                        
+                        <!-- 上传状态 -->
+                        <div class="upload-status" id="uploadStatus" style="display: none;">
+                            <div class="status-item" id="tongueStatus">👅 舌诊: <span>未上传</span></div>
+                            <div class="status-item" id="faceStatus">😊 面诊: <span>未上传</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 语音功能 -->
+                    <div class="tool-group">
+                        <h4 class="tool-title">🎤 语音功能</h4>
+                        <div class="voice-controls">
+                            <button class="voice-btn" id="voiceBtn" onclick="toggleVoiceRecording()">
+                                开始语音输入
+                            </button>
+                            <label class="auto-speak">
+                                <input type="checkbox" id="autoSpeak">
+                                <span>自动朗读回复</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 右侧对话区域 -->
+            <main class="chat-area">
+                <!-- 当前医生信息条 -->
+                <div class="current-doctor-bar" id="currentDoctorBar">
+                    <div class="current-doctor-avatar" id="currentDoctorAvatar">🤖</div>
+                    <div class="current-doctor-info">
+                        <h2 id="currentDoctorName">请选择医师</h2>
+                        <p class="current-doctor-desc" id="currentDoctorDesc">当前医师：张仲景</p>
+                    </div>
+                </div>
+
+                <!-- 对话消息区域 -->
+                <div class="messages-container" id="messagesContainer">
+                    <!-- 默认医生已选中，不需要选择提示 -->
+                </div>
+
+                <!-- 加载动画 -->
+                <div class="loading" id="loading">
+                    <div class="loading-spinner"></div>
+                    <div>AI正在思考中...</div>
+                </div>
+
+                <!-- 输入区域 -->
+                <div class="input-area">
+                    <div class="input-helper">
+                        <button onclick="showGuidance()" class="guidance-trigger">💡 问诊指导</button>
+                        <span class="helper-text">不知道怎么描述症状？点击查看问诊指导</span>
+                    </div>
+                    <div class="input-wrapper">
+                        <textarea 
+                            class="message-input" 
+                            id="messageInput" 
+                            placeholder="请描述您的症状或问题..."
+                            rows="1"
+                            onkeydown="handleKeyPress(event)"
+                            oninput="adjustTextareaHeight()"
+                        ></textarea>
+                        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                            →
+                        </button>
+                    </div>
+                </div>
+            </main>
+            </div> <!-- end content-wrapper -->
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentConversationId = '';
+        let selectedDoctor = 'zhang_zhongjing'; // 默认张仲景
+        let isVoiceRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        // 医生数据
+        const doctors = {
+            "zhang_zhongjing": {
+                "name": "张仲景",
+                "school": "伤寒派", 
+                "avatar": "🎯",
+                "specialty": "外感病、内伤杂病、急症",
+                "introduction": "伤寒派以《伤寒论》为理论基础，擅长六经辨证，治疗外感热病和内伤杂病。用药精准，方证对应。"
+            },
+            "ye_tianshi": {
+                "name": "叶天士", 
+                "school": "温病派",
+                "avatar": "🌡️",
+                "specialty": "温病、热病、儿科、妇科",
+                "introduction": "温病派专治各种热性疾病，以卫气营血辨证为特色，用药轻清灵动。"
+            },
+            "li_dongyuan": {
+                "name": "李东垣",
+                "school": "补土派", 
+                "avatar": "🌱",
+                "specialty": "脾胃病、内伤发热、消化系统疾病",
+                "introduction": "补土派以调理脾胃为核心，擅长治疗消化系统疾病和内伤发热。"
+            },
+            "zhu_danxi": {
+                "name": "朱丹溪",
+                "school": "滋阴派",
+                "avatar": "💧", 
+                "specialty": "阴虚火旺、妇科杂症、内科调养",
+                "introduction": "滋阴派重视养阴清热，擅长治疗阴虚火旺和各种内科调养，用药平和有效。"
+            },
+            "liu_duzhou": {
+                "name": "刘渡舟",
+                "school": "经方派",
+                "avatar": "📚", 
+                "specialty": "经方应用、疑难杂症、慢性病",
+                "introduction": "经方派严格按照古代经典方剂治疗，特别擅长疑难杂症和慢性疾病。"
+            },
+            "zheng_qin_an": {
+                "name": "郑钦安",
+                "school": "扶阳派",
+                "avatar": "☀️",
+                "specialty": "阳虚证、急危重症、疑难杂症", 
+                "introduction": "扶阳派重视阳气，擅长治疗各种阳虚症状和急危重症。"
+            }
+        };
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        function initializeApp() {
+            generateConversationId();
+            renderDoctorCards();
+            loadConversationHistory();
+            
+            // 设置默认医生 - 张仲景（最全面的医师）
+            setDefaultDoctor('zhang_zhongjing');
+            
+            // 添加调试功能（仅在开发环境或特定条件下）
+            if (isDebugMode()) {
+                console.log('🔧 调试模式已启用');
+                console.log('📋 可用调试命令:');
+                console.log('  - diagnoseHistoryIssues(): 诊断历史记录问题');
+                console.log('  - checkLocalStorageUsage(): 检查存储使用情况');
+                console.log('  - cleanOldHistoryRecords(): 清理旧的历史记录');
+                
+                // 将调试函数暴露到全局
+                window.diagnoseHistoryIssues = diagnoseHistoryIssues;
+                window.checkLocalStorageUsage = checkLocalStorageUsage;
+                window.cleanOldHistoryRecords = cleanOldHistoryRecords;
+                
+                // 页面加载后自动运行一次诊断
+                setTimeout(() => {
+                    console.log('\n🔍 自动历史记录诊断:');
+                    diagnoseHistoryIssues();
+                }, 1000);
+            }
+        }
+        
+        // 设置默认医生（不会有确认提示）
+        function setDefaultDoctor(doctorKey) {
+            const doctor = doctors[doctorKey];
+            if (!doctor) return;
+            
+            selectedDoctor = doctorKey;
+            
+            // 更新UI显示
+            const cards = document.querySelectorAll('.doctor-card');
+            cards.forEach((card, index) => {
+                if (Object.keys(doctors)[index] === doctorKey) {
+                    card.classList.add('selected');
+                }
+            });
+            
+            // 更新顶部医生信息条
+            document.getElementById('currentDoctorAvatar').textContent = doctor.avatar;
+            document.getElementById('currentDoctorName').textContent = `${doctor.name} - ${doctor.school}`;
+            document.getElementById('currentDoctorDesc').textContent = `擅长：${doctor.specialty}`;
+            
+            // 加载该医生的历史记录
+            loadDoctorHistory(doctorKey);
+        }
+
+        // 生成对话ID
+        function generateConversationId() {
+            currentConversationId = 'xxxx-xxxx-4xxx-yxxx-xxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+            localStorage.setItem('currentConversationId', currentConversationId);
+        }
+
+        // 渲染医生卡片
+        function renderDoctorCards() {
+            const container = document.getElementById('doctorsGrid');
+            container.innerHTML = '';
+
+            Object.entries(doctors).forEach(([key, doctor]) => {
+                const card = document.createElement('div');
+                card.className = 'doctor-card';
+                card.onclick = () => selectDoctor(key);
+                
+                card.innerHTML = `
+                    <div class="doctor-header">
+                        <div class="doctor-info">
+                            <div class="doctor-avatar">${doctor.avatar}</div>
+                            <div class="doctor-details">
+                                <h3>${doctor.name}</h3>
+                                <span class="doctor-school">${doctor.school}</span>
+                            </div>
+                        </div>
+                        <div class="selection-indicator">
+                            <span style="font-size: 12px;">✓</span>
+                        </div>
+                    </div>
+                    <div class="doctor-specialty">
+                        <strong>擅长：</strong>${doctor.specialty}
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        // 选择医生
+        function selectDoctor(doctorKey) {
+            const messagesContainer = document.getElementById('messagesContainer');
+            // 检查是否有真正的对话内容（用户消息或AI回复）
+            const userMessages = messagesContainer.querySelectorAll('.message.user');
+            const aiMessages = messagesContainer.querySelectorAll('.message.ai');
+            const hasExistingMessages = userMessages.length > 0 || aiMessages.length > 0;
+            
+            // 切换医生时保存当前医生的对话历史，不再清空历史记录
+            if (selectedDoctor && selectedDoctor !== doctorKey && hasExistingMessages) {
+                // 保存当前医生的对话历史
+                saveCurrentDoctorHistory();
+            }
+            
+            // 移除之前的选中状态
+            document.querySelectorAll('.doctor-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+
+            // 添加新的选中状态
+            event.currentTarget.classList.add('selected');
+
+            const previousDoctor = selectedDoctor;
+            selectedDoctor = doctorKey;
+            const doctor = doctors[doctorKey];
+
+            // 更新顶部医生信息条
+            document.getElementById('currentDoctorAvatar').textContent = doctor.avatar;
+            document.getElementById('currentDoctorName').textContent = `${doctor.name} - ${doctor.school}`;
+            document.getElementById('currentDoctorDesc').textContent = `擅长：${doctor.specialty}`;
+
+            // 切换医生时生成新的对话ID，确保AI身份正确切换
+            if (previousDoctor && previousDoctor !== doctorKey) {
+                // 生成新的对话ID，强制开始新对话
+                generateConversationId();
+            }
+            
+            // 加载当前医生的对话历史，不清空历史记录
+            if (!previousDoctor || previousDoctor !== doctorKey) {
+                // 加载该医生的历史对话
+                loadDoctorHistory(doctorKey);
+            }
+            
+            // 显示输入框
+            const inputContainer = document.querySelector('.input-container');
+            if (inputContainer) {
+                inputContainer.classList.add('show');
+            }
+            
+            // 移动端：关闭医生选择浮层
+            if (window.innerWidth <= 768) {
+                closeMobileDoctorSelector();
+            }
+        }
+
+        // 添加消息
+        function addMessage(sender, content, showFeedback = false) {
+            const container = document.getElementById('messagesContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${sender === 'user' ? '👤' : (selectedDoctor ? doctors[selectedDoctor].avatar : '🤖')}</div>
+                <div class="message-content">
+                    <div class="message-text">${formatMessage(content)}</div>
+                    <div class="message-time">${timeStr}</div>
+                    ${sender === 'ai' && showFeedback ? `
+                        <div class="feedback-controls">
+                            <div class="feedback-label">这个回答有帮助吗？</div>
+                            <div class="rating-buttons">
+                                <button class="rating-btn" onclick="rateFeedback(this, 5)">😊 很好</button>
+                                <button class="rating-btn" onclick="rateFeedback(this, 4)">👍 不错</button>
+                                <button class="rating-btn" onclick="rateFeedback(this, 3)">👌 还行</button>
+                                <button class="rating-btn" onclick="rateFeedback(this, 2)">👎 不好</button>
+                                <button class="rating-btn" onclick="rateFeedback(this, 1)">😞 很差</button>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+
+            // 自动朗读AI回复
+            if (sender === 'ai' && document.getElementById('autoSpeak').checked) {
+                speakText(content);
+            }
+            
+            // 自动保存当前医生的对话历史
+            if (selectedDoctor) {
+                setTimeout(() => saveCurrentDoctorHistory(), 100); // 延迟100ms确保DOM更新完成
+            }
+        }
+
+        // 格式化消息内容
+        function formatMessage(content) {
+            if (!content) return '';
+            
+            // 检查是否包含诊疗方案XML标签
+            if (content.includes('<诊疗方案>')) {
+                return formatTCMPrescription(content);
+            }
+            
+            // 增强的Markdown处理 - 明确的层次和样式
+            return content
+                // 处理【处方】标签 - 特殊高亮样式
+                .replace(/\*\*【处方】\*\*/g, '<div style="background: linear-gradient(135deg, #2d5aa0, #4a7bc8); color: white; padding: 10px 15px; border-radius: 8px; margin: 15px 0; font-weight: bold; font-size: 16px; text-align: center;">📋 中药处方</div>')
+                // 处理【用法】【注意】等标签
+                .replace(/\*\*【(用法|注意|禁忌|功效)】\*\*/g, '<div style="background: #f3f4f6; color: #374151; padding: 8px 12px; border-radius: 6px; margin: 10px 0; font-weight: bold; border-left: 4px solid #6b7280;">$1</div>')
+                // 处理其他粗体标签【xxx】
+                .replace(/\*\*【(.*?)】\*\*/g, '<strong style="color: #2d5aa0; font-size: 15px; background: #e0f2fe; padding: 2px 6px; border-radius: 4px;">【$1】</strong>')
+                // 处理其他粗体文本
+                .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #1f2937; font-weight: bold;">$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em style="color: #6b7280;">$1</em>')
+                // 处理#####标记 - 转换为分割线
+                .replace(/#{5,}/g, '<hr style="margin: 20px 0; border: none; border-top: 2px solid #e5e7eb; background: linear-gradient(to right, #e5e7eb, transparent);">')
+                // 处理###标记 - 转换为明显的小标题
+                .replace(/###\s*(.*?)(?=\n|$)/g, '<h4 style="margin: 20px 0 12px 0; color: #2d5aa0; font-size: 17px; font-weight: bold; padding-left: 8px; border-left: 4px solid #2d5aa0; background: #f8fafc;">$1</h4>')
+                // 处理##标记 - 转换为更大的中标题  
+                .replace(/##\s*(.*?)(?=\n|$)/g, '<h3 style="margin: 25px 0 15px 0; color: #1f2937; font-size: 19px; font-weight: bold; padding: 8px 12px; background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border-radius: 6px;">$1</h3>')
+                // 处理#标记 - 转换为大标题
+                .replace(/^#\s*(.*?)(?=\n|$)/gm, '<h2 style="margin: 30px 0 20px 0; color: #111827; font-size: 22px; font-weight: bold; text-align: center; padding: 12px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); border-radius: 8px;">$1</h2>')
+                // 处理药材列表 - 特殊样式
+                .replace(/([一-龟\u4e00-\u9fff]+)\s+(\d+)g/g, '<span style="display: inline-block; background: #ecfdf5; color: #065f46; padding: 2px 6px; margin: 1px 3px; border-radius: 4px; font-weight: 500; border: 1px solid #d1fae5;">$1 <strong>$2g</strong></span>')
+                .replace(/\n\n/g, '<br><br>')  // 段落间距
+                .replace(/\n/g, '<br>')        // 普通换行
+                .replace(/(\d+\.\s)/g, '<br><span style="color: #2d5aa0; font-weight: bold;">$1</span>') // 数字列表样式
+                .replace(/^<br>/, '');         // 移除开头的换行
+        }
+
+        // 格式化中医处方 - 全新设计
+        function formatTCMPrescription(content) {
+            // 检查是否包含XML格式
+            const hasXMLFormat = content.includes('<诊疗方案>');
+            
+            if (hasXMLFormat) {
+                return formatXMLPrescription(content);
+            } else {
+                // 如果没有XML格式，尝试智能解析文本格式
+                return formatTextPrescription(content);
+            }
+        }
+
+        // XML格式处方解析
+        function formatXMLPrescription(content) {
+            const prescriptionMatch = content.match(/<诊疗方案>([\s\S]*?)<\/诊疗方案>/);
+            if (!prescriptionMatch) {
+                return formatTextPrescription(content);
+            }
+            
+            const prescriptionContent = prescriptionMatch[1];
+            let formattedHTML = '<div class="modern-tcm-report">';
+            
+            // 定义各个部分的配置
+            const sections = [
+                { name: '主诉', key: '主诉', icon: '🩺', color: '#ef4444' },
+                { name: '现病史', key: '现病史', icon: '📋', color: '#3b82f6' },
+                { name: '望诊所见', key: '望诊所见', icon: '👁️', color: '#10b981' },
+                { name: '病机分析', key: '病机分析', icon: '🧠', color: '#8b5cf6' },
+                { name: '证型诊断', key: '证型诊断', icon: '🎯', color: '#f59e0b' },
+                { name: '治法', key: '治法', icon: '⚡', color: '#06b6d4' },
+                { name: '方剂选用', key: '方剂选用', icon: '📜', color: '#84cc16' },
+                { name: '处方建议', key: '处方建议', icon: '💊', color: '#ec4899', special: 'prescription' },
+                { name: '煎服方法', key: '煎服方法', icon: '🔥', color: '#f97316' },
+                { name: '随证加减', key: '随证加减', icon: '⚖️', color: '#6366f1' },
+                { name: '生活调摄', key: '生活调摄', icon: '🌱', color: '#059669' },
+                { name: '复诊建议', key: '复诊建议', icon: '📅', color: '#dc2626' }
+            ];
+            
+            sections.forEach(section => {
+                const regex = new RegExp(`<${section.key}>(.*?)<\/${section.key}>`, 's');
+                const match = prescriptionContent.match(regex);
+                
+                if (match) {
+                    let sectionContent = match[1].trim()
+                        .replace(/\*\*(.*?)\*\*/g, '<span class="highlight-term">$1</span>')
+                        .replace(/\n/g, '<br>');
+                    
+                    // 特殊处理处方建议
+                    if (section.special === 'prescription') {
+                        sectionContent = formatModernPrescription(sectionContent);
+                    }
+                    
+                    formattedHTML += `
+                        <div class="modern-tcm-section" style="--section-color: ${section.color}">
+                            <div class="section-header">
+                                <span class="section-icon">${section.icon}</span>
+                                <span class="section-title">${section.name}</span>
+                            </div>
+                            <div class="section-content">${sectionContent}</div>
+                        </div>
+                    `;
+                }
+            });
+            
+            formattedHTML += '</div>';
+            
+            // 处理XML外的内容
+            const beforeMatch = content.substring(0, content.indexOf('<诊疗方案>'));
+            const afterMatch = content.substring(content.indexOf('</诊疗方案>') + 7);
+            
+            let result = '';
+            if (beforeMatch.trim()) {
+                result += '<div class="pre-prescription">' + formatMessage(beforeMatch) + '</div>';
+            }
+            result += formattedHTML;
+            if (afterMatch.trim()) {
+                result += '<div class="post-prescription">' + formatMessage(afterMatch) + '</div>';
+            }
+            
+            return result;
+        }
+
+        // 文本格式处方智能解析
+        function formatTextPrescription(content) {
+            let formattedHTML = '<div class="text-tcm-report">';
+            
+            // 按段落分析
+            const paragraphs = content.split('\n\n');
+            
+            paragraphs.forEach(paragraph => {
+                if (paragraph.trim()) {
+                    // 检查是否是标题行
+                    if (paragraph.includes('**') && paragraph.length < 50) {
+                        formattedHTML += `<div class="text-section-header">${formatMessage(paragraph)}</div>`;
+                    } else {
+                        formattedHTML += `<div class="text-section-content">${formatMessage(paragraph)}</div>`;
+                    }
+                }
+            });
+            
+            formattedHTML += '</div>';
+            return formattedHTML;
+        }
+
+        // 现代化处方格式化
+        function formatModernPrescription(prescriptionText) {
+            // 多种药材格式识别
+            const herbs = [];
+            let originalText = prescriptionText;
+            
+            // 模式匹配药材名称和剂量
+            const patterns = [
+                /<span class="highlight-term">(.*?)<\/span>\s*(\d+(?:\.\d+)?g?)/g,
+                /\*\*(.*?)\*\*\s*(\d+(?:\.\d+)?g?)/g,
+                /<strong>(.*?)<\/strong>\s*(\d+(?:\.\d+)?g?)/g,
+                /([^\s\d，。；、\-]+)\s*(\d+(?:\.\d+)?g)/g
+            ];
+            
+            let usedPattern = null;
+            
+            for (let pattern of patterns) {
+                pattern.lastIndex = 0; // 重置正则表达式的lastIndex
+                let match;
+                let tempHerbs = [];
+                
+                while ((match = pattern.exec(originalText)) !== null) {
+                    const herbName = match[1].trim();
+                    const dosage = match[2];
+                    
+                    // 排除非药材词汇和重复项
+                    if (!['共', '煎', '服', '用', '每', '次', '日', '水', '煎服', '分服', '方', '药'].includes(herbName) 
+                        && herbName.length > 0 && herbName.length < 10) {
+                        
+                        // 检查是否已存在
+                        if (!tempHerbs.some(h => h.name === herbName)) {
+                            tempHerbs.push({
+                                name: herbName,
+                                dosage: dosage,
+                                fullMatch: match[0]
+                            });
+                        }
+                    }
+                }
+                
+                if (tempHerbs.length > 0) {
+                    herbs.push(...tempHerbs);
+                    usedPattern = pattern;
+                    break; // 找到匹配就停止
+                }
+            }
+            
+            if (herbs.length > 0) {
+                let modernHTML = '<div class="modern-prescription-grid">';
+                herbs.forEach((herb, index) => {
+                    modernHTML += `
+                        <div class="herb-card" style="animation-delay: ${index * 0.1}s">
+                            <div class="herb-name-modern">
+                                ${herb.name} 
+                                <span class="herb-dosage-inline">${herb.dosage}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                modernHTML += '</div>';
+                
+                // 移除已经显示的药材信息，避免重复
+                let remainingText = originalText;
+                herbs.forEach(herb => {
+                    // 移除各种可能的药材格式
+                    remainingText = remainingText
+                        .replace(new RegExp(`\\*\\*${herb.name}\\*\\*\\s*${herb.dosage}[，、]*`, 'g'), '')
+                        .replace(new RegExp(`<strong>${herb.name}</strong>\\s*${herb.dosage}[，、]*`, 'g'), '')
+                        .replace(new RegExp(`<span class="highlight-term">${herb.name}</span>\\s*${herb.dosage}[，、]*`, 'g'), '')
+                        .replace(new RegExp(`${herb.name}\\s*${herb.dosage}[，、]*`, 'g'), '');
+                });
+                
+                // 清理多余的标点和空白
+                remainingText = remainingText
+                    .replace(/<[^>]*>/g, '') // 移除HTML标签
+                    .replace(/\*\*/g, '') // 移除markdown标记
+                    .replace(/[，、]{2,}/g, '、') // 合并多个标点
+                    .replace(/^[，、\s]+|[，、\s]+$/g, '') // 移除首尾标点
+                    .trim();
+                
+                // 只有当剩余文本有实际内容时才显示
+                if (remainingText && remainingText.length > 5) {
+                    modernHTML += `<div class="prescription-notes">${remainingText}</div>`;
+                }
+                
+                return modernHTML;
+            }
+            
+            // 如果没有识别到药材，返回格式化的文本
+            return `<div class="prescription-text">${prescriptionText}</div>`;
+        }
+
+        // 发送消息
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !selectedDoctor) {
+                if (!selectedDoctor) {
+                    alert('请先选择一位医师');
+                }
+                return;
+            }
+
+            // 添加用户消息
+            addMessage('user', message);
+            input.value = '';
+            adjustTextareaHeight();
+
+            // 显示加载状态
+            const sendBtn = document.getElementById('sendBtn');
+            const loading = document.getElementById('loading');
+            sendBtn.disabled = true;
+            loading.style.display = 'block';
+
+                        // 检查网络状态
+            if (!checkNetworkStatus()) {
+                sendBtn.disabled = false;
+                return;
+            }
+            
+            
+
+            try {
+                const response = await fetch('/chat_with_ai', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: currentConversationId,
+                        selected_doctor: selectedDoctor
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                // 智能判断是否显示点评 - 只有包含处方时才显示
+                const shouldShowFeedback = containsPrescription(data.reply);
+                addMessage('ai', data.reply, shouldShowFeedback);
+                
+                // 记录诊断阶段
+                if (shouldShowFeedback) {
+                    console.log('检测到处方内容，显示点评功能');
+                } else {
+                    console.log('普通对话，不显示点评');
+                }
+
+            } catch (error) {
+                addMessage('ai', `抱歉，服务暂时不可用：${error.message}`);
+            } finally {
+                sendBtn.disabled = false;
+                loading.style.display = 'none';
+                input.focus();
+            }
+        }
+
+        // 处理键盘事件
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // 调整输入框高度
+        function adjustTextareaHeight() {
+            const textarea = document.getElementById('messageInput');
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 100) + 'px';
+        }
+
+        // 打开注册页面
+        function openRegisterPage() {
+            window.open('/register', '_blank');
+        }
+
+        // 打开历史记录页面
+        function openHistoryPage() {
+            window.open('/history', '_blank');
+        }
+
+        // 页面导航下拉菜单功能
+        function toggleNavDropdown() {
+            const dropdown = document.getElementById('navDropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // 导航到指定页面
+        function navigateToPage(url) {
+            // 关闭下拉菜单
+            const dropdown = document.getElementById('navDropdown');
+            dropdown.classList.remove('show');
+            
+            // 如果是主页，刷新当前页面
+            if (url === '/' && window.location.pathname === '/') {
+                window.location.reload();
+                return;
+            }
+            
+            // 导航到新页面
+            window.open(url, '_blank');
+        }
+
+        // 点击其他地方关闭下拉菜单
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('navDropdown');
+            const dropdownBtn = event.target.closest('.nav-dropdown');
+            
+            if (!dropdownBtn && dropdown) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // 移动端页面导航
+        function showMobileNavigation() {
+            const navigationHtml = `
+                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;" onclick="this.remove()">
+                    <div style="background: white; border-radius: 12px; padding: 20px; max-width: 90%; max-height: 80%; overflow-y: auto;" onclick="event.stopPropagation()">
+                        <div style="text-align: center; font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #374151;">
+                            📱 系统页面导航
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <div style="font-weight: 600; margin-bottom: 10px; color: #6b7280; font-size: 14px;">用户功能</div>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/'); this.parentElement.parentElement.parentElement.remove();">🏠 主页 - AI中医问诊</button>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/register'); this.parentElement.parentElement.parentElement.remove();">👤 用户注册</button>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/phone-binding'); this.parentElement.parentElement.parentElement.remove();">📱 手机绑定</button>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/history'); this.parentElement.parentElement.parentElement.remove();">📋 历史记录</button>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/prescription/checker'); this.parentElement.parentElement.parentElement.remove();">🏥 智能处方检测</button>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <div style="font-weight: 600; margin-bottom: 10px; color: #6b7280; font-size: 14px;">医生功能</div>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #e3f2fd; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/doctor/portal'); this.parentElement.parentElement.parentElement.remove();">👨‍⚕️ 医生门户</button>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #e3f2fd; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/doctor/thinking-v2'); this.parentElement.parentElement.parentElement.remove();">🧠 医生思维录入 (推荐)</button>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #e3f2fd; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/doctor/management'); this.parentElement.parentElement.parentElement.remove();">🔧 医生管理</button>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <div style="font-weight: 600; margin-bottom: 10px; color: #6b7280; font-size: 14px;">系统管理</div>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #fff3e0; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/system/monitor'); this.parentElement.parentElement.parentElement.remove();">🖥️ 系统性能与模块安全监控</button>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #fff3e0; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/qr_gallery'); this.parentElement.parentElement.parentElement.remove();">📱 二维码画廊</button>
+                        </div>
+                        
+                        <button style="width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 500;" onclick="this.parentElement.parentElement.remove()">关闭</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', navigationHtml);
+        }
+
+        // 开始新对话
+        function startNewChat() {
+            const choice = confirm('开始新对话选项：\n- 确定：清空当前医生的对话记录\n- 取消：保持历史记录不变');
+            if (choice) {
+                // 用户选择清空当前医生的历史记录
+                if (selectedDoctor) {
+                    const historyKey = `tcm_doctor_history_${selectedDoctor}`;
+                    localStorage.removeItem(historyKey);
+                    console.log(`已清空${selectedDoctor}医生的历史记录`);
+                }
+                generateConversationId();
+                
+                // 重新加载当前医生的历史记录（现在是空的）
+                if (selectedDoctor) {
+                    loadDoctorHistory(selectedDoctor);
+                }
+            } else {
+                // 用户选择保持历史记录，什么都不做
+                console.log('用户选择保持历史记录不变');
+                
+                // 隐藏输入框
+                const inputContainer = document.querySelector('.input-container');
+                if (inputContainer) {
+                    inputContainer.classList.remove('show');
+                }
+            }
+        }
+
+        // 多图片上传功能
+        let tongueImage = null;
+        let faceImage = null;
+
+        // 桌面端 - 舌诊图片上传
+        function triggerTongueUpload() {
+            document.getElementById('tongueImageUpload').click();
+        }
+
+        function handleTongueImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                tongueImage = file;
+                const uploadArea = document.getElementById('tongueUploadArea');
+                uploadArea.classList.add('has-file');
+                uploadArea.innerHTML = `
+                    <div class="upload-icon">✅</div>
+                    <div class="upload-text">舌诊照片已选择</div>
+                `;
+                updateUploadStatus();
+                uploadImages();
+            }
+        }
+
+        // 桌面端 - 面诊图片上传
+        function triggerFaceUpload() {
+            document.getElementById('faceImageUpload').click();
+        }
+
+        function handleFaceImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                faceImage = file;
+                const uploadArea = document.getElementById('faceUploadArea');
+                uploadArea.classList.add('has-file');
+                uploadArea.innerHTML = `
+                    <div class="upload-icon">✅</div>
+                    <div class="upload-text">面诊照片已选择</div>
+                `;
+                updateUploadStatus();
+                uploadImages();
+            }
+        }
+
+        // 移动端 - 显示图片选择弹窗（微信兼容优化增强版）
+        function showMobileImageOptions() {
+            console.log('🔄 尝试显示移动端图片选择弹窗...');
+            
+            try {
+                const modal = document.getElementById('mobileImageModal');
+                console.log('🔍 弹窗元素查找结果:', modal ? '找到' : '未找到');
+                
+                if (modal) {
+                    // 方法1: 立即显示弹窗
+                    console.log('📱 方法1: 立即显示弹窗');
+                    setModalVisible(modal);
+                    
+                    // 方法2: 延迟100ms再次确认显示（处理渲染延迟）
+                    setTimeout(() => {
+                        console.log('📱 方法2: 延迟确认显示');
+                        const computedStyle = window.getComputedStyle(modal);
+                        if (computedStyle.display === 'none') {
+                            console.log('⚠️  弹窗仍未显示，强制显示');
+                            forceShowModal(modal);
+                        } else {
+                            console.log('✅ 弹窗显示成功');
+                        }
+                    }, 100);
+                    
+                    // 方法3: 微信环境特殊处理
+                    if (isWeChatBrowser()) {
+                        setTimeout(() => {
+                            console.log('📱 方法3: 微信环境特殊处理');
+                            wechatModalFix(modal);
+                        }, 200);
+                    }
+                    
+                } else {
+                    console.error('❌ 找不到移动端图片选择弹窗元素，使用fallback方法');
+                    // Fallback: 直接触发文件选择
+                    if (confirm('📷 选择图片类型：\n\n确定 = 👅 舌诊照片\n取消 = 😊 面诊照片')) {
+                        console.log('用户选择舌诊照片');
+                        document.getElementById('mobileTongueUpload').click();
+                    } else {
+                        console.log('用户选择面诊照片');
+                        document.getElementById('mobileFaceUpload').click();
+                    }
+                }
+            } catch (error) {
+                console.error('❌ 显示弹窗时出错:', error);
+                // 最简单的fallback
+                alert('图片上传功能暂时不可用，请稍后重试\n\n错误: ' + error.message);
+            }
+        }
+        
+        // 设置弹窗可见的核心函数
+        function setModalVisible(modal) {
+            console.log('🎯 设置弹窗样式...');
+            
+            // 使用CSS类切换（更可靠）
+            modal.classList.remove('mobile-modal-hidden');
+            modal.classList.add('mobile-modal-visible');
+            
+            // 同时设置内联样式作为双重保险
+            modal.style.display = 'flex';
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.right = '0';
+            modal.style.bottom = '0';
+            modal.style.width = '100vw';
+            modal.style.height = '100vh';
+            modal.style.zIndex = '99999';
+            modal.style.background = 'rgba(0, 0, 0, 0.7)';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'center';
+            modal.style.visibility = 'visible';
+            modal.style.opacity = '1';
+            
+            // 阻止背景滚动
+            document.body.style.overflow = 'hidden';
+            
+            console.log('✅ 弹窗样式设置完成 - 类名和内联样式双重设置');
+        }
+        
+        // 强制显示弹窗
+        function forceShowModal(modal) {
+            console.log('🔥 强制显示弹窗');
+            
+            // 完全重置样式
+            modal.removeAttribute('style');
+            modal.removeAttribute('class');
+            
+            // 使用 !important 强制显示
+            modal.style.cssText = `
+                display: flex !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                background: rgba(0, 0, 0, 0.8) !important;
+                z-index: 999999 !important;
+                justify-content: center !important;
+                align-items: center !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+            `;
+            
+            console.log('🔥 强制样式应用完成');
+        }
+        
+        // 微信环境特殊修复
+        function wechatModalFix(modal) {
+            console.log('🔧 微信环境修复');
+            
+            // 微信浏览器可能需要触发重绘
+            modal.style.transform = 'translateZ(0)';
+            modal.offsetHeight; // 强制重绘
+            modal.style.transform = '';
+            
+            // 确保内容元素也可见
+            const content = modal.querySelector('.mobile-image-modal-content');
+            if (content) {
+                content.style.display = 'block';
+                content.style.visibility = 'visible';
+                content.style.opacity = '1';
+                console.log('🔧 弹窗内容元素样式修复完成');
+            }
+        }
+        
+        // 检测是否为微信浏览器
+        function isWeChatBrowser() {
+            return navigator.userAgent.toLowerCase().indexOf('micromessenger') > -1;
+        }
+
+        function closeMobileImageModal() {
+            console.log('🔄 关闭移动端图片选择弹窗');
+            const modal = document.getElementById('mobileImageModal');
+            if (modal) {
+                // 使用CSS类隐藏
+                modal.classList.remove('mobile-modal-visible');
+                modal.classList.add('mobile-modal-hidden');
+                
+                // 同时设置内联样式
+                modal.style.display = 'none';
+                modal.style.visibility = 'hidden';
+                modal.style.opacity = '0';
+                
+                // 恢复背景滚动
+                document.body.style.overflow = 'auto';
+                
+                console.log('✅ 移动端图片选择弹窗已关闭');
+            } else {
+                console.error('❌ 未找到弹窗元素');
+            }
+        }
+
+        // 调试函数：检查弹窗状态
+        function debugModalState() {
+            const modal = document.getElementById('mobileImageModal');
+            if (modal) {
+                console.log('弹窗元素存在');
+                console.log('弹窗display:', window.getComputedStyle(modal).display);
+                console.log('弹窗位置:', modal.getBoundingClientRect());
+                console.log('弹窗zIndex:', window.getComputedStyle(modal).zIndex);
+                console.log('屏幕尺寸:', window.innerWidth + 'x' + window.innerHeight);
+            } else {
+                console.error('弹窗元素不存在');
+            }
+        }
+
+        // 移动端 - 舌诊图片上传
+        function triggerMobileTongueUpload() {
+            closeMobileImageModal();
+            document.getElementById('mobileTongueUpload').click();
+        }
+
+        function handleMobileTongueUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                tongueImage = file;
+                updateMobileUploadStatus();
+                uploadImages();
+            }
+        }
+
+        // 移动端 - 面诊图片上传
+        function triggerMobileFaceUpload() {
+            closeMobileImageModal();
+            document.getElementById('mobileFaceUpload').click();
+        }
+
+        function handleMobileFaceUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                faceImage = file;
+                updateMobileUploadStatus();
+                uploadImages();
+            }
+        }
+
+        // 更新上传状态显示
+        function updateUploadStatus() {
+            const statusDiv = document.getElementById('uploadStatus');
+            const tongueStatus = document.getElementById('tongueStatus').querySelector('span');
+            const faceStatus = document.getElementById('faceStatus').querySelector('span');
+
+            tongueStatus.textContent = tongueImage ? '已上传' : '未上传';
+            faceStatus.textContent = faceImage ? '已上传' : '未上传';
+
+            if (tongueImage || faceImage) {
+                statusDiv.style.display = 'block';
+            }
+        }
+
+        // 更新移动端上传状态
+        function updateMobileUploadStatus() {
+            const mobileTongueStatus = document.getElementById('mobileTongueStatus').querySelector('span');
+            const mobileFaceStatus = document.getElementById('mobileFaceStatus').querySelector('span');
+
+            mobileTongueStatus.textContent = tongueImage ? '已上传' : '未上传';
+            mobileFaceStatus.textContent = faceImage ? '已上传' : '未上传';
+
+            // 更新触发按钮文本
+            const uploadText = document.getElementById('mobileUploadText');
+            const uploadedCount = (tongueImage ? 1 : 0) + (faceImage ? 1 : 0);
+            if (uploadedCount > 0) {
+                uploadText.textContent = `已选择 ${uploadedCount} 张图片`;
+            }
+        }
+
+        // 多图片上传核心函数
+        async function uploadImages() {
+            // 检查是否有图片需要上传
+            if (!tongueImage && !faceImage) {
+                return;
+            }
+
+            // 检查网络状态
+            if (!checkNetworkStatus()) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('conversation_id', currentConversationId);
+            
+            // 根据图片类型分别添加
+            if (tongueImage) {
+                formData.append('tongue_image', tongueImage);
+            }
+            if (faceImage) {
+                formData.append('face_image', faceImage);
+            }
+
+            try {
+                // 构建上传提示消息
+                let uploadMessage = '📷 正在分析';
+                if (tongueImage && faceImage) {
+                    uploadMessage += '舌诊和面诊图片...';
+                } else if (tongueImage) {
+                    uploadMessage += '舌诊图片...';
+                } else if (faceImage) {
+                    uploadMessage += '面诊图片...';
+                }
+                
+                addMessage('user', uploadMessage);
+                
+                const response = await fetch('/analyze_images', {
+                    method: 'POST',
+                    body: formData,
+                    // 添加超时控制
+                    signal: AbortSignal.timeout(120000), // 2分钟超时
+                    headers: {
+                        // 不设置Content-Type，让浏览器自动设置multipart/form-data
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const analysisResult = `图像分析结果：
+${data.analysis_result}`;  
+                const shouldShowImageFeedback = containsPrescription(analysisResult);
+                addMessage('ai', analysisResult, shouldShowImageFeedback);
+
+                // 分析完成后清空图片缓存，允许用户重新上传
+                resetImageUploads();
+
+            } catch (error) {
+                console.error('📷 图像上传完整错误信息:', error);
+                
+                let errorMessage = '图像分析失败：';
+                
+                if (error.message.includes('502')) {
+                    errorMessage += '服务器暂时无法处理请求 (502)。可能原因：\n';
+                    errorMessage += '• AI服务暂时繁忙，请稍后重试\n';
+                    errorMessage += '• 图片处理超时\n';
+                    errorMessage += '• 请检查网络连接';
+                } else if (error.message.includes('timeout')) {
+                    errorMessage += '请求超时。请检查：\n';
+                    errorMessage += '• 网络连接是否稳定\n';
+                    errorMessage += '• 图片大小是否过大\n';
+                    errorMessage += '• 稍后重试';
+                } else if (error.message.includes('NetworkError') || error.message.includes('fetch')) {
+                    errorMessage += '网络连接问题。请检查：\n';
+                    errorMessage += '• 网络连接是否正常\n';
+                    errorMessage += '• 是否使用了代理或VPN\n';
+                    errorMessage += '• 刷新页面后重试';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                // 添加调试信息（仅在开发环境显示）
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    errorMessage += `\n\n[调试信息]\n对话ID: ${currentConversationId}\n错误类型: ${error.constructor.name}\n时间: ${new Date().toLocaleString()}`;
+                }
+                
+                addMessage('ai', errorMessage);
+                
+                // 重置上传状态，允许用户重试
+                resetImageUploads();
+            }
+        }
+
+        // 重置图片上传状态
+        function resetImageUploads() {
+            tongueImage = null;
+            faceImage = null;
+            
+            // 重置桌面端界面
+            const tongueUploadArea = document.getElementById('tongueUploadArea');
+            const faceUploadArea = document.getElementById('faceUploadArea');
+            
+            if (tongueUploadArea) {
+                tongueUploadArea.classList.remove('has-file');
+                tongueUploadArea.innerHTML = `
+                    <div class="upload-icon">📷</div>
+                    <div class="upload-text">点击上传舌诊照片</div>
+                `;
+            }
+            
+            if (faceUploadArea) {
+                faceUploadArea.classList.remove('has-file');
+                faceUploadArea.innerHTML = `
+                    <div class="upload-icon">📷</div>
+                    <div class="upload-text">点击上传面诊照片</div>
+                `;
+            }
+
+            // 隐藏上传状态
+            const statusDiv = document.getElementById('uploadStatus');
+            if (statusDiv) {
+                statusDiv.style.display = 'none';
+            }
+
+            // 重置移动端按钮文本
+            const uploadText = document.getElementById('mobileUploadText');
+            if (uploadText) {
+                uploadText.textContent = '上传舌苔和面象照片';
+            }
+        }
+
+        // 保留原uploadImage函数作为兼容性支持（已废弃使用）
+        async function uploadImage(file) {
+            console.warn('uploadImage函数已废弃，请使用uploadImages函数');
+            // 可选：为了兼容性，将单图片转换为多图片模式
+            tongueImage = file; // 假设单图片默认为舌诊
+            uploadImages();
+        }
+
+        // 语音功能
+        function toggleVoiceRecording() {
+            if (isVoiceRecording) {
+                stopVoiceRecording();
+            } else {
+                startVoiceRecording();
+            }
+        }
+
+        async function startVoiceRecording() {
+                        // 检查网络状态
+            if (!checkNetworkStatus()) {
+                sendBtn.disabled = false;
+                return;
+            }
+            
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    await processVoiceInput(audioBlob);
+                };
+
+                mediaRecorder.start();
+                isVoiceRecording = true;
+                
+                const voiceBtn = document.getElementById('voiceBtn');
+                voiceBtn.textContent = '停止录音';
+                voiceBtn.classList.add('recording');
+
+            } catch (error) {
+                alert('无法访问麦克风，请检查权限设置');
+            }
+        }
+
+        function stopVoiceRecording() {
+            if (mediaRecorder && isVoiceRecording) {
+                mediaRecorder.stop();
+                isVoiceRecording = false;
+                
+                const voiceBtn = document.getElementById('voiceBtn');
+                voiceBtn.textContent = '开始语音输入';
+                voiceBtn.classList.remove('recording');
+            }
+        }
+
+        async function processVoiceInput(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio_file', audioBlob, 'voice.webm');
+
+                        // 检查网络状态
+            if (!checkNetworkStatus()) {
+                sendBtn.disabled = false;
+                return;
+            }
+            
+            
+
+            try {
+                const response = await fetch('/speech_to_text', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.text) {
+                    document.getElementById('messageInput').value = data.text;
+                    adjustTextareaHeight();
+                }
+
+            } catch (error) {
+                addMessage('ai', `语音识别失败：${error.message}`);
+            }
+        }
+
+        // 语音合成
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'zh-CN';
+                speechSynthesis.speak(utterance);
+            }
+        }
+
+        
+        // 检测回复是否包含处方
+        function containsPrescription(text) {
+            // 处方关键词检测
+            const prescriptionKeywords = [
+                '处方', '方剂', '药方', '中药', '服用', '煎服', '每日', '克', 'g',
+                '方用', '方取', '组成', '用法', '用量', '煎煮', '服法',
+                '党参', '黄芪', '当归', '白术', '茯苓', '甘草', '生地', '熟地',
+                '川芎', '白芍', '柴胡', '黄芩', '半夏', '陈皮', '枳壳', '桔梗'
+            ];
+            
+            // XML格式处方检测
+            const xmlPrescriptionPattern = /<prescription>.*?<\/prescription>/s;
+            if (xmlPrescriptionPattern.test(text)) {
+                return true;
+            }
+            
+            // 标准处方格式检测
+            const standardPrescriptionPattern = /【处方】|【方剂】|【药方】|【中药处方】/;
+            if (standardPrescriptionPattern.test(text)) {
+                return true;
+            }
+            
+            // 关键词组合检测 - 至少包含2个处方相关词汇
+            let keywordCount = 0;
+            for (const keyword of prescriptionKeywords) {
+                if (text.includes(keyword)) {
+                    keywordCount++;
+                }
+            }
+            
+            return keywordCount >= 2;
+        }
+
+        // 反馈评分
+        function rateFeedback(button, rating) {
+            const ratingButtons = button.parentElement.querySelectorAll('.rating-btn');
+            ratingButtons.forEach(btn => btn.disabled = true);
+            
+            button.style.backgroundColor = '#10b981';
+            button.style.color = 'white';
+            
+            submitFeedback(rating);
+        }
+
+        async function submitFeedback(rating) {
+                        // 检查网络状态
+            if (!checkNetworkStatus()) {
+                sendBtn.disabled = false;
+                return;
+            }
+            
+            
+            try {
+                await fetch('/submit_feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        conversation_id: currentConversationId,
+                        rating: rating,
+                        timestamp: new Date().toISOString()
+                    }),
+                });
+            } catch (error) {
+                console.error('Error submitting feedback:', error);
+            }
+        }
+
+        // 历史记录管理系统
+        function saveCurrentDoctorHistory() {
+            if (!selectedDoctor) return;
+            
+            try {
+                const messages = [];
+                
+                // 检测当前是移动端还是PC端
+                const isMobile = window.innerWidth <= 768;
+                const containerSelector = isMobile ? 'mobileMessagesContainer' : 'messagesContainer';
+                const messagesContainer = document.getElementById(containerSelector);
+                
+                if (!messagesContainer) {
+                    console.warn('未找到消息容器，跳过保存');
+                    return;
+                }
+                
+                // 提取所有消息
+                messagesContainer.querySelectorAll('.message').forEach(messageEl => {
+                    const isUser = messageEl.classList.contains('user');
+                    const textEl = messageEl.querySelector('.message-text');
+                    const timeEl = messageEl.querySelector('.message-time');
+                    
+                    if (textEl && textEl.innerHTML.trim()) {
+                        messages.push({
+                            type: isUser ? 'user' : 'ai',
+                            content: textEl.innerHTML,
+                            time: timeEl ? timeEl.textContent : new Date().toLocaleTimeString(),
+                            timestamp: Date.now()
+                        });
+                    }
+                });
+                
+                // 如果没有消息则不保存
+                if (messages.length === 0) {
+                    console.log('没有消息需要保存');
+                    return;
+                }
+                
+                // 限制历史记录数量（防止localStorage溢出）
+                const maxMessages = 50; // 最多保存50条消息
+                const trimmedMessages = messages.slice(-maxMessages);
+                
+                // 保存到localStorage
+                const historyKey = `tcm_doctor_history_${selectedDoctor}`;
+                const dataToSave = JSON.stringify({
+                    messages: trimmedMessages,
+                    lastUpdated: new Date().toISOString(),
+                    doctor: selectedDoctor,
+                    version: '2.1', // 增强版本号
+                    saveCount: (JSON.parse(localStorage.getItem(historyKey) || '{}').saveCount || 0) + 1
+                });
+                
+                // 验证localStorage可用性
+                if (typeof(Storage) === "undefined") {
+                    console.error('浏览器不支持localStorage');
+                    return;
+                }
+                
+                localStorage.setItem(historyKey, dataToSave);
+                console.log(`✅ 已保存${selectedDoctor}医生的${trimmedMessages.length}条对话记录 (第${JSON.parse(dataToSave).saveCount}次保存)`);
+                
+                // 立即验证保存是否成功
+                const savedData = localStorage.getItem(historyKey);
+                if (!savedData) {
+                    console.error('❌ 保存验证失败，数据未正确存储');
+                    // 尝试重新保存
+                    setTimeout(() => {
+                        localStorage.setItem(historyKey, dataToSave);
+                        console.log('🔄 重试保存完成');
+                    }, 100);
+                } else {
+                    console.log('✅ 保存验证成功');
+                }
+                
+                // 检查localStorage使用情况
+                checkLocalStorageUsage();
+                
+            } catch (error) {
+                console.error('❌ 保存历史记录失败:', error);
+                // 如果是存储空间不足，尝试清理旧记录
+                if (error.name === 'QuotaExceededError') {
+                    cleanOldHistoryRecords();
+                    // 重试保存（只保存最近的消息）
+                    try {
+                        const recentMessages = messages.slice(-20);
+                        const historyKey = `tcm_doctor_history_${selectedDoctor}`;
+                        localStorage.setItem(historyKey, JSON.stringify({
+                            messages: recentMessages,
+                            lastUpdated: new Date().toISOString(),
+                            doctor: selectedDoctor,
+                            version: '2.0'
+                        }));
+                        console.log(`空间不足，已保存最近${recentMessages.length}条记录`);
+                    } catch (retryError) {
+                        console.error('重试保存也失败:', retryError);
+                    }
+                }
+            }
+        }
+        
+        function loadDoctorHistory(doctorKey) {
+            const historyKey = `tcm_doctor_history_${doctorKey}`;
+            const storedHistory = localStorage.getItem(historyKey);
+            
+            // 检测当前是移动端还是PC端
+            const isMobile = window.innerWidth <= 768;
+            const containerSelector = isMobile ? 'mobileMessagesContainer' : 'messagesContainer';
+            const messagesContainer = document.getElementById(containerSelector);
+            
+            if (!messagesContainer) return;
+            
+            // 清空当前消息
+            messagesContainer.innerHTML = '';
+            
+            // 移动端需要重置样式
+            if (isMobile) {
+                messagesContainer.style.display = 'block';
+                messagesContainer.style.alignItems = 'flex-start';
+                messagesContainer.style.justifyContent = 'flex-start';
+            }
+            
+            if (storedHistory) {
+                try {
+                    let historyData = JSON.parse(storedHistory);
+                    let messages = [];
+                    
+                    // 兼容旧格式和新格式
+                    if (Array.isArray(historyData)) {
+                        // 旧格式：直接是消息数组
+                        messages = historyData;
+                        console.log(`加载${doctorKey}医生的${messages.length}条历史记录（旧格式）`);
+                    } else if (historyData.messages && Array.isArray(historyData.messages)) {
+                        // 新格式：包含元数据的对象
+                        messages = historyData.messages;
+                        console.log(`加载${doctorKey}医生的${messages.length}条历史记录（${historyData.version || '1.0'}版本，最后更新：${historyData.lastUpdated}）`);
+                    } else {
+                        throw new Error('未知的历史记录格式');
+                    }
+                    
+                    // 恢复历史消息
+                    messages.forEach(msg => {
+                        // 对于AI消息，检测是否包含处方以决定是否显示评价系统
+                        const shouldShowFeedback = msg.type === 'ai' && containsPrescription(msg.content);
+                        
+                        if (isMobile) {
+                            addMobileMessage(msg.type, msg.content, shouldShowFeedback);
+                        } else {
+                            addMessageWithTime(msg.type, msg.content, msg.time, shouldShowFeedback);
+                        }
+                    });
+                    
+                    // 如果有历史记录，在控制台显示更多信息
+                    if (messages.length > 0) {
+                        console.log(`历史记录详情: 第一条消息时间=${messages[0].time}, 最后一条消息时间=${messages[messages.length-1].time}`);
+                    }
+                    
+                } catch (error) {
+                    console.error('加载历史记录失败:', error);
+                    console.log('原始数据:', storedHistory.substring(0, 200) + '...');
+                    addWelcomeMessage(doctorKey);
+                }
+            } else {
+                // 没有历史记录，显示欢迎消息
+                console.log(`${doctorKey}医生没有历史记录，显示欢迎消息`);
+                addWelcomeMessage(doctorKey);
+            }
+        }
+        
+        function addWelcomeMessage(doctorKey) {
+            const doctor = doctors[doctorKey];
+            const isMobile = window.innerWidth <= 768;
+            const welcomeMessage = `您好！我是${doctor.name}，${doctor.school}传人。请详细描述您的症状，我将为您进行专业的中医分析。`;
+            
+            if (isMobile) {
+                addMobileMessage('ai', welcomeMessage);
+            } else {
+                addMessage('ai', welcomeMessage);
+            }
+        }
+        
+        function addMessageWithTime(sender, content, timeStr, showFeedback = false) {
+            const container = document.getElementById('messagesContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${sender === 'user' ? '👤' : (selectedDoctor ? doctors[selectedDoctor].avatar : '🤖')}</div>
+                <div class="message-content">
+                    <div class="message-text">${formatMessage(content)}</div>
+                    <div class="message-time">${timeStr}</div>
+                    ${sender === 'ai' && showFeedback ? `
+                        <div class="feedback-controls">
+                            <div class="feedback-label">这个回答有帮助吗？</div>
+                            <div class="rating-buttons">
+                                <button class="rating-btn" onclick="rateFeedback(this, 5)">😊 很好</button>
+                                <button class="rating-btn" onclick="rateFeedback(this, 4)">👍 不错</button>
+                                <button class="rating-btn" onclick="rateFeedback(this, 3)">👌 还行</button>
+                                <button class="rating-btn" onclick="rateFeedback(this, 2)">👎 不好</button>
+                                <button class="rating-btn" onclick="rateFeedback(this, 1)">😞 很差</button>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // 加载对话历史
+        function loadConversationHistory() {
+            const storedId = localStorage.getItem('currentConversationId');
+            if (storedId) {
+                currentConversationId = storedId;
+            }
+            
+            // 如果有选中的医生，加载该医生的历史记录
+            if (selectedDoctor) {
+                loadDoctorHistory(selectedDoctor);
+            }
+        }
+
+        // 移动端页面切换
+        function showMobileChatPage() {
+            if (window.innerWidth <= 768) {
+                const container = document.getElementById('mobilePageContainer');
+                container.classList.add('show-chat');
+                
+            }
+        }
+        
+        function showMobileDoctorPage() {
+            if (window.innerWidth <= 768) {
+                document.getElementById('mobilePageContainer').classList.remove('show-chat');
+            }
+        }
+
+        // 移动端医生选择
+        function selectMobileDoctor(doctorKey) {
+            // 保存当前医生的对话历史
+            if (selectedDoctor && selectedDoctor !== doctorKey) {
+                saveCurrentDoctorHistory();
+            }
+            
+            selectedDoctor = doctorKey;
+            const doctor = doctors[doctorKey];
+            
+            // 更新移动端医生信息
+            document.getElementById('mobileDoctorAvatar').textContent = doctor.avatar;
+            document.getElementById('mobileDoctorName').textContent = doctor.name;
+            document.getElementById('mobileDoctorDesc').textContent = doctor.school;
+            
+            // 生成新的对话ID，强制开始新对话
+            generateConversationId();
+            
+            // 直接加载该医生的历史对话（loadDoctorHistory会自动清空容器）
+            loadDoctorHistory(doctorKey);
+            
+            // 切换到聊天页面
+            showMobileChatPage();
+            
+            // 确保输入框可见
+            setTimeout(() => ensureMobileInputVisible(), 500);
+        }
+
+        // 移动端渲染医生卡片
+        function renderMobileDoctorCards() {
+            const container = document.getElementById('mobileDoctorsGrid');
+            container.innerHTML = '';
+
+            Object.entries(doctors).forEach(([key, doctor]) => {
+                const card = document.createElement('div');
+                card.className = 'mobile-doctor-card';
+                card.onclick = () => selectMobileDoctor(key);
+                
+                card.innerHTML = `
+                    <div class="mobile-doctor-info">
+                        <div class="mobile-doctor-avatar">${doctor.avatar}</div>
+                        <div class="mobile-doctor-details">
+                            <h3>${doctor.name}</h3>
+                            <div class="school">${doctor.school}</div>
+                        </div>
+                    </div>
+                    <div class="mobile-doctor-specialty">
+                        <strong>擅长：</strong>${doctor.specialty}
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        // 移动端添加消息
+        function addMobileMessage(sender, content, showFeedback = false) {
+            const container = document.getElementById('mobileMessagesContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            // 格式化AI回复内容，保持换行和排版
+            let formattedContent = content;
+            if (sender === 'ai') {
+                formattedContent = content
+                    // 先处理标题（在换行转换前）
+                    .replace(/### (.*?)(\n|$)/g, '<h4 style="color: #2d5aa0; margin: 15px 0 8px 0; font-size: 16px; font-weight: bold;">$1</h4>\n')
+                    .replace(/## (.*?)(\n|$)/g, '<h3 style="color: #2d5aa0; margin: 18px 0 10px 0; font-size: 18px; font-weight: bold;">$1</h3>\n')
+                    // 处理加粗文本
+                    .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #333; font-weight: bold;">$1</strong>')
+                    // 处理分割线
+                    .replace(/---/g, '<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;">')
+                    // 处理行内代码
+                    .replace(/`([^`]+)`/g, '<code style="background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #374151;">$1</code>')
+                    // 最后处理换行（这样可以保留标题后的换行）
+                    .replace(/\n/g, '<br>')
+                    // 处理列表项（换行后处理）
+                    .replace(/<br>(\d+\. )/g, '<br><span style="color: #10b981; font-weight: bold;">$1</span>')
+                    .replace(/^(\d+\. )/g, '<span style="color: #10b981; font-weight: bold;">$1</span>')
+                    .replace(/<br>(- )/g, '<br><span style="color: #10b981;">• </span>')
+                    .replace(/^(- )/g, '<span style="color: #10b981;">• </span>');
+            }
+            
+            const messageContent = `
+                <div class="message-content">
+                    <div class="message-text">${formattedContent}</div>
+                    ${sender === 'ai' && showFeedback ? `
+                        <div class="feedback-controls">
+                            <div class="feedback-label">这个回答有帮助吗？</div>
+                            <div class="rating-buttons">
+                                <button class="rating-btn" onclick="rateFeedback(this, 5)">😊 很好</button>
+                                <button class="rating-btn" onclick="rateFeedback(this, 4)">👍 不错</button>
+                                <button class="rating-btn" onclick="rateFeedback(this, 3)">👌 还行</button>
+                                <button class="rating-btn" onclick="rateFeedback(this, 2)">👎 不好</button>
+                                <button class="rating-btn" onclick="rateFeedback(this, 1)">😞 很差</button>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            messageDiv.innerHTML = messageContent;
+            container.appendChild(messageDiv);
+            
+            // 平滑滚动到底部
+            setTimeout(() => {
+                container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }, 100);
+            
+            // 自动保存移动端对话历史
+            if (selectedDoctor) {
+                setTimeout(() => saveCurrentDoctorHistory(), 200); // 延迟200ms确保DOM和滚动都完成
+            }
+        }
+
+        // 移动端发送消息
+        async function sendMobileMessage() {
+            const input = document.getElementById('mobileMessageInput');
+            const message = input.value.trim();
+            
+            if (!message || !selectedDoctor) {
+                if (!selectedDoctor) {
+                    alert('请先选择一位医师');
+                }
+                return;
+            }
+
+            // 添加用户消息
+            addMobileMessage('user', message);
+            input.value = '';
+            adjustMobileTextareaHeight();
+
+            // 显示加载状态
+            const sendBtn = document.getElementById('mobileSendBtn');
+            sendBtn.disabled = true;
+            
+            // 添加"正在分析"的临时消息
+            const loadingMessage = document.createElement('div');
+            loadingMessage.className = 'message ai loading-message';
+            loadingMessage.innerHTML = `
+                <div class="loading-spinner" style="display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f4f6; border-radius: 50%; border-top: 2px solid #667eea; animation: spin 1s linear infinite; margin-right: 8px;"></div>
+                AI正在分析您的症状...
+            `;
+            const container = document.getElementById('mobileMessagesContainer');
+            container.appendChild(loadingMessage);
+            container.scrollTop = container.scrollHeight;
+
+            // 创建带超时的AbortController
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => {
+                controller.abort();
+            }, 45000); // 45秒超时
+
+                        // 检查网络状态
+            if (!checkNetworkStatus()) {
+                sendBtn.disabled = false;
+                return;
+            }
+            
+            
+
+            try {
+                const response = await fetch('/chat_with_ai', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: currentConversationId,
+                        selected_doctor: selectedDoctor
+                    }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // 移除加载消息
+                const loadingMsg = document.querySelector('.loading-message');
+                if (loadingMsg) {
+                    loadingMsg.remove();
+                }
+                
+                if (data.reply) {
+                    // 智能判断是否显示评价系统 - 只有包含处方时才显示
+                    const shouldShowFeedback = containsPrescription(data.reply);
+                    addMobileMessage('ai', data.reply, shouldShowFeedback);
+                    
+                    // 记录诊断阶段
+                    if (shouldShowFeedback) {
+                        console.log('移动端检测到处方内容，显示点评功能');
+                    } else {
+                        console.log('移动端普通对话，不显示点评');
+                    }
+                } else {
+                    addMobileMessage('ai', '抱歉，我现在无法回答您的问题，请稍后再试。');
+                }
+                
+                // 保存移动端对话历史
+                setTimeout(() => saveCurrentDoctorHistory(), 100);
+
+            } catch (error) {
+                console.error('Mobile API Error:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name
+                });
+                
+                // 移除加载消息
+                const loadingMsg = document.querySelector('.loading-message');
+                if (loadingMsg) {
+                    loadingMsg.remove();
+                }
+                
+                // 更详细的错误信息
+                let errorMsg = '网络请求失败';
+                if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+                    errorMsg = '网络连接错误，请检查网络状态';
+                } else if (error.message.includes('timeout')) {
+                    errorMsg = '请求超时，请稍后再试';
+                } else if (error.message.includes('HTTP error')) {
+                    errorMsg = `服务器错误: ${error.message}`;
+                } else {
+                    errorMsg = `连接失败: ${error.message}`;
+                }
+                
+                addMobileMessage('ai', errorMsg);
+            } finally {
+                sendBtn.disabled = false;
+            }
+        }
+
+        // 移动端输入框高度调整
+        function adjustMobileTextareaHeight() {
+            const textarea = document.getElementById('mobileMessageInput');
+            if (!textarea) return;
+            
+            textarea.style.height = '44px'; // 重置为最小高度
+            const newHeight = Math.min(textarea.scrollHeight, 100);
+            textarea.style.height = newHeight + 'px';
+        }
+
+        // 移动端键盘事件
+        function handleMobileKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMobileMessage();
+            }
+        }
+        
+        
+        // 移动端输入框焦点处理
+        function ensureMobileInputVisible() {
+            const input = document.getElementById('mobileMessageInput');
+            const container = document.getElementById('mobileMessagesContainer');
+            const inputContainer = document.querySelector('.mobile-input-container');
+            
+            if (container) {
+                // 滚动消息容器到底部，确保输入框区域可见
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            if (inputContainer) {
+                // 确保输入容器可见
+                setTimeout(() => {
+                    inputContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }, 200);
+            }
+        }
+
+        // 页面加载时初始化移动端
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.innerWidth <= 768) {
+                renderMobileDoctorCards();
+                // 移动端不设置默认医生，让用户主动选择
+                // setMobileDefaultDoctor('zhang_zhongjing');
+                
+            }
+        });
+        
+        // 移动端设置默认医生
+        function setMobileDefaultDoctor(doctorKey) {
+            const doctor = doctors[doctorKey];
+            if (!doctor) return;
+            
+            selectedDoctor = doctorKey;
+            
+            // 更新移动端医生信息
+            document.getElementById('mobileDoctorAvatar').textContent = doctor.avatar;
+            document.getElementById('mobileDoctorName').textContent = doctor.name;
+            document.getElementById('mobileDoctorDesc').textContent = doctor.school;
+            
+            // 添加欢迎消息到移动端
+            const mobileContainer = document.getElementById('mobileMessagesContainer');
+            if (mobileContainer && !mobileContainer.querySelector('.message')) {
+                addMobileMessage('ai', `您好！我是${doctor.name}，${doctor.school}传人。请详细描述您的症状，我将为您进行专业的中医分析。`);
+            }
+        }
+    </script>
+    
+    <!-- 开发调试信息（仅开发模式显示） -->
+    <div id="mobileVersionInfo" style="display: none; position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 20px; font-size: 11px; z-index: 1000; border: 1px solid rgba(255,255,255,0.2);">
+        <span style="color: #4fc3f7;">TCM v1.2.4</span> | 
+        <a href="/static/wechat_debug.html" style="color: #81c784; text-decoration: none;">网络诊断</a> | 
+        <a href="javascript:location.reload(true)" style="color: #ffb74d; text-decoration: none;">刷新</a> |
+        <span style="color: #f48fb1; cursor: pointer;" onclick="this.parentElement.style.display='none'">×</span>
+    </div>
+    
+    <script>
+        // 调试模式检测 - 只有在特定条件下才显示调试信息
+        function isDebugMode() {
+            // 检测URL参数、开发环境等
+            const urlParams = new URLSearchParams(window.location.search);
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const hasDebugParam = urlParams.has('debug');
+            const isDevPort = window.location.port === '7789' || window.location.port === '3000';
+            
+            return isLocalhost || hasDebugParam || isDevPort;
+        }
+        
+        // 添加特殊手势显示调试信息的功能（仅供开发调试）
+        let clickSequence = [];
+        let debugVisible = false;
+        
+        document.addEventListener('click', function(e) {
+            // 记录点击位置（分为9宫格）
+            const x = Math.floor(e.clientX / (window.innerWidth / 3));
+            const y = Math.floor(e.clientY / (window.innerHeight / 3));
+            const position = y * 3 + x;
+            
+            clickSequence.push(position);
+            if (clickSequence.length > 5) clickSequence.shift();
+            
+            // 特殊序列：左上-右上-左下-右下-中心 (0-2-6-8-4)
+            const debugSequence = [0, 2, 6, 8, 4];
+            const isDebugSequence = clickSequence.length === 5 && 
+                clickSequence.every((pos, idx) => pos === debugSequence[idx]);
+            
+            if (isDebugSequence && (isDebugMode() || window.location.hostname.includes('dev'))) {
+                debugVisible = !debugVisible;
+                document.getElementById('mobileVersionInfo').style.display = debugVisible ? 'block' : 'none';
+                clickSequence = [];
+                
+                if (debugVisible) {
+                    setTimeout(() => {
+                        document.getElementById('mobileVersionInfo').style.display = 'none';
+                        debugVisible = false;
+                    }, 10000);
+                }
+            }
+            
+            // 清空序列
+            setTimeout(() => { clickSequence = []; }, 3000);
+        });
+        // 网络状态检测
+        function checkNetworkStatus() {
+            if (!navigator.onLine) {
+                addMobileMessage('ai', '🔌 检测到网络连接中断，请检查您的网络设置。');
+                return false;
+            }
+            return true;
+        }
+        
+        // 监听网络状态变化
+        window.addEventListener('online', function() {
+            console.log('Network is back online');
+        });
+        
+        window.addEventListener('offline', function() {
+            console.log('Network is offline');
+            addMobileMessage('ai', '🔌 网络连接已断开，请检查您的网络设置。');
+        });
+    </script>
+
+    <!-- 微信分享增强脚本 -->
+    <script>
+        // 微信环境检测
+        function isWechat() {
+            return /MicroMessenger/i.test(navigator.userAgent);
+        }
+        
+        // 检测微信公众号来源
+        function detectWechatSource() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const fromWechat = urlParams.get('from') === 'wechat';
+            const wechatSource = urlParams.get('source') || 'unknown';
+            
+            return {
+                fromWechat: fromWechat,
+                source: wechatSource,
+                isWechatBrowser: isWechat()
+            };
+        }
+        
+        // 处理微信公众号访问
+        function handleWechatPublicAccount() {
+            const wechatInfo = detectWechatSource();
+            
+            if (wechatInfo.fromWechat || wechatInfo.isWechatBrowser) {
+                console.log('微信公众号用户访问，来源:', wechatInfo.source);
+                
+                // 记录微信访问统计
+                fetch('/api/log_wechat_visit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source: wechatInfo.source,
+                        from_wechat: wechatInfo.fromWechat,
+                        is_wechat_browser: wechatInfo.isWechatBrowser,
+                        timestamp: new Date().toISOString(),
+                        page: 'main_app'
+                    })
+                }).catch(err => console.log('微信访问记录失败:', err));
+                
+                // 显示微信专属欢迎信息
+                if (wechatInfo.fromWechat && wechatInfo.source === 'menu') {
+                    setTimeout(() => showWechatWelcome(), 1000);
+                }
+                
+                // 微信内优化：隐藏不必要的分享按钮
+                if (wechatInfo.isWechatBrowser) {
+                    const shareButtons = document.querySelectorAll('.share-button, .external-share');
+                    shareButtons.forEach(btn => btn.style.display = 'none');
+                }
+            }
+        }
+        
+        // 显示微信专属欢迎信息
+        function showWechatWelcome() {
+            const welcomeHTML = `
+                <div id="wechatWelcome" style="
+                    position: fixed; 
+                    top: 60px; 
+                    left: 50%; 
+                    transform: translateX(-50%); 
+                    background: linear-gradient(135deg, #28a745, #20c997); 
+                    color: white; 
+                    padding: 12px 20px; 
+                    border-radius: 25px; 
+                    font-size: 13px; 
+                    z-index: 9999;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                    animation: slideInDown 0.6s ease-out;
+                    text-align: center;
+                    max-width: 280px;
+                ">
+                    🎉 欢迎从公众号访问！<br>
+                    <small>5大中医流派，专业AI问诊</small>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', welcomeHTML);
+            
+            // 4秒后淡出
+            setTimeout(() => {
+                const welcome = document.getElementById('wechatWelcome');
+                if (welcome) {
+                    welcome.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+                    welcome.style.opacity = '0';
+                    welcome.style.transform = 'translateX(-50%) translateY(-20px)';
+                    setTimeout(() => welcome.remove(), 500);
+                }
+            }, 4000);
+        }
+        
+        // 页面加载完成后初始化微信功能
+        document.addEventListener('DOMContentLoaded', function() {
+            handleWechatPublicAccount();
+        });
+        
+        // 优化微信分享
+        if (isWechat()) {
+            // 动态设置分享信息
+            document.title = "AI中医智能问诊助手";
+            
+            // 添加微信分享元信息
+            var metaDesc = document.querySelector('meta[name="description"]');
+            if (metaDesc) {
+                metaDesc.content = "专业AI中医诊断助手，智能症状分析，证候判断，个性化方剂推荐";
+            }
+            
+            // 记录微信分享统计
+            window.addEventListener('load', function() {
+                fetch('/api/wechat_visit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        page: 'main_app',
+                        is_shared: document.referrer.includes('wechat'),
+                        timestamp: new Date().toISOString()
+                    })
+                }).catch(() => {});
+            });
+            
+            // 页面关闭或刷新时保存历史记录
+            window.addEventListener('beforeunload', function(event) {
+                // 确保在页面关闭前保存当前对话历史
+                if (selectedDoctor) {
+                    saveCurrentDoctorHistory();
+                    console.log('页面关闭前已保存历史记录');
+                }
+            });
+            
+            // 页面可见性变化时也保存（应对手机切换应用等场景）
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'hidden' && selectedDoctor) {
+                    saveCurrentDoctorHistory();
+                    console.log('页面隐藏时已保存历史记录');
+                }
+            });
+            
+            // 增强历史记录保护 - 定期自动保存
+            setInterval(() => {
+                if (selectedDoctor) {
+                    const messagesContainer = document.getElementById(window.innerWidth <= 768 ? 'mobileMessagesContainer' : 'messagesContainer');
+                    if (messagesContainer && messagesContainer.children.length > 0) {
+                        saveCurrentDoctorHistory();
+                        console.log('定期自动保存历史记录');
+                    }
+                }
+            }, 30000); // 每30秒自动保存一次
+            
+            // 浏览器焦点变化时保存
+            window.addEventListener('blur', function() {
+                if (selectedDoctor) {
+                    saveCurrentDoctorHistory();
+                    console.log('浏览器失去焦点时保存历史记录');
+                }
+            });
+            
+            // 页面卸载前强制保存
+            window.addEventListener('pagehide', function() {
+                if (selectedDoctor) {
+                    saveCurrentDoctorHistory();
+                    console.log('页面卸载前保存历史记录');
+                }
+            });
+        }
+        
+        // localStorage管理功能
+        function checkLocalStorageUsage() {
+            try {
+                let totalSize = 0;
+                for (let key in localStorage) {
+                    if (localStorage.hasOwnProperty(key)) {
+                        totalSize += localStorage[key].length + key.length;
+                    }
+                }
+                const sizeInMB = (totalSize / 1024 / 1024).toFixed(2);
+                console.log(`LocalStorage使用量: ${sizeInMB}MB`);
+                
+                // 如果超过4MB，发出警告
+                if (totalSize > 4 * 1024 * 1024) {
+                    console.warn('LocalStorage使用量较大，可能需要清理');
+                }
+            } catch (error) {
+                console.error('检查localStorage使用量失败:', error);
+            }
+        }
+        
+        function cleanOldHistoryRecords() {
+            try {
+                const keys = Object.keys(localStorage);
+                const historyKeys = keys.filter(key => key.startsWith('tcm_doctor_history_'));
+                
+                // 如果有超过10个医生的历史记录，清理最旧的
+                if (historyKeys.length > 10) {
+                    const keysWithTime = historyKeys.map(key => {
+                        try {
+                            const data = JSON.parse(localStorage.getItem(key));
+                            const lastUpdated = data.lastUpdated || data.timestamp || 0;
+                            return { key, lastUpdated };
+                        } catch {
+                            return { key, lastUpdated: 0 };
+                        }
+                    });
+                    
+                    // 按时间排序，删除最旧的
+                    keysWithTime.sort((a, b) => new Date(a.lastUpdated) - new Date(b.lastUpdated));
+                    const keysToDelete = keysWithTime.slice(0, historyKeys.length - 8); // 保留最新8个
+                    
+                    keysToDelete.forEach(({ key }) => {
+                        localStorage.removeItem(key);
+                        console.log(`已清理旧历史记录: ${key}`);
+                    });
+                }
+            } catch (error) {
+                console.error('清理旧历史记录失败:', error);
+            }
+        }
+        
+        // 历史记录诊断功能
+        function diagnoseHistoryIssues() {
+            console.log('=== 历史记录诊断 ===');
+            console.log('当前医生:', selectedDoctor);
+            console.log('浏览器信息:', navigator.userAgent);
+            console.log('屏幕尺寸:', window.innerWidth + 'x' + window.innerHeight);
+            
+            const keys = Object.keys(localStorage);
+            const historyKeys = keys.filter(key => key.startsWith('tcm_doctor_history_'));
+            console.log('历史记录数量:', historyKeys.length);
+            
+            historyKeys.forEach(key => {
+                try {
+                    const data = localStorage.getItem(key);
+                    const parsed = JSON.parse(data);
+                    const messageCount = Array.isArray(parsed) ? parsed.length : (parsed.messages ? parsed.messages.length : 0);
+                    console.log(`${key}: ${messageCount}条消息, 大小=${(data.length/1024).toFixed(1)}KB`);
+                } catch (error) {
+                    console.error(`${key}: 数据损坏`, error);
+                }
+            });
+            
+            checkLocalStorageUsage();
+            
+            // 测试localStorage写入
+            try {
+                const testKey = 'tcm_test_' + Date.now();
+                localStorage.setItem(testKey, 'test');
+                localStorage.removeItem(testKey);
+                console.log('✅ localStorage写入测试成功');
+            } catch (error) {
+                console.error('❌ localStorage写入测试失败:', error);
+            }
+        }
+
+        // 问诊指导功能
+        function showGuidance() {
+            const overlay = document.createElement('div');
+            overlay.className = 'guidance-overlay';
+            overlay.onclick = hideGuidance;
+            document.body.appendChild(overlay);
+            
+            document.getElementById('guidanceTips').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideGuidance() {
+            document.getElementById('guidanceTips').style.display = 'none';
+            const overlay = document.querySelector('.guidance-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
+            document.body.style.overflow = 'auto';
+        }
+
+        function toggleGuidance() {
+            hideGuidance();
+        }
+    </script>
+
+    <!-- 问诊指导提示 -->
+    <div class="guidance-tips" id="guidanceTips" style="display: none;">
+        <div class="tips-header">
+            <h4>💡 问诊指导</h4>
+            <button onclick="toggleGuidance()" class="close-btn">×</button>
+        </div>
+        <div class="tips-content">
+            <div class="tip-section">
+                <h5>🔍 主要症状描述</h5>
+                <ul>
+                    <li>主要不适感觉（疼痛、发热、咳嗽等）</li>
+                    <li>症状持续时间（几天、几周、几个月）</li>
+                    <li>症状程度（轻微、中等、严重）</li>
+                    <li>发作规律（持续性、间歇性、特定时间）</li>
+                </ul>
+            </div>
+            
+            <div class="tip-section">
+                <h5>🩺 伴随症状</h5>
+                <ul>
+                    <li>睡眠情况（入睡困难、易醒、多梦）</li>
+                    <li>食欲状况（食欲不振、消化不良）</li>
+                    <li>大小便情况（便秘、腹泻、尿频等）</li>
+                    <li>情绪状态（焦虑、抑郁、烦躁）</li>
+                </ul>
+            </div>
+            
+            <div class="tip-section">
+                <h5>👅 舌象脉象（如果方便）</h5>
+                <ul>
+                    <li>舌头颜色（淡红、红、暗红）</li>
+                    <li>舌苔情况（薄白、厚黄、无苔等）</li>
+                    <li>脉搏感觉（快慢、强弱、规律性）</li>
+                    <li>可上传舌象照片以便更准确诊断</li>
+                </ul>
+            </div>
+            
+            <div class="tip-section">
+                <h5>📋 其他重要信息</h5>
+                <ul>
+                    <li>既往病史（慢性病、手术史）</li>
+                    <li>过敏史（药物、食物过敏）</li>
+                    <li>目前用药情况</li>
+                    <li>生活习惯（作息、饮食、运动）</li>
+                </ul>
+            </div>
+            
+            <div class="tip-footer">
+                <p>💬 <strong>提示</strong>：提供越详细的信息，医生越能给出准确的诊断和治疗建议</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 移动端图片选择弹窗 - 移至body底部确保最高层级 -->
+    <div class="mobile-image-modal mobile-modal-hidden" id="mobileImageModal">
+        <div class="mobile-image-modal-content">
+            <div class="modal-header">
+                <h3>选择拍照类型</h3>
+                <button onclick="closeMobileImageModal()" class="modal-close">×</button>
+            </div>
+            <div class="modal-options">
+                <button onclick="triggerMobileTongueUpload()" class="image-option-btn">
+                    <div class="option-icon">👅</div>
+                    <div class="option-text">
+                        <strong>舌诊拍照</strong>
+                        <span>拍摄舌头照片</span>
+                    </div>
+                </button>
+                <button onclick="triggerMobileFaceUpload()" class="image-option-btn">
+                    <div class="option-icon">😊</div>
+                    <div class="option-text">
+                        <strong>面诊拍照</strong>
+                        <span>拍摄面部照片</span>
+                    </div>
+                </button>
+            </div>
+            <div class="upload-status-mobile" id="mobileUploadStatus">
+                <div class="mobile-status-item" id="mobileTongueStatus">👅 舌诊: <span>未上传</span></div>
+                <div class="mobile-status-item" id="mobileFaceStatus">😊 面诊: <span>未上传</span></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+[Unit]
+Description=TCM AI 中医智能诊断系统
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=exec
+User=root
+Group=root
+WorkingDirectory=/opt/tcm-ai/api
+Environment=PYTHONPATH=/opt/tcm-ai:/opt/tcm-ai/core:/opt/tcm-ai/services:/opt/tcm-ai/database
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /opt/tcm-ai/scripts/start_service.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tcm-ai
+
+[Install]
+WantedBy=multi-user.target

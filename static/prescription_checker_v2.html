@@ -1,0 +1,2408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏥 智能处方检查系统 v2.1 - 多模态AI版</title>
+    <!-- PDF生成库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .mode-switcher {
+            display: flex;
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 6px;
+            margin-bottom: 30px;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: transparent;
+            color: #64748b;
+        }
+
+        .mode-btn.active {
+            background: #4f46e5;
+            color: white;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        .mode-btn:hover:not(.active) {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        /* 图片上传模式 */
+        .upload-section {
+            text-align: center;
+        }
+
+        .upload-zone {
+            border: 3px dashed #cbd5e0;
+            border-radius: 16px;
+            padding: 60px 20px;
+            background: #f8fafc;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #4f46e5;
+            background: #f0f4ff;
+            transform: translateY(-2px);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #94a3b8;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .upload-zone.dragover .upload-icon {
+            color: #4f46e5;
+            transform: scale(1.1);
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: #475569;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .upload-hint {
+            color: #64748b;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .camera-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+
+        .camera-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 160px;
+            justify-content: center;
+        }
+
+        .camera-btn.primary {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3);
+        }
+
+        .camera-btn.secondary {
+            background: #f1f5f9;
+            color: #475569;
+            border: 2px solid #e2e8f0;
+        }
+
+        .camera-btn:hover.primary {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(79, 70, 229, 0.4);
+        }
+
+        .camera-btn:hover.secondary {
+            background: #e2e8f0;
+            border-color: #cbd5e0;
+        }
+
+        /* 文字输入模式 */
+        .text-input-section {
+            display: none;
+        }
+
+        .text-input-section.active {
+            display: block;
+        }
+
+        .text-area-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .prescription-textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            line-height: 1.6;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        .prescription-textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .char-counter {
+            position: absolute;
+            bottom: 10px;
+            right: 15px;
+            color: #94a3b8;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        /* 处理结果区域 */
+        .result-section {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .result-tab {
+            flex: 1;
+            padding: 10px 15px;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .result-tab.active {
+            background: white;
+            color: #4f46e5;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* OCR结果显示 */
+        .ocr-result {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .ocr-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .confidence-badge {
+            background: #10b981;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .confidence-badge.medium {
+            background: #f59e0b;
+        }
+
+        .confidence-badge.low {
+            background: #ef4444;
+        }
+
+        .ocr-text {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 15px;
+        }
+
+        .corrections-list {
+            font-size: 14px;
+            color: #059669;
+        }
+
+        .corrections-list ul {
+            margin-left: 20px;
+        }
+
+        .corrections-list li {
+            margin-bottom: 5px;
+        }
+
+        /* 处方检查结果 */
+        .prescription-analysis {
+            background: #fefffe;
+            border: 1px solid #d1fae5;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .analysis-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border-left: 4px solid #4f46e5;
+        }
+
+        .analysis-title {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .herb-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .herb-item {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        /* 君臣佐使分析样式 */
+        .role-section {
+            margin-bottom: 20px;
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .role-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .role-herbs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+        }
+
+        .role-herb-item {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .herb-name {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 14px;
+        }
+
+        .herb-dosage {
+            color: #059669;
+            font-weight: 500;
+            margin-left: 8px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .herb-reason {
+            margin-top: 6px;
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        /* 中医辨证分析样式 */
+        .tcm-item {
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 6px;
+            border-left: 4px solid #805ad5;
+        }
+
+        .tcm-item strong {
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .tcm-comments {
+            margin: 8px 0 0 0;
+            padding-left: 20px;
+        }
+
+        .tcm-comments li {
+            margin-bottom: 6px;
+            color: #4a5568;
+            line-height: 1.5;
+        }
+
+        /* 安全警告 */
+        .safety-warning {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-left: 4px solid #ef4444;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .safety-warning.success {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+            border-left-color: #22c55e;
+        }
+
+        .safety-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .safety-title.success {
+            color: #15803d;
+        }
+
+        .safety-title.error {
+            color: #dc2626;
+        }
+
+        /* 加载状态 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 操作按钮 */
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+        }
+
+        .action-btn.secondary {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e0;
+        }
+
+        .action-btn:hover.primary {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+        }
+
+        .action-btn:hover.secondary {
+            background: #e2e8f0;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                border-radius: 12px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .main-content {
+                padding: 20px;
+            }
+
+            .upload-zone {
+                padding: 40px 20px;
+            }
+
+            .camera-buttons {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .camera-btn {
+                min-width: auto;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .herb-list {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 隐藏文件输入 */
+        .hidden-input {
+            display: none;
+        }
+
+        /* 图片预览 */
+        .image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            margin: 20px auto;
+            display: block;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>🏥 智能处方检查系统</h1>
+            <p>多模态AI智能分析 + 安全性检查 + 名医经验分析</p>
+        </div>
+
+        <!-- 主要内容 -->
+        <div class="main-content">
+            <!-- 模式切换器 -->
+            <div class="mode-switcher">
+                <button class="mode-btn active" data-mode="upload">📸 图片识别</button>
+                <button class="mode-btn" data-mode="text">✏️ 文字输入</button>
+            </div>
+
+            <!-- 图片上传模式 -->
+            <div class="upload-section active" id="uploadSection">
+                <div class="upload-zone" id="uploadZone">
+                    <span class="upload-icon">📋</span>
+                    <div class="upload-text">拖拽处方图片到这里或点击选择文件</div>
+                    <div class="upload-hint">
+                        支持 JPG、PNG、PDF 格式 • 最大10MB<br>
+                        处方单、检查报告、医嘱单均可识别<br>
+                        <span style="color: #2563eb; font-weight: 500;">💡 多模态AI分析需要60-90秒，请耐心等待</span>
+                    </div>
+                </div>
+
+                <div class="camera-buttons">
+                    <button class="camera-btn primary" id="cameraBtn">
+                        📷 拍照识别
+                    </button>
+                    <button class="camera-btn secondary" id="fileBtn">
+                        📁 选择文件
+                    </button>
+                </div>
+
+                <!-- 隐藏的文件输入 -->
+                <input type="file" id="fileInput" class="hidden-input" accept="image/*,.pdf" multiple>
+                <input type="file" id="cameraInput" class="hidden-input" accept="image/*" capture="environment">
+            </div>
+
+            <!-- 文字输入模式 -->
+            <div class="text-input-section" id="textSection">
+                <div class="text-area-wrapper">
+                    <textarea 
+                        id="prescriptionText" 
+                        class="prescription-textarea"
+                        placeholder="请在此输入处方内容，例如：
+
+麻黄 9g
+桂枝 6g
+杏仁 6g
+甘草 3g
+
+水煎服，每日1剂，分2次温服。
+适用于：风寒感冒，恶寒发热，头痛身痛，无汗而喘。"
+                    ></textarea>
+                    <div class="char-counter">
+                        <span id="charCount">0</span> / 2000
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="action-btn primary" id="checkTextBtn">
+                        🔍 开始检查
+                    </button>
+                    <button class="action-btn secondary" id="clearTextBtn">
+                        🗑️ 清空内容
+                    </button>
+                </div>
+            </div>
+
+            <!-- 处理结果区域 -->
+            <div class="result-section" id="resultSection">
+                <!-- 结果选项卡 -->
+                <div class="result-tabs">
+                    <button class="result-tab active" data-tab="ocr">AI分析结果</button>
+                    <button class="result-tab" data-tab="analysis">处方分析</button>
+                    <button class="result-tab" data-tab="safety">安全检查</button>
+                </div>
+
+                <!-- AI分析结果 -->
+                <div class="tab-content active" id="ocrTab">
+                    <div class="ocr-result" id="ocrResult">
+                        <div class="ocr-header">
+                            <h3>🤖 多模态AI分析结果</h3>
+                            <span class="confidence-badge" id="confidenceBadge">置信度: 0%</span>
+                        </div>
+                        <div class="ocr-text" id="ocrText">暂无识别结果</div>
+                        <div class="corrections-list" id="correctionsList">
+                            <strong>文档信息:</strong>
+                            <ul id="correctionsItems"></ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 处方分析 -->
+                <div class="tab-content" id="analysisTab">
+                    <div class="prescription-analysis" id="prescriptionAnalysis">
+                        <div class="analysis-item">
+                            <div class="analysis-title">💊 药物组成</div>
+                            <div class="herb-list" id="herbList"></div>
+                        </div>
+                        <div class="analysis-item">
+                            <div class="analysis-title">🏥 中医辨证分析</div>
+                            <div id="tcmAnalysis"></div>
+                        </div>
+                        <div class="analysis-item">
+                            <div class="analysis-title">👑 君臣佐使分析</div>
+                            <div id="herbRolesAnalysis"></div>
+                        </div>
+                        <div class="analysis-item">
+                            <div class="analysis-title">⚖️ 用量分析</div>
+                            <div id="dosageAnalysis"></div>
+                        </div>
+                        <div class="analysis-item">
+                            <div class="analysis-title">🎯 治疗原则</div>
+                            <div id="therapeuticPrinciple"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 安全检查 -->
+                <div class="tab-content" id="safetyTab">
+                    <div id="safetyResults"></div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="action-buttons">
+                    <button class="action-btn primary" id="newCheckBtn">
+                        🔄 重新检查
+                    </button>
+                    <button class="action-btn secondary" id="exportBtn">
+                        📄 导出PDF报告
+                    </button>
+                    <a href="/" class="action-btn secondary">
+                        🏠 返回主页
+                    </a>
+                </div>
+            </div>
+
+            <!-- 加载状态 -->
+            <div class="loading" id="loadingSection" style="display: none;">
+                <div class="spinner"></div>
+                <p id="loadingText">正在处理中...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentResult = null;
+        let currentMode = 'upload';
+
+        // DOM元素
+        const elements = {
+            // 模式切换
+            modeBtns: document.querySelectorAll('.mode-btn'),
+            uploadSection: document.getElementById('uploadSection'),
+            textSection: document.getElementById('textSection'),
+            
+            // 上传相关
+            uploadZone: document.getElementById('uploadZone'),
+            fileInput: document.getElementById('fileInput'),
+            cameraInput: document.getElementById('cameraInput'),
+            cameraBtn: document.getElementById('cameraBtn'),
+            fileBtn: document.getElementById('fileBtn'),
+            
+            // 文字输入
+            prescriptionText: document.getElementById('prescriptionText'),
+            charCount: document.getElementById('charCount'),
+            checkTextBtn: document.getElementById('checkTextBtn'),
+            clearTextBtn: document.getElementById('clearTextBtn'),
+            
+            // 结果显示
+            resultSection: document.getElementById('resultSection'),
+            resultTabs: document.querySelectorAll('.result-tab'),
+            tabContents: document.querySelectorAll('.tab-content'),
+            
+            // OCR结果
+            ocrResult: document.getElementById('ocrResult'),
+            ocrText: document.getElementById('ocrText'),
+            confidenceBadge: document.getElementById('confidenceBadge'),
+            correctionsList: document.getElementById('correctionsList'),
+            correctionsItems: document.getElementById('correctionsItems'),
+            
+            // 处方分析
+            herbList: document.getElementById('herbList'),
+            tcmAnalysis: document.getElementById('tcmAnalysis'),
+            herbRolesAnalysis: document.getElementById('herbRolesAnalysis'),
+            dosageAnalysis: document.getElementById('dosageAnalysis'),
+            therapeuticPrinciple: document.getElementById('therapeuticPrinciple'),
+            
+            // 安全检查
+            safetyResults: document.getElementById('safetyResults'),
+            
+            // 加载状态
+            loadingSection: document.getElementById('loadingSection'),
+            loadingText: document.getElementById('loadingText'),
+            
+            // 操作按钮
+            newCheckBtn: document.getElementById('newCheckBtn'),
+            exportBtn: document.getElementById('exportBtn')
+        };
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            updateCharCounter();
+        });
+
+        // 事件监听器初始化
+        function initializeEventListeners() {
+            // 模式切换
+            elements.modeBtns.forEach(btn => {
+                btn.addEventListener('click', () => switchMode(btn.dataset.mode));
+            });
+
+            // 拖拽上传
+            setupDragAndDrop();
+
+            // 文件选择
+            elements.fileBtn.addEventListener('click', () => elements.fileInput.click());
+            elements.cameraBtn.addEventListener('click', () => elements.cameraInput.click());
+            elements.fileInput.addEventListener('change', handleFileSelect);
+            elements.cameraInput.addEventListener('change', handleFileSelect);
+
+            // 文字输入
+            elements.prescriptionText.addEventListener('input', updateCharCounter);
+            elements.checkTextBtn.addEventListener('click', checkTextPrescription);
+            elements.clearTextBtn.addEventListener('click', clearText);
+
+            // 结果选项卡
+            elements.resultTabs.forEach(tab => {
+                tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+            });
+
+            // 操作按钮
+            elements.newCheckBtn.addEventListener('click', resetInterface);
+            elements.exportBtn.addEventListener('click', exportReport);
+        }
+
+        // 模式切换
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            // 更新按钮状态
+            elements.modeBtns.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+
+            // 显示/隐藏对应区域
+            if (mode === 'upload') {
+                elements.uploadSection.classList.add('active');
+                elements.textSection.classList.remove('active');
+            } else {
+                elements.uploadSection.classList.remove('active');
+                elements.textSection.classList.add('active');
+            }
+
+            // 隐藏结果
+            elements.resultSection.classList.remove('show');
+        }
+
+        // 拖拽上传设置
+        function setupDragAndDrop() {
+            const uploadZone = elements.uploadZone;
+
+            // 防止默认拖拽行为
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                uploadZone.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+
+            // 拖拽效果
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadZone.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadZone.addEventListener(eventName, unhighlight, false);
+            });
+
+            // 处理文件放置
+            uploadZone.addEventListener('drop', handleDrop, false);
+            uploadZone.addEventListener('click', () => elements.fileInput.click());
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            function highlight() {
+                uploadZone.classList.add('dragover');
+            }
+
+            function unhighlight() {
+                uploadZone.classList.remove('dragover');
+            }
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }
+        }
+
+        // 文件选择处理
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        // 处理文件上传
+        async function handleFiles(files) {
+            if (files.length === 0) return;
+
+            const file = files[0];
+            
+            // 验证文件类型
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/bmp', 'image/tiff', 'application/pdf'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('不支持的文件格式！请选择JPG、PNG或PDF文件。');
+                return;
+            }
+
+            // 验证文件大小
+            if (file.size > 10 * 1024 * 1024) {
+                alert('文件过大！请选择10MB以内的文件。');
+                return;
+            }
+
+            // 显示加载状态和进度提示
+            showLoading('正在使用多模态AI分析处方内容...');
+            
+            // 添加进度提示
+            let progressMessage = 0;
+            const progressInterval = setInterval(() => {
+                progressMessage++;
+                if (progressMessage === 1) {
+                    showLoading('🤖 AI正在理解图片内容...');
+                } else if (progressMessage === 2) {
+                    showLoading('📋 正在识别处方信息...');
+                } else if (progressMessage === 3) {
+                    showLoading('💊 正在分析药材组成...');
+                } else if (progressMessage >= 4) {
+                    showLoading('🔍 正在进行安全检查...(请耐心等待60-90秒)');
+                }
+            }, 15000);
+
+            try {
+                // 调用多模态AI API
+                const formData = new FormData();
+                formData.append('file', file);
+
+                // 创建90秒超时控制器
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+                const response = await fetch('/api/prescription/check_image_v2', {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+                clearInterval(progressInterval);
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentResult = result;
+                    displayResults(result);
+                } else {
+                    showError('处理失败', result.error || '未知错误');
+                }
+            } catch (error) {
+                console.error('文件处理错误:', error);
+                clearInterval(progressInterval);
+                
+                if (error.name === 'AbortError') {
+                    showError('处理超时', '多模态AI分析时间较长（约60-90秒），请稍后重试或选择较小的图片文件');
+                } else if (error.message.includes('Failed to fetch')) {
+                    showError('网络连接错误', '请检查网络连接并重试');
+                } else {
+                    showError('处理异常', error.message || '未知错误，请重试');
+                }
+            } finally {
+                clearInterval(progressInterval);
+                hideLoading();
+            }
+        }
+
+        // 文字处方检查
+        async function checkTextPrescription() {
+            const text = elements.prescriptionText.value.trim();
+            
+            if (!text) {
+                alert('请输入处方内容');
+                return;
+            }
+
+            showLoading('正在分析处方...');
+
+            try {
+                const formData = new FormData();
+                formData.append('prescription_text', text);
+
+                const response = await fetch('/api/prescription/check', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 包装成统一格式
+                    currentResult = {
+                        success: true,
+                        ocr_result: {
+                            success: true,
+                            original_text: text,
+                            corrected_text: text,
+                            confidence: 1.0,
+                            corrections_made: []
+                        },
+                        prescription_check: result,
+                        processing_summary: {
+                            ocr_confidence: 1.0,
+                            prescription_found: result.success,
+                            safety_passed: result.safety_check?.is_safe || false,
+                            total_herbs: result.prescription?.herbs?.length || 0
+                        }
+                    };
+                    
+                    displayResults(currentResult);
+                } else {
+                    showError('分析失败', result.error || '未知错误');
+                }
+            } catch (error) {
+                console.error('处方检查错误:', error);
+                showError('网络错误', '请检查网络连接并重试');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 显示结果
+        function displayResults(result) {
+            console.log('显示结果，收到数据:', result); // 调试日志
+            
+            // 显示结果区域
+            elements.resultSection.classList.add('show');
+            
+            // 滚动到结果区域
+            elements.resultSection.scrollIntoView({ behavior: 'smooth' });
+
+            try {
+                // 新的多模态API返回格式处理
+                if (result.document_analysis) {
+                    console.log('使用多模态结果格式'); // 调试日志
+                    
+                    // 分步处理，每步单独捕获错误
+                    try {
+                        displayMultimodalResult(result);
+                        console.log('✅ 多模态结果显示成功');
+                    } catch (e1) {
+                        console.error('❌ 多模态结果显示失败:', e1);
+                    }
+                    
+                    // 显示处方分析
+                    if (result.prescription && result.prescription.herbs) {
+                        try {
+                            displayPrescriptionAnalysisV2(result);
+                            console.log('✅ 处方分析显示成功');
+                        } catch (e2) {
+                            console.error('❌ 处方分析显示失败:', e2);
+                        }
+                    }
+                    
+                    // 显示安全检查
+                    if (result.safety_analysis) {
+                        try {
+                            displaySafetyResultsV2(result.safety_analysis);
+                            console.log('✅ 安全检查显示成功');
+                        } catch (e3) {
+                            console.error('❌ 安全检查显示失败:', e3);
+                        }
+                    }
+                    
+                    console.log('🎉 多模态结果处理完成');
+                } else {
+                    console.log('使用兼容旧格式'); // 调试日志
+                    // 兼容旧格式
+                    displayOCRResult(result.ocr_result);
+                    
+                    if (result.prescription_check && result.prescription_check.success) {
+                        const prescriptionData = result.prescription_check.data || result.prescription_check;
+                        displayPrescriptionAnalysis(prescriptionData);
+                        displaySafetyResults(prescriptionData.safety_check);
+                    }
+                }
+            } catch (error) {
+                console.error('显示结果时出错:', error);
+                console.error('错误堆栈:', error.stack);
+                console.error('问题数据:', result);
+                
+                // 更友好的错误提示
+                let errorMsg = '数据处理异常';
+                if (error.message.includes('Cannot read properties')) {
+                    errorMsg = '页面元素未加载完成，请刷新页面重试';
+                } else if (error.message.includes('undefined')) {
+                    errorMsg = '数据结构异常，请重新上传图片';
+                } else {
+                    errorMsg = `处理异常: ${error.message}`;
+                }
+                
+                showError('显示异常', errorMsg + '。如问题持续，请联系技术支持');
+            }
+        }
+
+        // 显示OCR结果
+        function displayOCRResult(ocrResult) {
+            const confidence = Math.round((ocrResult.confidence || 0) * 100);
+            
+            // 置信度徽章
+            elements.confidenceBadge.textContent = `置信度: ${confidence}%`;
+            elements.confidenceBadge.className = 'confidence-badge';
+            
+            if (confidence >= 80) {
+                elements.confidenceBadge.classList.add('high');
+            } else if (confidence >= 60) {
+                elements.confidenceBadge.classList.add('medium');
+            } else {
+                elements.confidenceBadge.classList.add('low');
+            }
+
+            // OCR文本
+            elements.ocrText.textContent = ocrResult.corrected_text || ocrResult.original_text || '无识别结果';
+
+            // 纠错列表
+            const corrections = ocrResult.corrections_made || [];
+            elements.correctionsItems.innerHTML = '';
+            
+            if (corrections.length > 0) {
+                corrections.forEach(correction => {
+                    const li = document.createElement('li');
+                    li.textContent = correction;
+                    elements.correctionsItems.appendChild(li);
+                });
+                elements.correctionsList.style.display = 'block';
+            } else {
+                elements.correctionsList.style.display = 'none';
+            }
+        }
+
+        // 显示处方分析
+        function displayPrescriptionAnalysis(prescriptionData) {
+            if (!prescriptionData.prescription) return;
+
+            const prescription = prescriptionData.prescription;
+
+            // 药物列表
+            elements.herbList.innerHTML = '';
+            if (prescription.herbs) {
+                prescription.herbs.forEach(herb => {
+                    const div = document.createElement('div');
+                    div.className = 'herb-item';
+                    div.textContent = `${herb.name} ${herb.dosage}${herb.unit}`;
+                    elements.herbList.appendChild(div);
+                });
+            }
+
+            // 用量分析
+            if (prescriptionData.detailed_analysis?.dosage_analysis) {
+                const dosage = prescriptionData.detailed_analysis.dosage_analysis;
+                elements.dosageAnalysis.innerHTML = `
+                    <p><strong>总剂量:</strong> ${dosage.total_dosage || '未知'}</p>
+                    <p><strong>用量范围:</strong> ${dosage.dosage_range_ratio || '未知'}</p>
+                    ${dosage.ratio_analysis ? dosage.ratio_analysis.map(note => `<p>• ${note}</p>`).join('') : ''}
+                `;
+            }
+
+            // 中医辨证分析
+            if (prescriptionData.tcm_analysis) {
+                const tcm = prescriptionData.tcm_analysis;
+                let tcmHtml = '';
+                
+                if (tcm.syndrome_analysis?.primary_syndrome) {
+                    tcmHtml += `<div class="tcm-item">
+                        <strong>证候分析:</strong> ${tcm.syndrome_analysis.primary_syndrome}
+                    </div>`;
+                }
+                
+                if (tcm.prescription_pattern) {
+                    tcmHtml += `<div class="tcm-item">
+                        <strong>方剂特征:</strong> ${tcm.prescription_pattern}
+                    </div>`;
+                }
+                
+                if (tcm.professional_comments?.length > 0) {
+                    tcmHtml += `<div class="tcm-item">
+                        <strong>专业点评:</strong>
+                        <ul class="tcm-comments">`;
+                    tcm.professional_comments.forEach(comment => {
+                        tcmHtml += `<li>${comment}</li>`;
+                    });
+                    tcmHtml += '</ul></div>';
+                }
+                
+                elements.tcmAnalysis.innerHTML = tcmHtml || '<p>暂无中医辨证分析数据</p>';
+            } else {
+                elements.tcmAnalysis.innerHTML = '<p>暂无中医辨证分析数据</p>';
+            }
+
+            // 君臣佐使分析
+            if (prescriptionData.detailed_analysis?.herb_roles_analysis) {
+                const herbRoles = prescriptionData.detailed_analysis.herb_roles_analysis;
+                let rolesHtml = '';
+                
+                ['君药', '臣药', '佐药', '使药'].forEach(role => {
+                    const herbs = herbRoles[role] || [];
+                    if (herbs.length > 0) {
+                        rolesHtml += `
+                            <div class="role-section">
+                                <h4 class="role-title">${role} (${herbs.length}味)</h4>
+                                <div class="role-herbs">
+                        `;
+                        herbs.forEach(herb => {
+                            rolesHtml += `
+                                <div class="role-herb-item">
+                                    <span class="herb-name">${herb.name}</span>
+                                    <span class="herb-dosage">${herb.dosage}</span>
+                                    <div class="herb-reason">${herb.role_reason}</div>
+                                </div>
+                            `;
+                        });
+                        rolesHtml += '</div></div>';
+                    }
+                });
+                
+                elements.herbRolesAnalysis.innerHTML = rolesHtml || '<p>暂无君臣佐使分析数据</p>';
+            } else {
+                elements.herbRolesAnalysis.innerHTML = '<p>暂无君臣佐使分析数据</p>';
+            }
+
+            // 治疗原则
+            if (prescriptionData.detailed_analysis?.therapeutic_analysis) {
+                const therapeutic = prescriptionData.detailed_analysis.therapeutic_analysis;
+                elements.therapeuticPrinciple.innerHTML = `
+                    <p><strong>治法:</strong> ${therapeutic.treatment_methods?.join('、') || '综合调理'}</p>
+                    <p><strong>治疗重点:</strong> ${therapeutic.therapeutic_focus?.join('；') || '整体调治'}</p>
+                    <p><strong>预期效果:</strong> ${therapeutic.expected_effects?.join('、') || '改善症状'}</p>
+                `;
+            }
+        }
+
+        // 显示安全检查结果
+        function displaySafetyResults(safetyData) {
+            if (!safetyData) return;
+
+            const issSafe = safetyData.is_safe;
+            const warnings = safetyData.warnings || [];
+            const errors = safetyData.errors || [];
+
+            let html = `
+                <div class="safety-warning ${issSafe ? 'success' : ''}">
+                    <div class="safety-title ${issSafe ? 'success' : 'error'}">
+                        ${issSafe ? '✅ 处方安全检查通过' : '⚠️ 发现安全风险'}
+                    </div>
+            `;
+
+            if (errors.length > 0) {
+                html += '<div><strong>严重错误:</strong><ul>';
+                errors.forEach(error => {
+                    html += `<li style="color: #dc2626;">${error}</li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (warnings.length > 0) {
+                html += '<div><strong>注意事项:</strong><ul>';
+                warnings.forEach(warning => {
+                    html += `<li style="color: #d97706;">${warning}</li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (issSafe && errors.length === 0 && warnings.length === 0) {
+                html += '<p>未发现配伍禁忌或用药风险。</p>';
+            }
+
+            html += '</div>';
+            elements.safetyResults.innerHTML = html;
+        }
+
+        // 新版多模态AI结果显示
+        function displayMultimodalResult(result) {
+            const docAnalysis = result.document_analysis || {};
+            const confidence = Math.round(((docAnalysis && docAnalysis.confidence) || 0) * 100);
+            
+            // 置信度徽章
+            elements.confidenceBadge.textContent = `置信度: ${confidence}%`;
+            elements.confidenceBadge.className = 'confidence-badge';
+            
+            if (confidence >= 90) {
+                elements.confidenceBadge.classList.add('high');
+            } else if (confidence >= 70) {
+                elements.confidenceBadge.classList.add('medium');
+            } else {
+                elements.confidenceBadge.classList.add('low');
+            }
+
+            // 文档分析结果显示
+            let displayText = '';
+            if (result.prescription && result.prescription.herbs) {
+                const herbCount = result.prescription.herbs.length;
+                displayText = `成功识别${herbCount}味中药的完整处方信息:\n\n`;
+                result.prescription.herbs.forEach((herb, index) => {
+                    displayText += `${index + 1}. ${herb.name} ${herb.dosage}${herb.unit || 'g'}`;
+                    if (herb.processing) {
+                        displayText += ` (${herb.processing})`;
+                    }
+                    displayText += '\n';
+                });
+                
+                if (result.prescription.usage) {
+                    displayText += '\n用法用量:\n';
+                    const usage = result.prescription.usage;
+                    if (usage.method) displayText += `煎服方法: ${usage.method}\n`;
+                    if (usage.frequency) displayText += `服用频次: ${usage.frequency}\n`;
+                    if (usage.duration) displayText += `疗程: ${usage.duration}\n`;
+                    if (usage.timing) displayText += `服用时间: ${usage.timing}\n`;
+                }
+            } else {
+                displayText = docAnalysis.notes || '已识别文档类型，但未找到明确的中药处方信息';
+            }
+            
+            elements.ocrText.textContent = displayText;
+
+            // 文档信息列表
+            elements.correctionsItems.innerHTML = '';
+            
+            const docInfo = [];
+            if (docAnalysis.type) {
+                docInfo.push(`文档类型: ${docAnalysis.type}`);
+            }
+            if (docAnalysis.quality) {
+                docInfo.push(`图片质量: ${docAnalysis.quality}`);
+            }
+            if (result.patient_info && result.patient_info.name) {
+                docInfo.push(`患者姓名: ${result.patient_info.name}`);
+            }
+            if (result.medical_info && result.medical_info.hospital) {
+                docInfo.push(`医疗机构: ${result.medical_info.hospital}`);
+            }
+            if (result.prescription && result.prescription.total_herbs) {
+                docInfo.push(`药味总数: ${result.prescription.total_herbs}味`);
+            }
+            
+            if (docInfo.length > 0) {
+                docInfo.forEach(info => {
+                    const li = document.createElement('li');
+                    li.textContent = info;
+                    elements.correctionsItems.appendChild(li);
+                });
+                elements.correctionsList.style.display = 'block';
+            } else {
+                elements.correctionsList.style.display = 'none';
+            }
+        }
+
+        // 新版处方分析显示
+        function displayPrescriptionAnalysisV2(result) {
+            const prescription = result.prescription || {};
+
+            // 药物列表
+            elements.herbList.innerHTML = '';
+            if (prescription.herbs) {
+                prescription.herbs.forEach(herb => {
+                    const div = document.createElement('div');
+                    div.className = 'herb-item';
+                    let herbText = `${herb.name} ${herb.dosage}${herb.unit || 'g'}`;
+                    if (herb.processing) {
+                        herbText += ` (${herb.processing})`;
+                    }
+                    div.textContent = herbText;
+                    elements.herbList.appendChild(div);
+                });
+            }
+
+            // 中医辨证分析
+            if (result.diagnosis) {
+                let tcmHtml = '';
+                
+                if (result.diagnosis.primary) {
+                    tcmHtml += `<div class="tcm-item">
+                        <strong>主要诊断:</strong> ${result.diagnosis.primary}
+                    </div>`;
+                }
+                
+                if (result.diagnosis.tcm_syndrome) {
+                    tcmHtml += `<div class="tcm-item">
+                        <strong>中医证型:</strong> ${result.diagnosis.tcm_syndrome}
+                    </div>`;
+                }
+                
+                if (result.diagnosis.symptoms && result.diagnosis.symptoms.length > 0) {
+                    tcmHtml += `<div class="tcm-item">
+                        <strong>相关症状:</strong> ${result.diagnosis.symptoms.join('、')}
+                    </div>`;
+                }
+                
+                elements.tcmAnalysis.innerHTML = tcmHtml || '<p>暂无中医辨证分析数据</p>';
+            } else {
+                elements.tcmAnalysis.innerHTML = '<p>暂无中医辨证分析数据</p>';
+            }
+
+            // 临床分析
+            if (result.clinical_analysis) {
+                const clinical = result.clinical_analysis;
+                let therapeuticHtml = '';
+                
+                if (clinical.formula_type) {
+                    therapeuticHtml += `<p><strong>方剂类型:</strong> ${clinical.formula_type}</p>`;
+                }
+                
+                if (clinical.therapeutic_principle) {
+                    therapeuticHtml += `<p><strong>治疗原则:</strong> ${clinical.therapeutic_principle}</p>`;
+                }
+                
+                if (clinical.expected_effects && clinical.expected_effects.length > 0) {
+                    therapeuticHtml += `<p><strong>预期疗效:</strong> ${clinical.expected_effects.join('、')}</p>`;
+                }
+                
+                if (clinical.modification_suggestions && clinical.modification_suggestions.length > 0) {
+                    therapeuticHtml += `<p><strong>加减建议:</strong></p><ul>`;
+                    clinical.modification_suggestions.forEach(suggestion => {
+                        therapeuticHtml += `<li>${suggestion}</li>`;
+                    });
+                    therapeuticHtml += '</ul>';
+                }
+                
+                elements.therapeuticPrinciple.innerHTML = therapeuticHtml || '<p>暂无治疗原则分析</p>';
+            } else {
+                elements.therapeuticPrinciple.innerHTML = '<p>暂无治疗原则分析</p>';
+            }
+
+            // 用量分析
+            if (prescription.total_herbs) {
+                let dosageHtml = `<p><strong>总药味数:</strong> ${prescription.total_herbs}味</p>`;
+                
+                if (prescription.estimated_cost) {
+                    dosageHtml += `<p><strong>预估费用:</strong> ${prescription.estimated_cost}元</p>`;
+                }
+                
+                elements.dosageAnalysis.innerHTML = dosageHtml;
+            } else {
+                elements.dosageAnalysis.innerHTML = '<p>暂无用量分析数据</p>';
+            }
+
+            // 君臣佐使分析
+            if (result.formula_analysis && result.formula_analysis.roles) {
+                displayFormulaAnalysis(result.formula_analysis);
+            } else {
+                elements.herbRolesAnalysis.innerHTML = '<p>暂无君臣佐使分析数据，可能是药材数量不足或分析失败</p>';
+            }
+        }
+
+        // 君臣佐使分析显示
+        function displayFormulaAnalysis(formulaAnalysis) {
+            const roles = formulaAnalysis.roles || {};
+            const summary = formulaAnalysis.summary || {};
+            const confidenceLevel = formulaAnalysis.confidence_level || 'medium';
+            
+            let html = '';
+            
+            // 分析置信度提示
+            const confidenceColors = {
+                'high': '#10b981',
+                'medium': '#f59e0b', 
+                'low': '#ef4444',
+                'failed': '#6b7280'
+            };
+            
+            const confidenceColor = confidenceColors[confidenceLevel] || '#6b7280';
+            html += `<div style="margin-bottom: 15px; padding: 10px; background: ${confidenceColor}15; border-left: 4px solid ${confidenceColor}; border-radius: 6px;">
+                <span style="color: ${confidenceColor}; font-weight: bold;">分析置信度: ${confidenceLevel.toUpperCase()}</span>
+            </div>`;
+            
+            // 显示各角色药材
+            const roleColors = {
+                '君药': '#dc2626',
+                '臣药': '#d97706', 
+                '佐药': '#059669',
+                '使药': '#2563eb'
+            };
+            
+            ['君药', '臣药', '佐药', '使药'].forEach(role => {
+                const herbs = roles[role] || [];
+                if (herbs.length > 0) {
+                    html += `
+                        <div class="role-section" style="margin-bottom: 20px; background: white; padding: 15px; border-radius: 8px; border-left: 4px solid ${roleColors[role]};">
+                            <h4 class="role-title" style="color: ${roleColors[role]}; font-size: 16px; margin-bottom: 12px; font-weight: bold;">
+                                ${role} (${herbs.length}味)
+                            </h4>
+                            <div class="role-herbs" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+                    `;
+                    
+                    herbs.forEach(herb => {
+                        const confidenceIndicator = herb.confidence >= 0.8 ? '🎯' : herb.confidence >= 0.6 ? '📊' : '❓';
+                        html += `
+                            <div class="role-herb-item" style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; align-items: center; margin-bottom: 6px;">
+                                    <span class="herb-name" style="font-weight: 600; color: #1f2937;">${herb.name}</span>
+                                    <span class="herb-dosage" style="color: #059669; font-weight: 500; margin-left: 8px; font-family: 'Courier New', monospace;">${herb.dosage}</span>
+                                    <span style="margin-left: auto; font-size: 14px;">${confidenceIndicator}</span>
+                                </div>
+                                <div class="herb-reason" style="color: #6b7280; font-size: 13px; line-height: 1.4;">
+                                    ${herb.reason}
+                                </div>
+                                <div style="margin-top: 4px; font-size: 11px; color: #9ca3af;">
+                                    置信度: ${Math.round(herb.confidence * 100)}%
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div></div>';
+                }
+            });
+            
+            // 显示方剂特色分析
+            if (summary.formula_characteristics && summary.formula_characteristics.length > 0) {
+                html += `
+                    <div style="margin-top: 20px; padding: 15px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+                        <h5 style="color: #0c4a6e; margin-bottom: 10px; font-size: 14px; font-weight: bold;">📋 方剂特色</h5>
+                        <ul style="margin: 0; padding-left: 20px; color: #0f172a;">
+                `;
+                summary.formula_characteristics.forEach(characteristic => {
+                    html += `<li style="margin-bottom: 4px;">${characteristic}</li>`;
+                });
+                html += '</ul></div>';
+            }
+            
+            // 显示配伍分析
+            if (summary.compatibility_analysis && summary.compatibility_analysis.length > 0) {
+                html += `
+                    <div style="margin-top: 15px; padding: 15px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #16a34a;">
+                        <h5 style="color: #14532d; margin-bottom: 10px; font-size: 14px; font-weight: bold;">🔄 配伍分析</h5>
+                        <ul style="margin: 0; padding-left: 20px; color: #0f172a;">
+                `;
+                summary.compatibility_analysis.forEach(analysis => {
+                    html += `<li style="margin-bottom: 4px;">${analysis}</li>`;
+                });
+                html += '</ul></div>';
+            }
+            
+            // 如果分析失败
+            if (formulaAnalysis.error) {
+                html += `
+                    <div style="margin-top: 15px; padding: 15px; background: #fef2f2; border-radius: 8px; border-left: 4px solid #ef4444;">
+                        <h5 style="color: #dc2626; margin-bottom: 8px; font-size: 14px; font-weight: bold;">⚠️ 分析异常</h5>
+                        <p style="margin: 0; color: #7f1d1d; font-size: 13px;">${formulaAnalysis.error}</p>
+                    </div>
+                `;
+            }
+            
+            elements.herbRolesAnalysis.innerHTML = html;
+        }
+
+        // 新版安全检查结果显示
+        function displaySafetyResultsV2(safetyData) {
+            if (!safetyData) return;
+
+            const overallSafety = safetyData.overall_safety || '未评估';
+            const warnings = safetyData.warnings || [];
+            const contraindications = safetyData.contraindications || [];
+            const interactions = safetyData.interactions || [];
+            const specialPopulations = safetyData.special_populations || [];
+
+            const issSafe = overallSafety === '安全' || overallSafety.includes('安全');
+
+            let html = `
+                <div class="safety-warning ${issSafe ? 'success' : ''}">
+                    <div class="safety-title ${issSafe ? 'success' : 'error'}">
+                        ${issSafe ? '✅ 处方安全性评估: ' + overallSafety : '⚠️ 处方安全性评估: ' + overallSafety}
+                    </div>
+            `;
+
+            if (warnings.length > 0) {
+                html += '<div><strong>安全警告:</strong><ul>';
+                warnings.forEach(warning => {
+                    html += `<li style="color: #d97706;">${warning}</li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (contraindications.length > 0) {
+                html += '<div><strong>禁忌症:</strong><ul>';
+                contraindications.forEach(contraindication => {
+                    html += `<li style="color: #dc2626;">${contraindication}</li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (interactions.length > 0) {
+                html += '<div><strong>药物相互作用:</strong><ul>';
+                interactions.forEach(interaction => {
+                    html += `<li style="color: #d97706;">${interaction}</li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (specialPopulations.length > 0) {
+                html += '<div><strong>特殊人群用药:</strong><ul>';
+                specialPopulations.forEach(population => {
+                    html += `<li style="color: #2563eb;">${population}</li>`;
+                });
+                html += '</ul></div>';
+            }
+
+            if (issSafe && warnings.length === 0 && contraindications.length === 0) {
+                html += '<p>AI分析未发现明显的用药安全风险，但建议在专业中医师指导下使用。</p>';
+            }
+
+            html += '</div>';
+            elements.safetyResults.innerHTML = html;
+        }
+
+        // 选项卡切换
+        function switchTab(tabName) {
+            // 更新选项卡状态
+            elements.resultTabs.forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.tab === tabName);
+            });
+
+            // 显示对应内容
+            elements.tabContents.forEach(content => {
+                const isActive = content.id === tabName + 'Tab';
+                content.classList.toggle('active', isActive);
+            });
+        }
+
+        // 字符计数更新
+        function updateCharCounter() {
+            const text = elements.prescriptionText.value;
+            const count = text.length;
+            elements.charCount.textContent = count;
+            
+            if (count > 2000) {
+                elements.charCount.style.color = '#dc2626';
+            } else if (count > 1800) {
+                elements.charCount.style.color = '#d97706';
+            } else {
+                elements.charCount.style.color = '#94a3b8';
+            }
+        }
+
+        // 清空文本
+        function clearText() {
+            elements.prescriptionText.value = '';
+            updateCharCounter();
+        }
+
+        // 重置界面
+        function resetInterface() {
+            elements.resultSection.classList.remove('show');
+            elements.fileInput.value = '';
+            elements.cameraInput.value = '';
+            currentResult = null;
+            
+            // 切换到默认的图片上传模式
+            switchMode('upload');
+        }
+
+        // 显示加载状态
+        function showLoading(message = '处理中...') {
+            elements.loadingText.textContent = message;
+            elements.loadingSection.style.display = 'block';
+            elements.resultSection.classList.remove('show');
+        }
+
+        // 隐藏加载状态
+        function hideLoading() {
+            elements.loadingSection.style.display = 'none';
+        }
+
+        // 显示错误
+        function showError(title, message) {
+            elements.resultSection.classList.add('show');
+            elements.resultSection.innerHTML = `
+                <div class="safety-warning">
+                    <div class="safety-title error">❌ ${title}</div>
+                    <p>${message}</p>
+                </div>
+                <div class="action-buttons">
+                    <button class="action-btn primary" onclick="resetInterface()">🔄 重新开始</button>
+                    <a href="/" class="action-btn secondary">🏠 返回主页</a>
+                </div>
+            `;
+        }
+
+        // 导出PDF报告
+        async function exportReport() {
+            if (!currentResult) return;
+
+            try {
+                // 显示加载状态
+                const originalText = elements.exportBtn.textContent;
+                elements.exportBtn.textContent = '🔄 生成PDF中...';
+                elements.exportBtn.disabled = true;
+
+                // 创建PDF报告内容
+                const reportHtml = await generatePDFReportContent(currentResult);
+                
+                // 创建临时容器用于PDF生成
+                const tempContainer = document.createElement('div');
+                tempContainer.innerHTML = reportHtml;
+                tempContainer.style.position = 'absolute';
+                tempContainer.style.left = '-9999px';
+                tempContainer.style.width = '800px';
+                tempContainer.style.background = 'white';
+                tempContainer.style.padding = '40px';
+                tempContainer.style.fontFamily = 'SimSun, serif';
+                document.body.appendChild(tempContainer);
+
+                // 生成PDF
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                
+                // 使用html2canvas转换为图片然后插入PDF
+                const canvas = await html2canvas(tempContainer, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff'
+                });
+                
+                const imgData = canvas.toDataURL('image/png');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const imgWidth = pdfWidth - 20; // 左右边距各10mm
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                
+                let y = 10;
+                const pageHeight = pdfHeight - 20; // 上下边距各10mm
+                
+                // 如果内容超过一页，需要分页
+                if (imgHeight > pageHeight) {
+                    const pageCount = Math.ceil(imgHeight / pageHeight);
+                    for (let i = 0; i < pageCount; i++) {
+                        if (i > 0) pdf.addPage();
+                        
+                        const sourceY = i * pageHeight * (canvas.height / imgHeight);
+                        const sourceHeight = Math.min(pageHeight * (canvas.height / imgHeight), canvas.height - sourceY);
+                        
+                        // 创建页面片段
+                        const pageCanvas = document.createElement('canvas');
+                        pageCanvas.width = canvas.width;
+                        pageCanvas.height = sourceHeight;
+                        const pageCtx = pageCanvas.getContext('2d');
+                        pageCtx.drawImage(canvas, 0, sourceY, canvas.width, sourceHeight, 0, 0, canvas.width, sourceHeight);
+                        
+                        const pageImgData = pageCanvas.toDataURL('image/png');
+                        const pageImgHeight = (sourceHeight * imgWidth) / canvas.width;
+                        
+                        pdf.addImage(pageImgData, 'PNG', 10, 10, imgWidth, pageImgHeight);
+                    }
+                } else {
+                    pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+                }
+
+                // 清理临时容器
+                document.body.removeChild(tempContainer);
+
+                // 下载PDF
+                const fileName = `中医处方检查报告_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
+                pdf.save(fileName);
+
+                // 恢复按钮状态
+                elements.exportBtn.textContent = originalText;
+                elements.exportBtn.disabled = false;
+
+            } catch (error) {
+                console.error('PDF生成失败:', error);
+                alert('PDF生成失败，请稍后重试');
+                
+                // 恢复按钮状态
+                elements.exportBtn.textContent = '📄 导出PDF报告';
+                elements.exportBtn.disabled = false;
+            }
+        }
+
+        // 生成PDF报告HTML内容
+        async function generatePDFReportContent(result) {
+            console.log('PDF生成 - 接收到的数据:', result); // 调试日志
+            const date = new Date().toLocaleString();
+            
+            let html = `
+                <div style="max-width: 800px; margin: 0 auto; font-family: 'SimSun', serif; line-height: 1.6; color: #2d3748;">
+                    <!-- 报告头部 -->
+                    <div style="text-align: center; border-bottom: 3px solid #4299e1; padding-bottom: 20px; margin-bottom: 30px;">
+                        <h1 style="color: #2b6cb0; font-size: 28px; margin-bottom: 8px; font-weight: bold;">
+                            🏥 中医处方智能检查报告
+                        </h1>
+                        <p style="color: #718096; font-size: 14px; margin: 5px 0;">
+                            基于人工智能的传统中医处方分析系统
+                        </p>
+                        <p style="color: #4a5568; font-size: 13px;">
+                            生成时间: ${date} | 系统版本: v2.1 (多模态AI版)
+                        </p>
+                    </div>
+
+                    <!-- AI分析结果 -->
+                    <div style="margin-bottom: 25px; background: #f7fafc; padding: 20px; border-radius: 8px; border-left: 4px solid #4299e1;">
+                        <h2 style="color: #2d3748; font-size: 18px; margin-bottom: 15px; display: flex; align-items: center;">
+                            🤖 AI分析结果
+                        </h2>
+            `;
+
+            // 优先使用新版多模态API结果格式
+            if (result.document_analysis) {
+                console.log('PDF生成 - 使用多模态结果格式'); // 调试日志
+                const docAnalysis = result.document_analysis;
+                const confidence = Math.round(((docAnalysis && docAnalysis.confidence) || 0) * 100);
+                const confidenceColor = confidence >= 80 ? '#38a169' : confidence >= 60 ? '#ed8936' : '#e53e3e';
+                
+                html += `
+                    <div style="margin-bottom: 12px;">
+                        <span style="font-weight: bold;">AI分析置信度: </span>
+                        <span style="color: ${confidenceColor}; font-weight: bold; font-size: 16px;">${confidence}%</span>
+                    </div>
+                    <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.8;">
+                `;
+                
+                // 处方内容显示
+                if (result.prescription && result.prescription.herbs) {
+                    const herbCount = result.prescription.herbs.length;
+                    html += `<strong>成功识别${herbCount}味中药的完整处方信息:</strong><br><br>`;
+                    result.prescription.herbs.forEach((herb, index) => {
+                        html += `${index + 1}. ${herb.name} ${herb.dosage}${herb.unit || 'g'}`;
+                        if (herb.processing) {
+                            html += ` (${herb.processing})`;
+                        }
+                        html += '<br>';
+                    });
+                    
+                    if (result.prescription.usage) {
+                        html += '<br><strong>用法用量:</strong><br>';
+                        const usage = result.prescription.usage;
+                        if (usage.method) html += `煎服方法: ${usage.method}<br>`;
+                        if (usage.frequency) html += `服用频次: ${usage.frequency}<br>`;
+                        if (usage.duration) html += `疗程: ${usage.duration}<br>`;
+                        if (usage.timing) html += `服用时间: ${usage.timing}<br>`;
+                    }
+                } else {
+                    html += docAnalysis.notes || '已识别文档类型，但未找到明确的中药处方信息';
+                }
+                
+                html += '</div>';
+                
+                // 文档信息
+                if (docAnalysis.type || docAnalysis.quality || result.patient_info || result.medical_info) {
+                    html += `
+                        <div style="margin-top: 15px;">
+                            <p style="font-weight: bold; color: #2d3748; margin-bottom: 8px;">📝 文档信息:</p>
+                            <ul style="margin-left: 20px; color: #4a5568;">
+                    `;
+                    if (docAnalysis.type) html += `<li>文档类型: ${docAnalysis.type}</li>`;
+                    if (docAnalysis.quality) html += `<li>图片质量: ${docAnalysis.quality}</li>`;
+                    if (result.patient_info && result.patient_info.name) html += `<li>患者姓名: ${result.patient_info.name}</li>`;
+                    if (result.medical_info && result.medical_info.hospital) html += `<li>医疗机构: ${result.medical_info.hospital}</li>`;
+                    if (result.prescription && result.prescription.total_herbs) html += `<li>药味总数: ${result.prescription.total_herbs}味</li>`;
+                    html += '</ul></div>';
+                }
+            } 
+            // 兼容旧版OCR结果格式
+            else if (result.ocr_result) {
+                console.log('PDF生成 - 使用OCR结果格式'); // 调试日志
+                const confidence = Math.round((result.ocr_result.confidence || 0) * 100);
+                const confidenceColor = confidence >= 80 ? '#38a169' : confidence >= 60 ? '#ed8936' : '#e53e3e';
+                
+                html += `
+                    <div style="margin-bottom: 12px;">
+                        <span style="font-weight: bold;">OCR识别置信度: </span>
+                        <span style="color: ${confidenceColor}; font-weight: bold; font-size: 16px;">${confidence}%</span>
+                    </div>
+                    <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.8;">
+                        ${(result.ocr_result.corrected_text || result.ocr_result.original_text || '无识别结果').replace(/\n/g, '<br>')}
+                    </div>
+                `;
+                
+                const corrections = result.ocr_result.corrections_made || [];
+                if (corrections.length > 0) {
+                    html += `
+                        <div style="margin-top: 15px;">
+                            <p style="font-weight: bold; color: #2d3748; margin-bottom: 8px;">📝 识别纠错记录:</p>
+                            <ul style="margin-left: 20px; color: #4a5568;">
+                    `;
+                    corrections.forEach(correction => {
+                        html += `<li style="margin-bottom: 4px;">${correction}</li>`;
+                    });
+                    html += '</ul></div>';
+                }
+            } else {
+                console.log('PDF生成 - 无可用的分析结果'); // 调试日志
+                html += `
+                    <div style="background: white; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; color: #dc2626;">
+                        ⚠️ 未找到有效的分析结果数据
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+
+            // 处方分析部分 - 兼容新旧格式
+            let prescriptionData = null;
+            let safetyData = null;
+            
+            // 优先使用新版多模态API格式
+            if (result.prescription && result.prescription.herbs) {
+                console.log('PDF生成 - 使用新版处方数据格式'); // 调试日志
+                prescriptionData = result;
+                safetyData = result.safety_analysis;
+            }
+            // 兼容旧版API格式
+            else if (result.prescription_check?.data || result.data) {
+                console.log('PDF生成 - 使用旧版处方数据格式'); // 调试日志
+                prescriptionData = result.prescription_check?.data || result.data;
+                safetyData = prescriptionData.safety_check;
+            }
+            
+            if (prescriptionData && prescriptionData.prescription?.herbs) {
+                const herbs = prescriptionData.prescription.herbs;
+                
+                html += `
+                    <div style="margin-bottom: 25px; background: #edf2f7; padding: 20px; border-radius: 8px; border-left: 4px solid #38a169;">
+                        <h2 style="color: #2d3748; font-size: 18px; margin-bottom: 20px;">
+                            💊 处方分析结果
+                        </h2>
+                `;
+
+                // 药物组成
+                html += `
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: #2d3748; font-size: 16px; margin-bottom: 12px;">🌿 药物组成 (${herbs.length}味)</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
+                `;
+                herbs.forEach(herb => {
+                    html += `
+                        <div style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e0; font-family: 'Courier New', monospace; font-size: 14px;">
+                            <span style="font-weight: bold; color: #2d3748;">${herb.name}</span> 
+                            <span style="color: #38a169; font-weight: 500;">${herb.dosage}${herb.unit || 'g'}</span>
+                        </div>
+                    `;
+                });
+                html += '</div></div>';
+
+                // 君臣佐使分析 - 兼容新旧格式
+                let herbRolesData = null;
+                if (prescriptionData.formula_analysis?.roles) {
+                    // 新版格式
+                    herbRolesData = prescriptionData.formula_analysis.roles;
+                } else if (prescriptionData.detailed_analysis?.herb_roles_analysis) {
+                    // 旧版格式
+                    herbRolesData = prescriptionData.detailed_analysis.herb_roles_analysis;
+                }
+                
+                if (herbRolesData) {
+                    html += `
+                        <div style="margin-bottom: 20px;">
+                            <h3 style="color: #2d3748; font-size: 16px; margin-bottom: 12px;">👑 君臣佐使分析</h3>
+                    `;
+                    
+                    const roleColors = {
+                        '君药': '#e53e3e',
+                        '臣药': '#dd6b20', 
+                        '佐药': '#38a169',
+                        '使药': '#3182ce'
+                    };
+                    
+                    ['君药', '臣药', '佐药', '使药'].forEach(role => {
+                        const herbs = herbRolesData[role] || [];
+                        if (herbs.length > 0) {
+                            html += `
+                                <div style="margin-bottom: 15px; background: white; padding: 15px; border-radius: 6px; border-left: 4px solid ${roleColors[role]};">
+                                    <h4 style="color: ${roleColors[role]}; font-size: 15px; margin-bottom: 10px; font-weight: bold;">
+                                        ${role} (${herbs.length}味)
+                                    </h4>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px;">
+                            `;
+                            herbs.forEach(herb => {
+                                html += `
+                                    <div style="padding: 8px 12px; background: #f7fafc; border-radius: 4px; border: 1px solid #e2e8f0;">
+                                        <div style="font-weight: bold; color: #2d3748; margin-bottom: 4px;">
+                                            ${herb.name} <span style="color: #38a169; font-family: 'Courier New', monospace;">${herb.dosage}</span>
+                                        </div>
+                                        <div style="color: #718096; font-size: 12px; line-height: 1.4;">
+                                            ${herb.role_reason || herb.reason || '药理作用分析'}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            html += '</div></div>';
+                        }
+                    });
+                    html += '</div>';
+                }
+
+                // 中医分析 - 兼容新旧格式
+                let tcmAnalysisData = null;
+                if (prescriptionData.diagnosis) {
+                    // 新版格式
+                    tcmAnalysisData = prescriptionData.diagnosis;
+                } else if (prescriptionData.tcm_analysis) {
+                    // 旧版格式
+                    tcmAnalysisData = prescriptionData.tcm_analysis;
+                }
+                
+                if (tcmAnalysisData) {
+                    html += `
+                        <div style="margin-bottom: 20px; background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #805ad5;">
+                            <h3 style="color: #2d3748; font-size: 16px; margin-bottom: 12px;">🏥 中医辨证分析</h3>
+                    `;
+                    
+                    // 新版格式字段
+                    if (tcmAnalysisData.primary) {
+                        html += `<p style="margin-bottom: 8px;"><strong>主要诊断:</strong> ${tcmAnalysisData.primary}</p>`;
+                    }
+                    if (tcmAnalysisData.tcm_syndrome) {
+                        html += `<p style="margin-bottom: 8px;"><strong>中医证型:</strong> ${tcmAnalysisData.tcm_syndrome}</p>`;
+                    }
+                    if (tcmAnalysisData.symptoms && tcmAnalysisData.symptoms.length > 0) {
+                        html += `<p style="margin-bottom: 8px;"><strong>相关症状:</strong> ${tcmAnalysisData.symptoms.join('、')}</p>`;
+                    }
+                    
+                    // 旧版格式字段
+                    if (tcmAnalysisData.syndrome_analysis?.primary_syndrome) {
+                        html += `<p style="margin-bottom: 8px;"><strong>证候分析:</strong> ${tcmAnalysisData.syndrome_analysis.primary_syndrome}</p>`;
+                    }
+                    if (tcmAnalysisData.prescription_pattern) {
+                        html += `<p style="margin-bottom: 8px;"><strong>方剂特征:</strong> ${tcmAnalysisData.prescription_pattern}</p>`;
+                    }
+                    if (tcmAnalysisData.professional_comments?.length > 0) {
+                        html += '<p style="margin-bottom: 6px;"><strong>专业点评:</strong></p><ul style="margin-left: 20px;">';
+                        tcmAnalysisData.professional_comments.forEach(comment => {
+                            html += `<li style="margin-bottom: 4px; color: #4a5568;">${comment}</li>`;
+                        });
+                        html += '</ul>';
+                    }
+                    html += '</div>';
+                }
+
+                // 用量分析 - 兼容新旧格式
+                let dosageData = null;
+                if (prescriptionData.prescription?.total_herbs) {
+                    // 新版格式
+                    html += `
+                        <div style="margin-bottom: 20px; background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #38b2ac;">
+                            <h3 style="color: #2d3748; font-size: 16px; margin-bottom: 12px;">⚖️ 用量分析</h3>
+                            <p style="margin-bottom: 8px;"><strong>总药味数:</strong> ${prescriptionData.prescription.total_herbs}味</p>
+                    `;
+                    if (prescriptionData.prescription.estimated_cost) {
+                        html += `<p style="margin-bottom: 8px;"><strong>预估费用:</strong> ${prescriptionData.prescription.estimated_cost}元</p>`;
+                    }
+                    html += '</div>';
+                } else if (prescriptionData.detailed_analysis?.dosage_analysis) {
+                    // 旧版格式
+                    const dosage = prescriptionData.detailed_analysis.dosage_analysis;
+                    html += `
+                        <div style="margin-bottom: 20px; background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #38b2ac;">
+                            <h3 style="color: #2d3748; font-size: 16px; margin-bottom: 12px;">⚖️ 用量分析</h3>
+                            <p style="margin-bottom: 8px;"><strong>总剂量:</strong> ${dosage.total_dosage}</p>
+                            <p style="margin-bottom: 8px;"><strong>用量范围:</strong> ${dosage.dosage_range_ratio}</p>
+                    `;
+                    
+                    if (dosage.ratio_analysis?.length > 0) {
+                        html += '<p style="margin-bottom: 6px;"><strong>用量分析:</strong></p><ul style="margin-left: 20px;">';
+                        dosage.ratio_analysis.forEach(analysis => {
+                            html += `<li style="margin-bottom: 4px; color: #4a5568;">${analysis}</li>`;
+                        });
+                        html += '</ul>';
+                    }
+                    html += '</div>';
+                }
+
+                // 治疗原则 - 兼容新旧格式
+                let therapyData = null;
+                if (prescriptionData.clinical_analysis) {
+                    // 新版格式
+                    const clinical = prescriptionData.clinical_analysis;
+                    html += `
+                        <div style="margin-bottom: 20px; background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #ed64a6;">
+                            <h3 style="color: #2d3748; font-size: 16px; margin-bottom: 12px;">🎯 治疗原则</h3>
+                    `;
+                    
+                    if (clinical.formula_type) {
+                        html += `<p style="margin-bottom: 8px;"><strong>方剂类型:</strong> ${clinical.formula_type}</p>`;
+                    }
+                    if (clinical.therapeutic_principle) {
+                        html += `<p style="margin-bottom: 8px;"><strong>治疗原则:</strong> ${clinical.therapeutic_principle}</p>`;
+                    }
+                    if (clinical.expected_effects?.length > 0) {
+                        html += `<p style="margin-bottom: 8px;"><strong>预期疗效:</strong> ${clinical.expected_effects.join('、')}</p>`;
+                    }
+                    if (clinical.modification_suggestions?.length > 0) {
+                        html += '<p style="margin-bottom: 6px;"><strong>加减建议:</strong></p><ul style="margin-left: 20px;">';
+                        clinical.modification_suggestions.forEach(suggestion => {
+                            html += `<li style="margin-bottom: 4px; color: #4a5568;">${suggestion}</li>`;
+                        });
+                        html += '</ul>';
+                    }
+                    html += '</div>';
+                } else if (prescriptionData.detailed_analysis?.therapeutic_analysis) {
+                    // 旧版格式
+                    const therapy = prescriptionData.detailed_analysis.therapeutic_analysis;
+                    html += `
+                        <div style="margin-bottom: 20px; background: white; padding: 15px; border-radius: 6px; border-left: 4px solid #ed64a6;">
+                            <h3 style="color: #2d3748; font-size: 16px; margin-bottom: 12px;">🎯 治疗原则</h3>
+                    `;
+                    
+                    if (therapy.treatment_methods?.length > 0) {
+                        html += `<p style="margin-bottom: 8px;"><strong>治法:</strong> ${therapy.treatment_methods.join('、')}</p>`;
+                    }
+                    if (therapy.therapeutic_focus?.length > 0) {
+                        html += `<p style="margin-bottom: 8px;"><strong>治疗重点:</strong> ${therapy.therapeutic_focus.join('、')}</p>`;
+                    }
+                    if (therapy.expected_effects?.length > 0) {
+                        html += `<p style="margin-bottom: 8px;"><strong>预期效果:</strong> ${therapy.expected_effects.join('、')}</p>`;
+                    }
+                    html += '</div>';
+                }
+
+                html += '</div>';
+            }
+
+            // 安全检查 - 兼容新旧格式
+            if (safetyData) {
+                console.log('PDF生成 - 处理安全检查数据:', safetyData); // 调试日志
+                
+                // 处理新版格式
+                if (safetyData.overall_safety) {
+                    const overallSafety = safetyData.overall_safety;
+                    const warnings = safetyData.warnings || [];
+                    const contraindications = safetyData.contraindications || [];
+                    const interactions = safetyData.interactions || [];
+                    const specialPopulations = safetyData.special_populations || [];
+                    const issSafe = overallSafety === '安全' || overallSafety.includes('安全');
+                    
+                    html += `
+                        <div style="margin-bottom: 25px; background: ${issSafe ? '#f0fff4' : '#fef5e7'}; padding: 20px; border-radius: 8px; border-left: 4px solid ${issSafe ? '#38a169' : '#ed8936'};">
+                            <h2 style="color: #2d3748; font-size: 18px; margin-bottom: 15px;">
+                                ${issSafe ? '✅ 处方安全性评估: ' + overallSafety : '⚠️ 处方安全性评估: ' + overallSafety}
+                            </h2>
+                    `;
+
+                    if (warnings.length > 0) {
+                        html += '<div style="margin-bottom: 15px;"><p style="font-weight: bold; color: #d97706; margin-bottom: 8px;">安全警告:</p><ul style="margin-left: 20px;">';
+                        warnings.forEach(warning => {
+                            html += `<li style="color: #d97706; margin-bottom: 4px;">${warning}</li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+
+                    if (contraindications.length > 0) {
+                        html += '<div style="margin-bottom: 15px;"><p style="font-weight: bold; color: #dc2626; margin-bottom: 8px;">禁忌症:</p><ul style="margin-left: 20px;">';
+                        contraindications.forEach(contraindication => {
+                            html += `<li style="color: #dc2626; margin-bottom: 4px;">${contraindication}</li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+
+                    if (interactions.length > 0) {
+                        html += '<div style="margin-bottom: 15px;"><p style="font-weight: bold; color: #d97706; margin-bottom: 8px;">药物相互作用:</p><ul style="margin-left: 20px;">';
+                        interactions.forEach(interaction => {
+                            html += `<li style="color: #d97706; margin-bottom: 4px;">${interaction}</li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+
+                    if (specialPopulations.length > 0) {
+                        html += '<div style="margin-bottom: 15px;"><p style="font-weight: bold; color: #2563eb; margin-bottom: 8px;">特殊人群用药:</p><ul style="margin-left: 20px;">';
+                        specialPopulations.forEach(population => {
+                            html += `<li style="color: #2563eb; margin-bottom: 4px;">${population}</li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+
+                    if (issSafe && warnings.length === 0 && contraindications.length === 0) {
+                        html += '<p style="color: #38a169;">AI分析未发现明显的用药安全风险，但建议在专业中医师指导下使用。</p>';
+                    }
+
+                    html += '</div>';
+                }
+                // 处理旧版格式  
+                else if (safetyData.is_safe !== undefined) {
+                    const issSafe = safetyData.is_safe;
+                    const warnings = safetyData.warnings || [];
+                    const errors = safetyData.errors || [];
+                    
+                    html += `
+                        <div style="margin-bottom: 25px; background: ${issSafe ? '#f0fff4' : '#fef5e7'}; padding: 20px; border-radius: 8px; border-left: 4px solid ${issSafe ? '#38a169' : '#ed8936'};">
+                            <h2 style="color: #2d3748; font-size: 18px; margin-bottom: 15px;">
+                                ${issSafe ? '✅ 安全检查通过' : '⚠️ 发现安全风险'}
+                            </h2>
+                    `;
+
+                    if (errors.length > 0) {
+                        html += '<div style="margin-bottom: 15px;"><p style="font-weight: bold; color: #e53e3e; margin-bottom: 8px;">严重错误:</p><ul style="margin-left: 20px;">';
+                        errors.forEach(error => {
+                            html += `<li style="color: #e53e3e; margin-bottom: 4px;">${error}</li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+
+                    if (warnings.length > 0) {
+                        html += '<div style="margin-bottom: 15px;"><p style="font-weight: bold; color: #ed8936; margin-bottom: 8px;">注意事项:</p><ul style="margin-left: 20px;">';
+                        warnings.forEach(warning => {
+                            html += `<li style="color: #ed8936; margin-bottom: 4px;">${warning}</li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+
+                    if (issSafe && errors.length === 0 && warnings.length === 0) {
+                        html += '<p style="color: #38a169;">未发现配伍禁忌或用药风险。</p>';
+                    }
+
+                    html += '</div>';
+                }
+            }
+
+            // 报告尾部
+            html += `
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0; text-align: center; color: #718096; font-size: 13px;">
+                    <p style="margin-bottom: 8px;">🔴 <strong>重要声明</strong></p>
+                    <p style="line-height: 1.6; max-width: 600px; margin: 0 auto;">
+                        本报告为AI辅助生成的中医建议，仅供参考，不能替代正规医院的专业诊断和治疗。
+                        建议在执业中医师指导下使用。
+                    </p>
+                    <div style="margin-top: 15px; padding: 10px; background: #f7fafc; border-radius: 6px;">
+                        <p style="margin: 0;">💻 生成系统: AI中医智能助手 | 🕒 报告时间: ${date}</p>
+                    </div>
+                </div>
+            </div>
+            `;
+
+            return html;
+        }
+
+        // 生成报告数据 (保留用于兼容性)
+        function generateReportData(result) {
+            const date = new Date().toLocaleString();
+            let report = `中医处方智能检查报告\n`;
+            report += `生成时间: ${date}\n`;
+            report += `系统版本: v2.0 (OCR识别版)\n`;
+            report += `\n${'='.repeat(50)}\n\n`;
+
+            // OCR识别结果
+            if (result.ocr_result) {
+                report += `【OCR识别结果】\n`;
+                report += `识别置信度: ${Math.round((result.ocr_result.confidence || 0) * 100)}%\n`;
+                report += `识别内容:\n${result.ocr_result.corrected_text || result.ocr_result.original_text}\n\n`;
+                
+                if (result.ocr_result.corrections_made?.length > 0) {
+                    report += `自动纠错:\n`;
+                    result.ocr_result.corrections_made.forEach(correction => {
+                        report += `• ${correction}\n`;
+                    });
+                    report += `\n`;
+                }
+            }
+
+            // 处方分析 - 增强版
+            if (result.prescription_check?.data) {
+                const data = result.prescription_check.data;
+                report += `【处方分析】\n`;
+                
+                // 药物组成
+                if (data.prescription?.herbs) {
+                    report += `💊 药物组成 (${data.prescription.herbs.length}味):\n`;
+                    data.prescription.herbs.forEach(herb => {
+                        report += `• ${herb.name} ${herb.dosage}${herb.unit || 'g'}\n`;
+                    });
+                    report += `\n`;
+                }
+
+                // 君臣佐使分析
+                if (data.detailed_analysis?.herb_roles_analysis) {
+                    const roles = data.detailed_analysis.herb_roles_analysis;
+                    report += `👑 君臣佐使分析:\n`;
+                    
+                    ['君药', '臣药', '佐药', '使药'].forEach(role => {
+                        if (roles[role] && roles[role].length > 0) {
+                            report += `\n${role} (${roles[role].length}味):\n`;
+                            roles[role].forEach(herb => {
+                                report += `• ${herb.name} ${herb.dosage} - ${herb.role_reason}\n`;
+                            });
+                        }
+                    });
+                    report += `\n`;
+                }
+
+                // 中医分析
+                if (data.tcm_analysis) {
+                    report += `🏥 中医辨证分析:\n`;
+                    
+                    if (data.tcm_analysis.syndrome_analysis?.primary_syndrome) {
+                        report += `证候分析: ${data.tcm_analysis.syndrome_analysis.primary_syndrome}\n`;
+                    }
+                    
+                    if (data.tcm_analysis.prescription_pattern) {
+                        report += `方剂特征: ${data.tcm_analysis.prescription_pattern}\n`;
+                    }
+                    
+                    if (data.tcm_analysis.professional_comments?.length > 0) {
+                        report += `专业点评:\n`;
+                        data.tcm_analysis.professional_comments.forEach(comment => {
+                            report += `• ${comment}\n`;
+                        });
+                    }
+                    report += `\n`;
+                }
+
+                // 用量分析
+                if (data.detailed_analysis?.dosage_analysis) {
+                    const dosage = data.detailed_analysis.dosage_analysis;
+                    report += `⚖️ 用量分析:\n`;
+                    report += `总剂量: ${dosage.total_dosage}\n`;
+                    report += `用量范围: ${dosage.dosage_range_ratio}\n`;
+                    
+                    if (dosage.ratio_analysis?.length > 0) {
+                        report += `用量分析:\n`;
+                        dosage.ratio_analysis.forEach(analysis => {
+                            report += `• ${analysis}\n`;
+                        });
+                    }
+                    report += `\n`;
+                }
+
+                // 治疗原则
+                if (data.detailed_analysis?.therapeutic_analysis) {
+                    const therapy = data.detailed_analysis.therapeutic_analysis;
+                    report += `🎯 治疗原则:\n`;
+                    
+                    if (therapy.treatment_methods?.length > 0) {
+                        report += `治法: ${therapy.treatment_methods.join('、')}\n`;
+                    }
+                    
+                    if (therapy.therapeutic_focus?.length > 0) {
+                        report += `治疗重点: ${therapy.therapeutic_focus.join('、')}\n`;
+                    }
+                    
+                    if (therapy.expected_effects?.length > 0) {
+                        report += `预期效果: ${therapy.expected_effects.join('、')}\n`;
+                    }
+                    report += `\n`;
+                }
+            }
+
+            // 安全检查
+            if (result.prescription_check?.safety_check) {
+                const safety = result.prescription_check.safety_check;
+                report += `【安全检查】\n`;
+                report += `安全评估: ${safety.is_safe ? '✅ 通过' : '❌ 有风险'}\n\n`;
+
+                if (safety.errors?.length > 0) {
+                    report += `严重错误:\n`;
+                    safety.errors.forEach(error => {
+                        report += `❌ ${error}\n`;
+                    });
+                    report += `\n`;
+                }
+
+                if (safety.warnings?.length > 0) {
+                    report += `注意事项:\n`;
+                    safety.warnings.forEach(warning => {
+                        report += `⚠️ ${warning}\n`;
+                    });
+                    report += `\n`;
+                }
+            }
+
+            report += `${'='.repeat(50)}\n`;
+            report += `报告说明: 本报告仅供参考，不能替代专业医师的临床判断。\n`;
+            report += `生成工具: TCM AI 智能处方检查系统\n`;
+
+            return report;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+[Unit]
+Description=TCM AI 中医智能诊断系统
+Documentation=https://github.com/tcm-ai/docs
+After=network.target postgresql.service
+Wants=postgresql.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=exec
+User=root
+Group=root
+WorkingDirectory=/opt/tcm-ai/api
+Environment=PYTHONPATH=/opt/tcm-ai:/opt/tcm-ai/core:/opt/tcm-ai/services:/opt/tcm-ai/database
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /opt/tcm-ai/api/main.py
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tcm-ai
+
+# 安全配置
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/tcm-ai/data /opt/tcm-ai/logs /opt/tcm-ai/backups /tmp
+PrivateTmp=yes
+
+# 资源限制
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# 健康检查 (暂时禁用)
+# ExecStartPost=/bin/sleep 5
+# ExecStartPost=/bin/bash -c 'curl -f http://localhost:8000/debug_status || exit 1'
+
+[Install]
+WantedBy=multi-user.target
+Alias=tcm-ai.service
