@@ -499,16 +499,25 @@ setTimeout(function() {
 
 ### Git版本管理最佳实践
 
-**开发前准备**:
-```bash
-# 每次重要修改前创建备份分支
-git checkout -b backup-$(date +%Y%m%d-%H%M%S)
-git add .
-git commit -m "备份：修改前快照"
+**自动化Git工作流程**:
+Claude将在修改重要文件前自动执行以下操作：
 
-# 回到主分支进行开发
-git checkout master
+```bash
+# 1. 自动备份要修改的文件
+git add <specific-file-to-modify>
+git commit -m "自动备份：修改 <filename> 前快照"
+
+# 2. 修改完成后自动提交
+git add <modified-files>
+git commit -m "具体的修复说明 + 生成标识"
 ```
+
+**自动备份规则**:
+- HTML/JavaScript文件：始终备份
+- Python核心文件：始终备份
+- 配置文件：始终备份
+- 缓存/日志文件：不备份
+- 临时文件：不备份
 
 **修改过程中**:
 ```bash
