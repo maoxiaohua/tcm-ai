@@ -1208,10 +1208,20 @@
             nodeElement.style.left = `${node.x}px`;
             nodeElement.style.top = `${node.y}px`;
             
+            // 构建节点内容，支持相关症状显示
+            let nodeContent = node.description || '';
+            if (node.relatedSymptoms && node.relatedSymptoms.length > 0) {
+                nodeContent = `${nodeContent}
+                    <div class="related-symptoms">
+                        <div class="symptoms-label">相关症状:</div>
+                        <div class="symptoms-list">${node.relatedSymptoms.join(', ')}</div>
+                    </div>`;
+            }
+            
             nodeElement.innerHTML = `
                 <button class="delete-btn" onclick="deleteNodeById('${node.id}')">×</button>
                 <div class="node-title">${node.name}</div>
-                <div class="node-content">${node.description || ''}</div>
+                <div class="node-content">${nodeContent}</div>
             `;
             
             // 添加点击事件
@@ -1609,6 +1619,8 @@
 
         // 将症状合并到现有节点
         function mergeSymptomToNode(targetNode, newSymptom, description) {
+            console.log(`开始合并症状: ${newSymptom} -> ${targetNode.name}`);
+            
             // 更新节点内容，将新症状添加到描述中
             if (!targetNode.relatedSymptoms) {
                 targetNode.relatedSymptoms = [];
@@ -1618,13 +1630,15 @@
             if (!targetNode.relatedSymptoms.includes(newSymptom)) {
                 targetNode.relatedSymptoms.push(newSymptom);
                 
+                console.log(`症状合并成功，当前相关症状:`, targetNode.relatedSymptoms);
+                
                 // 更新节点显示
                 updateNodeDisplay(targetNode);
                 
                 // 显示合并成功消息
                 showResult('成功', `✅ 已将"${newSymptom}"合并到"${targetNode.name}"症状群`, 'success');
                 
-                console.log(`症状合并成功: ${newSymptom} -> ${targetNode.name}`, targetNode.relatedSymptoms);
+                console.log(`节点显示更新完成，目标节点:`, targetNode);
             } else {
                 showResult('提示', `"${newSymptom}"已存在于"${targetNode.name}"症状群中`, 'info');
             }
@@ -1638,20 +1652,17 @@
             const contentDiv = nodeElement.querySelector('.node-content');
             if (!contentDiv) return;
             
-            let displayContent = `<div class="node-title">${node.name}</div>`;
-            
+            // 使用与renderNode相同的逻辑
+            let nodeContent = node.description || '';
             if (node.relatedSymptoms && node.relatedSymptoms.length > 0) {
-                displayContent += `<div class="related-symptoms">
-                    <div class="symptoms-label">相关症状:</div>
-                    <div class="symptoms-list">${node.relatedSymptoms.join(', ')}</div>
-                </div>`;
+                nodeContent = `${nodeContent}
+                    <div class="related-symptoms">
+                        <div class="symptoms-label">相关症状:</div>
+                        <div class="symptoms-list">${node.relatedSymptoms.join(', ')}</div>
+                    </div>`;
             }
             
-            if (node.description && node.description !== node.name) {
-                displayContent += `<div class="node-desc">${node.description}</div>`;
-            }
-            
-            contentDiv.innerHTML = displayContent;
+            contentDiv.innerHTML = nodeContent;
         }
 
         // 更新节点拖拽后重绘连接线
