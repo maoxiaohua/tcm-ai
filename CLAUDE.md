@@ -1,0 +1,569 @@
+# TCM-AI 中医智能诊断系统
+
+## 项目概览
+
+TCM-AI是一个基于人工智能的中医智能诊断助手系统，集成了传统中医理论与现代AI技术。系统支持智能问诊、证候分析、方剂推荐、医生审查、处方管理和完整的医患服务闭环。
+
+### 核心功能
+- **智能问诊**: AI驱动的症状分析和中医证候诊断
+- **多医生人格**: 集成张仲景、叶天士、李东垣、郑钦安、刘渡舟五大名医思维模式  
+- **方剂分析**: 君臣佐使智能分析，包含136种中药材数据库
+- **医生门户**: 完整的医生注册、登录、处方审查工作流
+- **处方管理**: 从AI生成到医生审查到患者确认的完整闭环
+- **多模态支持**: 舌象、面象图片分析
+- **安全防护**: 医疗安全检查、症状编造检测、西药过滤
+- **支付集成**: 支持微信、支付宝支付，代煎服务订单管理
+
+## 技术栈
+
+### 后端技术
+- **Web框架**: FastAPI 0.104.1 + Uvicorn 0.24.0
+- **AI模型**: 阿里云Dashscope (通义千问) 1.14.1
+- **数据库**: SQLite (主数据库) + PostgreSQL (向量数据库, 可选)
+- **向量检索**: FAISS 1.7.4 + pgvector 0.7.4
+- **图像处理**: PIL (Pillow) 10.1.0
+- **文本处理**: jieba 0.42.1 (中文分词)
+- **HTTP客户端**: requests 2.31.0
+
+### 前端技术  
+- **原生HTML/CSS/JavaScript**: 响应式设计
+- **UI框架**: 无外部依赖，自定义样式
+- **图表**: 原生Canvas/SVG
+- **移动端优化**: PWA支持, 微信分享优化
+
+### 开发工具
+- **测试框架**: pytest 7.4.3 + pytest-asyncio 0.21.1
+- **代码质量**: 内置医疗安全检查器
+- **性能监控**: psutil 5.9.6 系统监控
+- **部署**: systemd + nginx配置
+
+## 命令和脚本
+
+### 启动服务
+```bash
+# 开发环境启动
+python api/main.py
+
+# 生产环境启动 (systemd)
+systemctl start tcm-ai
+systemctl enable tcm-ai
+
+# 测试环境启动
+python api/main_test_8002.py
+```
+
+### 测试命令
+```bash
+# 运行所有测试
+pytest
+
+# 运行冒烟测试
+pytest tests/smoke/ -v
+
+# 运行回归测试
+pytest -m regression
+
+# 运行特定测试
+pytest tests/test_herb_function_regression.py
+```
+
+### 数据库操作
+```bash
+# 数据库迁移
+sqlite3 data/user_history.sqlite < database/migrations/002_new_architecture.sql
+
+# 创建管理员用户
+python create_admin_user.py
+
+# 数据库备份
+sqlite3 data/user_history.sqlite ".backup backup_$(date +%Y%m%d_%H%M%S).db"
+```
+
+### 性能监控
+```bash
+# 系统监控脚本
+bash scripts/monitor_competition.sh
+
+# 安全检查
+bash scripts/quick_security.sh
+
+# 预热脚本
+bash scripts/warmup_for_competition.sh
+```
+
+## 代码风格和标准
+
+### Python代码规范
+- **编码**: UTF-8, `#!/usr/bin/env python3`
+- **文档字符串**: 三引号注释，说明函数功能
+- **类型提示**: 使用typing模块，Optional, List, Dict等
+- **错误处理**: 使用try-except，记录详细日志
+- **变量命名**: snake_case (函数/变量), PascalCase (类)
+
+### 医疗安全标准
+- **症状验证**: 严禁编造患者未描述的症状细节
+- **西药过滤**: 自动检测和过滤西药推荐
+- **舌象脉象**: 无图片时不得编造具体描述
+- **安全提示**: 所有诊断建议必须包含"仅供参考"声明
+
+### API设计规范
+- **RESTful**: 遵循REST设计原则
+- **统一响应**: `{"success": bool, "message": str, "data": any}`
+- **错误处理**: HTTPException + 详细错误信息
+- **版本控制**: 数据库记录版本字段，审计追踪
+
+## 架构模式
+
+### 分层架构
+```
+api/                    # API层 (FastAPI路由和控制器)
+├── main.py            # 主应用入口
+├── routes/            # 路由模块 (处方、医生、支付、代煎)
+├── processors/        # 业务处理器 (聊天、图像、安全检查)
+└── services/          # 服务层包装器
+
+core/                   # 核心业务层
+├── prescription/      # 处方分析和方剂系统
+├── doctor_system/     # 医生人格和思维模式
+├── knowledge_retrieval/ # 知识检索和RAG系统
+├── security/          # 安全和权限管理
+└── cache_system/      # 智能缓存系统
+
+services/              # 服务层 (业务逻辑)
+├── medical_diagnosis_controller.py  # 诊疗控制器
+├── multimodal_processor.py         # 多模态处理
+└── famous_doctor_learning_system.py # 名医学习系统
+
+database/              # 数据层
+├── models/            # 数据模型
+├── migrations/        # 数据库迁移
+└── connection_pool.py # 连接池管理
+
+static/                # 前端资源
+├── index_v2.html      # 患者端主界面
+├── doctor_portal.html # 医生端门户
+└── patient/           # 患者端页面
+```
+
+### 设计模式
+- **依赖注入**: FastAPI Depends用于权限验证
+- **工厂模式**: 医生人格创建和LLM服务包装
+- **策略模式**: 不同医生的诊疗策略  
+- **观察者模式**: 处方状态变更审计日志
+- **单例模式**: 缓存系统和会话管理器
+
+## 测试理念
+
+### 测试分层
+- **单元测试** (`tests/unit/`): 核心算法和业务逻辑
+- **集成测试** (`tests/integration/`): 服务间交互和数据流
+- **端到端测试** (`tests/e2e/`): 完整用户工作流
+- **冒烟测试** (`tests/smoke/`): 部署后快速健康检查
+
+### 测试重点
+- **医疗安全**: 症状编造检测, 西药过滤验证
+- **回归测试**: 防止功能退化，确保系统稳定性
+- **性能测试**: 高并发下的响应时间和资源使用
+- **多模态测试**: 图像上传和分析功能验证
+
+### 测试数据
+- 测试文件统一存放在 `template_files/` 目录
+- 使用真实症状案例，确保诊断准确性
+- 包含五大医家的典型诊疗场景测试
+
+## 数据库模式
+
+### 主要表结构
+
+#### 用户系统
+```sql
+users_new              # 统一用户表 (患者、医生、管理员)
+├── uuid               # 全局唯一标识
+├── user_type          # 用户类型 (patient/doctor/admin)
+├── phone/email        # 联系方式
+└── status             # 账户状态
+
+patients_new           # 患者详细信息
+doctors_new            # 医生详细信息 (执业证号、专科等)
+```
+
+#### 诊疗系统
+```sql
+consultations_new      # 问诊记录
+├── uuid               # 问诊唯一标识  
+├── patient_id         # 患者ID
+├── symptoms_analysis  # 症状分析 (JSON)
+├── tcm_syndrome       # 中医证候
+└── conversation_log   # 对话记录 (JSON)
+
+prescriptions_new      # 处方管理
+├── consultation_id    # 关联问诊记录
+├── herbs              # 方剂内容
+├── status             # 处方状态流转
+├── reviewed_by        # 医生审查信息
+└── version            # 版本控制
+```
+
+#### 订单系统
+```sql
+orders_new             # 订单管理
+├── prescription_id    # 关联处方
+├── total_amount       # 订单金额
+├── needs_decoction    # 代煎服务
+└── shipping_address   # 配送信息 (JSON)
+
+payments_new           # 支付管理
+└── decoction_orders   # 代煎订单
+```
+
+#### 审计系统
+```sql
+audit_logs             # 操作审计
+security_events        # 安全事件
+user_sessions          # 会话管理
+system_settings        # 系统配置
+```
+
+### 数据完整性
+- **外键约束**: 确保数据关系完整性
+- **检查约束**: 状态枚举、金额非负等业务规则
+- **触发器**: 自动更新时间戳、版本控制、审计日志
+- **索引优化**: 查询性能优化，复合索引设计
+
+## 安全考量
+
+### 医疗安全
+- **症状编造检测**: 实时检查AI是否添加患者未描述的症状
+- **西药过滤系统**: 自动识别和过滤西药名称
+- **诊断责任声明**: 所有建议包含"仅供参考，建议面诊"
+- **舌象脉象验证**: 无图像时禁止编造具体描述
+
+### 系统安全
+- **RBAC权限系统**: 基于角色的访问控制 (患者/医生/管理员)
+- **会话管理**: JWT令牌 + SQLite会话存储
+- **安全审计**: 完整的操作日志和安全事件记录
+- **输入验证**: 严格的参数验证和SQL注入防护
+
+### 数据安全
+- **敏感信息保护**: 密码哈希存储，敏感配置加密
+- **数据隔离**: 患者数据访问权限控制
+- **审计追踪**: 所有数据变更记录操作人和时间
+- **备份策略**: 自动化数据库备份和恢复机制
+
+## 部署与基础设施
+
+### 生产环境部署
+```bash
+# systemd服务配置
+/etc/systemd/system/tcm-ai.service
+
+# nginx反向代理配置  
+/etc/nginx/sites-available/tcm-ai.conf
+
+# 服务管理
+systemctl start tcm-ai
+systemctl enable tcm-ai
+systemctl status tcm-ai
+```
+
+### 环境配置
+- **端口**: 8000 (开发), 8002 (测试)
+- **数据库路径**: `/opt/tcm-ai/data/`
+- **日志路径**: `/opt/tcm-ai/logs/` + `api.log`
+- **静态资源**: `/opt/tcm-ai/static/`
+
+### 依赖服务
+- **阿里云Dashscope**: AI模型服务 (必需)
+- **PostgreSQL**: 向量数据库 (可选，FAISS为备选)
+- **Redis**: 会话缓存 (可选，SQLite为备选) 
+- **nginx**: 反向代理和静态资源服务
+
+## 常见陷阱
+
+### 开发陷阱
+1. **症状编造**: AI容易从"便秘"推测"大便干结如栗"，需严格检测
+2. **西药泄露**: 知识库可能包含西药，需实时过滤
+3. **循环导入**: 模块间依赖需注意import顺序
+4. **数据库锁**: SQLite并发访问需要适当的连接池管理
+
+### 部署陷阱
+1. **API密钥泄露**: Dashscope密钥不能硬编码
+2. **文件权限**: SQLite数据库文件需要正确的读写权限  
+3. **静态资源**: nginx配置需要正确的静态文件路径
+4. **内存泄露**: 大量会话和缓存可能导致内存问题
+
+### 业务陷阱
+1. **处方状态不一致**: 状态流转需要原子性操作
+2. **医生权限混乱**: RBAC系统角色分配需要严格验证
+3. **对话上下文丢失**: conversation_id管理不当
+4. **图像分析失败**: 多模态处理需要异常处理
+
+## 性能指南
+
+### 缓存策略
+- **智能缓存** (`core/cache_system/`): 基于症状相似度的缓存命中
+- **数据库查询缓存**: 常用方剂和药材信息缓存
+- **会话缓存**: 活跃会话内存存储，过期自动清理
+- **静态资源缓存**: nginx配置长期缓存
+
+### 查询优化
+- **数据库索引**: 复合索引优化高频查询
+- **分页查询**: 处方列表和历史记录分页加载  
+- **异步处理**: AI调用和图像分析异步处理
+- **连接池**: 数据库连接复用，避免频繁连接
+
+### 性能监控
+```python
+# 系统状态检查
+GET /debug_status
+
+# 缓存命中率
+cache_system.get_cache_stats()
+
+# 数据库性能
+database_index_optimizer.analyze_query_performance()
+```
+
+## 调试与开发
+
+### 开发环境设置
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 环境变量配置
+export DASHSCOPE_API_KEY="your_api_key"  
+export TCM_DEBUG_MODE=true
+
+# 启动开发服务器
+python api/main.py
+```
+
+### 调试工具
+- **日志系统**: 详细的调试日志 (`api.log`)
+- **状态端点**: `/debug_status` 实时系统状态
+- **测试数据**: `template_files/` 目录包含测试用例
+- **对话日志**: `api/conversation_logs/` 保存完整对话记录
+
+### 常用调试命令
+```bash
+# 查看实时日志
+tail -f api.log
+
+# 检查服务状态  
+curl localhost:8000/debug_status
+
+# 测试特定医生
+pytest tests/integration/test_doctor_personalization.py::test_zhang_zhongjing
+
+# 验证安全功能
+python template_files/test_prescription_format.py
+```
+
+## 外部依赖
+
+### 必需依赖
+- **阿里云Dashscope API**: 核心AI模型服务
+  - 配置: `AI_CONFIG.dashscope_api_key`
+  - 模型: qwen-max, qwen-vl-plus (图像分析)
+  - 限制: API调用频率限制
+
+### 可选依赖  
+- **PostgreSQL + pgvector**: 高性能向量检索
+  - 备选: FAISS本地向量数据库
+  - 配置: `DATABASE_CONFIG.postgres_*`
+
+### 外部服务集成
+- **微信支付**: 处方支付功能
+- **支付宝支付**: 多支付渠道支持  
+- **代煎服务商**: 第三方代煎API集成
+- **短信服务**: 处方状态通知 (可选)
+
+## 文档标准
+
+### 代码文档
+- **模块文档**: 每个Python文件顶部包含功能说明
+- **函数文档**: 参数、返回值、异常说明
+- **类文档**: 用途、关键方法、使用示例
+- **配置文档**: 所有配置项在 `config/settings.py` 集中管理
+
+### API文档
+- **自动生成**: FastAPI自动生成OpenAPI文档
+- **访问地址**: `http://localhost:8000/docs`
+- **接口说明**: 详细的请求/响应示例
+- **错误码**: 标准HTTP状态码 + 业务错误码
+
+### 变更文档
+- **数据库迁移**: `database/migrations/` SQL文件记录架构变更
+- **功能变更**: 重大变更记录在 `docs/` 目录
+- **安全更新**: 安全相关修改需要详细说明
+
+### 部署文档
+- **服务配置**: systemd和nginx配置文件
+- **环境要求**: Python版本、系统依赖说明
+- **监控指标**: 关键性能指标和告警阈值
+- **故障排除**: 常见问题解决方案
+
+## 开发工作流
+
+### 功能开发
+1. **需求分析**: 理解中医业务需求和安全要求
+2. **设计评审**: 架构设计符合分层原则
+3. **编码实现**: 遵循代码规范，严格测试
+4. **安全检查**: 医疗安全和系统安全双重验证
+5. **性能测试**: 确保高并发下系统稳定性
+
+### 测试策略
+1. **先写测试**: TDD方式开发核心功能
+2. **安全先行**: 每个功能都要通过安全检查
+3. **回归保护**: 重要功能变更必须有回归测试
+4. **性能基准**: 关键路径性能不能回退
+
+### 发布流程
+1. **代码审查**: 多人review，重点关注医疗安全
+2. **全量测试**: 运行完整测试套件
+3. **预发布验证**: 生产环境数据验证
+4. **灰度发布**: 逐步放量，监控关键指标
+5. **回滚准备**: 快速回滚机制和数据恢复预案
+
+## 常见问题及解决方案
+
+### JavaScript按钮无响应问题
+
+**问题描述**: 页面加载正常，但所有按钮点击无反应，浏览器控制台显示JavaScript语法错误。
+
+**常见错误类型**:
+1. `Uncaught SyntaxError: Unexpected token 'catch'` - 缺少对应的try语句
+2. `Uncaught SyntaxError: Identifier 'diseaseName' has already been declared` - 变量重复声明
+
+**标准解决流程**:
+1. **语法错误检查**
+   ```bash
+   # 在浏览器F12控制台查看具体错误信息
+   # 定位到具体的行号和错误类型
+   ```
+
+2. **try-catch结构修复**
+   ```javascript
+   // 错误示例：缺少try
+   function someFunction() {
+       // 一些代码
+   } catch (error) {
+       console.error('错误:', error);
+   }
+
+   // 正确示例：添加try
+   function someFunction() {
+       try {
+           // 一些代码
+       } catch (error) {
+           console.error('错误:', error);
+       }
+   }
+   ```
+
+3. **变量重复声明修复**
+   ```javascript
+   // 错误示例：多个函数中重复声明同名变量
+   function func1() {
+       const diseaseName = getValue();
+   }
+   function func2() {
+       const diseaseName = getValue(); // 重复声明错误
+   }
+
+   // 正确解决方案：使用全局辅助函数
+   function getCurrentDiseaseName() {
+       return document.getElementById('diseaseName')?.value?.trim() || '';
+   }
+   
+   function func1() {
+       // 直接使用getCurrentDiseaseName()，不声明局部变量
+       const name = getCurrentDiseaseName();
+   }
+   ```
+
+**紧急修复方案**:
+如果问题复杂，可以在文件末尾添加强制事件绑定：
+```javascript
+// 紧急修复：强制重新绑定主要按钮事件
+setTimeout(function() {
+    const generateBtn = document.getElementById('generateBtn');
+    if (generateBtn) {
+        generateBtn.onclick = function() {
+            generateAITree();
+        };
+    }
+}, 1000);
+```
+
+### Git版本管理最佳实践
+
+**开发前准备**:
+```bash
+# 每次重要修改前创建备份分支
+git checkout -b backup-$(date +%Y%m%d-%H%M%S)
+git add .
+git commit -m "备份：修改前快照"
+
+# 回到主分支进行开发
+git checkout master
+```
+
+**修改过程中**:
+```bash
+# 分步骤提交，便于回滚
+git add specific_file.html
+git commit -m "修复: 添加missing try语句"
+
+git add specific_file.html  
+git commit -m "修复: 解决diseaseName重复声明问题"
+```
+
+**紧急回滚**:
+```bash
+# 查看最近的提交
+git log --oneline -10
+
+# 回滚到指定提交
+git reset --hard <commit-hash>
+
+# 或回滚到最近的工作状态
+git checkout backup-<timestamp>
+```
+
+**文件级别的快速备份**:
+```bash
+# 修改重要文件前创建备份
+cp static/decision_tree_visual_builder.html static/decision_tree_visual_builder.html.backup
+
+# 出现问题时快速恢复
+mv static/decision_tree_visual_builder.html.backup static/decision_tree_visual_builder.html
+```
+
+### 调试工作流程
+
+**标准调试步骤**:
+1. **创建简化测试版本** - 验证基础功能是否正常
+2. **定位具体错误** - 使用浏览器F12控制台
+3. **分步骤修复** - 每次只修复一个问题
+4. **验证修复效果** - 确保修复不引入新问题
+5. **提交版本控制** - 记录修复过程
+
+**会话中断恢复指南**:
+1. **检查CLAUDE.md** - 查看最新的已知问题和解决方案
+2. **查看git历史** - 了解最近的修改记录
+3. **运行基础测试** - 验证当前系统状态
+4. **查看控制台错误** - 识别当前存在的问题
+
+**预防措施**:
+- 重要修改前必须创建git备份
+- 复杂功能分步骤开发和提交
+- 保持CLAUDE.md文档的更新
+- 记录每次问题的根本原因和解决方案
+
+---
+
+*最后更新: 2025-01-09*  
+*文档版本: 2.0*  
+*维护人员: TCM-AI开发团队*
