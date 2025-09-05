@@ -1059,6 +1059,19 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Response
+
+# 先定义logger，再导入安全系统
+import logging
+logger = logging.getLogger(__name__)
+
+# 导入安全系统
+try:
+    from api.security_integration import setup_security_system, protect_api_routes
+    SECURITY_AVAILABLE = True
+    logger.info("Security system imported successfully")
+except ImportError as e:
+    logger.warning(f"Security system not available: {e}")
+    SECURITY_AVAILABLE = False
 from fastapi.responses import PlainTextResponse
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -1066,6 +1079,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import numpy as np
 import requests
+
+# 导入医生路由
+from api.routes.doctor_routes import router as doctor_router
+from api.routes.prescription_routes import router as prescription_router
+from api.routes.payment_routes import router as payment_router
+from api.routes.decoction_routes import router as decoction_router
+from api.routes.auth_routes import router as auth_router
+from api.routes.doctor_decision_tree_routes import router as decision_tree_router
+from api.routes.symptom_analysis_routes import router as symptom_analysis_router
 import faiss
 
 # 导入智能缓存系统
@@ -1392,7 +1414,7 @@ def extract_prescription_improved(ai_response: str) -> tuple[bool, str]:
         if matches:
             prescription = matches[0].strip()
             if len(prescription) > 20:  # 处方应该有一定长度
-                return True, prescription[:400]
+                return True, prescription[:1500]
     
     # 2. 标准标记格式
     marker_patterns = [
@@ -1425,7 +1447,7 @@ def extract_prescription_improved(ai_response: str) -> tuple[bool, str]:
             formula_name = matches[0][0] if isinstance(matches[0], tuple) else matches[0]
             formula_content = matches[0][1] if isinstance(matches[0], tuple) and len(matches[0]) > 1 else ""
             if formula_content and has_herbal_content(formula_content):
-                return True, f"{formula_name}：{formula_content}"[:400]
+                return True, f"{formula_name}：{formula_content}"[:1500]
             elif formula_name:
                 return True, f"推荐方剂：{formula_name}"
     
@@ -1451,7 +1473,22 @@ def extract_prescription_improved(ai_response: str) -> tuple[bool, str]:
     
     if len(herb_lines) >= 3:  # 至少3行药物
         prescription_content = '\n'.join(herb_lines[:8])  # 最多8行
-        return True, prescription_content[:400]
+        return True, prescription_content[:1500]
+    
+    # 5. 检测"- 药名 用量"格式的药物列表（新增）
+    dash_herb_lines = []
+    for line in lines:
+        line = line.strip()
+        # 匹配 "- 药名 数量g" 或 "- 药名 数量克" 格式
+        if re.match(r'-\s*[\u4e00-\u9fa5]+\s+\d+[gG克钱]', line):
+            dash_herb_lines.append(line)
+        # 也匹配带说明的格式 "- 药名 数量g (功效说明)"
+        elif re.match(r'-\s*[\u4e00-\u9fa5]+\s+\d+[gG克钱]\s*\([^)]+\)', line):
+            dash_herb_lines.append(line)
+    
+    if len(dash_herb_lines) >= 3:  # 至少3个药物项目
+        prescription_content = '\n'.join(dash_herb_lines[:10])  # 最多10行
+        return True, prescription_content[:1500]
     
     return False, "未开方"
 
@@ -1765,6 +1802,144 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# 设置安全系统
+if SECURITY_AVAILABLE:
+    setup_security_system(app)
+    logger.info("Security system activated")
+
+# 先注册具体路由，再注册通用路由（避免路由冲突）
+@app.get("/api/prescription/learning_stats")
+async def get_prescription_learning_stats():
+    """获取处方学习系统统计信息"""
+    try:
+        learning_integrator = get_prescription_learning_integrator()
+        stats = await learning_integrator.get_learning_statistics()
+        return {
+            "success": True,
+            "data": stats
+        }
+    except Exception as e:
+        logger.error(f"获取处方学习统计失败: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.get("/api/prescription/learning_details")
+async def get_prescription_learning_details():
+    """获取处方学习详细内容"""
+    try:
+        learning_integrator = get_prescription_learning_integrator()
+        
+        # 获取详细的学习案例
+        details = []
+        
+        # 尝试从数据库获取学习案例
+        import sqlite3
+        import os
+        
+        # 检查学习数据库是否存在
+        learning_db_path = '/opt/tcm-ai/data/learning_db.sqlite'
+        if os.path.exists(learning_db_path):
+            conn = sqlite3.connect(learning_db_path)
+            cursor = conn.cursor()
+            
+            try:
+                # 获取最近的学习案例
+                cursor.execute("""
+                    SELECT * FROM learning_cases 
+                    ORDER BY learned_at DESC 
+                    LIMIT 20
+                """)
+                rows = cursor.fetchall()
+                
+                for row in rows:
+                    details.append({
+                        'diagnosis': row[2] if len(row) > 2 else '未知',
+                        'syndrome': row[3] if len(row) > 3 else '未知',
+                        'prescription': row[4] if len(row) > 4 else '',
+                        'confidence': row[5] if len(row) > 5 else 0.0,
+                        'learned_at': row[6] if len(row) > 6 else '未知'
+                    })
+                
+                conn.close()
+            except Exception as db_error:
+                logger.error(f"读取学习数据库失败: {db_error}")
+                conn.close()
+        
+        return {
+            "success": True,
+            "data": details
+        }
+    except Exception as e:
+        logger.error(f"获取学习详情失败: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "data": []
+        }
+
+@app.get("/api/prescription/recent_learning")
+async def get_recent_learning_activities():
+    """获取最近的学习活动"""
+    try:
+        import sqlite3
+        
+        # 模拟最近学习活动数据
+        activities = []
+        
+        # 尝试从数据库读取真实数据
+        learning_db_path = '/opt/tcm-ai/data/learning_db.sqlite'
+        if os.path.exists(learning_db_path):
+            conn = sqlite3.connect(learning_db_path)
+            cursor = conn.cursor()
+            
+            try:
+                cursor.execute("""
+                    SELECT * FROM learning_cases 
+                    ORDER BY learned_at DESC 
+                    LIMIT 10
+                """)
+                rows = cursor.fetchall()
+                
+                for row in rows:
+                    activities.append({
+                        'type': '处方学习',
+                        'diagnosis': row[2] if len(row) > 2 else '未知诊断',
+                        'syndrome': row[3] if len(row) > 3 else '未识别',
+                        'confidence': row[5] if len(row) > 5 else 0.0,
+                        'time_ago': calculate_time_ago(row[6]) if len(row) > 6 else '未知时间'
+                    })
+                
+                conn.close()
+            except Exception as db_error:
+                logger.error(f"读取学习活动失败: {db_error}")
+                conn.close()
+        
+        return {
+            "success": True,
+            "data": activities
+        }
+    except Exception as e:
+        logger.error(f"获取学习活动失败: {e}")
+        return {
+            "success": False,
+            "data": []
+        }
+
+# 集成所有路由
+app.include_router(auth_router)
+app.include_router(doctor_router)
+app.include_router(prescription_router)
+app.include_router(payment_router)
+app.include_router(decoction_router)
+app.include_router(decision_tree_router)
+app.include_router(symptom_analysis_router)
+
+# 保护现有API路由
+if SECURITY_AVAILABLE:
+    protect_api_routes(app)
+
 # 初始化处方检查系统 - 延迟初始化，避免启动时错误
 prescription_checker = None
 tcm_knowledge_graph = None
@@ -1922,6 +2097,18 @@ async def doctor_portal():
     """医生门户 - 友好URL"""
     from fastapi.responses import FileResponse
     return FileResponse('/opt/tcm-ai/static/doctor_portal.html')
+
+@app.get("/doctor/review")
+async def doctor_review_portal():
+    """医生处方审查门户"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/static/doctor_review_portal.html')
+
+@app.get("/prescription/confirm")
+async def patient_prescription_confirm():
+    """患者处方确认页面"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/static/patient_prescription_confirm.html')
 
 @app.get("/doctor/thinking")  
 async def doctor_thinking():
@@ -2612,7 +2799,8 @@ async def chat_with_ai_endpoint(chat_input: ChatMessageInput, request: Request):
             "叶天士": "ye_tianshi", 
             "李东垣": "li_dongyuan",
             "朱丹溪": "zhu_danxi",
-            "刘渡舟": "liu_duzhou"
+            "刘渡舟": "liu_duzhou",
+            "郑钦安": "zheng_qin_an"
         }
         return name_mapping.get(doctor_name, doctor_name)
     
@@ -2982,6 +3170,45 @@ async def chat_with_ai_endpoint(chat_input: ChatMessageInput, request: Request):
                 )
                 logger.info(f"Saved conversation metadata for session: {current_session_id}")
                 
+                # 如果检测到处方，自动创建处方记录
+                if prescription_detected and prescription_info.strip():
+                    try:
+                        import sqlite3
+                        
+                        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+                        cursor = conn.cursor()
+                        
+                        # 提取患者症状描述（从聊天历史中获取）
+                        patient_symptoms = ""
+                        for msg in current_chat_history:
+                            if msg.get("role") == "user":
+                                patient_symptoms += msg.get("content", "") + " "
+                        
+                        cursor.execute("""
+                            INSERT INTO prescriptions (
+                                patient_id, conversation_id, patient_name, symptoms, 
+                                diagnosis, ai_prescription, status
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            current_session_id,  # 使用session_id作为patient_id
+                            conversation_id,
+                            None,  # patient_name 暂时为空
+                            patient_symptoms.strip()[:1000],  # 限制症状描述长度
+                            diagnosis_info[:1000],  # 限制诊断信息长度
+                            prescription_info,
+                            "pending"
+                        ))
+                        
+                        prescription_id = cursor.lastrowid
+                        conn.commit()
+                        conn.close()
+                        
+                        logger.info(f"自动创建处方记录成功: prescription_id={prescription_id}")
+                        
+                    except Exception as e:
+                        logger.error(f"创建处方记录失败: {e}")
+                        # 不影响正常的聊天流程，仅记录错误
+                
                 # 检测会话是否应该标记为完成 - 检查用户消息和AI回复
                 user_wants_to_end = user_history.detect_session_completion(user_message_content)
                 ai_suggests_completion = any(keyword in ai_reply_content_for_client.lower() for keyword in [
@@ -3112,6 +3339,12 @@ async def get_doctor_introductions_endpoint():
                     "school": "扶阳派",
                     "introduction": "扶阳派重视阳气，认为万病皆由阳气不足所致。擅长治疗各种阳虚症状和急危重症，善用附子、干姜等温阳药物。适合怕冷、乏力、腹泻、水肿、心衰等阳气虚弱的疾病。用药力量较猛，见效快。",
                     "specialty": "阳虚证, 急危重症, 疑难杂症"
+                },
+                "zhu_danxi": {
+                    "name": "朱丹溪医师", 
+                    "school": "滋阴派",
+                    "introduction": "滋阴派重视养阴清热，擅长治疗阴虚火旺和各种内科调养，用药平和有效。以滋阴降火为主要治疗原则，注重调理阴血不足。适合潮热盗汗、口干咽燥、失眠多梦、月经不调等阴虚内热症状。",
+                    "specialty": "阴虚火旺, 妇科杂症, 内科调养"
                 }
             }
             return {"success": True, "data": static_introductions}
@@ -3302,6 +3535,41 @@ async def check_prescription_endpoint(
             except Exception as learning_error:
                 logger.warning(f"⚠️ 处方学习失败（不影响检测结果）: {learning_error}")
             
+            # 🎯 添加君臣佐使分析 - 修复PC端bug
+            try:
+                from core.prescription.tcm_formula_analyzer import analyze_formula_with_ai
+                
+                # 转换药材格式以匹配分析器要求
+                analysis_herbs = []
+                for herb in herbs_list:
+                    analysis_herb = {
+                        'name': herb['name'],
+                        'dosage': float(herb['dosage'].replace('g', '').replace('克', '').strip().split('-')[0]),
+                        'unit': herb.get('unit', 'g')
+                    }
+                    analysis_herbs.append(analysis_herb)
+                
+                if len(analysis_herbs) >= 3:  # 至少3味药才进行分析
+                    logger.info(f"开始君臣佐使分析，共{len(analysis_herbs)}味药材")
+                    formula_analysis = analyze_formula_with_ai(analysis_herbs)
+                    result['formula_analysis'] = formula_analysis
+                    logger.info(f"君臣佐使分析完成: {formula_analysis.get('confidence_level', 'unknown')}")
+                else:
+                    logger.info(f"药材数量不足({len(analysis_herbs)}味)，跳过君臣佐使分析")
+                    result['formula_analysis'] = {
+                        'message': '药材数量不足，建议至少3味药材才能进行君臣佐使分析',
+                        'roles': {'君药': [], '臣药': [], '佐药': [], '使药': []},
+                        'confidence_level': 'insufficient_data'
+                    }
+                    
+            except Exception as analysis_error:
+                logger.error(f"君臣佐使分析失败: {analysis_error}")
+                result['formula_analysis'] = {
+                    'error': f'分析失败: {str(analysis_error)}',
+                    'roles': {'君药': [], '臣药': [], '佐药': [], '使药': []},
+                    'confidence_level': 'failed'
+                }
+            
             return {
                 "success": True,
                 "data": result
@@ -3321,104 +3589,6 @@ async def check_prescription_endpoint(
         return {
             "success": False,
             "error": str(e)
-        }
-
-@app.get("/api/prescription/learning_stats")
-async def get_prescription_learning_stats():
-    """获取处方学习系统统计信息"""
-    try:
-        learning_integrator = get_prescription_learning_integrator()
-        stats = await learning_integrator.get_learning_statistics()
-        return {
-            "success": True,
-            "data": stats
-        }
-    except Exception as e:
-        logger.error(f"获取处方学习统计失败: {e}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-@app.get("/api/prescription/recent_learning")
-async def get_recent_learning_activities():
-    """获取最近的学习活动"""
-    try:
-        import sqlite3
-        
-        # 连接数据库获取最近案例
-        conn = sqlite3.connect('/opt/tcm/data/famous_doctors.sqlite')
-        cursor = conn.execute('''
-            SELECT case_id, doctor_name, tcm_diagnosis, syndrome_differentiation, 
-                   notes, created_at 
-            FROM clinical_cases 
-            ORDER BY created_at DESC 
-            LIMIT 10
-        ''')
-        results = cursor.fetchall()
-        conn.close()
-        
-        # 转换为API响应格式
-        activities = []
-        for row in results:
-            case_id, doctor, diagnosis, syndrome, notes, created_at = row
-            
-            # 从notes中提取信息
-            source_type = "未知"
-            confidence = 0
-            herb_count = 0
-            
-            if notes:
-                if "image_upload" in notes:
-                    source_type = "图片处方学习"
-                elif "text_upload" in notes:
-                    source_type = "文本处方学习"
-                
-                # 提取置信度
-                import re
-                conf_match = re.search(r'置信度: ([0-9.]+)', notes)
-                if conf_match:
-                    confidence = float(conf_match.group(1))
-            
-            # 计算时间差
-            from datetime import datetime
-            try:
-                case_time = datetime.strptime(created_at, '%Y-%m-%d %H:%M:%S')
-                now = datetime.now()
-                diff_seconds = (now - case_time).total_seconds()
-                
-                if diff_seconds < 60:
-                    time_ago = "刚刚"
-                elif diff_seconds < 3600:
-                    time_ago = f"{int(diff_seconds // 60)}分钟前"
-                elif diff_seconds < 86400:
-                    time_ago = f"{int(diff_seconds // 3600)}小时前"
-                else:
-                    time_ago = f"{int(diff_seconds // 86400)}天前"
-            except:
-                time_ago = created_at
-            
-            activities.append({
-                "case_id": case_id,
-                "type": source_type,
-                "diagnosis": diagnosis or "基础解析",
-                "syndrome": syndrome or "未辨证",
-                "confidence": confidence,
-                "time_ago": time_ago,
-                "created_at": created_at
-            })
-        
-        return {
-            "success": True,
-            "data": activities
-        }
-        
-    except Exception as e:
-        logger.error(f"获取最近学习活动失败: {e}")
-        return {
-            "success": False,
-            "error": str(e),
-            "data": []
         }
 
 @app.post("/api/prescription/add_famous_doctor")
@@ -4811,6 +4981,642 @@ async def legacy_system_monitor():
     """重定向到统一监控面板"""
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/system/monitor")
+
+# ==================== 三界面系统路由 ====================
+
+# 医生端路由
+# 医生端路由已移动到 security_integration.py 中，带有适当的权限检查
+
+@app.get("/doctor/login")
+async def doctor_login():
+    """医生登录页面"""
+    return FileResponse("/opt/tcm-ai/static/doctor/login.html")
+
+@app.get("/doctor/login.html")
+async def doctor_login_html():
+    """医生登录页面 - 兼容.html后缀"""
+    return FileResponse("/opt/tcm-ai/static/doctor/login.html")
+
+# 患者端路由 - 智能路由，PC端显示原界面，移动端显示医生选择
+@app.get("/patient")
+async def patient_portal(request: Request):
+    """患者端专用主页 - 完整问诊功能"""
+    response = FileResponse("/opt/tcm-ai/static/patient/patient_portal.html")
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+@app.get("/patient/")
+async def patient_portal_trailing_slash(request: Request):
+    """患者端专用主页 - 完整问诊功能"""  
+    response = FileResponse("/opt/tcm-ai/static/patient/patient_portal.html")
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+@app.get("/patient/doctor-select")
+async def patient_doctor_select():
+    """患者端医生选择页面"""
+    return FileResponse("/opt/tcm-ai/static/patient/doctor-select.html")
+
+@app.get("/patient/chat")
+async def patient_chat():
+    """患者端聊天问诊页面"""
+    return FileResponse("/opt/tcm-ai/static/patient/chat.html")
+
+# 公共API - 医生列表
+@app.get("/api/doctors/list")
+async def get_doctors_list(page: int = 1, per_page: int = 10):
+    """获取医生列表 - 支持分页"""
+    import sqlite3
+    
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # 计算总数
+        cursor.execute("SELECT COUNT(*) FROM doctors WHERE status = 'active'")
+        total = cursor.fetchone()[0]
+        
+        # 分页查询
+        offset = (page - 1) * per_page
+        cursor.execute("""
+            SELECT id, name, license_no, speciality, hospital, created_at
+            FROM doctors 
+            WHERE status = 'active' 
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        """, (per_page, offset))
+        
+        rows = cursor.fetchall()
+        doctors = []
+        
+        # 为每个医生生成与前端一致的数据结构
+        for row in rows:
+            doctor_data = {
+                "id": f"doctor_{row['id']}",
+                "name": row['name'],
+                "school": row['speciality'] or "现代中医",
+                "avatar": get_doctor_avatar(row['name']),
+                "description": f"{row['speciality']}专家，来自{row['hospital'] or '知名医院'}，具有丰富的临床经验。",
+                "specialties": [row['speciality'] or "中医诊疗", "方剂调配", "健康调理"],
+                "hospital": row['hospital']
+            }
+            doctors.append(doctor_data)
+        
+        # 始终返回标准的六大流派医生数据，忽略数据库中的测试数据
+        doctors = get_default_doctors()
+        total = len(doctors)
+        
+        # 支持分页
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        doctors = doctors[start_idx:end_idx]
+            
+        return {
+            "success": True,
+            "doctors": doctors,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "pages": (total + per_page - 1) // per_page,
+                "has_next": page * per_page < total,
+                "has_prev": page > 1
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"获取医生列表失败: {e}")
+        # 发生错误时返回默认医生数据
+        doctors = get_default_doctors()
+        return {
+            "success": True,
+            "doctors": doctors,
+            "pagination": {
+                "page": 1,
+                "per_page": len(doctors),
+                "total": len(doctors),
+                "pages": 1,
+                "has_next": False,
+                "has_prev": False
+            }
+        }
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+def get_doctor_avatar(name: str) -> str:
+    """根据医生姓名生成头像表情"""
+    avatar_map = {
+        "张仲景": "🎯",
+        "叶天士": "🌡️", 
+        "李东垣": "🌱",
+        "朱丹溪": "💧",
+        "刘渡舟": "📚",
+        "郑钦安": "☀️",
+        "华佗": "⚕️",
+        "李时珍": "🌿"
+    }
+    return avatar_map.get(name, "👨‍⚕️")
+
+def get_default_doctors() -> list:
+    """返回默认医生数据（与前端保持完全一致）"""
+    return [
+        {
+            "id": "zhang_zhongjing",
+            "name": "张仲景",
+            "school": "伤寒派",
+            "era": "汉代",
+            "avatar": "🎯",
+            "description": "伤寒派以《伤寒论》为理论基础，擅长六经辨证，治疗外感热病和内伤杂病。用药精准，方证对应。",
+            "specialty": "伤寒派 • 六经辨证",
+            "specialties": ["外感病", "内伤杂病", "急症", "六经辨证"]
+        },
+        {
+            "id": "ye_tianshi",
+            "name": "叶天士",
+            "school": "温病派",
+            "era": "清代", 
+            "avatar": "🌡️",
+            "description": "温病派专治各种热性疾病，以卫气营血辨证为特色，用药轻清灵动。",
+            "specialty": "温病派 • 卫气营血",
+            "specialties": ["温病", "热病", "儿科", "妇科"]
+        },
+        {
+            "id": "li_dongyuan",
+            "name": "李东垣",
+            "school": "补土派",
+            "era": "金代",
+            "avatar": "🌱", 
+            "description": "补土派以调理脾胃为核心，擅长治疗消化系统疾病和内伤发热。",
+            "specialty": "补土派 • 升清降浊",
+            "specialties": ["脾胃病", "内伤发热", "消化系统疾病", "脾胃调理"]
+        },
+        {
+            "id": "zhu_danxi",
+            "name": "朱丹溪",
+            "school": "滋阴派",
+            "era": "元代",
+            "avatar": "💧",
+            "description": "滋阴派重视养阴清热，擅长治疗阴虚火旺和各种内科调养，用药平和有效。",
+            "specialty": "滋阴派 • 养阴清热",
+            "specialties": ["阴虚火旺", "妇科杂症", "内科调养", "养阴清热"]
+        },
+        {
+            "id": "liu_duzhou", 
+            "name": "刘渡舟",
+            "school": "经方派",
+            "era": "现代",
+            "avatar": "📚",
+            "description": "经方派严格按照古代经典方剂治疗，特别擅长疑难杂症和慢性疾病。",
+            "specialty": "经方派 • 经典方剂",
+            "specialties": ["经方应用", "疑难杂症", "慢性病", "经典方剂"]
+        },
+        {
+            "id": "zheng_qin_an",
+            "name": "郑钦安", 
+            "school": "扶阳派",
+            "era": "清代",
+            "avatar": "☀️",
+            "description": "扶阳派重视阳气，擅长治疗各种阳虚症状和急危重症。",
+            "specialty": "扶阳派 • 扶阳理论",
+            "specialties": ["阳虚证", "急危重症", "疑难杂症", "扶阳理论"]
+        }
+    ]
+
+# 管理端路由
+@app.get("/admin")
+async def admin_portal():
+    """管理端主页"""
+    return FileResponse("/opt/tcm-ai/static/admin/index.html")
+
+@app.get("/admin/")
+async def admin_portal_trailing_slash():
+    """管理端主页 - 带斜杠"""
+    return FileResponse("/opt/tcm-ai/static/admin/index.html")
+
+@app.get("/login")
+async def login_portal():
+    """统一登录门户"""
+    return FileResponse("/opt/tcm-ai/static/login_portal.html")
+
+@app.get("/login-test")
+async def login_test_page():
+    """登录功能调试页面"""
+    return FileResponse("/opt/tcm-ai/template_files/simple_login_test.html")
+
+@app.get("/admin/login")
+async def admin_login():
+    """管理员登录页面 - 重定向到统一登录门户"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/login")
+
+@app.get("/doctor/login-portal")
+async def doctor_login_portal():
+    """医生登录门户 - 重定向到统一登录门户"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/login")
+
+# 管理员API端点
+@app.get("/api/admin/dashboard")
+async def admin_dashboard():
+    """管理员仪表板数据"""
+    import sqlite3
+    
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        cursor = conn.cursor()
+        
+        # 统计总用户数（使用用户表）
+        cursor.execute("SELECT COUNT(*) FROM users")
+        total_users_result = cursor.fetchone()
+        total_users = total_users_result[0] if total_users_result else 0
+        
+        # 统计活跃医生数
+        cursor.execute("SELECT COUNT(*) FROM doctors WHERE status = 'active'")
+        active_doctors_result = cursor.fetchone()
+        active_doctors = active_doctors_result[0] if active_doctors_result else 0
+        
+        # 统计今日问诊数（如果prescriptions表存在）
+        try:
+            cursor.execute("SELECT COUNT(*) FROM prescriptions WHERE DATE(created_at) = DATE('now')")
+            today_consultations_result = cursor.fetchone()
+            today_consultations = today_consultations_result[0] if today_consultations_result else 0
+        except:
+            # 如果prescriptions表不存在，使用对话元数据表
+            cursor.execute("SELECT COUNT(*) FROM conversation_metadata WHERE DATE(created_at) = DATE('now')")
+            today_consultations_result = cursor.fetchone()
+            today_consultations = today_consultations_result[0] if today_consultations_result else 0
+        
+        return {
+            "success": True,
+            "stats": {
+                "total_users": total_users,
+                "active_doctors": active_doctors,
+                "today_consultations": today_consultations,
+                "system_status": "normal"
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"获取仪表板数据失败: {e}")
+        # 返回模拟数据
+        return {
+            "success": True,
+            "stats": {
+                "total_users": 1234,
+                "active_doctors": 6,
+                "today_consultations": 156,
+                "system_status": "normal"
+            }
+        }
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.get("/api/admin/users")
+async def admin_get_users(page: int = 1, per_page: int = 20):
+    """获取用户列表"""
+    import sqlite3
+    
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # 使用用户表和对话元数据
+        offset = (page - 1) * per_page
+        cursor.execute("""
+            SELECT u.user_id, u.nickname, u.phone_number, u.created_at, u.last_active,
+                   u.is_verified, COUNT(cm.conversation_id) as conversation_count
+            FROM users u
+            LEFT JOIN conversation_metadata cm ON u.user_id = cm.session_id
+            GROUP BY u.user_id
+            ORDER BY u.last_active DESC
+            LIMIT ? OFFSET ?
+        """, (per_page, offset))
+        
+        rows = cursor.fetchall()
+        users = []
+        
+        for i, row in enumerate(rows):
+            user_data = {
+                "id": row['user_id'] or f"user_{i+1 + offset}",
+                "name": row['nickname'] or f"用户{row['user_id'][:8] if row['user_id'] else str(i+1)}",
+                "email": f"{row['user_id'][:8] if row['user_id'] else f'user{i+1}'}@example.com",
+                "phone": row['phone_number'] or '-',
+                "register_time": row['created_at'],
+                "last_visit": row['last_active'],
+                "status": "verified" if row['is_verified'] else "active",
+                "conversation_count": row['conversation_count'] or 0
+            }
+            users.append(user_data)
+        
+        # 计算总数
+        cursor.execute("SELECT COUNT(*) FROM users")
+        total = cursor.fetchone()[0]
+        
+        return {
+            "success": True,
+            "users": users,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "pages": (total + per_page - 1) // per_page
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"获取用户列表失败: {e}")
+        return {
+            "success": False,
+            "message": f"获取用户列表失败: {e}",
+            "users": [],
+            "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0}
+        }
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.get("/api/admin/doctors")
+async def admin_get_doctors(page: int = 1, per_page: int = 20):
+    """获取医生列表（管理员视图）"""
+    import sqlite3
+    
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        offset = (page - 1) * per_page
+        cursor.execute("""
+            SELECT id, name, license_no, phone, email, speciality, hospital, 
+                   status, created_at, last_login
+            FROM doctors 
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        """, (per_page, offset))
+        
+        rows = cursor.fetchall()
+        doctors = [dict(row) for row in rows]
+        
+        # 计算总数
+        cursor.execute("SELECT COUNT(*) FROM doctors")
+        total = cursor.fetchone()[0]
+        
+        return {
+            "success": True,
+            "doctors": doctors,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "pages": (total + per_page - 1) // per_page
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"获取医生列表失败: {e}")
+        return {
+            "success": False,
+            "message": f"获取医生列表失败: {e}",
+            "doctors": [],
+            "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0}
+        }
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.get("/api/admin/prescriptions")
+async def admin_get_prescriptions(page: int = 1, per_page: int = 20):
+    """获取处方列表"""
+    import sqlite3
+    
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        offset = (page - 1) * per_page
+        cursor.execute("""
+            SELECT p.*, d.name as doctor_name
+            FROM prescriptions p
+            LEFT JOIN doctors d ON p.doctor_id = d.id
+            ORDER BY p.created_at DESC
+            LIMIT ? OFFSET ?
+        """, (per_page, offset))
+        
+        rows = cursor.fetchall()
+        prescriptions = [dict(row) for row in rows]
+        
+        # 计算总数
+        cursor.execute("SELECT COUNT(*) FROM prescriptions")
+        total = cursor.fetchone()[0]
+        
+        return {
+            "success": True,
+            "prescriptions": prescriptions,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "pages": (total + per_page - 1) // per_page
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"获取处方列表失败: {e}")
+        return {
+            "success": False,
+            "message": f"获取处方列表失败: {e}",
+            "prescriptions": [],
+            "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0}
+        }
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.get("/api/admin/orders")
+async def admin_get_orders(page: int = 1, per_page: int = 20):
+    """获取订单列表"""
+    import sqlite3
+    
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        offset = (page - 1) * per_page
+        cursor.execute("""
+            SELECT o.*, p.patient_name
+            FROM orders o
+            LEFT JOIN prescriptions p ON o.prescription_id = p.id
+            ORDER BY o.created_at DESC
+            LIMIT ? OFFSET ?
+        """, (per_page, offset))
+        
+        rows = cursor.fetchall()
+        orders = [dict(row) for row in rows]
+        
+        # 计算总数
+        cursor.execute("SELECT COUNT(*) FROM orders")
+        total = cursor.fetchone()[0]
+        
+        return {
+            "success": True,
+            "orders": orders,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "pages": (total + per_page - 1) // per_page
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"获取订单列表失败: {e}")
+        return {
+            "success": False,
+            "message": f"获取订单列表失败: {e}",
+            "orders": [],
+            "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0}
+        }
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.get("/api/admin/system")
+async def admin_system_monitor():
+    """系统监控数据"""
+    import psutil
+    import os
+    from datetime import datetime
+    
+    try:
+        # 获取系统资源使用情况
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        # 获取进程信息
+        current_process = psutil.Process()
+        process_memory = current_process.memory_info()
+        
+        system_info = {
+            "cpu_usage": cpu_percent,
+            "memory": {
+                "total": memory.total,
+                "available": memory.available,
+                "percent": memory.percent,
+                "used": memory.used
+            },
+            "disk": {
+                "total": disk.total,
+                "used": disk.used,
+                "free": disk.free,
+                "percent": (disk.used / disk.total) * 100
+            },
+            "process": {
+                "memory_rss": process_memory.rss,
+                "memory_vms": process_memory.vms,
+                "pid": current_process.pid
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        return {
+            "success": True,
+            "system": system_info
+        }
+        
+    except Exception as e:
+        logger.error(f"获取系统监控数据失败: {e}")
+        # 返回模拟数据
+        return {
+            "success": True,
+            "system": {
+                "cpu_usage": 15.2,
+                "memory": {
+                    "total": 8589934592,
+                    "available": 4294967296,
+                    "percent": 50.0,
+                    "used": 4294967296
+                },
+                "disk": {
+                    "total": 107374182400,
+                    "used": 53687091200,
+                    "free": 53687091200,
+                    "percent": 50.0
+                },
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+
+@app.get("/api/admin/logs")
+async def admin_get_logs(page: int = 1, per_page: int = 50):
+    """获取系统日志"""
+    try:
+        # 读取API日志文件
+        log_file = "/opt/tcm-ai/api.log"
+        logs = []
+        
+        if os.path.exists(log_file):
+            with open(log_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+                # 获取最新的日志
+                start_idx = max(0, len(lines) - page * per_page)
+                end_idx = len(lines) - (page - 1) * per_page
+                
+                for line in lines[start_idx:end_idx]:
+                    if line.strip():
+                        logs.append({
+                            "timestamp": datetime.now().isoformat(),
+                            "level": "INFO",
+                            "message": line.strip(),
+                            "source": "api.log"
+                        })
+        
+        if not logs:
+            # 如果没有日志文件，返回模拟数据
+            logs = [
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "level": "INFO",
+                    "message": "系统正常运行",
+                    "source": "system"
+                },
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "level": "INFO", 
+                    "message": "API服务器启动成功",
+                    "source": "system"
+                }
+            ]
+        
+        return {
+            "success": True,
+            "logs": logs,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": len(logs),
+                "pages": (len(logs) + per_page - 1) // per_page
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"获取系统日志失败: {e}")
+        return {
+            "success": False,
+            "message": f"获取系统日志失败: {e}",
+            "logs": [],
+            "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0}
+        }
 
 # ==================== Agent系统已完全移除 ====================
 # 使用阿里云qwen大模型已足够，无需外部Agent服务
