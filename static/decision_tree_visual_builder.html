@@ -1591,12 +1591,16 @@
                 for (const [clusterName, clusterData] of Object.entries(SYMPTOM_CLUSTER_TEMPLATES)) {
                     const mainDisease = clusterData.mainDisease;
                     const relatedSymptoms = clusterData.relatedSymptoms || [];
+                    const accompanyingSymptoms = clusterData.accompanyingSymptoms || [];
+                    const allClusterSymptoms = [...relatedSymptoms, ...accompanyingSymptoms];
                     
-                    console.log(`检查聚类 ${clusterName}: 主疾病=${mainDisease}, 相关症状=`, relatedSymptoms);
+                    console.log(`检查聚类 ${clusterName}: 主疾病=${mainDisease}`);
+                    console.log(`  相关症状=`, relatedSymptoms);
+                    console.log(`  伴随症状=`, accompanyingSymptoms);
                     
-                    // 如果选中节点是主疾病且新症状在相关列表中
+                    // 如果选中节点是主疾病且新症状在相关或伴随症状列表中
                     if ((selectedNode.name === mainDisease || selectedNode.name.includes(mainDisease)) 
-                        && relatedSymptoms.includes(newSymptom)) {
+                        && allClusterSymptoms.includes(newSymptom)) {
                         console.log(`✅ 基于聚类模板合并到选中节点: ${newSymptom} -> ${selectedNode.name}`);
                         return selectedNode;
                     }
@@ -1608,19 +1612,22 @@
             }
             
             // 第二优先级：基于症状聚类模板查找主症状
+            console.log(`检查第二优先级：症状聚类模板...`);
             for (const [clusterName, clusterData] of Object.entries(SYMPTOM_CLUSTER_TEMPLATES)) {
                 const mainDisease = clusterData.mainDisease;
                 const relatedSymptoms = clusterData.relatedSymptoms || [];
+                const accompanyingSymptoms = clusterData.accompanyingSymptoms || [];
+                const allClusterSymptoms = [...relatedSymptoms, ...accompanyingSymptoms];
                 
-                // 如果新症状在相关症状列表中，查找对应的主症状节点
-                if (relatedSymptoms.includes(newSymptom)) {
+                // 如果新症状在相关或伴随症状列表中，查找对应的主症状节点
+                if (allClusterSymptoms.includes(newSymptom)) {
                     const mainSymptomNode = nodes.find(node => 
                         node.type === 'symptom' && 
                         node !== selectedNode && // 排除已经检查过的选中节点
                         (node.name === mainDisease || node.name.includes(mainDisease))
                     );
                     if (mainSymptomNode) {
-                        console.log(`基于模板找到合并目标: ${newSymptom} -> ${mainSymptomNode.name}`);
+                        console.log(`✅ 基于模板找到合并目标: ${newSymptom} -> ${mainSymptomNode.name}`);
                         return mainSymptomNode;
                     }
                 }
@@ -1646,12 +1653,12 @@
             console.log(`  检查症状关联性: "${existingSymptom}" vs "${newSymptom}"`);
             
             const relationshipMap = {
-                '失眠': ['早醒', '多梦', '入睡困难', '睡眠浅', '易惊醒', '夜醒'],
-                '头痛': ['头胀', '头晕', '偏头痛', '太阳穴痛', '后脑痛'],
-                '胃痛': ['胃胀', '胃酸', '反酸', '嗳气', '胃脘痛', '胃部不适'],
-                '便秘': ['大便干燥', '排便困难', '大便干结', '便干如栗'],
-                '腹泻': ['便溏', '泄泻', '水泻', '大便稀薄'],
-                '咳嗽': ['咳痰', '干咳', '咳喘', '痰多', '喉痒']
+                '失眠': ['早醒', '多梦', '入睡困难', '睡眠浅', '易惊醒', '夜醒', '心烦', '健忘', '头晕', '疲乏', '精神不振'],
+                '头痛': ['头胀', '头晕', '偏头痛', '太阳穴痛', '后脑痛', '颈项强直', '恶心'],
+                '胃痛': ['胃胀', '胃酸', '反酸', '嗳气', '胃脘痛', '胃部不适', '食欲不振', '恶心', '呕吐'],
+                '便秘': ['大便干燥', '排便困难', '大便干结', '便干如栗', '腹胀', '口干'],
+                '腹泻': ['便溏', '泄泻', '水泻', '大便稀薄', '腹痛', '肠鸣', '里急后重'],
+                '咳嗽': ['咳痰', '干咳', '咳喘', '痰多', '喉痒', '胸闷', '气短']
             };
             
             // 检查双向关系
