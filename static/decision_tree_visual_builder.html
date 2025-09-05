@@ -585,7 +585,13 @@
 
         // 辅助函数：获取疾病名称
         function getCurrentDiseaseName() {
-            return document.getElementById('diseaseName')?.value?.trim() || '';
+            const value = document.getElementById('diseaseName')?.value?.trim() || '';
+            // 演示：添加输入验证
+            if (value && value.length < 2) {
+                console.warn('疾病名称过短，建议至少2个字符');
+                return '';
+            }
+            return value;
         }
 
         // 页面加载完成后初始化
