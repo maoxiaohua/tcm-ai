@@ -234,6 +234,35 @@
             word-break: break-word;
         }
 
+        /* 相关症状样式 */
+        .related-symptoms {
+            margin-top: 8px;
+            padding: 6px 8px;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 4px;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .symptoms-label {
+            font-size: 10px;
+            color: #3b82f6;
+            font-weight: 500;
+            margin-bottom: 3px;
+        }
+
+        .symptoms-list {
+            font-size: 10px;
+            color: #1e40af;
+            line-height: 1.3;
+        }
+
+        .node-desc {
+            margin-top: 5px;
+            font-size: 10px;
+            color: #9ca3af;
+            font-style: italic;
+        }
+
         .empty-canvas {
             display: flex;
             flex-direction: column;
@@ -1486,7 +1515,16 @@
                 return;
             }
             
-            // 计算新节点位置
+            // 智能症状合并：检查是否应该合并到现有症状群
+            if (nodeType === 'symptom') {
+                const mergeTarget = findSymptomMergeTarget(nodeName);
+                if (mergeTarget) {
+                    mergeSymptomToNode(mergeTarget, nodeName, description);
+                    return;
+                }
+            }
+            
+            // 如果不需要合并，创建新的独立节点
             const newX = selectedNode.x + 250;
             const newY = selectedNode.y + (Math.random() - 0.5) * 100; // 稍微随机偏移
             
@@ -1513,6 +1551,107 @@
             
             // 显示成功消息
             showResult('成功', `✅ 已添加"${nodeName}"到决策树`, 'success');
+        }
+
+        // 智能症状合并：查找应该合并的目标节点
+        function findSymptomMergeTarget(newSymptom) {
+            // 基于症状聚类模板查找主症状
+            for (const [clusterName, clusterData] of Object.entries(SYMPTOM_CLUSTER_TEMPLATES)) {
+                const mainDisease = clusterData.mainDisease;
+                const relatedSymptoms = clusterData.relatedSymptoms || [];
+                
+                // 如果新症状在相关症状列表中，查找对应的主症状节点
+                if (relatedSymptoms.includes(newSymptom)) {
+                    const mainSymptomNode = nodes.find(node => 
+                        node.type === 'symptom' && 
+                        (node.name === mainDisease || node.name.includes(mainDisease))
+                    );
+                    if (mainSymptomNode) {
+                        console.log(`找到合并目标: ${newSymptom} -> ${mainSymptomNode.name}`);
+                        return mainSymptomNode;
+                    }
+                }
+            }
+            
+            // 基于关键词匹配查找相似症状节点
+            const existingSymptomNodes = nodes.filter(node => node.type === 'symptom');
+            for (const node of existingSymptomNodes) {
+                if (isSymptomRelated(node.name, newSymptom)) {
+                    console.log(`基于关键词找到合并目标: ${newSymptom} -> ${node.name}`);
+                    return node;
+                }
+            }
+            
+            return null; // 没找到合并目标，需要创建新节点
+        }
+
+        // 判断两个症状是否相关
+        function isSymptomRelated(existingSymptom, newSymptom) {
+            const relationshipMap = {
+                '失眠': ['早醒', '多梦', '入睡困难', '睡眠浅', '易惊醒', '夜醒'],
+                '头痛': ['头胀', '头晕', '偏头痛', '太阳穴痛', '后脑痛'],
+                '胃痛': ['胃胀', '胃酸', '反酸', '嗳气', '胃脘痛', '胃部不适'],
+                '便秘': ['大便干燥', '排便困难', '大便干结', '便干如栗'],
+                '腹泻': ['便溏', '泄泻', '水泻', '大便稀薄'],
+                '咳嗽': ['咳痰', '干咳', '咳喘', '痰多', '喉痒']
+            };
+            
+            // 检查双向关系
+            for (const [mainSymptom, relatedList] of Object.entries(relationshipMap)) {
+                if ((existingSymptom.includes(mainSymptom) && relatedList.includes(newSymptom)) ||
+                    (newSymptom.includes(mainSymptom) && relatedList.includes(existingSymptom))) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        // 将症状合并到现有节点
+        function mergeSymptomToNode(targetNode, newSymptom, description) {
+            // 更新节点内容，将新症状添加到描述中
+            if (!targetNode.relatedSymptoms) {
+                targetNode.relatedSymptoms = [];
+            }
+            
+            // 避免重复添加
+            if (!targetNode.relatedSymptoms.includes(newSymptom)) {
+                targetNode.relatedSymptoms.push(newSymptom);
+                
+                // 更新节点显示
+                updateNodeDisplay(targetNode);
+                
+                // 显示合并成功消息
+                showResult('成功', `✅ 已将"${newSymptom}"合并到"${targetNode.name}"症状群`, 'success');
+                
+                console.log(`症状合并成功: ${newSymptom} -> ${targetNode.name}`, targetNode.relatedSymptoms);
+            } else {
+                showResult('提示', `"${newSymptom}"已存在于"${targetNode.name}"症状群中`, 'info');
+            }
+        }
+
+        // 更新节点显示以显示相关症状
+        function updateNodeDisplay(node) {
+            const nodeElement = document.getElementById(node.id);
+            if (!nodeElement) return;
+            
+            const contentDiv = nodeElement.querySelector('.node-content');
+            if (!contentDiv) return;
+            
+            let displayContent = `<div class="node-title">${node.name}</div>`;
+            
+            if (node.relatedSymptoms && node.relatedSymptoms.length > 0) {
+                displayContent += `<div class="related-symptoms">
+                    <div class="symptoms-label">相关症状:</div>
+                    <div class="symptoms-list">${node.relatedSymptoms.join(', ')}</div>
+                </div>`;
+            }
+            
+            if (node.description && node.description !== node.name) {
+                displayContent += `<div class="node-desc">${node.description}</div>`;
+            }
+            
+            contentDiv.innerHTML = displayContent;
         }
 
         // 更新节点拖拽后重绘连接线
