@@ -1237,14 +1237,8 @@
                 showContextMenu(e, node);
             });
             
-            // 添加双击编辑功能
-            nodeElement.addEventListener('dblclick', function(e) {
-                e.stopPropagation();
-                editNodeContent(node);
-            });
-            
-            // 标记为已绑定编辑事件
-            nodeElement.setAttribute('data-editable', 'true');
+            // 使用统一的编辑功能绑定
+            ensureNodeEditability(nodeElement, node);
             
             // 添加拖拽
             makeNodeDraggable(nodeElement, node);
@@ -1254,9 +1248,13 @@
 
         // 编辑节点内容
         function editNodeContent(node) {
+            console.log('editNodeContent被调用，节点:', node);
             const nodeElement = document.getElementById(node.id);
+            console.log('找到节点元素:', nodeElement);
             const contentDiv = nodeElement.querySelector('.node-content');
+            console.log('找到内容区域:', contentDiv);
             const originalContent = node.description || '';
+            console.log('原始内容:', originalContent);
             
             // 创建编辑输入框
             const textarea = document.createElement('textarea');
@@ -1793,11 +1791,18 @@
 
         // 更新节点显示以显示相关症状
         function updateNodeDisplay(node) {
+            console.log('updateNodeDisplay被调用，节点:', node);
             const nodeElement = document.getElementById(node.id);
-            if (!nodeElement) return;
+            if (!nodeElement) {
+                console.log(`未找到节点元素: ${node.id}`);
+                return;
+            }
             
             const contentDiv = nodeElement.querySelector('.node-content');
-            if (!contentDiv) return;
+            if (!contentDiv) {
+                console.log(`未找到内容区域: ${node.id}`);
+                return;
+            }
             
             // 使用与renderNode相同的逻辑
             let nodeContent = node.description || '';
@@ -1810,26 +1815,49 @@
             }
             
             contentDiv.innerHTML = nodeContent;
+            console.log(`节点${node.id}内容已更新`);
             
-            // 确保双击编辑事件存在（防御性编程）
-            ensureNodeEditability(nodeElement, node);
+            // 关键修复：确保传递的是nodes数组中的实际节点对象
+            const actualNode = nodes.find(n => n.id === node.id);
+            if (actualNode) {
+                console.log(`找到实际节点对象:`, actualNode);
+                ensureNodeEditability(nodeElement, actualNode);
+            } else {
+                console.log(`未在nodes数组中找到节点: ${node.id}`);
+                // 作为后备，使用传入的node对象
+                ensureNodeEditability(nodeElement, node);
+            }
         }
         
         // 确保节点具有编辑功能（防御性编程）
         function ensureNodeEditability(nodeElement, node) {
-            // 检查是否已经绑定了双击事件
-            const hasDoubleClickHandler = nodeElement.getAttribute('data-editable') === 'true';
-            
-            if (!hasDoubleClickHandler) {
-                // 添加双击编辑功能
-                nodeElement.addEventListener('dblclick', function(e) {
-                    e.stopPropagation();
-                    editNodeContent(node);
-                });
-                
-                // 标记为已绑定编辑事件
-                nodeElement.setAttribute('data-editable', 'true');
+            // 移除旧的双击事件监听器（如果存在）
+            const existingHandler = nodeElement._editHandler;
+            if (existingHandler) {
+                nodeElement.removeEventListener('dblclick', existingHandler);
             }
+            
+            console.log(`为节点${node.id}重新绑定双击编辑功能`);
+            
+            // 创建新的事件处理函数
+            const newHandler = function(e) {
+                console.log(`双击事件触发，节点：${node.id}`);
+                e.stopPropagation();
+                e.preventDefault();
+                // 直接查找最新的节点数据
+                const currentNode = nodes.find(n => n.id === node.id) || node;
+                editNodeContent(currentNode);
+            };
+            
+            // 保存事件处理器引用以便后续移除
+            nodeElement._editHandler = newHandler;
+            
+            // 添加双击编辑功能
+            nodeElement.addEventListener('dblclick', newHandler);
+            
+            // 标记为已绑定编辑事件
+            nodeElement.setAttribute('data-editable', 'true');
+            console.log(`节点${node.id}编辑功能绑定完成`);
         }
 
         // 更新节点拖拽后重绘连接线
