@@ -1243,6 +1243,9 @@
                 editNodeContent(node);
             });
             
+            // 标记为已绑定编辑事件
+            nodeElement.setAttribute('data-editable', 'true');
+            
             // 添加拖拽
             makeNodeDraggable(nodeElement, node);
             
@@ -1283,7 +1286,7 @@
                 const newContent = textarea.value.trim();
                 if (newContent !== originalContent) {
                     node.description = newContent;
-                    updateNodeContent(node);
+                    updateNodeDisplay(node);
                     // 如果当前节点被选中，更新侧边栏信息
                     if (selectedNode && selectedNode.id === node.id) {
                         showSelectedNodeInfo(node);
@@ -1294,7 +1297,7 @@
             
             // 恢复内容显示
             function restoreContent() {
-                updateNodeContent(node);
+                updateNodeDisplay(node);
             }
             
             // 监听事件
@@ -1309,22 +1312,6 @@
             });
         }
         
-        // 更新节点内容显示
-        function updateNodeContent(node) {
-            const nodeElement = document.getElementById(node.id);
-            const contentDiv = nodeElement.querySelector('.node-content');
-            
-            let nodeContent = node.description || '';
-            if (node.relatedSymptoms && node.relatedSymptoms.length > 0) {
-                nodeContent = `${nodeContent}
-                    <div class="related-symptoms">
-                        <div class="symptoms-label">相关症状:</div>
-                        <div class="symptoms-list">${node.relatedSymptoms.join(', ')}</div>
-                    </div>`;
-            }
-            
-            contentDiv.innerHTML = nodeContent;
-        }
 
         // 选择节点
         function selectNode(node) {
@@ -1823,6 +1810,26 @@
             }
             
             contentDiv.innerHTML = nodeContent;
+            
+            // 确保双击编辑事件存在（防御性编程）
+            ensureNodeEditability(nodeElement, node);
+        }
+        
+        // 确保节点具有编辑功能（防御性编程）
+        function ensureNodeEditability(nodeElement, node) {
+            // 检查是否已经绑定了双击事件
+            const hasDoubleClickHandler = nodeElement.getAttribute('data-editable') === 'true';
+            
+            if (!hasDoubleClickHandler) {
+                // 添加双击编辑功能
+                nodeElement.addEventListener('dblclick', function(e) {
+                    e.stopPropagation();
+                    editNodeContent(node);
+                });
+                
+                // 标记为已绑定编辑事件
+                nodeElement.setAttribute('data-editable', 'true');
+            }
         }
 
         // 更新节点拖拽后重绘连接线
