@@ -1237,10 +1237,93 @@
                 showContextMenu(e, node);
             });
             
+            // 添加双击编辑功能
+            nodeElement.addEventListener('dblclick', function(e) {
+                e.stopPropagation();
+                editNodeContent(node);
+            });
+            
             // 添加拖拽
             makeNodeDraggable(nodeElement, node);
             
             canvas.appendChild(nodeElement);
+        }
+
+        // 编辑节点内容
+        function editNodeContent(node) {
+            const nodeElement = document.getElementById(node.id);
+            const contentDiv = nodeElement.querySelector('.node-content');
+            const originalContent = node.description || '';
+            
+            // 创建编辑输入框
+            const textarea = document.createElement('textarea');
+            textarea.className = 'node-edit-input';
+            textarea.value = originalContent;
+            textarea.style.cssText = `
+                width: 100%;
+                height: 60px;
+                border: 2px solid #007bff;
+                border-radius: 4px;
+                padding: 5px;
+                font-size: 12px;
+                font-family: inherit;
+                resize: vertical;
+                background: #fff;
+                z-index: 1000;
+            `;
+            
+            // 替换内容
+            contentDiv.innerHTML = '';
+            contentDiv.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            
+            // 保存编辑
+            function saveEdit() {
+                const newContent = textarea.value.trim();
+                if (newContent !== originalContent) {
+                    node.description = newContent;
+                    updateNodeContent(node);
+                    // 如果当前节点被选中，更新侧边栏信息
+                    if (selectedNode && selectedNode.id === node.id) {
+                        showSelectedNodeInfo(node);
+                    }
+                }
+                restoreContent();
+            }
+            
+            // 恢复内容显示
+            function restoreContent() {
+                updateNodeContent(node);
+            }
+            
+            // 监听事件
+            textarea.addEventListener('blur', saveEdit);
+            textarea.addEventListener('keydown', function(e) {
+                e.stopPropagation();
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    saveEdit();
+                } else if (e.key === 'Escape') {
+                    restoreContent();
+                }
+            });
+        }
+        
+        // 更新节点内容显示
+        function updateNodeContent(node) {
+            const nodeElement = document.getElementById(node.id);
+            const contentDiv = nodeElement.querySelector('.node-content');
+            
+            let nodeContent = node.description || '';
+            if (node.relatedSymptoms && node.relatedSymptoms.length > 0) {
+                nodeContent = `${nodeContent}
+                    <div class="related-symptoms">
+                        <div class="symptoms-label">相关症状:</div>
+                        <div class="symptoms-list">${node.relatedSymptoms.join(', ')}</div>
+                    </div>`;
+            }
+            
+            contentDiv.innerHTML = nodeContent;
         }
 
         // 选择节点
