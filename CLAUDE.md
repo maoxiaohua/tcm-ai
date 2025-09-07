@@ -815,8 +815,80 @@ function updateGenerationStatus(source, generationTime) {
 - 定期review文档一致性，确保与实际系统状态同步
 - 文档更新作为功能完成的必要条件，不更新文档视为未完成
 
+### v2.2.1 - AI模式切换按钮修复 (2025-09-07)
+**Bug修复**: 解决可视化决策树构建器中AI/模板模式切换按钮无反应问题
+
+#### 问题发现
+用户报告AI模式切换Toggle按钮点击无反应，无法在AI智能模式和标准模板模式之间切换。
+
+#### 根本原因分析
+1. **属性名不一致**: `aiStatus`对象初始化使用`enabled`，但事件处理中使用`ai_enabled`
+2. **事件绑定时机**: AI状态异步加载，可能在事件监听器绑定之前
+3. **缺少强制绑定**: 复杂的页面加载序列导致部分事件监听器失效
+
+#### 技术修复方案
+```javascript
+// 🐛 原始问题代码
+let aiStatus = {
+    enabled: false,  // ❌ 属性名不一致
+    // ...
+}
+
+function initializeModeToggle() {
+    aiModeToggle.addEventListener('change', function() {
+        const useAI = this.checked && aiStatus.ai_enabled; // ❌ 找不到属性
+    });
+}
+
+// ✅ 修复后代码
+let aiStatus = {
+    ai_enabled: false,  // ✅ 统一属性名
+    // ...
+}
+
+// 强制重新绑定机制
+setTimeout(function() {
+    const aiModeToggle = document.getElementById('aiModeToggle');
+    if (aiModeToggle) {
+        aiModeToggle.onchange = function() {
+            console.log('🔄 AI模式切换触发!');
+            const useAI = this.checked && aiStatus.ai_enabled;
+            // 立即UI反馈
+            updateUIDisplay(useAI);
+        };
+    }
+}, 1500);
+```
+
+#### 新增功能特性
+- 🔧 **即时视觉反馈**: 切换时立即更新按钮文本和图标
+- 🔧 **详细调试日志**: 完整的切换状态追踪日志
+- 🔧 **强制重新绑定**: 确保所有事件监听器都正确工作
+- 🔧 **状态持久化**: 记住用户的模式选择偏好
+
+#### 用户体验改进
+- 切换按钮现在响应用户点击
+- AI/模板模式实时切换显示
+- 生成按钮文本同步更新 (🤖 AI智能生成 ↔️ 📋 标准模板生成)
+- 模式状态文本颜色动态变化
+
+#### 测试验证
+- ✅ Toggle按钮点击响应正常
+- ✅ 模式文本实时更新
+- ✅ 按钮图标和文字同步变化
+- ✅ 控制台日志输出正确状态
+- ✅ 用户偏好正确保存
+
+#### 文件变更
+- 修复: `static/decision_tree_visual_builder.html` - AI模式切换逻辑和强制事件绑定
+
+#### 影响评估
+**用户价值**: 恢复了重要的用户控制功能，提升交互体验
+**系统稳定性**: 解决了JavaScript事件系统的可靠性问题
+**调试能力**: 增强的日志系统便于未来问题诊断
+
 ---
 
 *最后更新: 2025-09-07*  
-*文档版本: 2.2*  
+*文档版本: 2.2.1*  
 *维护人员: TCM-AI开发团队*
