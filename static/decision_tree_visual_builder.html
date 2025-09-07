@@ -748,7 +748,7 @@
 
         // 全局AI状态变量
         let aiStatus = {
-            enabled: false,
+            ai_enabled: false,
             available: false,
             model: 'unknown',
             features: {
@@ -960,7 +960,7 @@
             const aiModeText = document.getElementById('aiModeText');
             
             if (success && aiStatus.ai_enabled) {
-                statusIndicator.innerHTML = `✅ AI已就绪 (${aiStatus.ai_model})`;
+                statusIndicator.innerHTML = `✅ AI已就绪 (${aiStatus.model || 'qwen-max'})`;
                 statusIndicator.style.color = '#059669';
                 aiModeToggle.disabled = false;
             } else {
@@ -977,12 +977,40 @@
         function initializeModeToggle() {
             const aiModeToggle = document.getElementById('aiModeToggle');
             
+            console.log('🔧 初始化模式切换...');
+            console.log('  - Toggle元素:', aiModeToggle);
+            console.log('  - AI状态:', aiStatus);
+            
             if (aiModeToggle) {
-                aiModeToggle.addEventListener('change', function() {
-                    const useAI = this.checked && aiStatus.ai_enabled;
-                    updateModeDisplay(useAI);
-                    console.log('🔄 模式切换:', useAI ? 'AI模式' : '模板模式');
-                });
+                // 移除可能存在的旧事件监听器
+                aiModeToggle.removeEventListener('change', handleModeToggle);
+                
+                // 添加新的事件监听器
+                aiModeToggle.addEventListener('change', handleModeToggle);
+                
+                // 初始化显示状态
+                const initialUseAI = aiModeToggle.checked && aiStatus.ai_enabled;
+                updateModeDisplay(initialUseAI);
+                
+                console.log('✅ 模式切换初始化完成');
+            } else {
+                console.error('❌ 找不到aiModeToggle元素');
+            }
+        }
+        
+        // 模式切换处理函数
+        function handleModeToggle() {
+            const useAI = this.checked && aiStatus.ai_enabled;
+            console.log('🔄 模式切换事件触发:');
+            console.log('  - Toggle选中:', this.checked);
+            console.log('  - AI可用:', aiStatus.ai_enabled);
+            console.log('  - 最终模式:', useAI ? 'AI模式' : '模板模式');
+            
+            updateModeDisplay(useAI);
+            
+            // 可选：保存用户偏好
+            if (typeof userPreferences !== 'undefined') {
+                userPreferences.aiModePreferred = useAI;
             }
         }
         
@@ -3354,6 +3382,7 @@
             const generateBtn = document.getElementById('generateBtn');
             const analyzeBtn = document.getElementById('analyzeBtn');
             const clearBtn = document.getElementById('clearBtn');
+            const aiModeToggle = document.getElementById('aiModeToggle');
             
             if (generateBtn) {
                 generateBtn.onclick = function() {
@@ -3378,7 +3407,49 @@
                 };
                 console.log('clearBtn重新绑定成功');
             }
-        }, 1000);
+            
+            // 🔧 强制修复AI模式切换
+            if (aiModeToggle) {
+                console.log('🔧 强制绑定AI模式切换...');
+                console.log('  当前AI状态:', aiStatus);
+                
+                aiModeToggle.onchange = function() {
+                    console.log('🔄 AI模式切换触发!');
+                    console.log('  - 切换状态:', this.checked);
+                    console.log('  - AI可用性:', aiStatus.ai_enabled);
+                    
+                    const useAI = this.checked && aiStatus.ai_enabled;
+                    console.log('  - 最终模式:', useAI ? 'AI模式' : '模板模式');
+                    
+                    // 立即更新UI显示
+                    const aiModeText = document.getElementById('aiModeText');
+                    const generateBtnText = document.getElementById('generateBtnText');
+                    const generateBtnIcon = document.getElementById('generateBtnIcon');
+                    
+                    if (useAI) {
+                        aiModeText.textContent = 'AI智能模式';
+                        aiModeText.style.color = '#3b82f6';
+                        if (generateBtnText) generateBtnText.textContent = 'AI智能生成';
+                        if (generateBtnIcon) generateBtnIcon.textContent = '🤖';
+                    } else {
+                        aiModeText.textContent = '标准模板模式';
+                        aiModeText.style.color = '#6b7280';
+                        if (generateBtnText) generateBtnText.textContent = '标准模板生成';
+                        if (generateBtnIcon) generateBtnIcon.textContent = '📋';
+                    }
+                    
+                    console.log('✅ UI更新完成');
+                };
+                
+                // 触发初始状态设置
+                const event = new Event('change');
+                aiModeToggle.dispatchEvent(event);
+                
+                console.log('✅ AI模式切换强制绑定完成');
+            } else {
+                console.error('❌ 找不到aiModeToggle元素');
+            }
+        }, 1500);
     </script>
 </body>
 </html>
