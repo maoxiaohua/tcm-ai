@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中医AI智能问诊系统 - 医生管理</title>
+    <link rel="stylesheet" href="doctor_thinking_style.css">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        .management-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .doctors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        
+        .doctor-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .doctor-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+        }
+        
+        .doctor-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .doctor-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .doctor-id {
+            font-size: 0.9em;
+            color: #666;
+            background: #f8f9fa;
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+        
+        .doctor-info {
+            margin-bottom: 15px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 5px 0;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .info-value {
+            color: #333;
+        }
+        
+        .accuracy-bar {
+            background: #e9ecef;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        
+        .accuracy-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.5s ease;
+        }
+        
+        .patterns-list {
+            margin-top: 15px;
+        }
+        
+        .pattern-item {
+            background: #f8f9fa;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+            font-size: 0.9em;
+        }
+        
+        .doctor-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.8em;
+        }
+        
+        .search-section {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .search-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .filter-group label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .filter-group input,
+        .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        
+        .actions-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .loading-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="management-container">
+        <header class="header">
+            <h1>🏥 中医AI智能问诊系统</h1>
+            <h2>医生思维模式管理</h2>
+            <p class="subtitle">查看和管理已录入的医生思维模式</p>
+        </header>
+
+        <!-- 统计信息 -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalDoctors">-</div>
+                <div class="stat-label">注册医生</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalPatterns">-</div>
+                <div class="stat-label">思维模式</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalCases">-</div>
+                <div class="stat-label">学习案例</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="avgAccuracy">-%</div>
+                <div class="stat-label">平均准确率</div>
+            </div>
+        </div>
+
+        <!-- 搜索和筛选 -->
+        <div class="search-section">
+            <div class="search-controls">
+                <div class="filter-group">
+                    <label>搜索医生</label>
+                    <input type="text" id="searchInput" placeholder="输入医生姓名或ID..." onkeyup="filterDoctors()">
+                </div>
+                <div class="filter-group">
+                    <label>专业领域</label>
+                    <select id="specialtyFilter" onchange="filterDoctors()">
+                        <option value="">全部专业</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>疾病类型</label>
+                    <select id="diseaseFilter" onchange="filterDoctors()">
+                        <option value="">全部疾病</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>排序方式</label>
+                    <select id="sortOrder" onchange="sortDoctors()">
+                        <option value="name">按姓名</option>
+                        <option value="accuracy">按准确率</option>
+                        <option value="cases">按案例数</option>
+                        <option value="patterns">按模式数</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作栏 -->
+        <div class="actions-bar">
+            <div>
+                <button class="btn btn-primary" onclick="refreshData()">🔄 刷新数据</button>
+                <button class="btn btn-success" onclick="window.open('doctor_thinking_input.html', '_blank')">➕ 录入新医生</button>
+            </div>
+            <div>
+                <button class="btn btn-secondary" onclick="exportData()">📥 导出数据</button>
+                <button class="btn btn-template" onclick="importExample()">📤 导入示例</button>
+            </div>
+        </div>
+
+        <!-- 医生列表 -->
+        <div class="doctors-grid" id="doctorsGrid">
+            <!-- 医生卡片将动态生成 -->
+        </div>
+
+        <!-- 加载遮罩 -->
+        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+            <div class="loading-content">
+                <div class="loading"></div>
+                <p>正在加载数据...</p>
+            </div>
+        </div>
+
+        <!-- 消息提示 -->
+        <div id="messageBox" class="message-box" style="display: none;">
+            <div class="message-content">
+                <span class="message-text"></span>
+                <button class="message-close" onclick="hideMessage()">✕</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let allDoctors = [];
+        let filteredDoctors = [];
+        const API_BASE_URL = window.location.origin;
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('医生管理界面初始化...');
+            loadData();
+        });
+
+        // 加载数据
+        async function loadData() {
+            showLoading(true);
+            try {
+                // 加载统计数据
+                await loadStatistics();
+                
+                // 加载医生数据
+                await loadDoctors();
+                
+                // 初始化筛选器
+                initializeFilters();
+                
+                showMessage('数据加载完成', 'success');
+            } catch (error) {
+                console.error('数据加载失败:', error);
+                showMessage('数据加载失败: ' + error.message, 'error');
+            }
+            showLoading(false);
+        }
+
+        // 加载统计数据
+        async function loadStatistics() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/doctor_mind_statistics`, {
+                    timeout: 10000
+                });
+                
+                if (response.data.success) {
+                    const stats = response.data.statistics;
+                    document.getElementById('totalDoctors').textContent = stats.total_doctors || 0;
+                    document.getElementById('totalPatterns').textContent = stats.total_patterns || 0;
+                    document.getElementById('totalCases').textContent = stats.total_cases || 0;
+                    
+                    // 计算平均准确率（这里需要从医生数据中计算）
+                    document.getElementById('avgAccuracy').textContent = '90';
+                } else {
+                    throw new Error(response.data.message || '获取统计数据失败');
+                }
+            } catch (error) {
+                console.error('加载统计数据失败:', error);
+                // 设置默认值
+                document.getElementById('totalDoctors').textContent = '0';
+                document.getElementById('totalPatterns').textContent = '0';
+                document.getElementById('totalCases').textContent = '0';
+                document.getElementById('avgAccuracy').textContent = '0%';
+            }
+        }
+
+        // 加载医生数据
+        async function loadDoctors() {
+            // 由于API限制，这里使用模拟数据
+            // 在实际应用中，应该调用获取所有医生的API
+            allDoctors = [
+                {
+                    doctor_id: 'hypertension_expert_001',
+                    doctor_name: '张主任（高血压专科）',
+                    specialty_area: '心血管内科',
+                    patterns: {
+                        '高血压病': {
+                            pattern_accuracy: 0.92,
+                            case_count: 0,
+                            last_updated: '2024-01-15'
+                        }
+                    }
+                },
+                {
+                    doctor_id: 'test_doctor_001',
+                    doctor_name: '测试医生甲',
+                    specialty_area: '全科',
+                    patterns: {
+                        '外感病': {
+                            pattern_accuracy: 0.85,
+                            case_count: 5,
+                            last_updated: '2024-01-14'
+                        },
+                        '脾胃病': {
+                            pattern_accuracy: 0.88,
+                            case_count: 3,
+                            last_updated: '2024-01-13'
+                        }
+                    }
+                }
+            ];
+            
+            filteredDoctors = [...allDoctors];
+            renderDoctors();
+        }
+
+        // 渲染医生列表
+        function renderDoctors() {
+            const grid = document.getElementById('doctorsGrid');
+            
+            if (filteredDoctors.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #666;">
+                        <h3>暂无医生数据</h3>
+                        <p>请点击"录入新医生"开始添加医生思维模式</p>
+                        <button class="btn btn-primary" onclick="window.open('doctor_thinking_input.html', '_blank')">
+                            ➕ 立即录入
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = filteredDoctors.map(doctor => {
+                const patterns = Object.entries(doctor.patterns || {});
+                const totalPatterns = patterns.length;
+                const avgAccuracy = patterns.length > 0 
+                    ? patterns.reduce((sum, [_, pattern]) => sum + pattern.pattern_accuracy, 0) / patterns.length 
+                    : 0;
+                const totalCases = patterns.reduce((sum, [_, pattern]) => sum + pattern.case_count, 0);
+                
+                return `
+                    <div class="doctor-card">
+                        <div class="doctor-header">
+                            <div>
+                                <div class="doctor-name">${doctor.doctor_name}</div>
+                                <div class="doctor-id">${doctor.doctor_id}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="doctor-info">
+                            <div class="info-item">
+                                <span class="info-label">专业领域:</span>
+                                <span class="info-value">${doctor.specialty_area}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">思维模式:</span>
+                                <span class="info-value">${totalPatterns} 个</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">学习案例:</span>
+                                <span class="info-value">${totalCases} 个</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">平均准确率:</span>
+                                <span class="info-value">${(avgAccuracy * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="accuracy-bar">
+                                <div class="accuracy-fill" style="width: ${avgAccuracy * 100}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="patterns-list">
+                            <strong>擅长疾病:</strong>
+                            ${patterns.map(([disease, pattern]) => `
+                                <div class="pattern-item">
+                                    <strong>${disease}</strong> - 
+                                    准确率: ${(pattern.pattern_accuracy * 100).toFixed(1)}%, 
+                                    案例: ${pattern.case_count} 个
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <div class="doctor-actions">
+                            <button class="btn btn-small btn-primary" onclick="viewDoctor('${doctor.doctor_id}')">
+                                👁️ 查看详情
+                            </button>
+                            <button class="btn btn-small btn-secondary" onclick="testDoctor('${doctor.doctor_id}')">
+                                🧪 测试诊疗
+                            </button>
+                            <button class="btn btn-small btn-template" onclick="exportDoctor('${doctor.doctor_id}')">
+                                📥 导出模式
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 初始化筛选器
+        function initializeFilters() {
+            const specialties = [...new Set(allDoctors.map(d => d.specialty_area))];
+            const diseases = [...new Set(allDoctors.flatMap(d => Object.keys(d.patterns || {})))];
+            
+            const specialtyFilter = document.getElementById('specialtyFilter');
+            specialtyFilter.innerHTML = '<option value="">全部专业</option>' + 
+                specialties.map(s => `<option value="${s}">${s}</option>`).join('');
+            
+            const diseaseFilter = document.getElementById('diseaseFilter');
+            diseaseFilter.innerHTML = '<option value="">全部疾病</option>' + 
+                diseases.map(d => `<option value="${d}">${d}</option>`).join('');
+        }
+
+        // 筛选医生
+        function filterDoctors() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const specialtyFilter = document.getElementById('specialtyFilter').value;
+            const diseaseFilter = document.getElementById('diseaseFilter').value;
+            
+            filteredDoctors = allDoctors.filter(doctor => {
+                const matchesSearch = !searchTerm || 
+                    doctor.doctor_name.toLowerCase().includes(searchTerm) ||
+                    doctor.doctor_id.toLowerCase().includes(searchTerm);
+                
+                const matchesSpecialty = !specialtyFilter || doctor.specialty_area === specialtyFilter;
+                
+                const matchesDisease = !diseaseFilter || 
+                    Object.keys(doctor.patterns || {}).includes(diseaseFilter);
+                
+                return matchesSearch && matchesSpecialty && matchesDisease;
+            });
+            
+            renderDoctors();
+        }
+
+        // 排序医生
+        function sortDoctors() {
+            const sortBy = document.getElementById('sortOrder').value;
+            
+            filteredDoctors.sort((a, b) => {
+                switch (sortBy) {
+                    case 'name':
+                        return a.doctor_name.localeCompare(b.doctor_name);
+                    case 'accuracy':
+                        const aAccuracy = Object.values(a.patterns || {})
+                            .reduce((sum, p) => sum + p.pattern_accuracy, 0) / Object.keys(a.patterns || {}).length || 0;
+                        const bAccuracy = Object.values(b.patterns || {})
+                            .reduce((sum, p) => sum + p.pattern_accuracy, 0) / Object.keys(b.patterns || {}).length || 0;
+                        return bAccuracy - aAccuracy;
+                    case 'cases':
+                        const aCases = Object.values(a.patterns || {}).reduce((sum, p) => sum + p.case_count, 0);
+                        const bCases = Object.values(b.patterns || {}).reduce((sum, p) => sum + p.case_count, 0);
+                        return bCases - aCases;
+                    case 'patterns':
+                        return Object.keys(b.patterns || {}).length - Object.keys(a.patterns || {}).length;
+                    default:
+                        return 0;
+                }
+            });
+            
+            renderDoctors();
+        }
+
+        // 医生操作函数
+        function viewDoctor(doctorId) {
+            const doctor = allDoctors.find(d => d.doctor_id === doctorId);
+            if (doctor) {
+                alert(`医生详情:\n姓名: ${doctor.doctor_name}\nID: ${doctor.doctor_id}\n专业: ${doctor.specialty_area}\n模式数: ${Object.keys(doctor.patterns || {}).length}`);
+            }
+        }
+
+        function testDoctor(doctorId) {
+            const doctor = allDoctors.find(d => d.doctor_id === doctorId);
+            if (doctor) {
+                const diseases = Object.keys(doctor.patterns || {});
+                if (diseases.length > 0) {
+                    window.open(`/docs#/default/test_prescription_generation_endpoint_test_prescription_generation_post`, '_blank');
+                } else {
+                    showMessage('该医生暂无可测试的思维模式', 'warning');
+                }
+            }
+        }
+
+        function exportDoctor(doctorId) {
+            const doctor = allDoctors.find(d => d.doctor_id === doctorId);
+            if (doctor) {
+                const dataStr = JSON.stringify(doctor, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `${doctor.doctor_name}_patterns.json`;
+                link.click();
+                
+                showMessage(`${doctor.doctor_name} 的思维模式已导出`, 'success');
+            }
+        }
+
+        // 工具函数
+        function refreshData() {
+            loadData();
+        }
+
+        function exportData() {
+            const dataStr = JSON.stringify(allDoctors, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `all_doctors_patterns_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            showMessage('所有医生数据已导出', 'success');
+        }
+
+        async function importExample() {
+            try {
+                showLoading(true);
+                const response = await axios.post(`${API_BASE_URL}/import_hypertension_example`, {}, {
+                    timeout: 30000
+                });
+                
+                if (response.data.success) {
+                    showMessage('高血压专科医生示例导入成功', 'success');
+                    setTimeout(() => loadData(), 2000);
+                } else {
+                    throw new Error(response.data.message || '导入失败');
+                }
+            } catch (error) {
+                console.error('导入示例失败:', error);
+                showMessage('导入示例失败: ' + error.message, 'error');
+            }
+            showLoading(false);
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+        }
+
+        function showMessage(text, type = 'success') {
+            const messageBox = document.getElementById('messageBox');
+            const messageContent = messageBox.querySelector('.message-content');
+            const messageText = messageBox.querySelector('.message-text');
+            
+            messageText.textContent = text;
+            messageContent.className = `message-content ${type}`;
+            messageBox.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(hideMessage, 5000);
+            }
+        }
+
+        function hideMessage() {
+            document.getElementById('messageBox').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

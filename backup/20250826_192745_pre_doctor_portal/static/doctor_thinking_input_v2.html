@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中医AI智能问诊系统 - 医生经验录入</title>
+    <link rel="stylesheet" href="/static/doctor_thinking_style.css">
+    <style>
+        .medical-step-card {
+            border: 2px solid #e1f5fe;
+            border-radius: 12px;
+            margin: 15px 0;
+            background: linear-gradient(135deg, #f8f9fa, #ffffff);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .medical-step-card:hover {
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .step-type-header {
+            background: linear-gradient(135deg, #4fc3f7, #29b6f6);
+            color: white;
+            padding: 15px 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .step-type-header .step-icon {
+            font-size: 1.5em;
+            margin-right: 10px;
+        }
+        
+        .step-content {
+            padding: 20px;
+        }
+        
+        .clinical-example {
+            background: #f1f8e9;
+            border-left: 4px solid #8bc34a;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+        
+        .clinical-example h5 {
+            color: #558b2f;
+            margin: 0 0 8px 0;
+        }
+        
+        .quick-templates {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .template-btn {
+            background: linear-gradient(135deg, #81c784, #66bb6a);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+        
+        .template-btn:hover {
+            background: linear-gradient(135deg, #66bb6a, #4caf50);
+            transform: scale(1.05);
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .form-col {
+            flex: 1;
+        }
+        
+        .medical-textarea {
+            width: 100%;
+            min-height: 80px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        
+        .medical-textarea:focus {
+            border-color: #4fc3f7;
+            outline: none;
+            box-shadow: 0 0 10px rgba(79, 195, 247, 0.2);
+        }
+        
+        .case-example {
+            background: #fff3e0;
+            border: 1px solid #ffcc02;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .case-example h6 {
+            color: #f57f17;
+            margin: 0 0 8px 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🏥 中医AI智能问诊系统</h1>
+            <h2>医生临床经验录入 (简化版)</h2>
+            <p class="subtitle">用您熟悉的方式描述诊疗经验，让AI学习您的思路</p>
+        </header>
+
+        <div class="progress-bar">
+            <div class="step active" data-step="1">
+                <span class="step-number">1</span>
+                <span class="step-label">医生信息</span>
+            </div>
+            <div class="step" data-step="2">
+                <span class="step-number">2</span>
+                <span class="step-label">擅长疾病</span>
+            </div>
+            <div class="step" data-step="3">
+                <span class="step-number">3</span>
+                <span class="step-label">诊疗经验</span>
+            </div>
+            <div class="step" data-step="4">
+                <span class="step-number">4</span>
+                <span class="step-label">确认提交</span>
+            </div>
+        </div>
+
+        <!-- 步骤1: 基本信息 -->
+        <div class="form-section active" id="step1">
+            <div class="section-header">
+                <h3>👨‍⚕️ 医生基本信息</h3>
+                <p>请填写您的基本信息，这将帮助系统更好地识别您的专业背景</p>
+            </div>
+            
+            <form id="doctorInfoForm">
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="doctorId">医生编号 *</label>
+                            <input type="text" id="doctorId" name="doctorId" required 
+                                   placeholder="例如: TCM001" 
+                                   pattern="[A-Za-z0-9]+" 
+                                   title="请使用字母和数字组合">
+                            <small>建议格式: TCM + 3位数字，如 TCM001</small>
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="doctorName">医生姓名 *</label>
+                            <input type="text" id="doctorName" name="doctorName" required 
+                                   placeholder="请输入您的姓名"
+                                   maxlength="20">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="specialtyArea">专业背景</label>
+                    <select id="specialtyArea" name="specialtyArea">
+                        <option value="内科">中医内科</option>
+                        <option value="妇科">中医妇科</option>
+                        <option value="儿科">中医儿科</option>
+                        <option value="外科">中医外科</option>
+                        <option value="骨科">中医骨伤科</option>
+                        <option value="皮肤科">中医皮肤科</option>
+                        <option value="五官科">中医五官科</option>
+                        <option value="全科">中医全科</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="clinicalYears">临床经验</label>
+                    <select id="clinicalYears" name="clinicalYears">
+                        <option value="1-5">1-5年</option>
+                        <option value="5-10">5-10年</option>
+                        <option value="10-20" selected>10-20年</option>
+                        <option value="20+">20年以上</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+
+        <!-- 步骤2: 擅长疾病 -->
+        <div class="form-section" id="step2">
+            <div class="section-header">
+                <h3>🎯 擅长疾病信息</h3>
+                <p>请选择您最擅长诊治的疾病类型</p>
+            </div>
+            
+            <form id="diseaseInfoForm">
+                <div class="form-group">
+                    <label for="diseaseCategory">最擅长的疾病类型 *</label>
+                    <select id="diseaseCategory" name="diseaseCategory" required>
+                        <option value="">请选择您最擅长的疾病</option>
+                        <optgroup label="内科常见病">
+                            <option value="高血压病">高血压病</option>
+                            <option value="糖尿病">糖尿病</option>
+                            <option value="冠心病">冠心病</option>
+                            <option value="慢性咳嗽">慢性咳嗽</option>
+                            <option value="失眠症">失眠症</option>
+                            <option value="胃病">慢性胃病</option>
+                            <option value="便秘">功能性便秘</option>
+                            <option value="头痛">慢性头痛</option>
+                        </optgroup>
+                        <optgroup label="妇科疾病">
+                            <option value="月经不调">月经不调</option>
+                            <option value="痛经">痛经</option>
+                            <option value="不孕症">不孕症</option>
+                            <option value="更年期综合征">更年期综合征</option>
+                        </optgroup>
+                        <optgroup label="儿科疾病">
+                            <option value="小儿感冒">小儿感冒</option>
+                            <option value="小儿咳嗽">小儿咳嗽</option>
+                            <option value="小儿消化不良">小儿消化不良</option>
+                            <option value="小儿遗尿">小儿遗尿</option>
+                        </optgroup>
+                        <optgroup label="其他">
+                            <option value="皮肤病">皮肤病</option>
+                            <option value="腰痛">腰痛</option>
+                            <option value="关节炎">关节炎</option>
+                            <option value="其他">其他疾病</option>
+                        </optgroup>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="otherDiseaseGroup" style="display: none;">
+                    <label for="otherDisease">具体疾病名称</label>
+                    <input type="text" id="otherDisease" name="otherDisease" 
+                           placeholder="请输入具体的疾病名称">
+                </div>
+
+                <div class="form-group">
+                    <label for="patternAccuracy">临床疗效评估</label>
+                    <select id="patternAccuracy" name="patternAccuracy">
+                        <option value="0.8">良好 (约80%有效)</option>
+                        <option value="0.85">优秀 (约85%有效)</option>
+                        <option value="0.9" selected>卓越 (约90%有效)</option>
+                        <option value="0.95">顶尖 (约95%有效)</option>
+                    </select>
+                    <small>基于您的临床实践，对该疾病的总体治疗有效率</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="diseaseDescription">疾病特点和优势</label>
+                    <textarea id="diseaseDescription" name="diseaseDescription" 
+                              class="medical-textarea"
+                              placeholder="请简要描述: 1) 该疾病的主要特点  2) 您的诊疗优势或特色方法  3) 常见的症状表现"></textarea>
+                </div>
+            </form>
+        </div>
+
+        <!-- 步骤3: 诊疗经验 -->
+        <div class="form-section" id="step3">
+            <div class="section-header">
+                <h3>🧠 诊疗经验录入</h3>
+                <p>请按照您的实际诊疗习惯，描述您的思维过程</p>
+            </div>
+            
+            <div class="quick-templates">
+                <span style="font-weight: bold; margin-right: 10px;">快速添加:</span>
+                <button type="button" class="template-btn" onclick="addClinicalStep('initial_assessment')">🔍 初步评估</button>
+                <button type="button" class="template-btn" onclick="addClinicalStep('four_diagnosis')">👁️ 四诊合参</button>
+                <button type="button" class="template-btn" onclick="addClinicalStep('syndrome_differentiation')">🎯 辨证论治</button>
+                <button type="button" class="template-btn" onclick="addClinicalStep('prescription')">💊 处方配伍</button>
+                <button type="button" class="template-btn" onclick="addClinicalStep('follow_up')">📋 调理随访</button>
+            </div>
+            
+            <div id="clinicalStepsList">
+                <!-- 临床步骤将动态添加到这里 -->
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button type="button" class="btn btn-primary" onclick="addCustomClinicalStep()">
+                    ➕ 添加自定义步骤
+                </button>
+            </div>
+        </div>
+
+        <!-- 步骤4: 预览确认 -->
+        <div class="form-section" id="step4">
+            <div class="section-header">
+                <h3>👁️ 预览确认</h3>
+                <p>请检查您录入的诊疗经验，确认无误后提交到系统</p>
+            </div>
+            
+            <div class="preview-container">
+                <div class="preview-section">
+                    <h4>👨‍⚕️ 医生信息</h4>
+                    <div id="doctorInfoPreview"></div>
+                </div>
+                
+                <div class="preview-section">
+                    <h4>🎯 擅长疾病</h4>
+                    <div id="diseaseInfoPreview"></div>
+                </div>
+                
+                <div class="preview-section">
+                    <h4>🧠 诊疗经验</h4>
+                    <div id="clinicalStepsPreview"></div>
+                </div>
+                
+                <div class="submit-section">
+                    <button type="button" class="btn btn-primary btn-large" onclick="submitClinicalExperience()">
+                        🚀 提交到AI系统
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="downloadExperience()">
+                        💾 下载备份
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 导航按钮 -->
+        <div class="navigation">
+            <button type="button" class="btn btn-secondary" id="prevBtn" onclick="prevStep()" style="display: none;">
+                ⬅️ 上一步
+            </button>
+            <button type="button" class="btn btn-primary" id="nextBtn" onclick="nextStep()">
+                下一步 ➡️
+            </button>
+        </div>
+
+        <!-- 消息提示 -->
+        <div id="messageBox" class="message-box" style="display: none;">
+            <div class="message-content">
+                <span id="messageText"></span>
+                <button onclick="hideMessage()">×</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/doctor_thinking_v2_script.js"></script>
+</body>
+</html>

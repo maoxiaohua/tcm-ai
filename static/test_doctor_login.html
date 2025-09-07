@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>医生登录测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .step { margin: 10px 0; padding: 10px; border-left: 4px solid #blue; }
+        .success { border-color: green; background: #f0f9f0; }
+        .error { border-color: red; background: #fdf0f0; }
+        .info { border-color: blue; background: #f0f8ff; }
+        button { padding: 10px 20px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>医生登录流程测试</h1>
+    
+    <div id="results"></div>
+    
+    <button onclick="step1_clearStorage()">步骤1: 清理存储</button>
+    <button onclick="step2_testLogin()">步骤2: 测试登录API</button>
+    <button onclick="step3_checkCookie()">步骤3: 检查Cookie</button>
+    <button onclick="step4_testDoctorProfile()">步骤4: 测试医生Profile API</button>
+    <button onclick="step5_simulatePageLoad()">步骤5: 模拟页面加载</button>
+
+    <script>
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `step ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+
+        function step1_clearStorage() {
+            localStorage.clear();
+            log('✅ 已清理localStorage', 'success');
+        }
+
+        async function step2_testLogin() {
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'doctor', password: 'doctor123' })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ 登录成功，角色: ${data.user.role}`, 'success');
+                    log(`响应数据: ${JSON.stringify(data, null, 2)}`, 'info');
+                    
+                    if (data.token) {
+                        log(`✅ 响应包含token: ${data.token.substring(0, 30)}...`, 'success');
+                    } else {
+                        log('⚠️ 响应不包含token字段', 'error');
+                    }
+                } else {
+                    log(`❌ 登录失败: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ 网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        function step3_checkCookie() {
+            const sessionToken = getCookie('session_token');
+            if (sessionToken) {
+                log(`✅ 找到session_token cookie: ${sessionToken.substring(0, 30)}...`, 'success');
+                localStorage.setItem('doctorToken', sessionToken);
+                log('✅ 已保存到localStorage.doctorToken', 'success');
+            } else {
+                log('❌ 没有找到session_token cookie', 'error');
+                log(`当前所有cookies: ${document.cookie}`, 'info');
+            }
+        }
+
+        async function step4_testDoctorProfile() {
+            const token = localStorage.getItem('doctorToken');
+            if (!token) {
+                log('❌ 没有doctorToken', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/doctor/profile', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ 医生Profile API调用成功`, 'success');
+                    log(`医生信息: ${JSON.stringify(data.doctor, null, 2)}`, 'info');
+                } else {
+                    log(`❌ 医生Profile API失败: ${response.status}`, 'error');
+                    const errorData = await response.json();
+                    log(`错误信息: ${JSON.stringify(errorData)}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ API调用错误: ${error.message}`, 'error');
+            }
+        }
+
+        function step5_simulatePageLoad() {
+            const token = localStorage.getItem('doctorToken');
+            const cookieToken = getCookie('session_token');
+            
+            log(`模拟医生页面加载检查:`, 'info');
+            log(`localStorage.doctorToken: ${token ? token.substring(0, 20) + '...' : 'null'}`, 'info');
+            log(`cookie.session_token: ${cookieToken ? cookieToken.substring(0, 20) + '...' : 'null'}`, 'info');
+            
+            if (!token && !cookieToken) {
+                log('❌ 会跳转到登录页面（无token）', 'error');
+            } else if (!token && cookieToken) {
+                log('✅ 会从cookie恢复token', 'success');
+            } else {
+                log('✅ 直接使用localStorage中的token', 'success');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#d4a574">
+    <title>AI问诊 - 中医智能咨询</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, 
+                #d4a574 0%,      /* 温润黄褐 */
+                #8b7355 25%,     /* 深褐色 */
+                #6b5b73 50%,     /* 紫褐色 */
+                #4a5568 75%,     /* 青灰色 */
+                #2d3748 100%     /* 深青色 */
+            );
+            height: 100vh;
+            color: #333;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+        
+        /* 聊天头部 */
+        .chat-header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 50px 20px 15px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .header-content {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .back-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .back-button:hover,
+        .back-button:active {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .doctor-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .doctor-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #d4a574;
+        }
+        
+        .doctor-details {
+            color: white;
+        }
+        
+        .doctor-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 2px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .doctor-school {
+            font-size: 13px;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+        
+        /* 消息区域 */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(5px);
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            animation: fadeInUp 0.3s ease;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message.user {
+            flex-direction: row-reverse;
+        }
+        
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.9);
+            color: #d4a574;
+        }
+        
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #4a5568, #2d3748);
+            color: white;
+        }
+        
+        .message-content {
+            max-width: 75%;
+            position: relative;
+        }
+        
+        .message-bubble {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #d4a574, #8b7355);
+            color: white;
+        }
+        
+        .message-time {
+            font-size: 11px;
+            color: #999;
+            text-align: center;
+            margin-top: 5px;
+        }
+        
+        .message.user .message-time {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        /* 输入区域 */
+        .input-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 15px 20px;
+            padding-bottom: calc(15px + env(safe-area-inset-bottom));
+        }
+        
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        
+        .message-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 20px;
+            padding: 12px 18px;
+            font-size: 16px;
+            color: #333;
+            resize: none;
+            max-height: 100px;
+            min-height: 44px;
+            line-height: 1.4;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s;
+        }
+        
+        .message-input:focus {
+            outline: none;
+            background: white;
+            box-shadow: 0 0 0 2px rgba(212, 165, 116, 0.3);
+        }
+        
+        .message-input::placeholder {
+            color: #999;
+        }
+        
+        .send-button {
+            background: linear-gradient(135deg, #d4a574, #8b7355);
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 2px 10px rgba(212, 165, 116, 0.3);
+        }
+        
+        .send-button:hover,
+        .send-button:active {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(212, 165, 116, 0.4);
+        }
+        
+        .send-button:disabled {
+            opacity: 0.5;
+            transform: none;
+            cursor: not-allowed;
+        }
+        
+        /* 加载动画 */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            animation: fadeInUp 0.3s ease;
+        }
+        
+        .typing-dots {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 12px 16px;
+            border-radius: 18px;
+            display: flex;
+            gap: 4px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #d4a574;
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-10px); opacity: 1; }
+        }
+        
+        /* 欢迎消息 */
+        .welcome-message {
+            text-align: center;
+            color: white;
+            margin: 40px 20px;
+            opacity: 0.8;
+        }
+        
+        .welcome-message h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .welcome-message p {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            .chat-header {
+                padding: 45px 15px 12px;
+            }
+            
+            .messages-container {
+                padding: 15px;
+            }
+            
+            .input-container {
+                padding: 12px 15px;
+                padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            }
+            
+            .message-content {
+                max-width: 80%;
+            }
+            
+            .message-bubble {
+                padding: 10px 14px;
+                border-radius: 16px;
+            }
+        }
+        
+        /* iOS安全区域适配 */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .input-container {
+                padding-bottom: calc(15px + env(safe-area-inset-bottom));
+            }
+        }
+        
+        /* 滚动条样式 */
+        .messages-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .messages-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .messages-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+        }
+        
+        /* 错误消息 */
+        .error-message {
+            background: rgba(239, 68, 68, 0.9) !important;
+            color: white !important;
+        }
+        
+        /* 隐藏类 */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <header class="chat-header">
+            <div class="header-content">
+                <button class="back-button" onclick="goBack()">
+                    ← 返回
+                </button>
+                <div class="doctor-info">
+                    <div class="doctor-avatar" id="doctorAvatar">👨‍⚕️</div>
+                    <div class="doctor-details">
+                        <div class="doctor-name" id="doctorName">正在加载...</div>
+                        <div class="doctor-school" id="doctorSchool">请稍候</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <main class="messages-container" id="messagesContainer">
+            <div class="welcome-message" id="welcomeMessage">
+                <h3>欢迎来到中医AI智能问诊</h3>
+                <p>请详细描述您的症状，医师将为您提供专业的中医建议</p>
+            </div>
+        </main>
+        
+        <div class="input-container">
+            <div class="input-wrapper">
+                <textarea 
+                    id="messageInput" 
+                    class="message-input" 
+                    placeholder="请描述您的症状或健康问题..."
+                    rows="1"
+                ></textarea>
+                <button id="sendButton" class="send-button" onclick="sendMessage()">
+                    ➤
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let selectedDoctor = null;
+        let conversationId = null;
+        
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDoctorInfo();
+            setupInputHandlers();
+            generateConversationId();
+            
+            // 添加触摸反馈
+            document.addEventListener('touchstart', function() {}, {passive: true});
+        });
+        
+        // 加载医生信息
+        function loadDoctorInfo() {
+            const doctorKey = localStorage.getItem('selectedDoctor');
+            const doctorInfo = JSON.parse(localStorage.getItem('selectedDoctorInfo') || '{}');
+            
+            if (!doctorKey || !doctorInfo.name) {
+                // 如果没有选择医生，返回选择页面
+                window.location.href = '/patient/doctor-select';
+                return;
+            }
+            
+            selectedDoctor = doctorKey;
+            
+            // 更新页面上的医生信息
+            document.getElementById('doctorAvatar').textContent = doctorInfo.avatar || '👨‍⚕️';
+            document.getElementById('doctorName').textContent = doctorInfo.name;
+            document.getElementById('doctorSchool').textContent = doctorInfo.school;
+            
+            // 发送欢迎消息
+            setTimeout(() => {
+                addMessage('ai', `您好！我是${doctorInfo.name}，很高兴为您提供中医咨询服务。请详细描述您的症状，包括发病时间、症状特点、伴随症状等，我将根据中医理论为您分析病情并提供治疗建议。`);
+                document.getElementById('welcomeMessage').style.display = 'none';
+                
+                // 确保滚动到顶部显示医生欢迎消息
+                setTimeout(() => {
+                    const container = document.getElementById('messagesContainer');
+                    container.scrollTop = 0;
+                }, 500);
+            }, 1000);
+        }
+        
+        // 设置输入处理
+        function setupInputHandlers() {
+            const input = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            
+            // 自动调整文本框高度
+            input.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+                
+                // 更新发送按钮状态
+                sendButton.disabled = !this.value.trim();
+            });
+            
+            // 发送消息（回车键）
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // 初始状态
+            sendButton.disabled = true;
+        }
+        
+        // 生成对话ID
+        function generateConversationId() {
+            conversationId = 'conv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+        
+        // 发送消息
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            const message = input.value.trim();
+            
+            if (!message || !selectedDoctor) return;
+            
+            // 禁用输入
+            input.disabled = true;
+            sendButton.disabled = true;
+            
+            // 添加用户消息
+            addMessage('user', message);
+            
+            // 清空输入框
+            input.value = '';
+            input.style.height = 'auto';
+            
+            // 显示AI思考状态
+            showTypingIndicator();
+            
+            try {
+                // 发送到API
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: conversationId,
+                        selected_doctor: selectedDoctor
+                    }),
+                });
+                
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+                
+                const data = await response.json();
+                
+                // 隐藏思考状态
+                hideTypingIndicator();
+                
+                // 添加AI回复
+                if (data.response) {
+                    addMessage('ai', data.response);
+                } else {
+                    addMessage('ai', '抱歉，我暂时无法理解您的问题，请重新描述。', true);
+                }
+                
+            } catch (error) {
+                console.error('发送消息失败:', error);
+                
+                // 隐藏思考状态
+                hideTypingIndicator();
+                
+                // 显示错误消息
+                addMessage('ai', '网络连接异常，请检查网络后重试。', true);
+            } finally {
+                // 恢复输入
+                input.disabled = false;
+                input.focus();
+            }
+        }
+        
+        // 添加消息到聊天界面
+        function addMessage(sender, content, isError = false) {
+            const container = document.getElementById('messagesContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            const avatar = sender === 'user' ? '👤' : 
+                          (selectedDoctor ? JSON.parse(localStorage.getItem('selectedDoctorInfo') || '{}').avatar || '👨‍⚕️' : '🤖');
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-content">
+                    <div class="message-bubble ${isError ? 'error-message' : ''}">${formatMessage(content)}</div>
+                    <div class="message-time">${timeStr}</div>
+                </div>
+            `;
+            
+            container.appendChild(messageDiv);
+            
+            // 滚动到底部 - 仅在添加新消息时
+            if (sender === 'user' || container.children.length > 1) {
+                setTimeout(() => {
+                    container.scrollTop = container.scrollHeight;
+                }, 100);
+            }
+        }
+        
+        // 格式化消息内容
+        function formatMessage(content) {
+            return content
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>');
+        }
+        
+        // 显示AI思考状态
+        function showTypingIndicator() {
+            const container = document.getElementById('messagesContainer');
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typingIndicator';
+            typingDiv.className = 'typing-indicator';
+            
+            const avatar = selectedDoctor ? 
+                          JSON.parse(localStorage.getItem('selectedDoctorInfo') || '{}').avatar || '👨‍⚕️' : 
+                          '🤖';
+            
+            typingDiv.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            `;
+            
+            container.appendChild(typingDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // 隐藏AI思考状态
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+        
+        // 返回医生选择页面
+        function goBack() {
+            if (confirm('确定要返回医生选择页面吗？当前对话将会保存。')) {
+                window.location.href = '/patient/doctor-select';
+            }
+        }
+        
+        // 阻止页面缩放
+        document.addEventListener('touchmove', function(event) {
+            if (event.scale !== 1) {
+                event.preventDefault();
+            }
+        }, {passive: false});
+        
+        // 阻止双击缩放
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+        
+        // 处理页面可见性变化
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                // 页面变为可见时，重新聚焦输入框
+                const input = document.getElementById('messageInput');
+                if (input && !input.disabled) {
+                    setTimeout(() => input.focus(), 100);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

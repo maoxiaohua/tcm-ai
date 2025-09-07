@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>医生登录修复验证</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🩺 TCM-AI 医生登录修复验证</h1>
+    
+    <div id="results"></div>
+    
+    <button onclick="testCompleteFlow()">🧪 执行完整测试</button>
+    <button onclick="testDirectAccess()">🔗 测试直接访问医生门户</button>
+    <button onclick="clearResults()">🗑️ 清空结果</button>
+    
+    <script>
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong> - ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+        
+        async function testCompleteFlow() {
+            addResult('开始完整登录流程测试...', 'info');
+            
+            try {
+                // 1. 执行登录
+                addResult('步骤1: 执行医生登录', 'info');
+                const loginResponse = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'doctor', password: 'doctor123' }),
+                    credentials: 'include'
+                });
+                
+                if (loginResponse.ok) {
+                    const loginData = await loginResponse.json();
+                    addResult(`✅ 登录成功！用户角色: ${loginData.user.role}`, 'success');
+                    
+                    // 检查Cookie
+                    const sessionToken = getCookie('session_token');
+                    if (sessionToken) {
+                        addResult(`✅ 成功获取session_token: ${sessionToken.substring(0, 20)}...`, 'success');
+                        localStorage.setItem('doctorToken', sessionToken);
+                        addResult('✅ 已保存token到localStorage', 'success');
+                    } else {
+                        addResult('⚠️ 未找到session_token Cookie', 'error');
+                    }
+                    
+                    // 2. 测试医生门户访问
+                    addResult('步骤2: 测试医生门户访问', 'info');
+                    const doctorResponse = await fetch('/doctor', {
+                        credentials: 'include',
+                        redirect: 'manual'
+                    });
+                    
+                    if (doctorResponse.status === 200) {
+                        addResult('🎉 医生门户访问成功！不再重定向到登录页面', 'success');
+                        addResult('修复完成：PC端医生登录问题已解决', 'success');
+                    } else if (doctorResponse.status === 302) {
+                        const location = doctorResponse.headers.get('Location');
+                        addResult(`❌ 仍然重定向到: ${location}`, 'error');
+                    } else {
+                        addResult(`⚠️ 意外的响应状态: ${doctorResponse.status}`, 'error');
+                    }
+                    
+                } else {
+                    addResult(`❌ 登录失败: ${loginResponse.status}`, 'error');
+                }
+                
+            } catch (error) {
+                addResult(`❌ 测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testDirectAccess() {
+            addResult('测试直接访问医生门户...', 'info');
+            
+            try {
+                const response = await fetch('/doctor', {
+                    credentials: 'include',
+                    redirect: 'manual'
+                });
+                
+                if (response.status === 200) {
+                    addResult('✅ 直接访问成功！用户已认证', 'success');
+                } else if (response.status === 302) {
+                    const location = response.headers.get('Location');
+                    addResult(`需要登录，重定向到: ${location}`, 'info');
+                } else {
+                    addResult(`状态码: ${response.status}`, 'info');
+                }
+            } catch (error) {
+                addResult(`测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 页面加载时显示当前状态
+        window.addEventListener('load', function() {
+            addResult('医生登录修复验证工具加载完成', 'info');
+            addResult(`当前Cookie: ${document.cookie || '无'}`, 'info');
+            addResult(`当前doctorToken: ${localStorage.getItem('doctorToken') || '无'}`, 'info');
+        });
+    </script>
+</body>
+</html>

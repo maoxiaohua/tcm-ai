@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1e40af">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>医生工作台 - 中医AI智能诊疗系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: white;
+            padding: 15px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #1e40af;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: #6b7280;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #1e40af;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 80px;
+            width: 250px;
+            height: calc(100vh - 80px);
+            background: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            padding: 20px 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+            gap: 12px;
+            font-size: 14px;
+        }
+
+        .nav-item:hover {
+            background: #f3f4f6;
+            border-left-color: #1e40af;
+        }
+
+        .nav-item.active {
+            background: #eff6ff;
+            border-left-color: #1e40af;
+            color: #1e40af;
+            font-weight: 600;
+        }
+
+        .nav-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+            min-height: calc(100vh - 80px);
+        }
+
+        .content-section {
+            display: none;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .section-header {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+            padding: 30px;
+        }
+
+        .section-header h2 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .section-header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .section-body {
+            padding: 30px;
+        }
+
+        .stat-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #1e40af;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #64748b;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+        }
+
+        .action-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .action-card:hover {
+            border-color: #1e40af;
+            box-shadow: 0 10px 25px rgba(30, 64, 175, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .action-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .action-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .action-desc {
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 25px;
+            background: #1e40af;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background: #1e3a8a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .logout-btn {
+            background: #dc2626;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+
+        .logout-btn:hover {
+            background: #b91c1c;
+        }
+
+        .knowledge-category {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .category-header {
+            background: #1e40af;
+            color: white;
+            padding: 15px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .category-content {
+            padding: 20px;
+            display: none;
+        }
+
+        .category-content.show {
+            display: block;
+        }
+
+        .knowledge-item {
+            padding: 10px 15px;
+            margin: 8px 0;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .knowledge-item:hover {
+            background: #eff6ff;
+            transform: translateX(5px);
+        }
+
+        /* 移动端菜单按钮 */
+        .mobile-menu-btn {
+            display: none;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .mobile-menu-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* 移动端遮罩 */
+        .mobile-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        /* 平板适配 */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 220px;
+            }
+
+            .main-content {
+                margin-left: 220px;
+                padding: 20px;
+            }
+
+            .stat-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .action-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .header {
+                padding: 12px 20px;
+                position: relative;
+                z-index: 1001;
+            }
+
+            .header h1 {
+                font-size: 1.3rem;
+            }
+
+            .user-info span {
+                display: none;
+            }
+
+            .logout-btn {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 280px;
+                height: 100vh;
+                background: white;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                z-index: 1000;
+                box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+                padding-top: 80px; /* 为header留出空间 */
+            }
+
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+
+            .sidebar .nav-item {
+                padding: 16px 20px;
+                font-size: 15px;
+            }
+
+            .sidebar .nav-icon {
+                width: 22px;
+                height: 22px;
+                font-size: 18px;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 16px;
+                width: 100%;
+            }
+
+            .section-header {
+                padding: 20px 16px;
+            }
+
+            .section-header h2 {
+                font-size: 1.5rem;
+                margin-bottom: 8px;
+            }
+
+            .section-header p {
+                font-size: 15px;
+            }
+
+            .section-body {
+                padding: 20px 16px;
+            }
+
+            .stat-cards {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .stat-card {
+                padding: 20px;
+            }
+
+            .stat-number {
+                font-size: 2rem;
+            }
+
+            .action-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .action-card {
+                padding: 25px 20px;
+            }
+
+            .action-icon {
+                width: 50px;
+                height: 50px;
+                font-size: 1.2rem;
+            }
+
+            .action-title {
+                font-size: 1.1rem;
+            }
+
+            .action-desc {
+                font-size: 14px;
+            }
+
+            .knowledge-category {
+                margin-bottom: 12px;
+            }
+
+            .category-header {
+                padding: 12px 16px;
+                font-size: 15px;
+            }
+
+            .category-content {
+                padding: 16px;
+            }
+
+            .knowledge-item {
+                padding: 12px;
+                font-size: 14px;
+            }
+        }
+
+        /* 小屏手机适配 */
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.1rem;
+            }
+
+            .sidebar {
+                width: 260px;
+            }
+
+            .main-content {
+                padding: 12px;
+            }
+
+            .section-header {
+                padding: 16px 12px;
+            }
+
+            .section-header h2 {
+                font-size: 1.3rem;
+            }
+
+            .section-body {
+                padding: 16px 12px;
+            }
+
+            .stat-cards {
+                gap: 12px;
+            }
+
+            .stat-card {
+                padding: 16px;
+            }
+
+            .stat-number {
+                font-size: 1.8rem;
+            }
+
+            .stat-label {
+                font-size: 12px;
+            }
+
+            .action-grid {
+                gap: 16px;
+            }
+
+            .action-card {
+                padding: 20px 16px;
+            }
+
+            .action-icon {
+                width: 45px;
+                height: 45px;
+                font-size: 1.1rem;
+            }
+
+            .action-title {
+                font-size: 1rem;
+            }
+
+            .btn {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+        }
+
+        /* 微信浏览器特殊优化 */
+        @media screen and (max-width: 768px) {
+            .app-container {
+                min-height: -webkit-fill-available;
+            }
+
+            .sidebar {
+                padding-top: max(80px, env(safe-area-inset-top) + 80px);
+            }
+
+            .header {
+                padding-top: max(12px, env(safe-area-inset-top) + 12px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 移动端遮罩 -->
+    <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileMenu()"></div>
+    
+    <!-- 顶部导航 -->
+    <div class="header">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileMenu()">☰</button>
+            <h1>
+                🏥 中医AI智能诊疗系统 - 医生工作台
+            </h1>
+        </div>
+        <div class="user-info">
+            <span id="doctorName">医生用户</span>
+            <div class="user-avatar" id="doctorAvatar">医</div>
+            <button class="btn logout-btn" onclick="logout()">退出登录</button>
+        </div>
+    </div>
+
+    <!-- 侧边导航 -->
+    <div class="sidebar">
+        <div class="nav-item active" onclick="showSection('dashboard')">
+            <div class="nav-icon">📊</div>
+            <span>工作台概览</span>
+        </div>
+        <div class="nav-item" onclick="showSection('prescriptions')">
+            <div class="nav-icon">📋</div>
+            <span>处方审查</span>
+        </div>
+        <div class="nav-item" onclick="showSection('knowledge')">
+            <div class="nav-icon">📚</div>
+            <span>医学知识库</span>
+        </div>
+        <div class="nav-item" onclick="showSection('thinking')">
+            <div class="nav-icon">🧠</div>
+            <span>医家思维学习</span>
+        </div>
+        <div class="nav-item" onclick="showSection('statistics')">
+            <div class="nav-icon">📈</div>
+            <span>工作统计</span>
+        </div>
+        <div class="nav-item" onclick="showSection('profile')">
+            <div class="nav-icon">👤</div>
+            <span>个人档案</span>
+        </div>
+    </div>
+
+    <!-- 主要内容区域 -->
+    <div class="main-content">
+        <!-- 工作台概览 -->
+        <div id="dashboard" class="content-section active">
+            <div class="section-header">
+                <h2>工作台概览</h2>
+                <p>欢迎回来，今天让我们一起为患者提供优质的中医诊疗服务</p>
+            </div>
+            <div class="section-body">
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-number" id="pendingCount">-</div>
+                        <div class="stat-label">待审查处方</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="todayCount">-</div>
+                        <div class="stat-label">今日已审查</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="approvedRate">-%</div>
+                        <div class="stat-label">通过率</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalCount">-</div>
+                        <div class="stat-label">累计审查</div>
+                    </div>
+                </div>
+
+                <div class="action-grid">
+                    <div class="action-card" onclick="showSection('prescriptions')">
+                        <div class="action-icon">📋</div>
+                        <div class="action-title">处方审查</div>
+                        <div class="action-desc">审查AI生成的处方，确保诊疗质量和用药安全</div>
+                    </div>
+                    <div class="action-card" onclick="showSection('knowledge')">
+                        <div class="action-icon">📚</div>
+                        <div class="action-title">知识查阅</div>
+                        <div class="action-desc">查阅中医经典文献，提升专业诊疗水平</div>
+                    </div>
+                    <div class="action-card" onclick="showSection('thinking')">
+                        <div class="action-icon">🧠</div>
+                        <div class="action-title">思维学习</div>
+                        <div class="action-desc">学习不同医家流派的诊疗思维和经验</div>
+                    </div>
+                    <div class="action-card" onclick="showSection('statistics')">
+                        <div class="action-icon">📈</div>
+                        <div class="action-title">工作分析</div>
+                        <div class="action-desc">查看工作统计，分析诊疗质量和效率</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 处方审查 -->
+        <div id="prescriptions" class="content-section">
+            <div class="section-header">
+                <h2>处方审查管理</h2>
+                <p>专业审查AI处方，确保诊疗质量</p>
+            </div>
+            <div class="section-body">
+                <div style="text-align: center; padding: 50px;">
+                    <div style="font-size: 3rem; margin-bottom: 20px;">📋</div>
+                    <h3 style="color: #1e40af; margin-bottom: 15px;">处方审查功能</h3>
+                    <p style="color: #6b7280; margin-bottom: 25px;">即将集成现有的处方审查功能</p>
+                    <a href="/doctor/review" class="btn" target="_blank">进入处方审查系统</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 医学知识库 -->
+        <div id="knowledge" class="content-section">
+            <div class="section-header">
+                <h2>中医知识库</h2>
+                <p>查阅经典文献，提升专业水平</p>
+            </div>
+            <div class="section-body">
+                <div class="knowledge-category">
+                    <div class="category-header" onclick="toggleCategory(this)">
+                        <span>📜 经典文献</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="category-content">
+                        <div class="knowledge-item" onclick="openKnowledge('huangdi')">
+                            <strong>《黄帝内经》</strong><br>
+                            <small>中医基础理论的经典著作，阐述天人相应、阴阳五行等核心理念</small>
+                        </div>
+                        <div class="knowledge-item" onclick="openKnowledge('shanghan')">
+                            <strong>《伤寒杂病论》</strong><br>
+                            <small>张仲景经方理论，六经辨证和方剂配伍的经典教材</small>
+                        </div>
+                        <div class="knowledge-item" onclick="openKnowledge('bencao')">
+                            <strong>《神农本草经》</strong><br>
+                            <small>中药学奠基之作，记载365味药物的性味归经和功效</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="knowledge-category">
+                    <div class="category-header" onclick="toggleCategory(this)">
+                        <span>🔬 诊断方法</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="category-content">
+                        <div class="knowledge-item">
+                            <strong>四诊合参</strong><br>
+                            <small>望诊、闻诊、问诊、切诊的综合运用方法</small>
+                        </div>
+                        <div class="knowledge-item">
+                            <strong>八纲辨证</strong><br>
+                            <small>阴阳、表里、寒热、虚实八个方面的辨证方法</small>
+                        </div>
+                        <div class="knowledge-item">
+                            <strong>脏腑辨证</strong><br>
+                            <small>根据脏腑功能特点进行的病理分析和诊断</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="knowledge-category">
+                    <div class="category-header" onclick="toggleCategory(this)">
+                        <span>💊 方剂学</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="category-content">
+                        <div class="knowledge-item">
+                            <strong>君臣佐使</strong><br>
+                            <small>方剂组成的配伍规律和药物作用层次</small>
+                        </div>
+                        <div class="knowledge-item">
+                            <strong>十八反十九畏</strong><br>
+                            <small>中药配伍禁忌，确保用药安全的重要知识</small>
+                        </div>
+                        <div class="knowledge-item">
+                            <strong>经典方剂</strong><br>
+                            <small>麻黄汤、桂枝汤、小柴胡汤等经典方剂的应用</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 医家思维学习 -->
+        <div id="thinking" class="content-section">
+            <div class="section-header">
+                <h2>医家思维学习</h2>
+                <p>学习古今名医的诊疗思维和临床经验</p>
+            </div>
+            <div class="section-body">
+                <div class="action-grid">
+                    <div class="action-card">
+                        <div class="action-icon">👨‍⚕️</div>
+                        <div class="action-title">张仲景 - 经方大师</div>
+                        <div class="action-desc">
+                            六经辨证理论，方证对应思维<br>
+                            <strong>特色：</strong>辨证精准，用药简洁有效
+                        </div>
+                        <button class="btn" style="margin-top: 15px;" onclick="learnThinking('zhongjing')">学习思维</button>
+                    </div>
+                    <div class="action-card">
+                        <div class="action-icon">👨‍⚕️</div>
+                        <div class="action-title">李东垣 - 脾胃论</div>
+                        <div class="action-desc">
+                            脾胃内伤理论，重视后天之本<br>
+                            <strong>特色：</strong>善治脾胃病，注重升清降浊
+                        </div>
+                        <button class="btn" style="margin-top: 15px;" onclick="learnThinking('dongyuan')">学习思维</button>
+                    </div>
+                    <div class="action-card">
+                        <div class="action-icon">👨‍⚕️</div>
+                        <div class="action-title">叶天士 - 温病大家</div>
+                        <div class="action-desc">
+                            卫气营血辨证，温病治疗理论<br>
+                            <strong>特色：</strong>治疗温热病，注重养阴清热
+                        </div>
+                        <button class="btn" style="margin-top: 15px;" onclick="learnThinking('tianshi')">学习思维</button>
+                    </div>
+                    <div class="action-card">
+                        <div class="action-icon">👨‍⚕️</div>
+                        <div class="action-title">王清任 - 活血化瘀</div>
+                        <div class="action-desc">
+                            重视血瘀理论，强调解剖实证<br>
+                            <strong>特色：</strong>善治血瘀证，方药配伍精当
+                        </div>
+                        <button class="btn" style="margin-top: 15px;" onclick="learnThinking('qingren')">学习思维</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 工作统计 -->
+        <div id="statistics" class="content-section">
+            <div class="section-header">
+                <h2>工作统计分析</h2>
+                <p>分析工作效率和诊疗质量</p>
+            </div>
+            <div class="section-body" id="statisticsContent">
+                <div style="text-align: center; padding: 50px; color: #6b7280;">
+                    <div style="font-size: 3rem; margin-bottom: 20px;">📊</div>
+                    <p>正在加载统计数据...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 个人档案 -->
+        <div id="profile" class="content-section">
+            <div class="section-header">
+                <h2>个人档案</h2>
+                <p>管理个人信息和偏好设置</p>
+            </div>
+            <div class="section-body" id="profileContent">
+                <div style="text-align: center; padding: 50px; color: #6b7280;">
+                    <div style="font-size: 3rem; margin-bottom: 20px;">👤</div>
+                    <p>正在加载个人信息...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        // 页面加载时的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            loadDashboardStats();
+        });
+
+        // 检查用户认证
+        async function checkAuth() {
+            const token = localStorage.getItem('doctorToken');
+            if (!token) {
+                window.location.href = '/doctor/login.html';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/doctor/profile', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    currentUser = data.doctor;
+                    updateUserInfo();
+                } else {
+                    localStorage.removeItem('doctorToken');
+                    window.location.href = '/doctor/login.html';
+                }
+            } catch (error) {
+                console.error('认证检查失败:', error);
+            }
+        }
+
+        // 更新用户信息显示
+        function updateUserInfo() {
+            if (currentUser) {
+                document.getElementById('doctorName').textContent = currentUser.name;
+                document.getElementById('doctorAvatar').textContent = currentUser.name.charAt(0);
+            }
+        }
+
+        // 加载工作台统计数据
+        async function loadDashboardStats() {
+            const token = localStorage.getItem('doctorToken');
+            if (!token) return;
+
+            try {
+                const [pendingResponse, statsResponse] = await Promise.all([
+                    fetch('/api/doctor/pending-prescriptions', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    fetch('/api/doctor/statistics', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ]);
+
+                if (pendingResponse.ok && statsResponse.ok) {
+                    const pendingData = await pendingResponse.json();
+                    const statsData = await statsResponse.json();
+
+                    document.getElementById('pendingCount').textContent = pendingData.total || 0;
+                    document.getElementById('todayCount').textContent = statsData.statistics.today_reviewed || 0;
+                    document.getElementById('totalCount').textContent = statsData.statistics.total_reviewed || 0;
+                    
+                    const approvedRate = statsData.statistics.total_reviewed > 0 
+                        ? Math.round((statsData.statistics.approved / statsData.statistics.total_reviewed) * 100)
+                        : 0;
+                    document.getElementById('approvedRate').textContent = approvedRate;
+                }
+            } catch (error) {
+                console.error('加载统计数据失败:', error);
+            }
+        }
+
+        // 切换内容区域
+        function showSection(sectionId) {
+            // 隐藏所有内容区域
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // 移除所有导航项的active状态
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // 显示选中的内容区域
+            document.getElementById(sectionId).classList.add('active');
+            
+            // 激活对应的导航项
+            event.target.closest('.nav-item').classList.add('active');
+
+            // 根据不同区域加载相应数据
+            switch(sectionId) {
+                case 'dashboard':
+                    loadDashboardStats();
+                    break;
+                case 'statistics':
+                    loadDetailedStats();
+                    break;
+                case 'profile':
+                    loadProfile();
+                    break;
+            }
+        }
+
+        // 展开/收起知识分类
+        function toggleCategory(header) {
+            const content = header.nextElementSibling;
+            const arrow = header.querySelector('span:last-child');
+            
+            if (content.classList.contains('show')) {
+                content.classList.remove('show');
+                arrow.textContent = '▼';
+            } else {
+                content.classList.add('show');
+                arrow.textContent = '▲';
+            }
+        }
+
+        // 学习医家思维
+        function learnThinking(doctor) {
+            const thinkingMap = {
+                'zhongjing': '张仲景经方思维学习模块正在开发中...',
+                'dongyuan': '李东垣脾胃理论学习模块正在开发中...',
+                'tianshi': '叶天士温病思维学习模块正在开发中...',
+                'qingren': '王清任活血化瘀理论学习模块正在开发中...'
+            };
+            
+            alert(thinkingMap[doctor] || '该学习模块正在开发中...');
+        }
+
+        // 打开知识内容
+        function openKnowledge(type) {
+            alert('知识库详细内容正在开发中，敬请期待...');
+        }
+
+        // 加载详细统计
+        async function loadDetailedStats() {
+            document.getElementById('statisticsContent').innerHTML = `
+                <div style="text-align: center; padding: 50px; color: #6b7280;">
+                    <div style="font-size: 3rem; margin-bottom: 20px;">📊</div>
+                    <h3>详细统计功能开发中</h3>
+                    <p>将包含工作效率、诊疗质量、患者满意度等多维度分析</p>
+                </div>
+            `;
+        }
+
+        // 加载个人档案
+        async function loadProfile() {
+            if (currentUser) {
+                document.getElementById('profileContent').innerHTML = `
+                    <div style="max-width: 600px; margin: 0 auto;">
+                        <div style="background: #f8fafc; padding: 30px; border-radius: 15px; margin-bottom: 25px;">
+                            <h3 style="color: #1e40af; margin-bottom: 20px;">基本信息</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; align-items: center;">
+                                <strong>姓名:</strong> <span>${currentUser.name}</span>
+                                <strong>执业证号:</strong> <span>${currentUser.license_no}</span>
+                                <strong>专业:</strong> <span>${currentUser.speciality || '未设置'}</span>
+                                <strong>医院:</strong> <span>${currentUser.hospital || '未设置'}</span>
+                                <strong>邮箱:</strong> <span>${currentUser.email || '未设置'}</span>
+                                <strong>电话:</strong> <span>${currentUser.phone || '未设置'}</span>
+                            </div>
+                        </div>
+                        <div style="text-align: center;">
+                            <button class="btn btn-secondary">编辑资料</button>
+                            <button class="btn" style="margin-left: 15px;">修改密码</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // 移动端菜单功能
+        function toggleMobileMenu() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            sidebar.classList.toggle('mobile-open');
+            if (sidebar.classList.contains('mobile-open')) {
+                overlay.style.display = 'block';
+            } else {
+                overlay.style.display = 'none';
+            }
+        }
+
+        function closeMobileMenu() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            sidebar.classList.remove('mobile-open');
+            overlay.style.display = 'none';
+        }
+
+        // 点击导航项时在移动端自动关闭菜单
+        function showSection(sectionId) {
+            // 原有逻辑
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            document.getElementById(sectionId).classList.add('active');
+            event.target.closest('.nav-item').classList.add('active');
+
+            // 移动端关闭菜单
+            if (window.innerWidth <= 768) {
+                closeMobileMenu();
+            }
+
+            // 加载数据逻辑
+            switch(sectionId) {
+                case 'dashboard':
+                    loadDashboardStats();
+                    break;
+                case 'statistics':
+                    loadDetailedStats();
+                    break;
+                case 'profile':
+                    loadProfile();
+                    break;
+            }
+        }
+
+        // 窗口大小改变时的处理
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                closeMobileMenu();
+            }
+        });
+
+        // 退出登录
+        function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                localStorage.removeItem('doctorToken');
+                window.location.href = '/doctor/login.html';
+            }
+        }
+    </script>
+</body>
+</html>

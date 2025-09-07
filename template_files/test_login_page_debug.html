@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录页面调试版</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .debug-info {
+            background: #e3f2fd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #2196f3;
+        }
+        .role-card {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .role-card:hover {
+            border-color: #667eea;
+        }
+        .role-card.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .login-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+        .login-form.show {
+            display: block;
+        }
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-secondary {
+            background: #ddd;
+            color: #333;
+        }
+        .error-message, .success-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            display: none;
+        }
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef5350;
+        }
+        .success-message {
+            background: #e8f5e8;
+            color: #2e7d32;
+            border: 1px solid #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 登录页面调试版</h1>
+    
+    <div class="debug-info">
+        <strong>调试信息:</strong> <span id="debugInfo">页面已加载</span>
+    </div>
+    
+    <div class="roles-container">
+        <div class="role-card" onclick="selectRole('guest')" id="role-guest">
+            <div>🌿 临时访客</div>
+            <small>直接体验中医问诊服务</small>
+        </div>
+        
+        <div class="role-card" onclick="selectRole('patient')" id="role-patient">
+            <div>👤 注册患者</div>
+            <small>已注册用户登录</small>
+        </div>
+        
+        <div class="role-card" onclick="selectRole('doctor')" id="role-doctor">
+            <div>👨‍⚕️ 医生用户</div>
+            <small>医生工作台</small>
+        </div>
+        
+        <div class="role-card" onclick="selectRole('admin')" id="role-admin">
+            <div>🛠️ 系统管理</div>
+            <small>管理员后台</small>
+        </div>
+    </div>
+    
+    <div class="login-form" id="loginForm">
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+        
+        <div>
+            <label>用户名:</label>
+            <input type="text" class="form-input" id="username" placeholder="请输入用户名">
+        </div>
+        
+        <div>
+            <label>密码:</label>
+            <input type="password" class="form-input" id="password" placeholder="请输入密码">
+        </div>
+        
+        <div>
+            <button class="btn btn-primary" onclick="handleLogin()">登录</button>
+            <button class="btn btn-secondary" onclick="resetSelection()">返回</button>
+        </div>
+    </div>
+    
+    <div>
+        <button class="btn btn-primary" id="primaryBtn" onclick="handlePrimaryAction()">
+            选择身份类型
+        </button>
+    </div>
+    
+    <script>
+        let selectedRole = null;
+        
+        function updateDebugInfo(message) {
+            document.getElementById('debugInfo').textContent = message;
+            console.log('DEBUG:', message);
+        }
+        
+        function selectRole(role) {
+            updateDebugInfo(`选择角色: ${role}`);
+            selectedRole = role;
+            
+            // 清除所有选中状态
+            document.querySelectorAll('.role-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // 添加选中状态
+            const selectedCard = document.getElementById(`role-${role}`);
+            if (selectedCard) {
+                selectedCard.classList.add('selected');
+                updateDebugInfo(`角色 ${role} 已选中`);
+            } else {
+                updateDebugInfo(`错误: 找不到角色卡片 role-${role}`);
+            }
+            
+            const loginForm = document.getElementById('loginForm');
+            const primaryBtn = document.getElementById('primaryBtn');
+            
+            if (role === 'guest') {
+                // 临时访客不需要登录
+                loginForm.classList.remove('show');
+                primaryBtn.textContent = '🌿 开始问诊';
+                updateDebugInfo('临时访客模式，无需登录');
+            } else {
+                // 其他角色需要登录
+                loginForm.classList.add('show');
+                primaryBtn.textContent = '🔐 登录';
+                updateDebugInfo(`${role} 模式，需要登录`);
+                
+                // 设置测试账号提示
+                const usernameInput = document.getElementById('username');
+                if (role === 'doctor') {
+                    usernameInput.placeholder = '测试账号: doctor';
+                    usernameInput.value = 'doctor';
+                    document.getElementById('password').value = 'doctor123';
+                } else if (role === 'admin') {
+                    usernameInput.placeholder = '测试账号: admin';
+                    usernameInput.value = 'admin';
+                    document.getElementById('password').value = 'admin123';
+                } else if (role === 'patient') {
+                    usernameInput.placeholder = '测试账号: patient';
+                    usernameInput.value = 'patient';
+                    document.getElementById('password').value = 'patient123';
+                }
+            }
+        }
+        
+        function handlePrimaryAction() {
+            updateDebugInfo('处理主要操作...');
+            
+            if (!selectedRole) {
+                showError('请先选择身份类型');
+                return;
+            }
+            
+            if (selectedRole === 'guest') {
+                showSuccess('正在跳转到问诊系统...');
+                updateDebugInfo('临时访客跳转中...');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1000);
+                return;
+            }
+            
+            // 其他角色调用登录
+            handleLogin();
+        }
+        
+        async function handleLogin() {
+            updateDebugInfo('开始登录流程...');
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            if (!username || !password) {
+                showError('请输入用户名和密码');
+                return;
+            }
+            
+            updateDebugInfo(`尝试登录: ${username}`);
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                updateDebugInfo(`登录响应状态: ${response.status}`);
+                
+                const data = await response.json();
+                updateDebugInfo(`登录响应数据: ${JSON.stringify(data)}`);
+                
+                if (response.ok && data.success) {
+                    showSuccess(`登录成功！用户角色: ${data.user.role}`);
+                    updateDebugInfo(`登录成功，跳转到: ${data.redirect_url}`);
+                    
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url;
+                    }, 1500);
+                } else {
+                    showError(data.detail || data.message || '登录失败');
+                    updateDebugInfo(`登录失败: ${data.detail || data.message}`);
+                }
+            } catch (error) {
+                updateDebugInfo(`网络错误: ${error.message}`);
+                showError('网络错误，请稍后重试');
+            }
+        }
+        
+        function resetSelection() {
+            updateDebugInfo('重置选择');
+            selectedRole = null;
+            
+            document.querySelectorAll('.role-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            document.getElementById('loginForm').classList.remove('show');
+            document.getElementById('primaryBtn').textContent = '选择身份类型';
+            
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            hideMessages();
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('successMessage').style.display = 'none';
+            updateDebugInfo(`显示错误: ${message}`);
+        }
+        
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+            updateDebugInfo(`显示成功: ${message}`);
+        }
+        
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+        
+        // 页面加载完成
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDebugInfo('页面DOM加载完成');
+            hideMessages();
+        });
+        
+        // 键盘事件
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && selectedRole && selectedRole !== 'guest') {
+                updateDebugInfo('回车键触发登录');
+                handleLogin();
+            }
+        });
+    </script>
+</body>
+</html>

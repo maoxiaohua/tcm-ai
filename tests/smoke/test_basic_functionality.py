@@ -100,12 +100,12 @@ class TestCriticalPaths:
     
     def test_image_upload_endpoints_exist(self, api_base_url):
         """测试图片上传端点是否存在"""
-        # 检查舌象上传端点
-        response = requests.options(f"{api_base_url}/upload_tongue_image", timeout=10)
+        # 检查综合图像分析端点 (舌象+面相+医疗图像)
+        response = requests.options(f"{api_base_url}/analyze_images", timeout=10)
         assert response.status_code in [200, 405]  # 405 Method Not Allowed也表示端点存在
         
-        # 检查面象上传端点  
-        response = requests.options(f"{api_base_url}/upload_face_image", timeout=10)
+        # 检查处方图像检查端点  
+        response = requests.options(f"{api_base_url}/api/prescription/check_image", timeout=10)
         assert response.status_code in [200, 405]
         
         print("✅ 图片上传端点存在")

@@ -1,0 +1,1065 @@
+{
+  "file_info": {
+    "path": "/opt/tcm-ai/api/main.py",
+    "total_lines": 4541,
+    "functions_count": 107,
+    "classes_count": 12,
+    "imports_count": 117
+  },
+  "functions": {
+    "check_symptom_fabrication": {
+      "name": "check_symptom_fabrication",
+      "line": 52,
+      "lines": 47,
+      "args": 2,
+      "docstring": "检查AI是否编造了患者未明确描述的症状细节\n返回编造的症状描述，如果没有编造则返回空字符串",
+      "is_async": false
+    },
+    "detect_fabricated_examination": {
+      "name": "detect_fabricated_examination",
+      "line": 135,
+      "lines": 20,
+      "args": 2,
+      "docstring": "检测编造的望诊切诊内容",
+      "is_async": false
+    },
+    "check_medical_safety": {
+      "name": "check_medical_safety",
+      "line": 158,
+      "lines": 109,
+      "args": 5,
+      "docstring": "检查AI回复中的医疗信息是否安全（舌象、脉象、症状编造）\n返回: (is_safe, error_message)\n\n安全策略：\n1. 舌象检查：有图片且分析成功 → 允许舌象描述  \n2. 脉象检查：绝不允许编造脉象描述\n3. 症状检查：不允许添加患者未明确描述的症状细节\n4. 患者自述：允许AI引用患者明确描述的内容\n5. 【新增】望诊切诊严格检测：绝不允许编造任何体征信息",
+      "is_async": false
+    },
+    "normalize_prescription_dosage": {
+      "name": "normalize_prescription_dosage",
+      "line": 269,
+      "lines": 23,
+      "args": 1,
+      "docstring": "规范化处方用量，将范围用量转换为确定用量",
+      "is_async": false
+    },
+    "extract_herbs_from_prescription": {
+      "name": "extract_herbs_from_prescription",
+      "line": 293,
+      "lines": 56,
+      "args": 1,
+      "docstring": "从处方文本中提取药材信息 - 支持表格格式",
+      "is_async": false
+    },
+    "extract_herbs_from_table": {
+      "name": "extract_herbs_from_table",
+      "line": 350,
+      "lines": 35,
+      "args": 1,
+      "docstring": "从markdown表格中提取药材信息",
+      "is_async": false
+    },
+    "standardize_prescription_format": {
+      "name": "standardize_prescription_format",
+      "line": 386,
+      "lines": 52,
+      "args": 1,
+      "docstring": "统一处方格式为增强版标准格式 - 支持层次感和视觉效果",
+      "is_async": false
+    },
+    "generate_enhanced_prescription_format": {
+      "name": "generate_enhanced_prescription_format",
+      "line": 439,
+      "lines": 66,
+      "args": 1,
+      "docstring": "生成增强版处方格式 - 层次分明、视觉美观",
+      "is_async": false
+    },
+    "enhance_diagnosis_format": {
+      "name": "enhance_diagnosis_format",
+      "line": 506,
+      "lines": 31,
+      "args": 1,
+      "docstring": "增强整体诊疗方案的格式化 - 为所有医生回复添加层次感",
+      "is_async": false
+    },
+    "detect_and_filter_western_medicine": {
+      "name": "detect_and_filter_western_medicine",
+      "line": 538,
+      "lines": 78,
+      "args": 1,
+      "docstring": "检测并过滤西医内容 - 只清理明确的西药推荐和西医检查建议",
+      "is_async": false
+    },
+    "sanitize_ai_response": {
+      "name": "sanitize_ai_response",
+      "line": 617,
+      "lines": 236,
+      "args": 5,
+      "docstring": "清理AI回复中的非法舌象、脉象、症状编造和处方编造信息",
+      "is_async": false
+    },
+    "check_image_analysis_success": {
+      "name": "check_image_analysis_success",
+      "line": 854,
+      "lines": 42,
+      "args": 1,
+      "docstring": "检查最近的图片分析是否成功\n\n通过检查会话历史中的图片上传结果来判断：\n1. 包含\"✅ 舌象图片已成功上传\" → 分析成功\n2. 包含\"⚠️ 图片已上传，但图像质量\" → 分析失败（质量问题）\n3. 没有图片上传记录 → 分析失败",
+      "is_async": false
+    },
+    "detect_tongue_image_upload": {
+      "name": "detect_tongue_image_upload",
+      "line": 897,
+      "lines": 51,
+      "args": 2,
+      "docstring": "检测是否有舌象图片上传\n\n改进的检测逻辑：\n1. 优先检查明确的上传成功标识\n2. 检查会话历史中的图像消息\n3. 检查是否存在舌象相关的图像文件",
+      "is_async": true
+    },
+    "validate_image_analysis_safety": {
+      "name": "validate_image_analysis_safety",
+      "line": 949,
+      "lines": 69,
+      "args": 2,
+      "docstring": "验证图像分析结果的医疗安全性",
+      "is_async": false
+    },
+    "extract_patient_tongue_description": {
+      "name": "extract_patient_tongue_description",
+      "line": 1019,
+      "lines": 31,
+      "args": 1,
+      "docstring": "提取患者描述的舌象信息\n\n从会话历史中提取患者自己描述的舌象特征，\n这些信息是合法的，可以在AI回复中使用",
+      "is_async": false
+    },
+    "search_knowledge_base": {
+      "name": "search_knowledge_base",
+      "line": 1238,
+      "lines": 76,
+      "args": 4,
+      "docstring": "增强的混合知识库搜索函数 (优先使用PostgreSQL医生专用知识库，支持向量搜索)",
+      "is_async": true
+    },
+    "extract_diagnosis_improved": {
+      "name": "extract_diagnosis_improved",
+      "line": 1315,
+      "lines": 58,
+      "args": 1,
+      "docstring": "改进的诊断信息提取函数\n支持多种中医诊断格式",
+      "is_async": false
+    },
+    "extract_prescription_improved": {
+      "name": "extract_prescription_improved",
+      "line": 1374,
+      "lines": 82,
+      "args": 1,
+      "docstring": "改进的处方提取函数\n返回: (是否检测到处方, 处方内容)",
+      "is_async": false
+    },
+    "has_herbal_content": {
+      "name": "has_herbal_content",
+      "line": 1457,
+      "lines": 14,
+      "args": 1,
+      "docstring": "检查文本是否包含中药内容",
+      "is_async": false
+    },
+    "llm_based_knowledge_search": {
+      "name": "llm_based_knowledge_search",
+      "line": 1472,
+      "lines": 30,
+      "args": 2,
+      "docstring": "基于LLM的知识搜索 (替代本地知识库)",
+      "is_async": false
+    },
+    "embed_query": {
+      "name": "embed_query",
+      "line": 1504,
+      "lines": 12,
+      "args": 1,
+      "docstring": null,
+      "is_async": true
+    },
+    "bailian_llm_complete": {
+      "name": "bailian_llm_complete",
+      "line": 1517,
+      "lines": 19,
+      "args": 3,
+      "docstring": null,
+      "is_async": true
+    },
+    "extract_keywords_from_query": {
+      "name": "extract_keywords_from_query",
+      "line": 1541,
+      "lines": 30,
+      "args": 1,
+      "docstring": null,
+      "is_async": true
+    },
+    "speech_to_text_online": {
+      "name": "speech_to_text_online",
+      "line": 1573,
+      "lines": 69,
+      "args": 1,
+      "docstring": "使用阿里云语音识别服务",
+      "is_async": true
+    },
+    "extract_features_from_image": {
+      "name": "extract_features_from_image",
+      "line": 1644,
+      "lines": 107,
+      "args": 2,
+      "docstring": "使用多模态API进行图像分析",
+      "is_async": false
+    },
+    "lifespan": {
+      "name": "lifespan",
+      "line": 1754,
+      "lines": 5,
+      "args": 1,
+      "docstring": null,
+      "is_async": true
+    },
+    "get_prescription_checker": {
+      "name": "get_prescription_checker",
+      "line": 1772,
+      "lines": 9,
+      "args": 0,
+      "docstring": null,
+      "is_async": false
+    },
+    "get_knowledge_graph": {
+      "name": "get_knowledge_graph",
+      "line": 1782,
+      "lines": 9,
+      "args": 0,
+      "docstring": null,
+      "is_async": false
+    },
+    "get_famous_doctor_system": {
+      "name": "get_famous_doctor_system",
+      "line": 1792,
+      "lines": 9,
+      "args": 0,
+      "docstring": null,
+      "is_async": false
+    },
+    "doctor_portal": {
+      "name": "doctor_portal",
+      "line": 1920,
+      "lines": 4,
+      "args": 0,
+      "docstring": "医生门户 - 友好URL",
+      "is_async": true
+    },
+    "doctor_thinking": {
+      "name": "doctor_thinking",
+      "line": 1926,
+      "lines": 4,
+      "args": 0,
+      "docstring": "医生思维录入 - 友好URL",
+      "is_async": true
+    },
+    "doctor_thinking_v2": {
+      "name": "doctor_thinking_v2",
+      "line": 1932,
+      "lines": 4,
+      "args": 0,
+      "docstring": "医生思维录入V2 - 友好URL (推荐)",
+      "is_async": true
+    },
+    "doctor_management": {
+      "name": "doctor_management",
+      "line": 1938,
+      "lines": 4,
+      "args": 0,
+      "docstring": "医生管理 - 友好URL",
+      "is_async": true
+    },
+    "doctor_selection_test": {
+      "name": "doctor_selection_test",
+      "line": 1944,
+      "lines": 4,
+      "args": 0,
+      "docstring": "医生选择测试页面",
+      "is_async": true
+    },
+    "test_doctor_selection_simple": {
+      "name": "test_doctor_selection_simple",
+      "line": 1950,
+      "lines": 4,
+      "args": 0,
+      "docstring": "简单医生选择功能测试",
+      "is_async": true
+    },
+    "doctor_portal_direct": {
+      "name": "doctor_portal_direct",
+      "line": 1958,
+      "lines": 4,
+      "args": 0,
+      "docstring": "医生门户 - 直接URL (兼容性)",
+      "is_async": true
+    },
+    "register_page": {
+      "name": "register_page",
+      "line": 4267,
+      "lines": 9,
+      "args": 0,
+      "docstring": "用户注册页面",
+      "is_async": true
+    },
+    "user_history_page": {
+      "name": "user_history_page",
+      "line": 4093,
+      "lines": 7,
+      "args": 0,
+      "docstring": "用户历史记录页面",
+      "is_async": true
+    },
+    "qr_gallery_page": {
+      "name": "qr_gallery_page",
+      "line": 1976,
+      "lines": 4,
+      "args": 0,
+      "docstring": "二维码管理页面",
+      "is_async": true
+    },
+    "get_conversation_history_filepath": {
+      "name": "get_conversation_history_filepath",
+      "line": 2205,
+      "lines": 2,
+      "args": 1,
+      "docstring": null,
+      "is_async": false
+    },
+    "load_conversation_history": {
+      "name": "load_conversation_history",
+      "line": 2208,
+      "lines": 9,
+      "args": 1,
+      "docstring": null,
+      "is_async": false
+    },
+    "save_conversation_history": {
+      "name": "save_conversation_history",
+      "line": 2218,
+      "lines": 7,
+      "args": 2,
+      "docstring": null,
+      "is_async": false
+    },
+    "read_index_html": {
+      "name": "read_index_html",
+      "line": 2228,
+      "lines": 35,
+      "args": 0,
+      "docstring": "首页 - 返回最新的Web界面（禁用缓存）",
+      "is_async": true
+    },
+    "health_check": {
+      "name": "health_check",
+      "line": 4301,
+      "lines": 50,
+      "args": 0,
+      "docstring": "系统健康检查",
+      "is_async": true
+    },
+    "get_history_endpoint": {
+      "name": "get_history_endpoint",
+      "line": 2284,
+      "lines": 3,
+      "args": 1,
+      "docstring": null,
+      "is_async": true
+    },
+    "speech_to_text_endpoint": {
+      "name": "speech_to_text_endpoint",
+      "line": 2289,
+      "lines": 18,
+      "args": 1,
+      "docstring": "语音转文字接口 - 使用在线语音识别",
+      "is_async": true
+    },
+    "analyze_images_endpoint": {
+      "name": "analyze_images_endpoint",
+      "line": 2309,
+      "lines": 80,
+      "args": 4,
+      "docstring": "图像分析接口 - 使用多模态API",
+      "is_async": true
+    },
+    "chat_with_ai_endpoint": {
+      "name": "chat_with_ai_endpoint",
+      "line": 2391,
+      "lines": 510,
+      "args": 2,
+      "docstring": "对话接口 - 集成用户历史记录系统",
+      "is_async": true
+    },
+    "get_doctor_info_endpoint": {
+      "name": "get_doctor_info_endpoint",
+      "line": 2903,
+      "lines": 12,
+      "args": 1,
+      "docstring": "获取医生专业信息和统计",
+      "is_async": true
+    },
+    "recommend_formula_endpoint": {
+      "name": "recommend_formula_endpoint",
+      "line": 2917,
+      "lines": 15,
+      "args": 1,
+      "docstring": "根据症状推荐方剂",
+      "is_async": true
+    },
+    "get_doctor_introductions_endpoint": {
+      "name": "get_doctor_introductions_endpoint",
+      "line": 2934,
+      "lines": 44,
+      "args": 0,
+      "docstring": "获取医生简介信息",
+      "is_async": true
+    },
+    "debug_status_endpoint": {
+      "name": "debug_status_endpoint",
+      "line": 2980,
+      "lines": 46,
+      "args": 0,
+      "docstring": "调试状态端点",
+      "is_async": true
+    },
+    "test_upload_page": {
+      "name": "test_upload_page",
+      "line": 3028,
+      "lines": 5,
+      "args": 0,
+      "docstring": "提供图片上传测试页面",
+      "is_async": true
+    },
+    "mobile_debug_test": {
+      "name": "mobile_debug_test",
+      "line": 3035,
+      "lines": 5,
+      "args": 0,
+      "docstring": "提供移动端弹窗调试测试页面",
+      "is_async": true
+    },
+    "get_diagnosis_progress": {
+      "name": "get_diagnosis_progress",
+      "line": 3042,
+      "lines": 8,
+      "args": 1,
+      "docstring": "获取特定对话的诊断进度",
+      "is_async": true
+    },
+    "check_prescription_endpoint": {
+      "name": "check_prescription_endpoint",
+      "line": 3053,
+      "lines": 114,
+      "args": 2,
+      "docstring": "处方检查API - 使用基础处方解析器",
+      "is_async": true
+    },
+    "add_famous_doctor_prescription_endpoint": {
+      "name": "add_famous_doctor_prescription_endpoint",
+      "line": 3169,
+      "lines": 28,
+      "args": 3,
+      "docstring": "添加名医处方到学习系统",
+      "is_async": true
+    },
+    "get_doctor_patterns_endpoint": {
+      "name": "get_doctor_patterns_endpoint",
+      "line": 3199,
+      "lines": 21,
+      "args": 1,
+      "docstring": "获取特定医生的处方规律",
+      "is_async": true
+    },
+    "prescription_ocr_endpoint": {
+      "name": "prescription_ocr_endpoint",
+      "line": 3223,
+      "lines": 35,
+      "args": 1,
+      "docstring": "处方图片OCR识别API",
+      "is_async": true
+    },
+    "prescription_check_image_multimodal": {
+      "name": "prescription_check_image_multimodal",
+      "line": 3260,
+      "lines": 105,
+      "args": 1,
+      "docstring": "使用多模LLM的新处方图片检查API - 现代化方案",
+      "is_async": true
+    },
+    "prescription_check_image_endpoint": {
+      "name": "prescription_check_image_endpoint",
+      "line": 3367,
+      "lines": 185,
+      "args": 2,
+      "docstring": "图片处方一站式检查API (OCR + 处方检查) - 传统方案",
+      "is_async": true
+    },
+    "get_ocr_stats_endpoint": {
+      "name": "get_ocr_stats_endpoint",
+      "line": 3554,
+      "lines": 21,
+      "args": 0,
+      "docstring": "获取OCR系统统计信息",
+      "is_async": true
+    },
+    "prescription_checker_page": {
+      "name": "prescription_checker_page",
+      "line": 3578,
+      "lines": 26,
+      "args": 0,
+      "docstring": "处方检查界面",
+      "is_async": true
+    },
+    "prescription_debug_page": {
+      "name": "prescription_debug_page",
+      "line": 3606,
+      "lines": 10,
+      "args": 0,
+      "docstring": "处方检查移动端调试页面",
+      "is_async": true
+    },
+    "diagnosis_safety_status": {
+      "name": "diagnosis_safety_status",
+      "line": 3618,
+      "lines": 20,
+      "args": 0,
+      "docstring": "获取诊断安全系统状态",
+      "is_async": true
+    },
+    "submit_feedback_endpoint": {
+      "name": "submit_feedback_endpoint",
+      "line": 3640,
+      "lines": 44,
+      "args": 1,
+      "docstring": "提交用户反馈",
+      "is_async": true
+    },
+    "add_case_example_endpoint": {
+      "name": "add_case_example_endpoint",
+      "line": 3715,
+      "lines": 23,
+      "args": 1,
+      "docstring": null,
+      "is_async": true
+    },
+    "import_thinking_pattern_endpoint": {
+      "name": "import_thinking_pattern_endpoint",
+      "line": 3740,
+      "lines": 23,
+      "args": 1,
+      "docstring": "导入医生思维模式",
+      "is_async": true
+    },
+    "learn_doctor_patterns_endpoint": {
+      "name": "learn_doctor_patterns_endpoint",
+      "line": 3765,
+      "lines": 16,
+      "args": 2,
+      "docstring": "学习医生思维模式",
+      "is_async": true
+    },
+    "recommend_doctors_endpoint": {
+      "name": "recommend_doctors_endpoint",
+      "line": 3783,
+      "lines": 16,
+      "args": 1,
+      "docstring": "推荐最适合的医生",
+      "is_async": true
+    },
+    "get_doctor_statistics_endpoint": {
+      "name": "get_doctor_statistics_endpoint",
+      "line": 3801,
+      "lines": 12,
+      "args": 0,
+      "docstring": "获取医生统计信息",
+      "is_async": true
+    },
+    "doctor_authenticate_endpoint": {
+      "name": "doctor_authenticate_endpoint",
+      "line": 3815,
+      "lines": 34,
+      "args": 1,
+      "docstring": "医生身份认证",
+      "is_async": true
+    },
+    "get_doctor_portal_info": {
+      "name": "get_doctor_portal_info",
+      "line": 3851,
+      "lines": 30,
+      "args": 0,
+      "docstring": "获取医生门户信息",
+      "is_async": true
+    },
+    "share_visit_api": {
+      "name": "share_visit_api",
+      "line": 3884,
+      "lines": 8,
+      "args": 1,
+      "docstring": "记录分享页面访问",
+      "is_async": true
+    },
+    "wechat_visit_api": {
+      "name": "wechat_visit_api",
+      "line": 3894,
+      "lines": 8,
+      "args": 1,
+      "docstring": "记录微信访问",
+      "is_async": true
+    },
+    "get_user_info_api": {
+      "name": "get_user_info_api",
+      "line": 3906,
+      "lines": 26,
+      "args": 1,
+      "docstring": "获取当前用户信息",
+      "is_async": true
+    },
+    "get_user_sessions_api": {
+      "name": "get_user_sessions_api",
+      "line": 3934,
+      "lines": 42,
+      "args": 2,
+      "docstring": "获取用户的问诊会话历史",
+      "is_async": true
+    },
+    "get_user_doctor_sessions_api": {
+      "name": "get_user_doctor_sessions_api",
+      "line": 3978,
+      "lines": 27,
+      "args": 2,
+      "docstring": "获取用户与特定医生的会话历史",
+      "is_async": true
+    },
+    "get_conversation_detail_api": {
+      "name": "get_conversation_detail_api",
+      "line": 4007,
+      "lines": 25,
+      "args": 2,
+      "docstring": "获取对话详情",
+      "is_async": true
+    },
+    "export_conversation_api": {
+      "name": "export_conversation_api",
+      "line": 4034,
+      "lines": 57,
+      "args": 3,
+      "docstring": "导出对话为专业医疗格式",
+      "is_async": true
+    },
+    "get_user_stats_api": {
+      "name": "get_user_stats_api",
+      "line": 4102,
+      "lines": 11,
+      "args": 0,
+      "docstring": "获取用户系统统计信息（管理用）",
+      "is_async": true
+    },
+    "send_verification_code_api": {
+      "name": "send_verification_code_api",
+      "line": 4117,
+      "lines": 22,
+      "args": 1,
+      "docstring": "发送手机验证码",
+      "is_async": true
+    },
+    "verify_phone_code_api": {
+      "name": "verify_phone_code_api",
+      "line": 4141,
+      "lines": 23,
+      "args": 1,
+      "docstring": "验证手机验证码",
+      "is_async": true
+    },
+    "bind_phone_api": {
+      "name": "bind_phone_api",
+      "line": 4166,
+      "lines": 31,
+      "args": 1,
+      "docstring": "绑定手机号到当前设备用户",
+      "is_async": true
+    },
+    "phone_login_api": {
+      "name": "phone_login_api",
+      "line": 4199,
+      "lines": 30,
+      "args": 1,
+      "docstring": "手机号登录（多设备支持）",
+      "is_async": true
+    },
+    "get_user_devices_api": {
+      "name": "get_user_devices_api",
+      "line": 4231,
+      "lines": 23,
+      "args": 1,
+      "docstring": "获取用户绑定的设备列表",
+      "is_async": true
+    },
+    "phone_binding_page": {
+      "name": "phone_binding_page",
+      "line": 4256,
+      "lines": 9,
+      "args": 0,
+      "docstring": "手机号绑定页面",
+      "is_async": true
+    },
+    "get_database_stats": {
+      "name": "get_database_stats",
+      "line": 4279,
+      "lines": 20,
+      "args": 0,
+      "docstring": "获取数据库连接池统计",
+      "is_async": true
+    },
+    "system_monitor": {
+      "name": "system_monitor",
+      "line": 4353,
+      "lines": 9,
+      "args": 0,
+      "docstring": "系统监控面板页面",
+      "is_async": true
+    },
+    "get_error_statistics": {
+      "name": "get_error_statistics",
+      "line": 4364,
+      "lines": 10,
+      "args": 0,
+      "docstring": "获取错误统计信息",
+      "is_async": true
+    },
+    "report_client_error": {
+      "name": "report_client_error",
+      "line": 4376,
+      "lines": 37,
+      "args": 1,
+      "docstring": "接收客户端错误报告",
+      "is_async": true
+    },
+    "get_system_health_api": {
+      "name": "get_system_health_api",
+      "line": 4417,
+      "lines": 14,
+      "args": 0,
+      "docstring": "系统健康监控API端点",
+      "is_async": true
+    },
+    "get_health_trends_api": {
+      "name": "get_health_trends_api",
+      "line": 4433,
+      "lines": 12,
+      "args": 0,
+      "docstring": "系统健康趋势API端点",
+      "is_async": true
+    },
+    "get_integration_status": {
+      "name": "get_integration_status",
+      "line": 4447,
+      "lines": 23,
+      "args": 0,
+      "docstring": "系统集成状态API端点",
+      "is_async": true
+    },
+    "get_security_status": {
+      "name": "get_security_status",
+      "line": 4472,
+      "lines": 25,
+      "args": 0,
+      "docstring": "获取安全监控状态",
+      "is_async": true
+    },
+    "unified_system_monitor": {
+      "name": "unified_system_monitor",
+      "line": 4499,
+      "lines": 7,
+      "args": 0,
+      "docstring": "统一系统监控面板 - 集成性能和安全监控",
+      "is_async": true
+    },
+    "debug_layout": {
+      "name": "debug_layout",
+      "line": 4508,
+      "lines": 7,
+      "args": 0,
+      "docstring": "页面布局调试工具",
+      "is_async": true
+    },
+    "legacy_system_monitor": {
+      "name": "legacy_system_monitor",
+      "line": 4517,
+      "lines": 4,
+      "args": 0,
+      "docstring": "重定向到统一监控面板",
+      "is_async": true
+    },
+    "replace_range": {
+      "name": "replace_range",
+      "line": 276,
+      "lines": 12,
+      "args": 1,
+      "docstring": null,
+      "is_async": false
+    },
+    "mobile_modal_test": {
+      "name": "mobile_modal_test",
+      "line": 1824,
+      "lines": 5,
+      "args": 0,
+      "docstring": "移动端图片选择弹窗测试页面",
+      "is_async": true
+    },
+    "wechat_verification_dynamic": {
+      "name": "wechat_verification_dynamic",
+      "line": 1832,
+      "lines": 15,
+      "args": 1,
+      "docstring": "微信公众平台域名验证 - 支持任意MP_verify_*.txt文件",
+      "is_async": true
+    },
+    "wechat_verification": {
+      "name": "wechat_verification",
+      "line": 1850,
+      "lines": 8,
+      "args": 0,
+      "docstring": "微信公众平台域名验证 - 向后兼容",
+      "is_async": true
+    },
+    "robots_txt": {
+      "name": "robots_txt",
+      "line": 1860,
+      "lines": 8,
+      "args": 0,
+      "docstring": "搜索引擎robots.txt",
+      "is_async": true
+    },
+    "sitemap_xml": {
+      "name": "sitemap_xml",
+      "line": 1870,
+      "lines": 18,
+      "args": 0,
+      "docstring": "搜索引擎站点地图",
+      "is_async": true
+    },
+    "log_wechat_visit": {
+      "name": "log_wechat_visit",
+      "line": 1890,
+      "lines": 24,
+      "args": 1,
+      "docstring": "记录微信公众号访问统计",
+      "is_async": true
+    },
+    "normalize_doctor_name": {
+      "name": "normalize_doctor_name",
+      "line": 2465,
+      "lines": 10,
+      "args": 1,
+      "docstring": "标准化医生名称为英文ID",
+      "is_async": false
+    },
+    "should_preserve_term": {
+      "name": "should_preserve_term",
+      "line": 656,
+      "lines": 4,
+      "args": 2,
+      "docstring": "判断是否应该保留术语（基于上下文）",
+      "is_async": false
+    }
+  },
+  "classes": {
+    "ChatMessageInput": {
+      "name": "ChatMessageInput",
+      "line": 1982,
+      "lines": 4,
+      "methods": []
+    },
+    "ChatMessageOutput": {
+      "name": "ChatMessageOutput",
+      "line": 1987,
+      "lines": 3,
+      "methods": []
+    },
+    "ConversationHistoryMessage": {
+      "name": "ConversationHistoryMessage",
+      "line": 1991,
+      "lines": 3,
+      "methods": []
+    },
+    "ConversationHistoryOutput": {
+      "name": "ConversationHistoryOutput",
+      "line": 1995,
+      "lines": 4,
+      "methods": []
+    },
+    "STTOutput": {
+      "name": "STTOutput",
+      "line": 2000,
+      "lines": 3,
+      "methods": []
+    },
+    "ImageAnalysisOutput": {
+      "name": "ImageAnalysisOutput",
+      "line": 2004,
+      "lines": 3,
+      "methods": []
+    },
+    "FeedbackInput": {
+      "name": "FeedbackInput",
+      "line": 2008,
+      "lines": 5,
+      "methods": []
+    },
+    "FeedbackOutput": {
+      "name": "FeedbackOutput",
+      "line": 2014,
+      "lines": 3,
+      "methods": []
+    },
+    "CaseInput": {
+      "name": "CaseInput",
+      "line": 3686,
+      "lines": 9,
+      "methods": []
+    },
+    "DoctorLearningInput": {
+      "name": "DoctorLearningInput",
+      "line": 3696,
+      "lines": 3,
+      "methods": []
+    },
+    "DoctorRecommendationInput": {
+      "name": "DoctorRecommendationInput",
+      "line": 3700,
+      "lines": 3,
+      "methods": []
+    },
+    "DirectThinkingPatternInput": {
+      "name": "DirectThinkingPatternInput",
+      "line": 3704,
+      "lines": 8,
+      "methods": []
+    }
+  },
+  "refactor_suggestions": {
+    "api_routes.py": [
+      "get_prescription_checker",
+      "get_knowledge_graph",
+      "get_famous_doctor_system",
+      "get_conversation_history_filepath",
+      "get_history_endpoint",
+      "speech_to_text_endpoint",
+      "analyze_images_endpoint",
+      "chat_with_ai_endpoint",
+      "get_doctor_info_endpoint",
+      "recommend_formula_endpoint",
+      "get_doctor_introductions_endpoint",
+      "debug_status_endpoint",
+      "get_diagnosis_progress",
+      "check_prescription_endpoint",
+      "add_famous_doctor_prescription_endpoint",
+      "get_doctor_patterns_endpoint",
+      "prescription_ocr_endpoint",
+      "prescription_check_image_endpoint",
+      "get_ocr_stats_endpoint",
+      "submit_feedback_endpoint",
+      "add_case_example_endpoint",
+      "import_thinking_pattern_endpoint",
+      "learn_doctor_patterns_endpoint",
+      "recommend_doctors_endpoint",
+      "get_doctor_statistics_endpoint",
+      "doctor_authenticate_endpoint",
+      "get_doctor_portal_info",
+      "get_user_info_api",
+      "get_user_sessions_api",
+      "get_user_doctor_sessions_api",
+      "get_conversation_detail_api",
+      "get_user_stats_api",
+      "get_user_devices_api",
+      "get_database_stats",
+      "get_error_statistics",
+      "get_system_health_api",
+      "get_health_trends_api",
+      "get_integration_status",
+      "get_security_status"
+    ],
+    "data_processors.py": [
+      "extract_herbs_from_prescription",
+      "extract_herbs_from_table",
+      "extract_patient_tongue_description",
+      "extract_diagnosis_improved",
+      "extract_prescription_improved",
+      "extract_keywords_from_query",
+      "extract_features_from_image"
+    ],
+    "security_validators.py": [
+      "check_symptom_fabrication",
+      "check_medical_safety",
+      "sanitize_ai_response",
+      "check_image_analysis_success",
+      "validate_image_analysis_safety",
+      "health_check",
+      "prescription_check_image_multimodal",
+      "prescription_checker_page",
+      "diagnosis_safety_status"
+    ],
+    "multimodal_handlers.py": [
+      "detect_tongue_image_upload"
+    ],
+    "database_operations.py": [
+      "search_knowledge_base",
+      "llm_based_knowledge_search"
+    ],
+    "ai_integrations.py": [
+      "bailian_llm_complete"
+    ],
+    "utils.py": [
+      "detect_fabricated_examination",
+      "normalize_prescription_dosage",
+      "standardize_prescription_format",
+      "generate_enhanced_prescription_format",
+      "enhance_diagnosis_format",
+      "detect_and_filter_western_medicine",
+      "has_herbal_content",
+      "embed_query",
+      "speech_to_text_online",
+      "lifespan",
+      "doctor_portal",
+      "doctor_thinking",
+      "doctor_thinking_v2",
+      "doctor_management",
+      "doctor_selection_test",
+      "test_doctor_selection_simple",
+      "doctor_portal_direct",
+      "register_page",
+      "user_history_page",
+      "qr_gallery_page",
+      "load_conversation_history",
+      "save_conversation_history",
+      "read_index_html",
+      "test_upload_page",
+      "mobile_debug_test",
+      "prescription_debug_page",
+      "share_visit_api",
+      "wechat_visit_api",
+      "export_conversation_api",
+      "send_verification_code_api",
+      "verify_phone_code_api",
+      "bind_phone_api",
+      "phone_login_api",
+      "phone_binding_page",
+      "system_monitor",
+      "report_client_error",
+      "unified_system_monitor",
+      "debug_layout",
+      "legacy_system_monitor",
+      "replace_range",
+      "mobile_modal_test",
+      "wechat_verification_dynamic",
+      "wechat_verification",
+      "robots_txt",
+      "sitemap_xml",
+      "log_wechat_visit",
+      "normalize_doctor_name",
+      "should_preserve_term"
+    ]
+  },
+  "analysis_timestamp": "2025-08-19T15:50:00"
+}

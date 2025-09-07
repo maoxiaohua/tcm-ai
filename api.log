@@ -1,0 +1,30 @@
+INFO:faiss.loader:Loading faiss with AVX2 support.
+INFO:faiss.loader:Successfully loaded faiss with AVX2 support.
+INFO:core.cache_system.intelligent_cache_system:缓存数据库初始化完成
+INFO:core.cache_system.intelligent_cache_system:智能缓存系统初始化完成
+INFO:services.user_history_system:数据库表结构初始化完成（包含手机验证支持）
+INFO:services.user_history_system:用户历史系统初始化完成
+INFO:__main__:Attempted to load environment variables from .env file.
+INFO:__main__:DashScope API Key is set.
+INFO:services.personalized_learning:Learning database initialized successfully
+INFO:__main__:Enhanced retrieval, persona and learning systems initialized successfully
+INFO:database.postgresql_knowledge_interface:PostgreSQL医生专用知识库接口初始化成功
+INFO:database.postgresql_knowledge_interface:混合知识库系统初始化: PostgreSQL=可用, FAISS=可用
+INFO:__main__:PostgreSQL hybrid knowledge system initialized successfully
+INFO:core.doctor_system.doctor_thinking_patterns:数据库文件不存在，创建新数据库
+INFO:core.doctor_system.doctor_mind_integration:增强个性化治疗生成器初始化完成
+INFO:__main__:Doctor mind decision tree system initialized successfully
+INFO:api.security_integration:Setting up security system...
+INFO:api.security_integration:Security system setup completed
+INFO:__main__:Security system activated
+INFO:__main__:使用阿里云qwen大模型，Agent系统已移除
+INFO:     Started server process [531158]
+INFO:     Waiting for application startup.
+INFO:__main__:Application startup: Initializing online-only resources...
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
+INFO:     Waiting for application shutdown.
+INFO:__main__:Application shutdown.
+INFO:     Application shutdown complete.
+警告: 模糊药材提取器不可用
+Zhang Zhongjing decision system not available: No module named 'zhang_zhongjing_decision_system'

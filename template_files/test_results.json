@@ -1,0 +1,897 @@
+[
+  {
+    "test": "医生列表API",
+    "status": "PASS",
+    "message": "API正常响应，返回数据: 651字符",
+    "timestamp": "2025-08-27T09:41:49.842132",
+    "response_data": {
+      "success": true,
+      "doctors": [
+        {
+          "id": "doctor_2",
+          "name": "李时珍",
+          "school": "本草方剂",
+          "avatar": "🌿",
+          "description": "本草方剂专家，来自本草医院，具有丰富的临床经验。",
+          "specialties": [
+            "本草方剂",
+            "方剂调配",
+            "健康调理"
+          ],
+          "hospital": "本草医院"
+        },
+        {
+          "id": "doctor_3",
+          "name": "华佗",
+          "school": "外科手术",
+          "avatar": "⚕️",
+          "description": "外科手术专家，来自华佗医院，具有丰富的临床经验。",
+          "specialties": [
+            "外科手术",
+            "方剂调配",
+            "健康调理"
+          ],
+          "hospital": "华佗医院"
+        },
+        {
+          "id": "doctor_1",
+          "name": "张仲景",
+          "school": "伤寒杂病",
+          "avatar": "🎯",
+          "description": "伤寒杂病专家，来自仲景医院，具有丰富的临床经验。",
+          "specialties": [
+            "伤寒杂病",
+            "方剂调配",
+            "健康调理"
+          ],
+          "hospital": "仲景医院"
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "per_page": 10,
+        "total": 3,
+        "pages": 1,
+        "has_next": false,
+        "has_prev": false
+      }
+    }
+  },
+  {
+    "test": "管理员仪表板API",
+    "status": "PASS",
+    "message": "API正常响应，返回数据: 121字符",
+    "timestamp": "2025-08-27T09:41:49.884313",
+    "response_data": {
+      "success": true,
+      "stats": {
+        "total_users": 29,
+        "active_doctors": 3,
+        "today_consultations": 0,
+        "system_status": "normal"
+      }
+    }
+  },
+  {
+    "test": "用户管理API",
+    "status": "PASS",
+    "message": "API正常响应，返回数据: 4876字符",
+    "timestamp": "2025-08-27T09:41:49.927435",
+    "response_data": {
+      "success": true,
+      "users": [
+        {
+          "id": "471145fe-e665-46e1-a859-9c51d44990d3",
+          "name": "用户471145fe",
+          "email": "471145fe@example.com",
+          "phone": "-",
+          "register_time": "2025-08-26 14:57:26",
+          "last_visit": "2025-08-26 14:57:26",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "9b71a188-01de-471f-91b7-bb4b04ed64d1",
+          "name": "用户9b71a188",
+          "email": "9b71a188@example.com",
+          "phone": "-",
+          "register_time": "2025-08-26 14:13:03",
+          "last_visit": "2025-08-26 14:13:03",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "0fb9d72f-7659-4a56-ab5b-e009411208db",
+          "name": "用户0fb9d72f",
+          "email": "0fb9d72f@example.com",
+          "phone": "-",
+          "register_time": "2025-08-26 13:59:05",
+          "last_visit": "2025-08-26 13:59:05",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "c21e9b88-69b2-4b1a-84df-ca1c9daf4321",
+          "name": "用户c21e9b88",
+          "email": "c21e9b88@example.com",
+          "phone": "-",
+          "register_time": "2025-08-26 12:14:28",
+          "last_visit": "2025-08-26 12:40:29",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "1ff07622-8772-46d6-813e-47d466931cb1",
+          "name": "用户1ff07622",
+          "email": "1ff07622@example.com",
+          "phone": "-",
+          "register_time": "2025-08-25 09:58:10",
+          "last_visit": "2025-08-25 09:58:34",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "40a29d05-c498-41fc-8b72-16bf024bc31e",
+          "name": "用户40a29d05",
+          "email": "40a29d05@example.com",
+          "phone": "-",
+          "register_time": "2025-08-25 00:27:27",
+          "last_visit": "2025-08-25 00:27:27",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "02ff7300-9587-4a59-bc97-1d21fcf39cd5",
+          "name": "用户02ff7300",
+          "email": "02ff7300@example.com",
+          "phone": "-",
+          "register_time": "2025-08-25 00:27:26",
+          "last_visit": "2025-08-25 00:27:26",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "bd12ad28-440b-4eeb-83d1-2ac914495cf9",
+          "name": "用户bd12ad28",
+          "email": "bd12ad28@example.com",
+          "phone": "-",
+          "register_time": "2025-08-24 07:58:59",
+          "last_visit": "2025-08-24 07:58:59",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "9be0d110-77a2-4d15-9ebd-1fab7bbbb911",
+          "name": "用户9be0d110",
+          "email": "9be0d110@example.com",
+          "phone": "-",
+          "register_time": "2025-08-22 11:12:09",
+          "last_visit": "2025-08-22 11:12:09",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "c26b00d0-a620-46b1-a228-8c543594c7c7",
+          "name": "用户c26b00d0",
+          "email": "c26b00d0@example.com",
+          "phone": "-",
+          "register_time": "2025-08-21 12:55:49",
+          "last_visit": "2025-08-21 12:55:49",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "4934b916-4c63-44ea-8a9f-fdcebace5c36",
+          "name": "用户4934b916",
+          "email": "4934b916@example.com",
+          "phone": "-",
+          "register_time": "2025-08-21 03:48:51",
+          "last_visit": "2025-08-21 03:48:51",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "f01af0aa-b173-4430-943e-bc970d7c4bfd",
+          "name": "用户f01af0aa",
+          "email": "f01af0aa@example.com",
+          "phone": "-",
+          "register_time": "2025-08-20 09:45:51",
+          "last_visit": "2025-08-20 09:47:59",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "9f9e46d9-4121-4149-aaba-01bc69357cfb",
+          "name": "用户9f9e46d9",
+          "email": "9f9e46d9@example.com",
+          "phone": "-",
+          "register_time": "2025-08-20 03:00:06",
+          "last_visit": "2025-08-20 03:09:04",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "9da63991-5a17-4ff1-87d3-a04f92f41337",
+          "name": "用户9da63991",
+          "email": "9da63991@example.com",
+          "phone": "-",
+          "register_time": "2025-08-20 02:13:21",
+          "last_visit": "2025-08-20 02:58:06",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "b7744211-3822-40c4-af76-c00424552e18",
+          "name": "用户b7744211",
+          "email": "b7744211@example.com",
+          "phone": "-",
+          "register_time": "2025-08-19 09:30:36",
+          "last_visit": "2025-08-19 09:33:03",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "e3b51498-f34c-4596-ac5c-6bffcd3ffe7a",
+          "name": "用户e3b51498",
+          "email": "e3b51498@example.com",
+          "phone": "-",
+          "register_time": "2025-08-19 09:25:11",
+          "last_visit": "2025-08-19 09:25:11",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "10664d1f-27dc-4e6c-a80e-62f63722fbe3",
+          "name": "用户10664d1f",
+          "email": "10664d1f@example.com",
+          "phone": "-",
+          "register_time": "2025-08-19 07:50:14",
+          "last_visit": "2025-08-19 07:50:14",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "691aca32-1033-4209-a3ac-f691507fc911",
+          "name": "用户691aca32",
+          "email": "691aca32@example.com",
+          "phone": "-",
+          "register_time": "2025-08-19 06:18:57",
+          "last_visit": "2025-08-19 06:18:57",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "664a8113-fe6f-4f9f-93bd-3558bd89175c",
+          "name": "用户664a8113",
+          "email": "664a8113@example.com",
+          "phone": "-",
+          "register_time": "2025-08-19 05:14:18",
+          "last_visit": "2025-08-19 05:33:01",
+          "status": "active",
+          "conversation_count": 0
+        },
+        {
+          "id": "5b958df1-a21a-4b25-9a6e-e2ccfc55b402",
+          "name": "用户5b958df1",
+          "email": "5b958df1@example.com",
+          "phone": "-",
+          "register_time": "2025-08-19 01:14:39",
+          "last_visit": "2025-08-19 01:14:39",
+          "status": "active",
+          "conversation_count": 0
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "per_page": 20,
+        "total": 29,
+        "pages": 2
+      }
+    }
+  },
+  {
+    "test": "医生管理API",
+    "status": "PASS",
+    "message": "API正常响应，返回数据: 784字符",
+    "timestamp": "2025-08-27T09:41:49.970331",
+    "response_data": {
+      "success": true,
+      "doctors": [
+        {
+          "id": 2,
+          "name": "李时珍",
+          "license_no": "TCM002",
+          "phone": "13800138002",
+          "email": "lishizhen@tcm.com",
+          "speciality": "本草方剂",
+          "hospital": "本草医院",
+          "status": "active",
+          "created_at": "2025-08-26 11:49:46",
+          "last_login": null
+        },
+        {
+          "id": 3,
+          "name": "华佗",
+          "license_no": "TCM003",
+          "phone": "13800138003",
+          "email": "huatuo@tcm.com",
+          "speciality": "外科手术",
+          "hospital": "华佗医院",
+          "status": "active",
+          "created_at": "2025-08-26 11:49:46",
+          "last_login": null
+        },
+        {
+          "id": 1,
+          "name": "张仲景",
+          "license_no": "TCM001",
+          "phone": "13800138001",
+          "email": "zhangzhongjing@tcm.com",
+          "speciality": "伤寒杂病",
+          "hospital": "仲景医院",
+          "status": "active",
+          "created_at": "2025-08-26 11:49:45",
+          "last_login": "2025-08-26 14:37:47"
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "per_page": 20,
+        "total": 3,
+        "pages": 1
+      }
+    }
+  },
+  {
+    "test": "处方管理API",
+    "status": "PASS",
+    "message": "API正常响应，返回数据: 5508字符",
+    "timestamp": "2025-08-27T09:41:50.013482",
+    "response_data": {
+      "success": true,
+      "prescriptions": [
+        {
+          "id": 7,
+          "patient_id": "eb992cd1-89a9-4a99-a124-902442bb303c",
+          "conversation_id": "203d-5d68-4607-a04c-13ca",
+          "patient_name": null,
+          "patient_phone": null,
+          "symptoms": "我肚子疼，肚脐眼周围疼，大便也很干，很硬， 还经常便秘。食欲正常，容易饱腹，睡眠也好的， 口不干，不苦，没有烦躁。不怕冷。 排便需要用力，腹胀。 舌苔薄白。。",
+          "diagnosis": "****气滞**津亏型**`便秘`****，属温病派所言“卫分**气滞**”与“营分津亏”之交界状态，当以理气通便、滋阴润燥为**治法**",
+          "ai_prescription": "- **当归 12g**（养血活血，润肠通便，防滋阴药过于寒凉）\n- **白芍 15g**（养血柔肝，缓急止痛，缓解**气滞**引起的**`腹痛`**）\n- **甘草 6g**（调和诸药，缓和药性）\n- **柴胡 10g**（疏肝解郁，调畅气机）\n- **陈皮 10g**（理气健脾，助消化）",
+          "doctor_prescription": "- **当归 12g**（养血活血，润肠通便，防滋阴药过于寒凉）\n- **白芍 15g**（养血柔肝，缓急止痛，缓解**气滞**引起的**`腹痛`**）\n- **甘草 6g**（调和诸药，缓和药性）\n- **柴胡 10g**（疏肝解郁，调畅气机）\n- **陈皮 10g**（理气健脾，助消化）",
+          "doctor_id": 1,
+          "doctor_notes": "",
+          "status": "patient_confirmed",
+          "created_at": "2025-08-26 12:39:35",
+          "reviewed_at": "2025-08-26 12:56:34",
+          "confirmed_at": "2025-08-26 13:14:35",
+          "version": 2,
+          "doctor_name": "张仲景"
+        },
+        {
+          "id": 2,
+          "patient_id": "demo_patient_123",
+          "conversation_id": "demo_conversation_456",
+          "patient_name": "李明",
+          "patient_phone": "13912345678",
+          "symptoms": "长期疲乏无力，食欲不振，手脚发凉，面色萎黄",
+          "diagnosis": "脾胃虚寒，气血不足",
+          "ai_prescription": "\n**中医诊断**：脾胃虚寒，气血不足\n\n**处方**：\n人参 10g\n白术 12g\n茯苓 15g\n甘草 6g\n当归 10g\n川芎 8g\n白芍 12g\n熟地黄 15g\n\n**用法**：水煎服，每日一剂，分两次温服\n**疗程**：10天\n**注意事项**：忌食生冷，适当休息\n",
+          "doctor_prescription": null,
+          "doctor_id": null,
+          "doctor_notes": null,
+          "status": "pending",
+          "created_at": "2025-08-26 12:24:04",
+          "reviewed_at": null,
+          "confirmed_at": null,
+          "version": 1,
+          "doctor_name": null
+        },
+        {
+          "id": 1,
+          "patient_id": "test_patient_001",
+          "conversation_id": "test_conversation_001",
+          "patient_name": "张三",
+          "patient_phone": "13800138001",
+          "symptoms": "腹泻，腹痛，食欲不振",
+          "diagnosis": "脾胃虚弱，湿热内蕴",
+          "ai_prescription": "\n        **中医诊断**：脾胃虚弱，湿热内蕴\n        \n        **处方**：\n        黄连 10g\n        黄芩 10g  \n        黄柏 10g\n        茯苓 15g\n        白术 12g\n        甘草 6g\n        \n        **用法**：水煎服，日一剂，分两次温服\n        **疗程**：7天\n        ",
+          "doctor_prescription": "\n        **中医诊断**：脾胃虚弱，湿热内蕴\n        \n        **处方**：\n        黄连 10g\n        黄芩 10g  \n        黄柏 10g\n        茯苓 15g\n        白术 12g\n        甘草 6g\n        \n        **用法**：水煎服，日一剂，分两次温服\n        **疗程**：7天\n        \n\n[医生备注] 处方合理，同意执行",
+          "doctor_id": 1,
+          "doctor_notes": "处方符合患者症状，建议按时服用",
+          "status": "completed",
+          "created_at": "2025-08-26 12:03:54",
+          "reviewed_at": "2025-08-26 12:03:54",
+          "confirmed_at": "2025-08-26 12:03:54",
+          "version": 1,
+          "doctor_name": "张仲景"
+        },
+        {
+          "id": 3,
+          "patient_id": "ad74ecd4-7d7e-4fda-ace6-573230224279",
+          "conversation_id": "conv_ad74ecd4",
+          "patient_name": null,
+          "patient_phone": null,
+          "symptoms": "患者咨询症状（历史记录同步）",
+          "diagnosis": "## **🔸 辨证分析**",
+          "ai_prescription": "- 陈皮 10g (理气健脾，行气止痛)\n- 白术 15g (健脾益气，燥湿利水)\n- 茯苓 15g (健脾利湿，宁心安神)\n- 山楂 10g (消食化积，活血散瘀)\n- 川芎 10g (活血行气，祛风止痛)\n- 甘草 6g (调和诸药，缓急止痛)",
+          "doctor_prescription": null,
+          "doctor_id": null,
+          "doctor_notes": null,
+          "status": "pending",
+          "created_at": "2025-08-24 07:59:16",
+          "reviewed_at": null,
+          "confirmed_at": null,
+          "version": 1,
+          "doctor_name": null
+        },
+        {
+          "id": 4,
+          "patient_id": "0bc3efc1-be6e-4aae-a5f6-2200943ce948",
+          "conversation_id": "conv_0bc3efc1",
+          "patient_name": null,
+          "patient_phone": null,
+          "symptoms": "患者咨询症状（历史记录同步）",
+          "diagnosis": "患者为小儿，主诉“肚子疼、下腹疼”，有饮食不节史（可能吃坏东西），舌苔黄厚腻，大便不通，无**`发热`**。此属**湿热**积滞之证，病位在脾胃与肠道，病性属实证，主要**病机**为**湿热**内蕴，气机阻滞，腑气不通。",
+          "ai_prescription": "- 炒山楂 10g —— 消食导滞，助脾胃运化\n- 茯苓 15g —— 健脾利湿，调和脾胃\n- 陈皮 6g —— 理气健脾，化湿和中\n- 甘草 6g —— 调和诸药，缓急止痛\n此方以保和丸为基，加枳实、厚朴、黄连以通腑泄热，火麻仁、郁李仁润肠通便，茯苓、陈皮健脾利湿，甘草调和诸药，符合经方派“方证相应、主症抓取、体质辨识”的治疗思路。",
+          "doctor_prescription": null,
+          "doctor_id": null,
+          "doctor_notes": null,
+          "status": "pending",
+          "created_at": "2025-08-20 02:58:27",
+          "reviewed_at": null,
+          "confirmed_at": null,
+          "version": 1,
+          "doctor_name": null
+        },
+        {
+          "id": 5,
+          "patient_id": "cfdd8846-4b58-4fe5-ae22-e6bd3aced198",
+          "conversation_id": "conv_cfdd8846",
+          "patient_name": null,
+          "patient_phone": null,
+          "symptoms": "患者咨询症状（历史记录同步）",
+          "diagnosis": "根据您提供的信息，小儿下腹疼痛，舌苔黄厚腻，大便不通，未见**`发热`**，考虑为****湿热**积滞，脾胃失和**之证。此属李东垣“补土派”所论“饮食不节，伤及脾胃，湿浊内阻，气机壅塞”之范畴。",
+          "ai_prescription": "**1.** **`炒山楂`** ——— **9g**\n**4.** **`陈皮`** ——— **6g**\n**5.** **`茯苓`** ——— **12g**\n**10.** **`黄芪`** ——— **15g**\n**11.** **`党参`** ——— **10g**\n**12.** **`白术`** ——— **12g**",
+          "doctor_prescription": "**1.** **`炒山楂`** ——— **9g**\n**4.** **`陈皮`** ——— **6g**\n**5.** **`茯苓`** ——— **12g**\n**10.** **`黄芪`** ——— **15g**\n**11.** **`党参`** ——— **10g**\n**12.** **`白术`** ——— **12g**",
+          "doctor_id": 1,
+          "doctor_notes": "",
+          "status": "approved",
+          "created_at": "2025-08-20 02:57:41",
+          "reviewed_at": "2025-08-26 13:14:00",
+          "confirmed_at": null,
+          "version": 2,
+          "doctor_name": "张仲景"
+        },
+        {
+          "id": 6,
+          "patient_id": "41af0eb5-ed25-424d-894e-59c1aabc0f29",
+          "conversation_id": "conv_41af0eb5",
+          "patient_name": null,
+          "patient_phone": null,
+          "symptoms": "患者咨询症状（历史记录同步）",
+          "diagnosis": "根据你所述，小儿**`腹痛`**、下腹疼痛，舌苔黄厚腻，大便不通，未见**`发热`**，考虑为**脾胃**湿热**、气机阻滞**之证，属**温病派**中“卫气营血”辨证中的**气分证**，亦可参考“三焦辨证”中“中焦**湿热**”之范畴。",
+          "ai_prescription": "**5.** **`陈皮`** ——— **6g**\n**6.** **`半夏`** ——— **6g**\n**7.** **`茯苓`** ——— **10g**\n**8.** **`山楂`** ——— **6g**\n**14.** **`甘草`** ——— **3g**",
+          "doctor_prescription": "**5.** **`陈皮`** ——— **6g**\n**6.** **`半夏`** ——— **6g**\n**7.** **`茯苓`** ——— **10g**\n**8.** **`山楂`** ——— **6g**\n**14.** **`甘草`** ——— **3g**",
+          "doctor_id": 1,
+          "doctor_notes": "",
+          "status": "approved",
+          "created_at": "2025-08-20 02:48:22",
+          "reviewed_at": "2025-08-26 12:57:11",
+          "confirmed_at": null,
+          "version": 2,
+          "doctor_name": "张仲景"
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "per_page": 20,
+        "total": 7,
+        "pages": 1
+      }
+    }
+  },
+  {
+    "test": "订单管理API",
+    "status": "PASS",
+    "message": "API正常响应，返回数据: 1091字符",
+    "timestamp": "2025-08-27T09:41:50.056372",
+    "response_data": {
+      "success": true,
+      "orders": [
+        {
+          "id": 2,
+          "order_no": "TCM20250826211457c64234cf",
+          "prescription_id": 7,
+          "patient_id": "eb992cd1-89a9-4a99-a124-902442bb303c",
+          "amount": 238.0,
+          "payment_method": "alipay",
+          "payment_status": "pending",
+          "payment_time": null,
+          "payment_transaction_id": null,
+          "decoction_required": 1,
+          "shipping_name": "mxh",
+          "shipping_phone": "15068836905",
+          "shipping_address": "qingxiucheng 11-3-1704",
+          "notes": null,
+          "created_at": "2025-08-26 13:14:57",
+          "updated_at": "2025-08-26 13:14:57",
+          "patient_name": null
+        },
+        {
+          "id": 1,
+          "order_no": "TCM20250826200354TEST",
+          "prescription_id": 1,
+          "patient_id": "test_patient_001",
+          "amount": 238.0,
+          "payment_method": "alipay",
+          "payment_status": "paid",
+          "payment_time": "2025-08-26 12:03:54",
+          "payment_transaction_id": "ALIPAY_TEST_20250826200354",
+          "decoction_required": 1,
+          "shipping_name": "张三",
+          "shipping_phone": "13800138001",
+          "shipping_address": "北京市朝阳区测试街道123号",
+          "notes": null,
+          "created_at": "2025-08-26 12:03:54",
+          "updated_at": "2025-08-26 12:03:54",
+          "patient_name": "张三"
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "per_page": 20,
+        "total": 2,
+        "pages": 1
+      }
+    }
+  },
+  {
+    "test": "系统监控API",
+    "status": "PASS",
+    "message": "API正常响应，返回数据: 369字符",
+    "timestamp": "2025-08-27T09:41:51.099371",
+    "response_data": {
+      "success": true,
+      "system": {
+        "cpu_usage": 3.3,
+        "memory": {
+          "total": 3834314752,
+          "available": 1719234560,
+          "percent": 55.2,
+          "used": 1813327872
+        },
+        "disk": {
+          "total": 42881495040,
+          "used": 32074829824,
+          "free": 10806665216,
+          "percent": 74.79876761311725
+        },
+        "process": {
+          "memory_rss": 537636864,
+          "memory_vms": 1022189568,
+          "pid": 3805842
+        },
+        "timestamp": "2025-08-27T09:41:51.057845"
+      }
+    }
+  },
+  {
+    "test": "系统日志API",
+    "status": "PASS",
+    "message": "API正常响应，返回数据: 8034字符",
+    "timestamp": "2025-08-27T09:41:51.142536",
+    "response_data": {
+      "success": true,
+      "logs": [
+        {
+          "timestamp": "2025-08-27T09:41:51.100567",
+          "level": "INFO",
+          "message": "self.loaded_app = import_from_string(self.app)",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100580",
+          "level": "INFO",
+          "message": "^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100583",
+          "level": "INFO",
+          "message": "File \"/opt/tcm01/tcm-venv/lib64/python3.11/site-packages/uvicorn/importer.py\", line 21, in import_from_string",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100585",
+          "level": "INFO",
+          "message": "module = importlib.import_module(module_str)",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100588",
+          "level": "INFO",
+          "message": "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100591",
+          "level": "INFO",
+          "message": "File \"/usr/lib64/python3.11/importlib/__init__.py\", line 126, in import_module",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100593",
+          "level": "INFO",
+          "message": "return _bootstrap._gcd_import(name[level:], package, level)",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100599",
+          "level": "INFO",
+          "message": "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100602",
+          "level": "INFO",
+          "message": "File \"<frozen importlib._bootstrap>\", line 1204, in _gcd_import",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100604",
+          "level": "INFO",
+          "message": "File \"<frozen importlib._bootstrap>\", line 1176, in _find_and_load",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100607",
+          "level": "INFO",
+          "message": "File \"<frozen importlib._bootstrap>\", line 1147, in _find_and_load_unlocked",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100609",
+          "level": "INFO",
+          "message": "File \"<frozen importlib._bootstrap>\", line 690, in _load_unlocked",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100611",
+          "level": "INFO",
+          "message": "File \"<frozen importlib._bootstrap_external>\", line 936, in exec_module",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100614",
+          "level": "INFO",
+          "message": "File \"<frozen importlib._bootstrap_external>\", line 1074, in get_code",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100616",
+          "level": "INFO",
+          "message": "File \"<frozen importlib._bootstrap_external>\", line 1004, in source_to_code",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100618",
+          "level": "INFO",
+          "message": "File \"<frozen importlib._bootstrap>\", line 241, in _call_with_frames_removed",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100621",
+          "level": "INFO",
+          "message": "File \"/opt/tcm-ai/api/main.py\", line 5327",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100623",
+          "level": "INFO",
+          "message": "\"email\": f\"{row['user_id'][:8] if row['user_id'] else f'user{i+1}'}}@example.com\",",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100626",
+          "level": "INFO",
+          "message": "^",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100628",
+          "level": "INFO",
+          "message": "SyntaxError: f-string: single '}' is not allowed",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100631",
+          "level": "INFO",
+          "message": "WARNING:  StatReload detected changes in 'api/main.py'. Reloading...",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100633",
+          "level": "INFO",
+          "message": "INFO:core.cache_system.intelligent_cache_system:缓存数据库初始化完成",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100636",
+          "level": "INFO",
+          "message": "INFO:core.cache_system.intelligent_cache_system:智能缓存系统初始化完成",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100638",
+          "level": "INFO",
+          "message": "INFO:services.user_history_system:数据库表结构初始化完成（包含手机验证支持）",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100641",
+          "level": "INFO",
+          "message": "INFO:services.user_history_system:用户历史系统初始化完成",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100643",
+          "level": "INFO",
+          "message": "INFO:api.main:Attempted to load environment variables from .env file.",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100645",
+          "level": "INFO",
+          "message": "INFO:api.main:DashScope API Key is set.",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100648",
+          "level": "INFO",
+          "message": "INFO:services.personalized_learning:Learning database initialized successfully",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100650",
+          "level": "INFO",
+          "message": "INFO:api.main:Enhanced retrieval, persona and learning systems initialized successfully",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100653",
+          "level": "INFO",
+          "message": "INFO:database.postgresql_knowledge_interface:PostgreSQL医生专用知识库接口初始化成功",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100655",
+          "level": "INFO",
+          "message": "INFO:database.postgresql_knowledge_interface:混合知识库系统初始化: PostgreSQL=可用, FAISS=可用",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100658",
+          "level": "INFO",
+          "message": "INFO:api.main:PostgreSQL hybrid knowledge system initialized successfully",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100660",
+          "level": "INFO",
+          "message": "INFO:core.doctor_system.doctor_thinking_patterns:数据库文件不存在，创建新数据库",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100663",
+          "level": "INFO",
+          "message": "INFO:core.doctor_system.doctor_mind_integration:增强个性化治疗生成器初始化完成",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100665",
+          "level": "INFO",
+          "message": "INFO:api.main:Doctor mind decision tree system initialized successfully",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100668",
+          "level": "INFO",
+          "message": "INFO:api.main:使用阿里云qwen大模型，Agent系统已移除",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100670",
+          "level": "INFO",
+          "message": "INFO:     Started server process [3805842]",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100672",
+          "level": "INFO",
+          "message": "INFO:     Waiting for application startup.",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100674",
+          "level": "INFO",
+          "message": "INFO:api.main:Application startup: Initializing online-only resources...",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100677",
+          "level": "INFO",
+          "message": "INFO:     Application startup complete.",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100679",
+          "level": "INFO",
+          "message": "警告: 模糊药材提取器不可用",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100681",
+          "level": "INFO",
+          "message": "Zhang Zhongjing decision system not available: No module named 'zhang_zhongjing_decision_system'",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100684",
+          "level": "INFO",
+          "message": "INFO:     183.36.35.207:0 - \"GET / HTTP/1.1\" 200 OK",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100686",
+          "level": "INFO",
+          "message": "INFO:     127.0.0.1:45194 - \"GET /api/doctors/list HTTP/1.1\" 200 OK",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100688",
+          "level": "INFO",
+          "message": "INFO:     127.0.0.1:45194 - \"GET /api/admin/dashboard HTTP/1.1\" 200 OK",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100691",
+          "level": "INFO",
+          "message": "INFO:     127.0.0.1:45194 - \"GET /api/admin/users HTTP/1.1\" 200 OK",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100693",
+          "level": "INFO",
+          "message": "INFO:     127.0.0.1:45194 - \"GET /api/admin/doctors HTTP/1.1\" 200 OK",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100695",
+          "level": "INFO",
+          "message": "INFO:     127.0.0.1:45194 - \"GET /api/admin/prescriptions HTTP/1.1\" 200 OK",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100697",
+          "level": "INFO",
+          "message": "INFO:     127.0.0.1:45194 - \"GET /api/admin/orders HTTP/1.1\" 200 OK",
+          "source": "api.log"
+        },
+        {
+          "timestamp": "2025-08-27T09:41:51.100699",
+          "level": "INFO",
+          "message": "INFO:     127.0.0.1:45194 - \"GET /api/admin/system HTTP/1.1\" 200 OK",
+          "source": "api.log"
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "per_page": 50,
+        "total": 50,
+        "pages": 1
+      }
+    }
+  }
+]

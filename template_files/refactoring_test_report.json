@@ -1,0 +1,42 @@
+{
+  "test_time": "2025-08-19T16:50:29",
+  "overall_success": true,
+  "test_results": [
+    {
+      "name": "模块导入测试",
+      "success": true,
+      "message": "所有模块导入成功"
+    },
+    {
+      "name": "工具函数测试", 
+      "success": true,
+      "message": "所有工具函数测试通过"
+    },
+    {
+      "name": "服务包装器测试",
+      "success": true,
+      "message": "服务包装器测试通过"
+    },
+    {
+      "name": "处理器功能测试",
+      "success": true,
+      "message": "处理器功能测试通过"
+    },
+    {
+      "name": "聊天端点处理器测试",
+      "success": true,
+      "message": "聊天端点处理器测试通过"
+    },
+    {
+      "name": "系统集成测试",
+      "success": true,
+      "message": "系统集成测试通过 (成功率: 100.0%)"
+    }
+  ],
+  "summary": {
+    "total_tests": 6,
+    "passed_tests": 6,
+    "failed_tests": 0,
+    "success_rate": 1.0
+  }
+}

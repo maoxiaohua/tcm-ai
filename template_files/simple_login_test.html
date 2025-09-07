@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简化登录测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .card { border: 2px solid #ddd; padding: 20px; margin: 10px; cursor: pointer; text-align: center; }
+        .card:hover { border-color: #667eea; }
+        .card.selected { border-color: #667eea; background: #f0f4ff; }
+        .form { background: #f9f9f9; padding: 15px; margin: 15px 0; display: none; }
+        .form.show { display: block; }
+        input { width: 100%; padding: 8px; margin: 5px 0; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .debug { background: #e3f2fd; padding: 10px; margin: 10px 0; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h2>🔍 简化登录功能测试</h2>
+    
+    <div class="debug" id="debug">状态: 页面加载中...</div>
+    
+    <div class="card" onclick="testSelectRole('guest')" id="role-guest">
+        🌿 临时访客 (点击测试)
+    </div>
+    
+    <div class="card" onclick="testSelectRole('doctor')" id="role-doctor">
+        👨‍⚕️ 医生 (点击测试)
+    </div>
+    
+    <div class="form" id="loginForm">
+        <h3>登录表单</h3>
+        <input type="text" id="username" placeholder="用户名">
+        <input type="password" id="password" placeholder="密码">
+        <button onclick="testLogin()">登录测试</button>
+    </div>
+    
+    <button onclick="resetTest()">重置测试</button>
+    
+    <script>
+        let currentRole = null;
+        
+        function debug(msg) {
+            const debugDiv = document.getElementById('debug');
+            const timestamp = new Date().toLocaleTimeString();
+            debugDiv.innerHTML += `<br>[${timestamp}] ${msg}`;
+            console.log('DEBUG:', msg);
+        }
+        
+        function testSelectRole(role) {
+            debug(`📝 selectRole('${role}') 被调用`);
+            currentRole = role;
+            
+            // 清除选中状态
+            document.querySelectorAll('.card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // 选中当前角色
+            const card = document.getElementById(`role-${role}`);
+            if (card) {
+                card.classList.add('selected');
+                debug(`✅ 角色卡片 ${role} 已选中`);
+            } else {
+                debug(`❌ 找不到角色卡片: role-${role}`);
+            }
+            
+            // 显示/隐藏表单
+            const form = document.getElementById('loginForm');
+            if (role === 'guest') {
+                form.classList.remove('show');
+                debug('🌿 临时访客模式，隐藏登录表单');
+            } else {
+                form.classList.add('show');
+                debug(`🔐 ${role} 模式，显示登录表单`);
+                
+                // 自动填充测试账号
+                if (role === 'doctor') {
+                    document.getElementById('username').value = 'doctor';
+                    document.getElementById('password').value = 'doctor123';
+                    debug('📝 已填充医生测试账号');
+                }
+            }
+        }
+        
+        async function testLogin() {
+            debug('🔐 开始测试登录...');
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            debug(`📤 发送登录请求: ${username}`);
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                debug(`📥 登录响应状态: ${response.status}`);
+                
+                const data = await response.json();
+                debug(`📋 响应数据: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.success) {
+                    debug(`✅ 登录成功! 角色: ${data.user.role}, 跳转: ${data.redirect_url}`);
+                } else {
+                    debug(`❌ 登录失败: ${data.message}`);
+                }
+                
+            } catch (error) {
+                debug(`💥 网络错误: ${error.message}`);
+            }
+        }
+        
+        function resetTest() {
+            debug('🔄 重置测试');
+            currentRole = null;
+            document.querySelectorAll('.card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.getElementById('loginForm').classList.remove('show');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+        
+        // 页面加载
+        document.addEventListener('DOMContentLoaded', function() {
+            debug('📄 页面DOM加载完成');
+        });
+    </script>
+</body>
+</html>

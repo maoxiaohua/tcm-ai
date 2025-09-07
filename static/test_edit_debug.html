@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>编辑功能测试</title>
+    <style>
+        .test-node {
+            width: 200px;
+            height: 100px;
+            border: 2px solid #333;
+            margin: 20px;
+            padding: 10px;
+            cursor: pointer;
+        }
+        .test-node:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>编辑功能测试</h1>
+    <p>双击下面的方框应该能看到控制台日志</p>
+    
+    <div id="test-node-1" class="test-node" data-editable="true">
+        <div class="node-title">测试节点1</div>
+        <div class="node-content">这是可编辑的内容</div>
+    </div>
+    
+    <div id="test-node-2" class="test-node">
+        <div class="node-title">测试节点2</div>
+        <div class="node-content">这个节点没有编辑功能</div>
+    </div>
+
+    <script>
+        // 模拟editNodeContent函数
+        function editNodeContent(node) {
+            console.log('editNodeContent被调用，节点:', node);
+            alert('编辑功能工作正常！节点ID: ' + node.id);
+        }
+
+        // 测试节点数据
+        const testNode1 = { id: 'test-node-1', description: '这是可编辑的内容' };
+        const testNode2 = { id: 'test-node-2', description: '这个节点没有编辑功能' };
+
+        // 为测试节点1绑定双击事件
+        document.getElementById('test-node-1').addEventListener('dblclick', function(e) {
+            console.log('双击事件触发，节点：test-node-1');
+            e.stopPropagation();
+            editNodeContent(testNode1);
+        });
+
+        // 测试ensureNodeEditability函数
+        function ensureNodeEditability(nodeElement, node) {
+            const hasDoubleClickHandler = nodeElement.getAttribute('data-editable') === 'true';
+            console.log(`检查节点${node.id}编辑功能，已绑定：${hasDoubleClickHandler}`);
+            
+            if (!hasDoubleClickHandler) {
+                console.log(`为节点${node.id}添加双击编辑功能`);
+                nodeElement.addEventListener('dblclick', function(e) {
+                    console.log(`双击事件触发，节点：${node.id}`);
+                    e.stopPropagation();
+                    editNodeContent(node);
+                });
+                
+                nodeElement.setAttribute('data-editable', 'true');
+                console.log(`节点${node.id}编辑功能绑定完成`);
+            }
+        }
+
+        // 测试为节点2添加编辑功能
+        setTimeout(() => {
+            console.log('3秒后为节点2添加编辑功能...');
+            const node2Element = document.getElementById('test-node-2');
+            ensureNodeEditability(node2Element, testNode2);
+        }, 3000);
+    </script>
+</body>
+</html>

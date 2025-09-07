@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI中医智能诊疗系统 - 登录入口</title>
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* 主容器 - 修复响应式问题 */
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .title {
+            font-size: 24px;
+            color: #1f2937;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        /* 角色卡片 - 简化设计 */
+        .roles-container {
+            margin-bottom: 20px;
+        }
+
+        .role-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            position: relative;
+            /* 移动端优化 */
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
+        }
+
+        .role-card:hover,
+        .role-card:active {
+            border-color: #667eea;
+            background: #f8fafc;
+            transform: translateY(-1px);
+        }
+
+        .role-card.selected {
+            border-color: #667eea;
+            background: #eff6ff;
+            box-shadow: 0 4px 12px rgba(103, 126, 234, 0.2);
+        }
+
+        .role-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 8px 0 4px 0;
+        }
+
+        .role-desc {
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        /* 登录表单 */
+        .login-form {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 12px;
+        }
+
+        .login-form.show {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            color: #374151;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(103, 126, 234, 0.2);
+        }
+
+        /* 按钮 */
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .btn-guest {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-guest:hover {
+            background: #059669;
+        }
+
+        /* 消息提示 */
+        .message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error-message {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .success-message {
+            background: #ecfdf5;
+            color: #059669;
+            border: 1px solid #a7f3d0;
+        }
+
+        /* 调试信息 */
+        .debug-info {
+            background: #e0f2fe;
+            color: #0277bd;
+            border: 1px solid #81d4fa;
+            padding: 8px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .login-container {
+                padding: 20px;
+            }
+            
+            .title {
+                font-size: 20px;
+            }
+            
+            .buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- 头部 -->
+        <div class="header">
+            <div style="font-size: 48px; margin-bottom: 10px;">🏥</div>
+            <h1 class="title">AI中医智能诊疗系统</h1>
+            <p class="subtitle">请选择您的身份类型</p>
+        </div>
+
+        <!-- 调试信息 -->
+        <div class="debug-info" id="debugInfo">
+            状态: 页面加载中...
+        </div>
+
+        <!-- 角色选择 -->
+        <div class="roles-container">
+            <div class="role-card" id="role-guest">
+                <div style="font-size: 24px;">🌿</div>
+                <div class="role-name">临时访客</div>
+                <div class="role-desc">直接体验中医问诊服务</div>
+            </div>
+
+            <div class="role-card" id="role-patient">
+                <div style="font-size: 24px;">👤</div>
+                <div class="role-name">注册患者</div>
+                <div class="role-desc">已注册用户登录</div>
+            </div>
+
+            <div class="role-card" id="role-doctor">
+                <div style="font-size: 24px;">👨‍⚕️</div>
+                <div class="role-name">医生用户</div>
+                <div class="role-desc">医生工作台</div>
+            </div>
+
+            <div class="role-card" id="role-admin">
+                <div style="font-size: 24px;">🛠️</div>
+                <div class="role-name">系统管理</div>
+                <div class="role-desc">管理员后台</div>
+            </div>
+        </div>
+
+        <!-- 登录表单 -->
+        <div class="login-form" id="loginForm">
+            <div class="error-message message" id="errorMessage"></div>
+            <div class="success-message message" id="successMessage"></div>
+            
+            <div class="form-group">
+                <label class="form-label">用户名</label>
+                <input type="text" class="form-input" id="username" placeholder="请输入用户名">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">密码</label>
+                <input type="password" class="form-input" id="password" placeholder="请输入密码">
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="buttons">
+            <button class="btn btn-secondary" id="primaryBtn" onclick="handlePrimaryAction()">
+                选择身份类型
+            </button>
+            <button class="btn btn-secondary" id="backBtn" onclick="resetSelection()" style="display: none;">
+                返回选择
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let selectedRole = null;
+
+        function updateDebugInfo(message) {
+            const debugDiv = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            debugDiv.textContent = `[${timestamp}] ${message}`;
+            console.log('DEBUG:', message);
+        }
+
+        function selectRole(role) {
+            updateDebugInfo(`选择角色: ${role}`);
+            selectedRole = role;
+            
+            // 清除选中状态
+            document.querySelectorAll('.role-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // 选中角色
+            const selectedCard = document.getElementById(`role-${role}`);
+            if (selectedCard) {
+                selectedCard.classList.add('selected');
+                updateDebugInfo(`角色 ${role} 已选中`);
+            } else {
+                updateDebugInfo(`错误: 找不到 role-${role}`);
+                return;
+            }
+            
+            const loginForm = document.getElementById('loginForm');
+            const primaryBtn = document.getElementById('primaryBtn');
+            const backBtn = document.getElementById('backBtn');
+            
+            if (role === 'guest') {
+                loginForm.classList.remove('show');
+                primaryBtn.textContent = '🌿 开始问诊';
+                primaryBtn.className = 'btn btn-guest';
+                backBtn.style.display = 'none';
+                updateDebugInfo('临时访客模式，无需登录');
+            } else {
+                loginForm.classList.add('show');
+                primaryBtn.textContent = '🔐 登录';
+                primaryBtn.className = 'btn btn-primary';
+                backBtn.style.display = 'block';
+                
+                // 自动填充测试账号
+                const username = document.getElementById('username');
+                const password = document.getElementById('password');
+                
+                const accounts = {
+                    'doctor': { user: 'doctor', pass: 'doctor123' },
+                    'admin': { user: 'admin', pass: 'admin123' },
+                    'patient': { user: 'patient', pass: 'patient123' }
+                };
+                
+                if (accounts[role]) {
+                    username.value = accounts[role].user;
+                    password.value = accounts[role].pass;
+                    updateDebugInfo(`已填充 ${role} 测试账号`);
+                }
+            }
+        }
+
+        async function handlePrimaryAction() {
+            updateDebugInfo('处理主要操作...');
+            
+            if (!selectedRole) {
+                showError('请先选择身份类型');
+                return;
+            }
+
+            if (selectedRole === 'guest') {
+                showSuccess('正在跳转到问诊系统...');
+                updateDebugInfo('临时访客跳转中...');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1000);
+                return;
+            }
+
+            // 登录处理
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (!username || !password) {
+                showError('请输入用户名和密码');
+                return;
+            }
+
+            updateDebugInfo(`尝试登录: ${username}`);
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                updateDebugInfo(`登录响应: ${response.status}`);
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showSuccess(`登录成功！角色: ${data.user.role}`);
+                    updateDebugInfo(`跳转到: ${data.redirect_url}`);
+                    
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url;
+                    }, 1500);
+                } else {
+                    showError(data.detail || data.message || '登录失败');
+                    updateDebugInfo(`登录失败: ${data.detail || data.message}`);
+                }
+            } catch (error) {
+                updateDebugInfo(`网络错误: ${error.message}`);
+                showError('网络错误，请稍后重试');
+            }
+        }
+
+        function resetSelection() {
+            updateDebugInfo('重置选择');
+            selectedRole = null;
+            
+            document.querySelectorAll('.role-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            document.getElementById('loginForm').classList.remove('show');
+            document.getElementById('primaryBtn').textContent = '选择身份类型';
+            document.getElementById('primaryBtn').className = 'btn btn-secondary';
+            document.getElementById('backBtn').style.display = 'none';
+            
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            hideMessages();
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('successMessage').style.display = 'none';
+            updateDebugInfo(`显示错误: ${message}`);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+            updateDebugInfo(`显示成功: ${message}`);
+        }
+
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        // 页面初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDebugInfo('页面加载完成');
+            hideMessages();
+            
+            // 为每个角色卡片添加事件监听
+            ['guest', 'patient', 'doctor', 'admin'].forEach(role => {
+                const card = document.getElementById(`role-${role}`);
+                if (card) {
+                    // 移除原有的onclick属性，使用事件监听器
+                    card.onclick = null;
+                    
+                    // 添加点击事件
+                    card.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        updateDebugInfo(`点击 ${role} 卡片`);
+                        selectRole(role);
+                    });
+                    
+                    // 添加触摸事件（移动端）
+                    card.addEventListener('touchend', function(e) {
+                        e.preventDefault();
+                        updateDebugInfo(`触摸 ${role} 卡片`);
+                        selectRole(role);
+                    });
+                    
+                    updateDebugInfo(`${role} 卡片事件已绑定`);
+                } else {
+                    updateDebugInfo(`错误: 找不到 ${role} 卡片`);
+                }
+            });
+        });
+
+        // 键盘事件
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && selectedRole && selectedRole !== 'guest') {
+                handlePrimaryAction();
+            }
+        });
+    </script>
+</body>
+</html>

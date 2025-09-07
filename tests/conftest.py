@@ -84,7 +84,16 @@ def wait_for_service():
 def pytest_configure(config):
     """pytest启动配置"""
     print("\n🔬 开始运行TCM系统测试...")
+    
+    # 添加自定义标记
+    config.addinivalue_line("markers", "regression: 防回归测试标记")
 
 def pytest_unconfigure(config):
-    """pytest结束配置"""
+    """pytest结束配置"""  
     print("\n✅ TCM系统测试完成!")
+
+def pytest_collection_modifyitems(config, items):
+    """修改测试收集项，为防回归测试添加标记"""
+    for item in items:
+        if "regression" in item.nodeid or "herb_function" in item.nodeid:
+            item.add_marker(pytest.mark.regression)

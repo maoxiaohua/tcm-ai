@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>决策树修复测试</title>
+</head>
+<body>
+    <h1>决策树功能测试</h1>
+    <input type="text" id="diseaseName" value="失眠" placeholder="疾病名称">
+    <button onclick="testGenerateTree()">测试AI生成决策树</button>
+    <button onclick="testAnalysis()">测试理论分析</button>
+    <button onclick="testMissingLogic()">测试遗漏逻辑</button>
+    
+    <div id="results" style="margin-top: 20px; font-family: monospace; white-space: pre-wrap;"></div>
+
+    <script>
+        async function testGenerateTree() {
+            const disease = document.getElementById('diseaseName').value;
+            const results = document.getElementById('results');
+            results.textContent = '正在测试AI决策树生成...\n';
+            
+            try {
+                const response = await fetch('/api/generate_visual_decision_tree', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        disease_name: disease,
+                        thinking_process: '测试',
+                        include_tcm_analysis: true
+                    })
+                });
+                
+                const data = await response.json();
+                results.textContent += `✅ API响应成功\n`;
+                results.textContent += `路径数量: ${data.data.paths.length}\n\n`;
+                
+                data.data.paths.forEach((path, i) => {
+                    results.textContent += `路径 ${i+1}: ${path.title}\n`;
+                    path.steps.forEach((step, j) => {
+                        results.textContent += `  步骤${j+1} (${step.type}): ${step.content}\n`;
+                    });
+                    results.textContent += `\n`;
+                });
+                
+            } catch (error) {
+                results.textContent += `❌ 测试失败: ${error}\n`;
+            }
+        }
+        
+        async function testAnalysis() {
+            const disease = document.getElementById('diseaseName').value;
+            const results = document.getElementById('results');
+            results.textContent = '正在测试理论分析...\n';
+            
+            try {
+                const response = await fetch('/api/analyze_tree_tcm_theory', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        disease_name: disease,
+                        tree_data: { paths: [{ steps: [{ type: 'formula', content: '黄连阿胶汤' }] }] }
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    results.textContent += `✅ 理论分析成功\n`;
+                    results.textContent += `分析长度: ${data.data.analysis.length}\n`;
+                    results.textContent += `建议数量: ${Object.keys(data.data.suggestions).length}\n`;
+                } else {
+                    results.textContent += `❌ 分析失败: ${data.message}\n`;
+                }
+                
+            } catch (error) {
+                results.textContent += `❌ 测试失败: ${error}\n`;
+            }
+        }
+        
+        async function testMissingLogic() {
+            const disease = document.getElementById('diseaseName').value;
+            const results = document.getElementById('results');
+            results.textContent = '正在测试遗漏逻辑检测...\n';
+            
+            try {
+                const response = await fetch('/api/detect_missing_logic', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        disease_name: disease,
+                        current_paths: [],
+                        existing_nodes: [{ type: 'symptom', name: disease }]
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    results.textContent += `✅ 遗漏检测成功\n`;
+                    results.textContent += `检测类别数量: ${data.data.missing_analyses.length}\n`;
+                } else {
+                    results.textContent += `❌ 检测失败: ${data.message}\n`;
+                }
+                
+            } catch (error) {
+                results.textContent += `❌ 测试失败: ${error}\n`;
+            }
+        }
+    </script>
+</body>
+</html>

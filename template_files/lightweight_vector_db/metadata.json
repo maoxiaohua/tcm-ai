@@ -1,0 +1,10 @@
+{
+  "creation_time": "2025-08-20T14:53:22.241648",
+  "model_type": "TF-IDF",
+  "total_prescriptions": 3267,
+  "vector_dimension": 5000,
+  "vocabulary_size": 5000,
+  "diseases_count": 58,
+  "herbs_count": 3980,
+  "similarity_metric": "cosine"
+}

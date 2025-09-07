@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能决策树生成器 V3 - 分支路径设计</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        /* 分支路径容器 */
+        .decision-paths {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+
+        .path-container {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            padding: 20px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .path-container:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+        }
+
+        .path-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .path-id {
+            background: #4f46e5;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .path-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .path-btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .path-btn.edit {
+            background: #f0f9ff;
+            color: #1e40af;
+        }
+
+        .path-btn.delete {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        /* 流程步骤 */
+        .path-flow {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .step-node {
+            background: #f0f9ff;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            text-align: center;
+            min-width: 80px;
+            position: relative;
+        }
+
+        .step-node.symptom { background: #fef3c7; border-color: #f59e0b; }
+        .step-node.condition { background: #e0f2fe; border-color: #0ea5e9; }
+        .step-node.diagnosis { background: #dcfce7; border-color: #22c55e; }
+        .step-node.treatment { background: #fce7f3; border-color: #ec4899; }
+        .step-node.formula { background: #f3e8ff; border-color: #a855f7; }
+
+        .flow-arrow {
+            color: #6b7280;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .condition-label {
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 10px;
+            color: #374151;
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+
+        .condition-label.positive { background: #dcfce7; border-color: #22c55e; color: #166534; }
+        .condition-label.negative { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+
+        /* 快速添加分支 */
+        .quick-add-section {
+            background: #f0f9ff;
+            border: 2px dashed #3b82f6;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .quick-add-section:hover {
+            background: #dbeafe;
+            border-color: #2563eb;
+        }
+
+        .quick-add-btn {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        /* 分支编辑表单 */
+        .branch-edit-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .branch-edit-form {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .form-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+
+        .form-section-title {
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .step-input-group {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 10px;
+        }
+
+        .step-input {
+            padding: 6px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .condition-quick-select {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .condition-option {
+            padding: 4px 8px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        .condition-option:hover {
+            background: #e0f2fe;
+            border-color: #0ea5e9;
+        }
+
+        /* 症状匹配预览 */
+        .symptom-match-preview {
+            background: #f0f9ff;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .match-example {
+            font-size: 12px;
+            color: #1e40af;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌳 智能决策树生成器 V3</h1>
+            <p>分支路径设计 · 与问诊系统深度集成 · 一键编辑补充</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 疾病基本信息 -->
+            <div class="form-section">
+                <div class="form-section-title">🎯 疾病基本信息</div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-size: 13px; color: #374151;">疾病名称</label>
+                        <input type="text" id="diseaseName" class="step-input" placeholder="如：失眠、胃痛、头痛">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-size: 13px; color: #374151;">医生简要思路</label>
+                        <input type="text" id="doctorThought" class="step-input" placeholder="简述诊疗思路，AI将自动生成分支路径">
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button class="quick-add-btn" onclick="generateInitialPaths()">
+                        🚀 AI生成初始路径
+                    </button>
+                    <button class="quick-add-btn" style="background: #059669;" onclick="loadExampleTree()">
+                        📋 加载示例模板
+                    </button>
+                    <button class="quick-add-btn" style="background: #7c3aed;" onclick="viewIntegrationDemo()">
+                        🔗 查看集成演示
+                    </button>
+                    <button class="quick-add-btn" style="background: #dc2626;" onclick="openVisualBuilder()">
+                        🎨 可视化构建器
+                    </button>
+                </div>
+            </div>
+
+            <!-- 决策路径展示 -->
+            <div class="decision-paths" id="decisionPaths">
+                <div style="text-align: center; color: #6b7280; padding: 40px;">
+                    <p>📍 请先输入疾病信息，然后点击"AI生成初始路径"</p>
+                    <p style="font-size: 12px; margin-top: 10px;">或者点击"加载示例模板"查看效果</p>
+                </div>
+            </div>
+
+            <!-- 快速添加新路径 -->
+            <div class="quick-add-section" onclick="showAddPathModal()">
+                <div style="font-size: 18px; margin-bottom: 5px;">➕</div>
+                <div style="font-weight: 600; color: #1e40af;">快速添加新的诊疗路径</div>
+                <div style="font-size: 12px; color: #6b7280; margin-top: 5px;">
+                    点击创建：主证 → 判断条件 → 辨证 → 治法 → 方药
+                </div>
+            </div>
+
+            <!-- 与问诊系统集成预览 -->
+            <div class="symptom-match-preview" id="symptomMatchPreview" style="display: none;">
+                <h4 style="color: #1e40af; margin-bottom: 10px;">🔗 问诊集成预览</h4>
+                <div class="match-example">
+                    当患者描述"失眠多梦，心烦，舌红苔黄"时，系统将自动匹配到路径2，推荐"黄连阿胶汤"
+                </div>
+                
+                <div style="margin-top: 15px; text-align: center;">
+                    <button class="quick-add-btn" onclick="saveDecisionTree()" style="background: #059669;">
+                        💾 保存决策树到系统
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分支路径编辑模态框 -->
+    <div class="branch-edit-modal" id="branchEditModal">
+        <div class="branch-edit-form">
+            <h3 style="margin: 0 0 20px 0; color: #2d5aa0;">✨ 创建诊疗路径</h3>
+            
+            <!-- 路径步骤构建 -->
+            <div class="form-section">
+                <div class="form-section-title">🛤️ 诊疗步骤构建</div>
+                
+                <!-- 步骤1：主证 -->
+                <div class="step-input-group">
+                    <label style="font-size: 12px; color: #6b7280;">主证</label>
+                    <input type="text" class="step-input" id="mainSymptom" placeholder="主要疾病或症状">
+                    <span style="font-size: 12px; color: #6b7280;">起点</span>
+                </div>
+                
+                <!-- 步骤2：判断条件 (支持多条件) -->
+                <div style="grid-column: 1 / -1; margin-bottom: 15px;">
+                    <label style="font-size: 12px; color: #6b7280; margin-bottom: 8px; display: block;">判断条件 (支持多条件组合)</label>
+                    
+                    <div id="multiConditionsContainer">
+                        <div class="multi-condition-item" data-index="0">
+                            <input type="text" class="step-input" style="flex: 1;" placeholder="如：舌红苔厚" id="condition_0">
+                            <select class="step-input" style="width: 80px;" id="result_0">
+                                <option value="true">是 ✓</option>
+                                <option value="false">否 ✗</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px; margin-top: 8px;">
+                        <button type="button" onclick="addConditionItem()" 
+                                style="flex: 1; padding: 6px; background: #dbeafe; color: #2563eb; border: 1px solid #3b82f6; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                            ➕ 添加条件
+                        </button>
+                        <select id="multiConditionLogic" style="width: 80px; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
+                            <option value="AND">AND</option>
+                            <option value="OR">OR</option>
+                        </select>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 8px;">
+                        <div style="padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; cursor: pointer; text-align: center; font-size: 11px;" onclick="setConditionTemplate('舌红苔厚')">舌红苔厚</div>
+                        <div style="padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; cursor: pointer; text-align: center; font-size: 11px;" onclick="setConditionTemplate('脉象滑数')">脉象滑数</div>
+                        <div style="padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; cursor: pointer; text-align: center; font-size: 11px;" onclick="setConditionTemplate('面色萎黄')">面色萎黄</div>
+                        <div style="padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; cursor: pointer; text-align: center; font-size: 11px;" onclick="setConditionTemplate('疼痛隐隐')">疼痛隐隐</div>
+                        <div style="padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; cursor: pointer; text-align: center; font-size: 11px;" onclick="setConditionTemplate('口干口苦')">口干口苦</div>
+                        <div style="padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; cursor: pointer; text-align: center; font-size: 11px;" onclick="setConditionTemplate('大便干结')">大便干结</div>
+                    </div>
+                    
+                    <div style="margin-top: 8px; padding: 6px; background: #f0f9ff; border-radius: 4px; font-size: 11px; color: #1e40af;">
+                        💡 示例：舌红 AND 苔黄 = 同时满足；脉数 OR 脉滑 = 满足其一
+                    </div>
+                </div>
+                
+                <!-- 常用条件快选 -->
+                <div class="condition-quick-select">
+                    <div class="condition-option" onclick="setCondition('舌红苔厚')">舌红苔厚</div>
+                    <div class="condition-option" onclick="setCondition('舌淡苔白')">舌淡苔白</div>
+                    <div class="condition-option" onclick="setCondition('脉象滑数')">脉象滑数</div>
+                    <div class="condition-option" onclick="setCondition('脉象沉细')">脉象沉细</div>
+                    <div class="condition-option" onclick="setCondition('面色萎黄')">面色萎黄</div>
+                    <div class="condition-option" onclick="setCondition('面红目赤')">面红目赤</div>
+                    <div class="condition-option" onclick="setCondition('疼痛剧烈')">疼痛剧烈</div>
+                    <div class="condition-option" onclick="setCondition('疼痛隐隐')">疼痛隐隐</div>
+                    <div class="condition-option" onclick="setCondition('大便干结')">大便干结</div>
+                    <div class="condition-option" onclick="setCondition('大便溏薄')">大便溏薄</div>
+                    <div class="condition-option" onclick="setCondition('小便短赤')">小便短赤</div>
+                    <div class="condition-option" onclick="setCondition('小便清长')">小便清长</div>
+                </div>
+                
+                <!-- 步骤3：辨证分析 -->
+                <div class="step-input-group">
+                    <label style="font-size: 12px; color: #6b7280;">辨证结果</label>
+                    <input type="text" class="step-input" id="diagnosisResult" placeholder="如：心火旺盛">
+                    <span style="font-size: 12px; color: #6b7280;">证型</span>
+                </div>
+                
+                <!-- 步骤4：治法 -->
+                <div class="step-input-group">
+                    <label style="font-size: 12px; color: #6b7280;">治疗方法</label>
+                    <input type="text" class="step-input" id="treatmentMethod" placeholder="如：清心火、养心神">
+                    <span style="font-size: 12px; color: #6b7280;">治法</span>
+                </div>
+                
+                <!-- 步骤5：方药 -->
+                <div class="step-input-group">
+                    <label style="font-size: 12px; color: #6b7280;">推荐方剂</label>
+                    <input type="text" class="step-input" id="recommendedFormula" placeholder="如：黄连阿胶汤">
+                    <span style="font-size: 12px; color: #6b7280;">终点</span>
+                </div>
+            </div>
+
+            <!-- 症状匹配关键词 -->
+            <div class="form-section">
+                <div class="form-section-title">🔍 症状匹配关键词</div>
+                <textarea class="step-input" id="symptomKeywords" 
+                          placeholder="输入患者可能描述的症状关键词，用逗号分隔：&#10;失眠，多梦，心烦，口干，舌红，苔黄" 
+                          rows="3" style="width: 100%;"></textarea>
+                <div style="font-size: 12px; color: #6b7280; margin-top: 5px;">
+                    这些关键词用于问诊时自动匹配到该路径
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 25px;">
+                <button class="quick-add-btn" onclick="confirmAddPath()" style="flex: 1;">
+                    ✅ 添加路径
+                </button>
+                <button class="quick-add-btn" onclick="closeBranchModal()" 
+                        style="flex: 1; background: #6b7280;">
+                    ❌ 取消
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let decisionPaths = [];
+        let editingPathIndex = -1;
+
+        // 加载示例决策树
+        function loadExampleTree() {
+            decisionPaths = [
+                {
+                    id: 'path_1',
+                    steps: [
+                        { type: 'symptom', content: '失眠', condition: null },
+                        { type: 'condition', content: '舌红苔黄', result: true },
+                        { type: 'diagnosis', content: '心火旺盛', condition: null },
+                        { type: 'treatment', content: '清心火', condition: null },
+                        { type: 'formula', content: '黄连阿胶汤', condition: null }
+                    ],
+                    keywords: ['失眠', '多梦', '心烦', '口干', '舌红', '苔黄'],
+                    created_by: '示例医生'
+                },
+                {
+                    id: 'path_2', 
+                    steps: [
+                        { type: 'symptom', content: '失眠', condition: null },
+                        { type: 'condition', content: '面色萎黄', result: true },
+                        { type: 'diagnosis', content: '心脾两虚', condition: null },
+                        { type: 'treatment', content: '补益心脾', condition: null },
+                        { type: 'formula', content: '归脾汤', condition: null }
+                    ],
+                    keywords: ['失眠', '心悸', '健忘', '面色萎黄', '舌淡', '脉弱'],
+                    created_by: '示例医生'
+                },
+                {
+                    id: 'path_3',
+                    steps: [
+                        { type: 'symptom', content: '失眠', condition: null },
+                        { type: 'condition', content: '胸胁胀满', result: true },
+                        { type: 'diagnosis', content: '肝郁化火', condition: null },
+                        { type: 'treatment', content: '疏肝解郁', condition: null },
+                        { type: 'formula', content: '逍遥散加减', condition: null }
+                    ],
+                    keywords: ['失眠', '易怒', '胸胁胀满', '口苦', '脉弦'],
+                    created_by: '示例医生'
+                }
+            ];
+            
+            renderDecisionPaths();
+            showSymptomMatchPreview();
+        }
+
+        // 渲染决策路径
+        function renderDecisionPaths() {
+            const container = document.getElementById('decisionPaths');
+            
+            if (decisionPaths.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #6b7280; padding: 40px;">
+                        <p>📍 暂无决策路径，请添加新路径</p>
+                    </div>`;
+                return;
+            }
+            
+            let html = '<div style="margin-bottom: 20px;"><h3 style="color: #1e40af;">🎯 诊疗路径图</h3></div>';
+            
+            decisionPaths.forEach((path, index) => {
+                html += `
+                    <div class="path-container">
+                        <div class="path-header">
+                            <div class="path-id">路径 ${index + 1}</div>
+                            <div class="path-actions">
+                                <button class="path-btn edit" onclick="editPath(${index})">✏️ 编辑</button>
+                                <button class="path-btn delete" onclick="deletePath(${index})">🗑️ 删除</button>
+                            </div>
+                        </div>
+                        
+                        <div class="path-flow">
+                            ${generatePathFlowHTML(path.steps)}
+                        </div>
+                        
+                        <div style="margin-top: 10px; padding: 8px; background: #f8fafc; border-radius: 4px; font-size: 12px;">
+                            <strong>触发关键词：</strong> ${path.keywords.join(', ')}
+                        </div>
+                    </div>`;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // 生成路径流程HTML
+        function generatePathFlowHTML(steps) {
+            let html = '';
+            
+            steps.forEach((step, index) => {
+                if (index > 0) {
+                    html += '<div class="flow-arrow">→</div>';
+                }
+                
+                html += `<div class="flow-step">`;
+                
+                if (step.type === 'condition') {
+                    const conditionClass = step.result ? 'positive' : 'negative';
+                    const conditionSymbol = step.result ? ' ✓' : ' ✗';
+                    html += `
+                        <div class="step-node condition">
+                            <div class="condition-label ${conditionClass}">判断条件</div>
+                            ${step.content}${conditionSymbol}
+                        </div>`;
+                } else {
+                    html += `<div class="step-node ${step.type}">${step.content}</div>`;
+                }
+                
+                html += '</div>';
+            });
+            
+            return html;
+        }
+
+        // 显示添加路径模态框
+        function showAddPathModal() {
+            editingPathIndex = -1;
+            clearFormInputs();
+            document.getElementById('branchEditModal').style.display = 'flex';
+        }
+
+        // 多条件管理
+        let conditionCounter = 1;
+
+        // 添加条件项
+        function addConditionItem() {
+            const container = document.getElementById('multiConditionsContainer');
+            const newIndex = conditionCounter++;
+            
+            const conditionHTML = `
+                <div class="multi-condition-item" data-index="${newIndex}" style="display: flex; gap: 8px; margin-top: 8px; align-items: center;">
+                    <span style="font-size: 11px; color: #6b7280; width: 30px;">${document.getElementById('multiConditionLogic').value}</span>
+                    <input type="text" class="step-input" style="flex: 1;" placeholder="判断条件" id="condition_${newIndex}">
+                    <select class="step-input" style="width: 80px;" id="result_${newIndex}">
+                        <option value="true">是 ✓</option>
+                        <option value="false">否 ✗</option>
+                    </select>
+                    <button type="button" onclick="removeConditionItem(${newIndex})" 
+                            style="width: 24px; height: 24px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">✕</button>
+                </div>`;
+            
+            container.insertAdjacentHTML('beforeend', conditionHTML);
+        }
+
+        // 移除条件项
+        function removeConditionItem(index) {
+            const item = document.querySelector(`[data-index="${index}"]`);
+            if (item) {
+                item.remove();
+            }
+        }
+
+        // 设置条件模板
+        function setConditionTemplate(template) {
+            // 获取当前可用的条件输入框
+            const conditionInputs = document.querySelectorAll('#multiConditionsContainer input[id^="condition_"]');
+            
+            // 找到第一个空的或者最后一个输入框
+            let targetInput = null;
+            for (let input of conditionInputs) {
+                if (!input.value.trim()) {
+                    targetInput = input;
+                    break;
+                }
+            }
+            
+            if (!targetInput && conditionInputs.length > 0) {
+                targetInput = conditionInputs[conditionInputs.length - 1];
+            }
+            
+            if (targetInput) {
+                targetInput.value = template;
+            }
+        }
+
+        // 收集多条件数据
+        function collectMultiConditions() {
+            const conditions = [];
+            const logic = document.getElementById('multiConditionLogic').value;
+            
+            const conditionInputs = document.querySelectorAll('#multiConditionsContainer input[id^="condition_"]');
+            const resultSelects = document.querySelectorAll('#multiConditionsContainer select[id^="result_"]');
+            
+            for (let i = 0; i < conditionInputs.length; i++) {
+                const conditionText = conditionInputs[i].value.trim();
+                if (conditionText) {
+                    const resultValue = resultSelects[i].value;
+                    conditions.push({
+                        text: conditionText,
+                        result: resultValue,
+                        operator: i === 0 ? null : logic
+                    });
+                }
+            }
+            
+            return conditions;
+        }
+
+        // 格式化多条件为显示文本
+        function formatMultiConditionsText(conditions) {
+            if (!conditions || conditions.length === 0) return '';
+            
+            return conditions.map((cond, index) => {
+                const prefix = index === 0 ? '' : ` ${cond.operator} `;
+                const symbol = cond.result === 'true' ? '✓' : '✗';
+                return `${prefix}${cond.text}${symbol}`;
+            }).join('');
+        }
+
+        // 确认添加路径
+        function confirmAddPath() {
+            const mainSymptom = document.getElementById('mainSymptom').value.trim();
+            const multiConditions = collectMultiConditions();
+            const diagnosisResult = document.getElementById('diagnosisResult').value.trim();
+            const treatmentMethod = document.getElementById('treatmentMethod').value.trim();
+            const recommendedFormula = document.getElementById('recommendedFormula').value.trim();
+            const symptomKeywords = document.getElementById('symptomKeywords').value.trim();
+
+            if (!mainSymptom || multiConditions.length === 0 || !diagnosisResult || !recommendedFormula) {
+                alert('请填写完整的路径信息，包括至少一个判断条件');
+                return;
+            }
+
+            // 格式化多条件为展示文本
+            const conditionsText = formatMultiConditionsText(multiConditions);
+
+            const newPath = {
+                id: `path_${Date.now()}`,
+                steps: [
+                    { type: 'symptom', content: mainSymptom, condition: null },
+                    { type: 'condition', content: conditionsText, result: true, conditions: multiConditions },
+                    { type: 'diagnosis', content: diagnosisResult, condition: null },
+                    { type: 'treatment', content: treatmentMethod || '对症治疗', condition: null },
+                    { type: 'formula', content: recommendedFormula, condition: null }
+                ],
+                keywords: symptomKeywords ? symptomKeywords.split(/[,，\s]+/).filter(k => k.trim()) : [],
+                created_by: '当前医生'
+            };
+
+            if (editingPathIndex >= 0) {
+                decisionPaths[editingPathIndex] = newPath;
+            } else {
+                decisionPaths.push(newPath);
+            }
+
+            renderDecisionPaths();
+            closeBranchModal();
+            showSymptomMatchPreview();
+        }
+
+        // 编辑路径
+        function editPath(index) {
+            editingPathIndex = index;
+            const path = decisionPaths[index];
+            
+            // 填充表单
+            document.getElementById('mainSymptom').value = path.steps[0]?.content || '';
+            document.getElementById('branchCondition').value = path.steps[1]?.content || '';
+            document.getElementById('conditionResult').value = path.steps[1]?.result ? 'true' : 'false';
+            document.getElementById('diagnosisResult').value = path.steps[2]?.content || '';
+            document.getElementById('treatmentMethod').value = path.steps[3]?.content || '';
+            document.getElementById('recommendedFormula').value = path.steps[4]?.content || '';
+            document.getElementById('symptomKeywords').value = path.keywords.join(', ');
+            
+            document.getElementById('branchEditModal').style.display = 'flex';
+        }
+
+        // 删除路径
+        function deletePath(index) {
+            if (confirm('确定要删除这条诊疗路径吗？')) {
+                decisionPaths.splice(index, 1);
+                renderDecisionPaths();
+                if (decisionPaths.length === 0) {
+                    hideSymptomMatchPreview();
+                }
+            }
+        }
+
+        // 生成初始路径（AI调用）
+        async function generateInitialPaths() {
+            const diseaseName = document.getElementById('diseaseName').value.trim();
+            const doctorThought = document.getElementById('doctorThought').value.trim();
+
+            if (!diseaseName) {
+                alert('请输入疾病名称');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/generate_paths_from_thinking', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        disease_name: diseaseName,
+                        thinking_process: doctorThought || `医生对${diseaseName}的基本诊疗思路`
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.data.paths) {
+                        decisionPaths = data.data.paths;
+                        renderDecisionPaths();
+                        showSymptomMatchPreview();
+                    } else {
+                        throw new Error(data.message || 'AI生成失败');
+                    }
+                } else {
+                    throw new Error(`服务器错误: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('AI生成失败:', error);
+                alert(`AI生成失败：${error.message}\n\n请手动添加路径或加载示例模板`);
+            }
+        }
+
+        // 显示症状匹配预览
+        function showSymptomMatchPreview() {
+            if (decisionPaths.length > 0) {
+                const preview = document.getElementById('symptomMatchPreview');
+                preview.style.display = 'block';
+                
+                const example = decisionPaths[0];
+                const matchText = `当患者描述包含"${example.keywords.slice(0,3).join('、')}"等关键词时，系统将自动匹配到"${example.steps[0].content} → ${example.steps[2].content} → ${example.steps[4].content}"路径`;
+                
+                preview.querySelector('.match-example').textContent = matchText;
+            }
+        }
+
+        // 隐藏症状匹配预览
+        function hideSymptomMatchPreview() {
+            document.getElementById('symptomMatchPreview').style.display = 'none';
+        }
+
+        // 关闭模态框
+        function closeBranchModal() {
+            document.getElementById('branchEditModal').style.display = 'none';
+            clearFormInputs();
+        }
+
+        // 清空表单
+        function clearFormInputs() {
+            document.getElementById('mainSymptom').value = '';
+            document.getElementById('diagnosisResult').value = '';
+            document.getElementById('treatmentMethod').value = '';
+            document.getElementById('recommendedFormula').value = '';
+            document.getElementById('symptomKeywords').value = '';
+            
+            // 重置多条件编辑器
+            const container = document.getElementById('multiConditionsContainer');
+            container.innerHTML = `
+                <div class="multi-condition-item" data-index="0">
+                    <input type="text" class="step-input" style="flex: 1;" placeholder="如：舌红苔厚" id="condition_0">
+                    <select class="step-input" style="width: 80px;" id="result_0">
+                        <option value="true">是 ✓</option>
+                        <option value="false">否 ✗</option>
+                    </select>
+                </div>`;
+            conditionCounter = 1;
+        }
+
+        // 保存决策树到系统
+        async function saveDecisionTree() {
+            if (decisionPaths.length === 0) {
+                alert('请先创建决策路径');
+                return;
+            }
+
+            const diseaseName = document.getElementById('diseaseName').value.trim();
+            if (!diseaseName) {
+                alert('请输入疾病名称');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/save_decision_tree_v3', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        disease_name: diseaseName,
+                        paths: decisionPaths,
+                        integration_enabled: true
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(`✅ 决策树已保存！\n\n已创建 ${data.data.paths_count} 条诊疗路径\n现在患者问诊时将自动匹配这些路径。\n\n🔗 点击右上角"查看集成演示"测试效果`);
+                } else {
+                    throw new Error('保存失败');
+                }
+            } catch (error) {
+                console.error('保存失败:', error);
+                alert('保存失败，请稍后重试');
+            }
+        }
+
+        // 查看集成演示
+        function viewIntegrationDemo() {
+            window.open('/static/decision_tree_integration_demo.html', '_blank');
+        }
+
+        // 打开可视化构建器
+        function openVisualBuilder() {
+            window.open('/static/decision_tree_visual_builder.html', '_blank');
+        }
+
+        // 页面初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('智能决策树V3初始化完成');
+        });
+    </script>
+</body>
+</html>

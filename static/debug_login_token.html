@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录Token调试页面</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .debug-box { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>登录Token调试页面</h1>
+    
+    <div class="debug-box">
+        <h3>测试结果：</h3>
+        <div id="results"></div>
+    </div>
+    
+    <button onclick="testLogin()">测试医生登录</button>
+    <button onclick="checkTokens()">检查本地Token</button>
+    <button onclick="clearTokens()">清除Token</button>
+
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            results.appendChild(div);
+        }
+        
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+
+        async function testLogin() {
+            log('开始测试医生登录...');
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'doctor', password: 'doctor123' })
+                });
+
+                log(`HTTP状态: ${response.status}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`登录成功! 用户角色: ${data.user.role}`, 'success');
+                    
+                    // 检查响应中的token
+                    if (data.token) {
+                        log(`✅ 响应中包含token: ${data.token.substring(0, 20)}...`, 'success');
+                        localStorage.setItem('doctorToken', data.token);
+                        log('✅ Token已保存到localStorage', 'success');
+                    } else {
+                        log('⚠️ 响应中没有token字段', 'warning');
+                        
+                        // 检查session_token cookie
+                        const sessionToken = getCookie('session_token');
+                        if (sessionToken) {
+                            log(`✅ 从Cookie获取到session_token: ${sessionToken.substring(0, 20)}...`, 'success');
+                            localStorage.setItem('doctorToken', sessionToken);
+                            log('✅ Session token已保存到localStorage', 'success');
+                        } else {
+                            log('❌ 没有找到session_token cookie', 'error');
+                        }
+                    }
+                } else {
+                    const errorData = await response.json();
+                    log(`登录失败: ${errorData.detail || errorData.message}`, 'error');
+                }
+            } catch (error) {
+                log(`网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        function checkTokens() {
+            log('检查本地存储的Token...');
+            
+            const doctorToken = localStorage.getItem('doctorToken');
+            const adminToken = localStorage.getItem('adminToken');
+            const patientToken = localStorage.getItem('patientToken');
+            
+            if (doctorToken) {
+                log(`✅ doctorToken: ${doctorToken.substring(0, 30)}...`, 'success');
+            } else {
+                log('❌ 没有doctorToken', 'error');
+            }
+            
+            if (adminToken) {
+                log(`✅ adminToken: ${adminToken.substring(0, 30)}...`, 'success');
+            }
+            
+            if (patientToken) {
+                log(`✅ patientToken: ${patientToken.substring(0, 30)}...`, 'success');
+            }
+            
+            // 检查所有cookies
+            const cookies = document.cookie.split(';');
+            log(`当前Cookies: ${cookies.length}个`);
+            cookies.forEach(cookie => {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'session_token') {
+                    log(`✅ session_token cookie: ${value.substring(0, 30)}...`, 'success');
+                }
+            });
+        }
+
+        function clearTokens() {
+            localStorage.removeItem('doctorToken');
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('patientToken');
+            log('✅ 已清除所有本地Token', 'success');
+        }
+
+        // 页面加载时自动检查
+        window.onload = function() {
+            log('页面加载完成，开始检查...');
+            checkTokens();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医生登录 - 中医AI智能诊疗系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            width: 100%;
+            max-width: 1000px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            min-height: 600px;
+        }
+
+        .login-left {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .login-left h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .login-left p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .feature-list {
+            list-style: none;
+            text-align: left;
+        }
+
+        .feature-list li {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .feature-list li::before {
+            content: "✓";
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-weight: bold;
+        }
+
+        .login-right {
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .login-header h2 {
+            color: #1f2937;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .login-header p {
+            color: #6b7280;
+            font-size: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-label {
+            display: block;
+            color: #374151;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: #f9fafb;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(30, 64, 175, 0.3);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .register-link {
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .register-link a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success-message {
+            background: #dcfce7;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .patient-link {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(255,255,255,0.9);
+            padding: 15px 25px;
+            border-radius: 50px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-decoration: none;
+            color: #1e40af;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .patient-link:hover {
+            background: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        @media (max-width: 768px) {
+            .login-container {
+                grid-template-columns: 1fr;
+                max-width: 400px;
+            }
+
+            .login-left {
+                padding: 30px;
+            }
+
+            .login-left h1 {
+                font-size: 2rem;
+            }
+
+            .login-right {
+                padding: 30px;
+            }
+
+            .patient-link {
+                bottom: 20px;
+                right: 20px;
+                padding: 12px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- 左侧介绍 -->
+        <div class="login-left">
+            <h1>🏥 医生工作台</h1>
+            <p>专业的中医AI辅助诊疗平台，提升诊疗效率和质量</p>
+            <ul class="feature-list">
+                <li>AI处方智能审查</li>
+                <li>中医知识库查阅</li>
+                <li>医家思维学习</li>
+                <li>诊疗数据统计</li>
+                <li>患者管理系统</li>
+            </ul>
+        </div>
+
+        <!-- 右侧登录表单 -->
+        <div class="login-right">
+            <div class="login-header">
+                <h2>医生登录</h2>
+                <p>请使用您的执业证书号和密码登录</p>
+            </div>
+
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label">执业证书号</label>
+                    <input type="text" id="licenseNo" class="form-input" 
+                           placeholder="请输入执业证书号" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">登录密码</label>
+                    <input type="password" id="password" class="form-input" 
+                           placeholder="请输入登录密码" required>
+                </div>
+
+                <button type="submit" class="login-btn" id="loginButton">
+                    登录到医生工作台
+                </button>
+            </form>
+
+            <div class="register-link">
+                还没有账户？ <a href="register.html">申请医生账户</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 患者端链接 -->
+    <a href="/" class="patient-link">👤 患者问诊</a>
+
+    <script>
+        // 页面加载时检查是否已登录
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('doctorToken');
+            if (token) {
+                // 验证token是否有效
+                validateToken(token);
+            }
+        });
+
+        // 验证token有效性
+        async function validateToken(token) {
+            try {
+                const response = await fetch('/api/doctor/profile', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    // Token有效，直接跳转到工作台
+                    window.location.href = '/doctor/';
+                } else {
+                    // Token无效，清除本地存储
+                    localStorage.removeItem('doctorToken');
+                }
+            } catch (error) {
+                console.error('Token验证失败:', error);
+                localStorage.removeItem('doctorToken');
+            }
+        }
+
+        // 处理登录表单提交
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const licenseNo = document.getElementById('licenseNo').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const loginButton = document.getElementById('loginButton');
+            
+            if (!licenseNo || !password) {
+                showError('请填写完整的登录信息');
+                return;
+            }
+            
+            // 显示加载状态
+            loginButton.disabled = true;
+            loginButton.textContent = '登录中...';
+            hideMessages();
+            
+            try {
+                const response = await fetch('/api/doctor/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        license_no: licenseNo,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 保存登录信息
+                    localStorage.setItem('doctorToken', data.doctor.auth_token);
+                    
+                    showSuccess('登录成功，正在跳转...');
+                    
+                    // 延迟跳转，让用户看到成功提示
+                    setTimeout(() => {
+                        window.location.href = '/doctor/';
+                    }, 1000);
+                    
+                } else {
+                    showError(data.detail || '登录失败，请检查您的凭据');
+                }
+                
+            } catch (error) {
+                console.error('登录请求失败:', error);
+                showError('网络连接失败，请稍后重试');
+            } finally {
+                // 恢复按钮状态
+                loginButton.disabled = false;
+                loginButton.textContent = '登录到医生工作台';
+            }
+        }
+
+        // 显示错误消息
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            
+            // 自动隐藏成功消息
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        // 显示成功消息
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            
+            // 自动隐藏错误消息
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        // 隐藏所有消息
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        // 添加回车键登录支持
+        document.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                const form = document.getElementById('loginForm');
+                if (document.activeElement.closest('#loginForm')) {
+                    form.dispatchEvent(new Event('submit', { cancelable: true }));
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>问诊历史 - TCM AI中医助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header .subtitle {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .user-info {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .user-details {
+            flex: 1;
+            margin-left: 15px;
+        }
+        
+        .user-name {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .user-type {
+            opacity: 0.8;
+            font-size: 14px;
+        }
+        
+        .upgrade-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .upgrade-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .stats-section {
+            padding: 30px;
+            background: #f8f9ff;
+            border-bottom: 1px solid #e1e8f0;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .history-section {
+            padding: 30px;
+        }
+        
+        .section-title {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-title::before {
+            content: "📋";
+            margin-right: 10px;
+        }
+        
+        .filter-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-tab {
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .filter-tab.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .filter-tab.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .filter-tab.disabled:hover {
+            background: #f0f0f0;
+            transform: none;
+        }
+        
+        .doctor-group {
+            margin-bottom: 30px;
+            border: 1px solid #e1e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .doctor-header {
+            background: #f8f9ff;
+            padding: 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .doctor-header:hover {
+            background: #f0f2ff;
+        }
+        
+        .doctor-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .doctor-avatar {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 20px;
+        }
+        
+        .doctor-details .doctor-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .doctor-details .session-count {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .expand-icon {
+            font-size: 20px;
+            color: #666;
+            transition: transform 0.3s;
+        }
+        
+        .doctor-group.expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+        
+        .sessions-list {
+            display: none;
+            padding: 0 20px 20px;
+        }
+        
+        .doctor-group.expanded .sessions-list {
+            display: block;
+        }
+        
+        .session-item {
+            background: white;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .session-item:hover {
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .session-item.recent {
+            border-left: 4px solid #667eea;
+        }
+        
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .session-title {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .session-date {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .session-complaint {
+            color: #555;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        
+        .session-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+        
+        .session-status {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .session-status.completed {
+            background: #e8f5e8;
+            color: #4caf50;
+        }
+        
+        .session-status.active {
+            background: #fff3e0;
+            color: #ff9800;
+        }
+        
+        .conversation-count {
+            color: #666;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-state .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .empty-state h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .empty-state p {
+            margin-bottom: 20px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .actions-bar {
+            padding: 20px 30px;
+            background: #f8f9ff;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 1px solid #667eea;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 模态框样式 */
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .modal-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #e1e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            color: #333;
+        }
+        
+        .close {
+            color: #999;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        
+        .close:hover {
+            color: #333;
+        }
+        
+        .modal-body {
+            padding: 20px 30px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 1px solid #e1e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+        
+        .device-item {
+            background: #f8f9ff;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .device-item.current {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+        }
+        
+        .device-info {
+            flex: 1;
+        }
+        
+        .device-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .device-details {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .device-status {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .device-status.current {
+            background: #e8f5e8;
+            color: #4caf50;
+        }
+        
+        .device-status.inactive {
+            background: #f5f5f5;
+            color: #999;
+        }
+        
+        .session-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .btn-detail {
+            background: #f0f8ff;
+            color: #4a90e2;
+            border: 1px solid #4a90e2;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-detail:hover {
+            background: #4a90e2;
+            color: white;
+        }
+        
+        .detail-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            background: #f8f9ff;
+        }
+        
+        .detail-section h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .detail-grid > div {
+            padding: 5px 0;
+        }
+        
+        .diagnosis-content {
+            line-height: 1.6;
+        }
+        
+        .diagnosis-content p {
+            margin-bottom: 8px;
+        }
+        
+        .status-info {
+            padding: 10px 0;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .history-section {
+                padding: 20px;
+            }
+            
+            .filter-tabs {
+                grid-template-columns: repeat(2, 1fr);
+                display: grid;
+                gap: 8px;
+            }
+            
+            .filter-tab {
+                padding: 6px 12px;
+                font-size: 13px;
+                text-align: center;
+            }
+            
+            .actions-bar {
+                padding: 15px 20px;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10% auto;
+            }
+            
+            .modal-header, .modal-body, .modal-footer {
+                padding: 15px 20px;
+            }
+            
+            .device-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+    
+        .error-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+        
+        .error-state .icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+        
+        .error-state h3 {
+            color: #dc2626;
+            margin-bottom: 8px;
+        }
+        
+        .error-state p {
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+        }
+        
+        .debug-info {
+            font-size: 0.8rem !important;
+            color: #9ca3af !important;
+            margin-top: 12px !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部信息 -->
+        <div class="header">
+            <h1>📋 我的问诊历史</h1>
+            <p class="subtitle">您的个人中医健康档案</p>
+            
+            <div class="user-info" id="userInfo">
+                <div class="user-avatar" id="userAvatar">用</div>
+                <div class="user-details">
+                    <div class="user-name" id="userName">加载中...</div>
+                    <div class="user-type" id="userType">设备用户</div>
+                </div>
+                <button class="upgrade-btn" id="upgradeBtn" onclick="upgradeAccount()">
+                    📱 绑定手机
+                </button>
+            </div>
+        </div>
+        
+        <!-- 统计信息 -->
+        <div class="stats-section">
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalSessions">-</div>
+                    <div class="stat-label">问诊次数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="doctorCount">-</div>
+                    <div class="stat-label">咨询医生</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="usageDays">-</div>
+                    <div class="stat-label">使用天数</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 历史记录 -->
+        <div class="history-section">
+            <h2 class="section-title">问诊记录</h2>
+            
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filterSessions('all')">全部</button>
+                <button class="filter-tab" onclick="filterSessions('zhang_zhongjing')">张仲景</button>
+                <button class="filter-tab" onclick="filterSessions('ye_tianshi')">叶天士</button>
+                <button class="filter-tab" onclick="filterSessions('li_dongyuan')">李东垣</button>
+                <button class="filter-tab" onclick="filterSessions('zhu_danxi')">朱丹溪</button>
+                <button class="filter-tab" onclick="filterSessions('liu_duzhou')">刘渡舟</button>
+                <button class="filter-tab" onclick="filterSessions('zheng_qin_an')">郑钦安</button>
+                <button class="filter-tab" onclick="filterSessions('recent')">最近7天</button>
+            </div>
+            
+            <div id="historyContent">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>正在加载您的问诊历史...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 操作按钮 -->
+        <div class="actions-bar">
+            <button class="btn-secondary" onclick="exportHistory()">📄 导出档案</button>
+            <button class="btn-secondary" onclick="clearHistory()">🗑️ 清空历史</button>
+            <button class="btn-primary" onclick="startNewConsultation()">💬 开始新问诊</button>
+        </div>
+    </div>
+
+    <!-- 设备管理模态框 -->
+    <div id="deviceModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📱 我的设备</h2>
+                <span class="close" onclick="closeDeviceModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="device-list" id="deviceList">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>正在加载设备列表...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeDeviceModal()">关闭</button>
+                <button class="btn-primary" onclick="refreshDevices()">刷新</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentUserId = null;
+        let allSessions = [];
+        let currentFilter = 'all';
+        
+        // 医生信息映射
+        const doctorInfo = {
+            'zhang_zhongjing': { name: '张仲景', emoji: '🎯', description: '伤寒派' },
+            'ye_tianshi': { name: '叶天士', emoji: '🌡️', description: '温病派' },
+            'li_dongyuan': { name: '李东垣', emoji: '🌱', description: '补土派' },
+            'zhu_danxi': { name: '朱丹溪', emoji: '💧', description: '滋阴派' },
+            'liu_duzhou': { name: '刘渡舟', emoji: '📚', description: '经方派' },
+            'zheng_qin_an': { name: '郑钦安', emoji: '☀️', description: '扶阳派' }
+        };
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializePage();
+        });
+        
+        // 初始化页面
+        async function initializePage() {
+            try {
+                await loadUserInfo();
+                await loadSessionHistory();
+            } catch (error) {
+                console.error('页面初始化失败:', error);
+                showError('加载失败，请刷新页面重试');
+            }
+        }
+        
+        // 加载用户信息
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('/api/user/info');
+                if (response.ok) {
+                    const userInfo = await response.json();
+                    currentUserId = userInfo.user_id;
+                    
+                    // 更新用户界面
+                    updateUserInterface(userInfo);
+                } else {
+                    throw new Error('获取用户信息失败');
+                }
+            } catch (error) {
+                console.error('加载用户信息失败:', error);
+                // 显示默认用户信息
+                document.getElementById('userName').textContent = '游客用户';
+                document.getElementById('userType').textContent = '未注册用户';
+            }
+        }
+        
+        // 更新用户界面
+        function updateUserInterface(userInfo) {
+            const userName = userInfo.nickname || `用户_${userInfo.user_id.slice(-4)}`;
+            const userType = userInfo.registration_type === 'phone' ? 
+                `已验证用户（${userInfo.phone_number})` : '设备用户';
+            
+            document.getElementById('userName').textContent = userName;
+            document.getElementById('userType').textContent = userType;
+            document.getElementById('userAvatar').textContent = userName.charAt(0);
+            
+            // 根据用户类型调整按钮
+            if (userInfo.is_verified) {
+                // 已验证用户显示设备管理按钮
+                const upgradeBtn = document.getElementById('upgradeBtn');
+                upgradeBtn.innerHTML = '📱 设备管理';
+                upgradeBtn.onclick = function() { showDeviceManagement(); };
+            }
+        }
+        
+        
+        // 加载会话历史（带重试机制）
+        async function loadSessionHistory(retryCount = 0) {
+            const maxRetries = 3;
+            const historyContent = document.getElementById('historyContent');
+            
+            // 显示加载状态
+            if (retryCount === 0) {
+                historyContent.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>正在加载您的问诊历史...</p>
+                    </div>
+                `;
+            }
+            
+            try {
+                console.log('正在加载会话历史，尝试次数:', retryCount + 1);
+                
+                const response = await fetch('/api/user/sessions', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    timeout: 30000
+                });
+                
+                console.log('API响应状态:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('获取到的会话数据:', data);
+                    
+                    allSessions = data.sessions || [];
+                    
+                    // 更新统计信息
+                    updateStatistics(data.stats || {});
+                    
+                    // 渲染历史记录
+                    renderSessionHistory();
+                    
+                    console.log('历史记录加载成功，会话数量:', allSessions.length);
+                } else {
+                    throw new Error(`API返回错误状态: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('加载会话历史失败:', error);
+                
+                // 如果还有重试次数，则重试
+                if (retryCount < maxRetries) {
+                    console.log(`重试加载历史记录 (${retryCount + 1}/${maxRetries})...`);
+                    setTimeout(() => {
+                        loadSessionHistory(retryCount + 1);
+                    }, 2000 * (retryCount + 1)); // 递增延迟
+                } else {
+                    // 所有重试都失败，显示错误状态
+                    showHistoryError(error.message);
+                }
+            }
+        }
+        
+        // 显示历史记录加载错误
+        function showHistoryError(errorMessage) {
+            const historyContent = document.getElementById('historyContent');
+            historyContent.innerHTML = `
+                <div class="error-state">
+                    <div class="icon">⚠️</div>
+                    <h3>加载历史记录失败</h3>
+                    <p>${errorMessage}</p>
+                    <button class="btn-primary" onclick="loadSessionHistory(0)">重新加载</button>
+                    <p class="debug-info">如果问题持续，请尝试刷新页面或清除浏览器缓存</p>
+                </div>
+            `;
+        }
+        
+        // 更新统计信息
+        function updateStatistics(stats) {
+            document.getElementById('totalSessions').textContent = stats.total_sessions || 0;
+            document.getElementById('doctorCount').textContent = stats.doctor_count || 0;
+            document.getElementById('usageDays').textContent = stats.usage_days || 0;
+        }
+        
+        // 渲染会话历史
+        function renderSessionHistory() {
+            const historyContent = document.getElementById('historyContent');
+            
+            if (allSessions.length === 0) {
+                showEmptyState();
+                return;
+            }
+            
+            // 动态更新过滤标签（确保显示所有有数据的医生）
+            updateFilterTabs();
+            
+            // 按医生分组
+            const sessionsByDoctor = groupSessionsByDoctor(filteredSessions());
+            
+            let html = '';
+            for (const [doctorName, sessions] of Object.entries(sessionsByDoctor)) {
+                html += renderDoctorGroup(doctorName, sessions);
+            }
+            
+            historyContent.innerHTML = html;
+        }
+        
+        // 动态更新过滤标签
+        function updateFilterTabs() {
+            const filterTabs = document.querySelector('.filter-tabs');
+            
+            // 获取所有有数据的医生
+            const doctorsWithData = [...new Set(allSessions.map(session => session.doctor_name))];
+            console.log('有历史记录的医生:', doctorsWithData);
+            
+            // 重新生成过滤标签
+            let tabsHtml = '<button class="filter-tab active" onclick="filterSessions(\'all\')">全部</button>';
+            
+            // 按固定顺序添加医生标签（优先显示有数据的）
+            const allDoctors = ['zhang_zhongjing', 'ye_tianshi', 'li_dongyuan', 'zhu_danxi', 'liu_duzhou', 'zheng_qin_an'];
+            allDoctors.forEach(doctorKey => {
+                const doctor = doctorInfo[doctorKey];
+                if (doctor) {
+                    const hasData = doctorsWithData.includes(doctorKey);
+                    const className = hasData ? 'filter-tab' : 'filter-tab' + ' disabled';
+                    const title = hasData ? '' : ' title="暂无此医生的问诊记录"';
+                    tabsHtml += `<button class="${className}" onclick="filterSessions('${doctorKey}')"${title}>${doctor.name}</button>`;
+                }
+            });
+            
+            tabsHtml += '<button class="filter-tab" onclick="filterSessions(\'recent\')">最近7天</button>';
+            
+            filterTabs.innerHTML = tabsHtml;
+            
+            // 恢复当前选中状态
+            const currentTab = filterTabs.querySelector(`[onclick="filterSessions('${currentFilter}')"]`);
+            if (currentTab) {
+                filterTabs.querySelector('.active').classList.remove('active');
+                currentTab.classList.add('active');
+            }
+        }
+        
+        // 按医生分组会话
+        function groupSessionsByDoctor(sessions) {
+            const grouped = {};
+            sessions.forEach(session => {
+                if (!grouped[session.doctor_name]) {
+                    grouped[session.doctor_name] = [];
+                }
+                grouped[session.doctor_name].push(session);
+            });
+            return grouped;
+        }
+        
+        // 渲染医生分组
+        function renderDoctorGroup(doctorName, sessions) {
+            const doctor = doctorInfo[doctorName] || { name: doctorName, emoji: '👨‍⚕️', description: '' };
+            
+            let sessionsHtml = '';
+            sessions.forEach(session => {
+                sessionsHtml += renderSessionItem(session);
+            });
+            
+            return `
+                <div class="doctor-group" onclick="toggleDoctorGroup(this)">
+                    <div class="doctor-header">
+                        <div class="doctor-info">
+                            <div class="doctor-avatar">${doctor.emoji}</div>
+                            <div class="doctor-details">
+                                <div class="doctor-name">${doctor.name}</div>
+                                <div class="session-count">${sessions.length}次问诊 • ${doctor.description}</div>
+                            </div>
+                        </div>
+                        <div class="expand-icon">▼</div>
+                    </div>
+                    <div class="sessions-list">
+                        ${sessionsHtml}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 渲染会话项目
+        function renderSessionItem(session) {
+            const isRecent = isRecentSession(session.created_at);
+            const recentClass = isRecent ? 'recent' : '';
+            
+            return `
+                <div class="session-item ${recentClass}">
+                    <div class="session-header">
+                        <div class="session-title">第${session.session_count}次问诊</div>
+                        <div class="session-date">${formatDate(session.created_at)}</div>
+                    </div>
+                    <div class="session-complaint">
+                        主诉：${session.chief_complaint || '未记录'}
+                    </div>
+                    <div class="session-footer">
+                        <div class="conversation-count">${session.total_conversations || 0}轮对话</div>
+                        <div class="session-actions">
+                            <button class="btn-detail" onclick="viewSession('${session.session_id}')" title="查看详情">
+                                📋 详情
+                            </button>
+                            <div class="session-status ${session.session_status}">
+                                ${session.session_status === 'completed' ? '已完成' : '进行中'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 显示空状态
+        function showEmptyState() {
+            const historyContent = document.getElementById('historyContent');
+            historyContent.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">🏥</div>
+                    <h3>还没有问诊记录</h3>
+                    <p>开始您的第一次AI中医问诊，建立专属健康档案</p>
+                    <button class="btn-primary" onclick="startNewConsultation()">
+                        💬 开始问诊
+                    </button>
+                </div>
+            `;
+        }
+        
+        // 显示错误信息
+        function showError(message) {
+            const historyContent = document.getElementById('historyContent');
+            historyContent.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">⚠️</div>
+                    <h3>加载失败</h3>
+                    <p>${message}</p>
+                    <button class="btn-primary" onclick="location.reload()">
+                        🔄 重新加载
+                    </button>
+                </div>
+            `;
+        }
+        
+        // 工具函数
+        function isRecentSession(dateString) {
+            const sessionDate = new Date(dateString);
+            const now = new Date();
+            const diffTime = Math.abs(now - sessionDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays <= 7;
+        }
+        
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        function filteredSessions() {
+            if (currentFilter === 'all') {
+                return allSessions;
+            } else if (currentFilter === 'recent') {
+                return allSessions.filter(session => isRecentSession(session.created_at));
+            } else {
+                return allSessions.filter(session => session.doctor_name === currentFilter);
+            }
+        }
+        
+        // 事件处理函数
+        function toggleDoctorGroup(element) {
+            element.classList.toggle('expanded');
+        }
+        
+        function filterSessions(filter) {
+            currentFilter = filter;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.filter-tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 重新渲染
+            renderSessionHistory();
+        }
+        
+        function viewSession(sessionId) {
+            // 显示对话详情
+            showConversationDetail(sessionId);
+        }
+        
+        // 显示对话详情
+        async function showConversationDetail(sessionId) {
+            try {
+                const response = await fetch(`/api/user/conversation/${sessionId}`);
+                if (response.ok) {
+                    const detail = await response.json();
+                    displayConversationDetail(detail);
+                } else {
+                    console.error('获取对话详情失败:', response.status, await response.text());
+                    alert('获取对话详情失败，请重试');
+                }
+            } catch (error) {
+                console.error('获取对话详情失败:', error);
+                alert('获取对话详情失败，请检查网络连接');
+            }
+        }
+        
+        // 显示对话详情模态框
+        function displayConversationDetail(detail) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.display = 'block';
+            
+            const doctorName = doctorInfo[detail.doctor_name]?.name || detail.doctor_name;
+            const visitDate = new Date(detail.created_at).toLocaleString('zh-CN');
+            
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 800px;">
+                    <div class="modal-header">
+                        <h2>📋 对话详情 - ${doctorName}</h2>
+                        <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="detail-section">
+                            <h3>基本信息</h3>
+                            <div class="detail-grid">
+                                <div><strong>就诊时间:</strong> ${visitDate}</div>
+                                <div><strong>就诊次数:</strong> 第${detail.session_count}次</div>
+                                <div><strong>主诉:</strong> ${detail.chief_complaint || '未记录'}</div>
+                                <div><strong>对话轮数:</strong> ${detail.message_count}轮</div>
+                            </div>
+                        </div>
+                        
+                        <div class="detail-section">
+                            <h3>诊疗记录</h3>
+                            <div class="diagnosis-content">
+                                <p><strong>诊断摘要:</strong> ${detail.diagnosis_summary || '未记录'}</p>
+                                <p><strong>处方建议:</strong> ${detail.prescription_given || '未开方'}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="detail-section">
+                            <h3>对话状态</h3>
+                            <div class="status-info">
+                                <span class="session-status ${detail.session_status}">
+                                    ${detail.session_status === 'completed' ? '已完成' : '进行中'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn-secondary" onclick="this.closest('.modal').remove()">关闭</button>
+                        <button class="btn-primary" onclick="exportConversation('${detail.session_id}')">📄 导出病历</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        // 导出单个对话
+        async function exportConversation(sessionId) {
+            try {
+                const response = await fetch(`/api/user/conversation/${sessionId}/export`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `TCM_病历_${sessionId.slice(0,8)}_${new Date().toISOString().split('T')[0]}.html`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    // 关闭详情模态框
+                    const modal = document.querySelector('.modal');
+                    if (modal) modal.remove();
+                } else {
+                    console.error('导出失败:', response.status, await response.text());
+                    alert('导出失败，请重试');
+                }
+            } catch (error) {
+                console.error('导出失败:', error);
+                alert('导出失败，请检查网络连接');
+            }
+        }
+        
+        function upgradeAccount() {
+            // 跳转到手机绑定页面
+            window.open('/phone-binding', '_blank');
+        }
+        
+        function exportHistory() {
+            // 导出所有历史记录
+            if (allSessions.length === 0) {
+                alert('暂无历史记录可导出');
+                return;
+            }
+            
+            // 生成并下载摘要报告
+            const summary = generateSummaryReport();
+            downloadTextFile(summary, `TCM_历史记录摘要_${new Date().toISOString().split('T')[0]}.txt`);
+        }
+        
+        // 生成摘要报告
+        function generateSummaryReport() {
+            const stats = {
+                totalSessions: allSessions.length,
+                doctorCount: new Set(allSessions.map(s => s.doctor_name)).size,
+                recentSessions: allSessions.filter(s => isRecentSession(s.created_at)).length
+            };
+            
+            let report = `════════════════════════════════════════\n`;
+            report += `        TCM AI中医智能问诊历史记录摘要\n`;
+            report += `════════════════════════════════════════\n\n`;
+            report += `【统计信息】\n`;
+            report += `总问诊次数: ${stats.totalSessions}次\n`;
+            report += `咨询医生数: ${stats.doctorCount}位\n`;
+            report += `最近7天: ${stats.recentSessions}次\n`;
+            report += `导出时间: ${new Date().toLocaleString('zh-CN')}\n\n`;
+            
+            // 按医生分组
+            const sessionsByDoctor = groupSessionsByDoctor(allSessions);
+            report += `【分医生记录】\n`;
+            
+            for (const [doctorName, sessions] of Object.entries(sessionsByDoctor)) {
+                const doctor = doctorInfo[doctorName] || { name: doctorName, description: '' };
+                report += `\n${doctor.name} (${sessions.length}次问诊)\n`;
+                report += `─────────────────────────\n`;
+                
+                sessions.slice(0, 5).forEach((session, index) => {
+                    const date = new Date(session.created_at).toLocaleDateString('zh-CN');
+                    report += `${index + 1}. ${date} - ${session.chief_complaint || '症状咨询'}\n`;
+                });
+                
+                if (sessions.length > 5) {
+                    report += `   ... 还有${sessions.length - 5}次记录\n`;
+                }
+            }
+            
+            report += `\n════════════════════════════════════════\n`;
+            report += `🤖 由TCM AI中医智能诊疗系统生成\n`;
+            report += `⚠️ 此为AI辅助诊疗记录，仅供参考\n`;
+            report += `════════════════════════════════════════\n`;
+            
+            return report;
+        }
+        
+        // 下载文本文件
+        function downloadTextFile(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+        
+        function clearHistory() {
+            if (confirm('确定要清空所有问诊历史吗？此操作不可恢复！')) {
+                // 调用清空API
+                alert('清空功能开发中，敬请期待！');
+            }
+        }
+        
+        function startNewConsultation() {
+            // 返回主页开始新问诊
+            window.location.href = '/';
+        }
+        
+        // ========== 设备管理功能 ==========
+        
+        // 显示设备管理模态框
+        async function showDeviceManagement() {
+            const modal = document.getElementById('deviceModal');
+            modal.style.display = 'block';
+            
+            // 加载设备列表
+            await loadDeviceList();
+        }
+        
+        // 关闭设备管理模态框
+        function closeDeviceModal() {
+            document.getElementById('deviceModal').style.display = 'none';
+        }
+        
+        // 加载设备列表
+        async function loadDeviceList() {
+            const deviceList = document.getElementById('deviceList');
+            
+            try {
+                const response = await fetch('/api/user/devices');
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.success && data.devices.length > 0) {
+                        renderDeviceList(data.devices);
+                    } else {
+                        showEmptyDeviceList();
+                    }
+                } else {
+                    throw new Error('获取设备列表失败');
+                }
+            } catch (error) {
+                console.error('加载设备列表失败:', error);
+                showDeviceError('加载设备列表失败，请重试');
+            }
+        }
+        
+        // 渲染设备列表
+        function renderDeviceList(devices) {
+            const deviceList = document.getElementById('deviceList');
+            
+            let html = '';
+            devices.forEach((device, index) => {
+                const isCurrentClass = device.is_current ? 'current' : '';
+                const statusClass = device.is_current ? 'current' : 'inactive';
+                const statusText = device.is_current ? '当前设备' : '非活跃';
+                
+                html += `
+                    <div class="device-item ${isCurrentClass}">
+                        <div class="device-info">
+                            <div class="device-name">${device.device_name}</div>
+                            <div class="device-details">
+                                指纹: ${device.device_fingerprint}<br>
+                                首次登录: ${formatDate(device.first_login)}<br>
+                                最后活跃: ${formatDate(device.last_active)}
+                            </div>
+                        </div>
+                        <div class="device-status ${statusClass}">
+                            ${statusText}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            deviceList.innerHTML = html;
+        }
+        
+        // 显示空设备列表
+        function showEmptyDeviceList() {
+            const deviceList = document.getElementById('deviceList');
+            deviceList.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">📱</div>
+                    <h3>暂无设备记录</h3>
+                    <p>当您在不同设备上使用时，这里会显示设备列表</p>
+                </div>
+            `;
+        }
+        
+        // 显示设备管理错误
+        function showDeviceError(message) {
+            const deviceList = document.getElementById('deviceList');
+            deviceList.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">⚠️</div>
+                    <h3>加载失败</h3>
+                    <p>${message}</p>
+                    <button class="btn-primary" onclick="loadDeviceList()">重新加载</button>
+                </div>
+            `;
+        }
+        
+        // 刷新设备列表
+        async function refreshDevices() {
+            await loadDeviceList();
+        }
+        
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('deviceModal');
+            if (event.target === modal) {
+                closeDeviceModal();
+            }
+        }
+    </script>
+</body>
+</html>
