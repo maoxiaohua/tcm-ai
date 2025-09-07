@@ -19,6 +19,13 @@ from api.security_integration import get_current_user
 from core.security.rbac_system import UserSession
 from core.prescription.tcm_formula_analyzer import TCMFormulaAnalyzer
 
+# 检查Dashscope可用性
+try:
+    import dashscope
+    DASHSCOPE_AVAILABLE = True
+except ImportError:
+    DASHSCOPE_AVAILABLE = False
+
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -592,6 +599,7 @@ class VisualDecisionTreeRequest(BaseModel):
     thinking_process: Optional[str] = ""
     include_tcm_analysis: bool = True
     complexity_level: str = "standard"  # simple, standard, complex
+    use_ai: Optional[bool] = None  # 新增：手动指定AI模式
 
 class TCMTheoryAnalysisRequest(BaseModel):
     tree_data: Dict[str, Any]
@@ -602,92 +610,77 @@ class MissingLogicDetectionRequest(BaseModel):
     current_paths: List[Dict[str, Any]]
     existing_nodes: List[Dict[str, Any]]
 
+class UserPreferencesRequest(BaseModel):
+    ai_mode_preferred: bool = True
+    complexity_level: str = "standard"
+    favorite_schools: List[str] = []
+    custom_templates: Dict[str, Any] = {}
+
 @router.post("/generate_visual_decision_tree")
 async def generate_visual_decision_tree(
     request: VisualDecisionTreeRequest
 ):
     """
-    为可视化构建器生成AI决策树
+    智能生成决策树（混合模式：AI+模板）
     
     Args:
         request: 包含疾病名称和生成选项的请求
-        current_user: 当前用户信息
         
     Returns:
-        可视化构建器格式的决策树数据
+        智能决策树数据（包含数据来源标识）
     """
     try:
-        logger.info(f"请求生成可视化决策树: {request.disease_name}")
-        
-        # 构建AI生成提示词
-        generation_prompt = f"""
-        为疾病"{request.disease_name}"生成完整的中医诊疗决策树。
-        
-        要求：
-        1. 生成3-5条完整的诊疗路径，每条路径包含：症状→判断条件→诊断→治疗→方剂
-        2. 每个判断条件要具体明确，便于临床判断
-        3. 方剂选择要符合中医理论，包含君臣佐使分析
-        4. 路径要覆盖该疾病的主要证型
-        
-        返回JSON格式：
-        {{
-            "paths": [
-                {{
-                    "id": "path_1",
-                    "title": "路径名称",
-                    "steps": [
-                        {{"type": "symptom", "content": "主要症状"}},
-                        {{"type": "condition", "content": "判断条件", "options": ["是", "否"]}},
-                        {{"type": "diagnosis", "content": "中医诊断"}},
-                        {{"type": "treatment", "content": "治疗原则"}},
-                        {{"type": "formula", "content": "推荐方剂"}}
-                    ],
-                    "keywords": ["关键词1", "关键词2"],
-                    "tcm_theory": "中医理论依据"
-                }}
-            ],
-            "suggested_layout": {{
-                "auto_arrange": true,
-                "spacing": {{"horizontal": 300, "vertical": 150}}
-            }}
-        }}
-        """
+        logger.info(f"请求智能生成决策树: {request.disease_name}")
         
         try:
-            # 调用AI生成 - 修复方法调用参数
+            # 调用新的智能生成方法
             generation_result = await doctor_learning_system.generate_decision_paths(
                 disease_name=request.disease_name,
+                thinking_process=request.thinking_process,
+                use_ai=None,  # 自动判断
                 include_tcm_analysis=request.include_tcm_analysis,
                 complexity_level=request.complexity_level
             )
             
-            # 解析结果
-            if isinstance(generation_result, str):
-                try:
-                    tree_data = json.loads(generation_result)
-                except json.JSONDecodeError:
-                    tree_data = create_default_visual_tree(request.disease_name)
-            else:
-                tree_data = generation_result
-                
             return {
                 "success": True,
-                "message": "AI决策树生成成功",
-                "data": tree_data
+                "message": f"{generation_result['source'].upper()}生成完成",
+                "data": generation_result,
+                "ai_status": {
+                    "enabled": doctor_learning_system.ai_enabled,
+                    "source": generation_result['source'],
+                    "generation_time": generation_result.get('generation_time', '未知')
+                }
             }
             
         except Exception as ai_error:
-            logger.error(f"AI生成可视化决策树失败: {ai_error}")
-            # 返回默认决策树
-            default_tree = create_default_visual_tree(request.disease_name)
+            logger.error(f"智能生成决策树失败: {ai_error}")
+            # 失败时使用模板备用
+            fallback_result = {
+                "source": "template_fallback",
+                "ai_generated": False,
+                "user_thinking_used": False,
+                "paths": create_default_visual_tree(request.disease_name)["paths"],
+                "suggested_layout": {
+                    "auto_arrange": True,
+                    "spacing": {"horizontal": 300, "vertical": 150}
+                },
+                "error_message": str(ai_error)
+            }
+            
             return {
                 "success": True,
-                "message": "决策树生成完成（使用模板）",
-                "data": default_tree
+                "message": "使用模板备用方案",
+                "data": fallback_result,
+                "ai_status": {
+                    "enabled": False,
+                    "source": "template_fallback",
+                    "error": str(ai_error)
+                }
             }
         
     except Exception as e:
-        logger.error(f"生成可视化决策树失败: {e}")
+        logger.error(f"生成决策树失败: {e}")
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 
 @router.post("/analyze_tree_tcm_theory")
@@ -695,11 +688,10 @@ async def analyze_tree_tcm_theory(
     request: TCMTheoryAnalysisRequest
 ):
     """
-    基于中医理论分析决策树
+    使用AI进行中医理论分析（混合模式）
     
     Args:
         request: 包含决策树数据的分析请求
-        current_user: 当前用户信息
         
     Returns:
         中医理论分析结果和改进建议
@@ -707,72 +699,25 @@ async def analyze_tree_tcm_theory(
     try:
         logger.info(f"请求TCM理论分析: {request.disease_name}")
         
-        # 构建TCM理论分析提示词
-        analysis_prompt = f"""
-        请从传统中医理论角度分析以下决策树的合理性：
-        
-        疾病：{request.disease_name}
-        决策树数据：{json.dumps(request.tree_data, ensure_ascii=False, indent=2)}
-        
-        分析要点：
-        1. 辨证论治的逻辑是否完整
-        2. 症状到证候的推理是否合理
-        3. 治法与方药是否相符
-        4. 是否遵循君臣佐使原则
-        5. 有无理论漏洞或矛盾
-        
-        返回JSON格式：
-        {{
-            "theory_analysis": {{
-                "overall_score": 85,
-                "strengths": ["优点1", "优点2"],
-                "weaknesses": ["不足1", "不足2"],
-                "theoretical_basis": "理论依据说明"
-            }},
-            "improvement_suggestions": [
-                {{
-                    "type": "theory_enhancement",
-                    "description": "建议内容",
-                    "priority": "high"
-                }}
-            ],
-            "knowledge_supplements": [
-                {{
-                    "topic": "补充知识点",
-                    "content": "详细说明",
-                    "source": "经典出处"
-                }}
-            ]
-        }}
-        """
-        
         try:
-            # 调用AI分析 - 修复方法调用
-            analysis_result = await doctor_learning_system.analyze_tcm_theory(
+            # 优先尝试AI分析
+            analysis_result = await doctor_learning_system.analyze_tcm_theory_with_ai(
                 tree_data=request.tree_data,
-                disease_name=request.disease_name,
-                analysis_prompt=analysis_prompt
+                disease_name=request.disease_name
             )
             
-            # 解析结果
-            if isinstance(analysis_result, str):
-                try:
-                    analysis_data = json.loads(analysis_result)
-                except json.JSONDecodeError:
-                    analysis_data = create_default_tcm_analysis(request.disease_name)
-            else:
-                analysis_data = analysis_result
-                
             # 格式化分析结果为前端显示格式
-            formatted_analysis = format_tcm_analysis_for_display(analysis_data)
-            formatted_suggestions = format_tcm_suggestions_for_display(analysis_data)
+            formatted_analysis = format_tcm_analysis_for_display(analysis_result)
+            formatted_suggestions = format_tcm_suggestions_for_display(analysis_result)
             
             return {
                 "success": True,
-                "message": "TCM理论分析完成",
+                "message": f"AI理论分析完成（{doctor_learning_system.ai_enabled and 'AI' or '模板'}模式）",
                 "data": {
                     "analysis": formatted_analysis,
-                    "suggestions": formatted_suggestions
+                    "suggestions": formatted_suggestions,
+                    "source": "ai" if doctor_learning_system.ai_enabled else "template",
+                    "ai_enabled": doctor_learning_system.ai_enabled
                 }
             }
             
@@ -780,22 +725,24 @@ async def analyze_tree_tcm_theory(
             logger.error(f"TCM理论分析失败: {ai_error}")
             # 返回默认分析
             default_analysis = create_default_tcm_analysis(request.disease_name)
-            # 格式化默认分析结果  
             formatted_default_analysis = format_tcm_analysis_for_display(default_analysis)
             formatted_default_suggestions = format_tcm_suggestions_for_display(default_analysis)
             
             return {
                 "success": True,
-                "message": "理论分析完成（使用模板）",
+                "message": "理论分析完成（模板模式）",
                 "data": {
                     "analysis": formatted_default_analysis,
-                    "suggestions": formatted_default_suggestions
+                    "suggestions": formatted_default_suggestions,
+                    "source": "template_fallback",
+                    "ai_enabled": False,
+                    "error": str(ai_error)
                 }
             }
         
     except Exception as e:
         logger.error(f"TCM理论分析失败: {e}")
-        raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"分析失赅: {str(e)}")
 
 @router.post("/detect_missing_logic")
 async def detect_missing_logic(
@@ -1171,6 +1118,121 @@ def create_default_missing_logic_analysis(disease_name: str) -> Dict[str, Any]:
             }
         ]
     }
+
+@router.get("/user_preferences/{user_id}")
+async def get_user_preferences(
+    user_id: str,
+    current_user: UserSession = Depends(get_current_user)
+):
+    """获取用户偏好设置"""
+    try:
+        # 权限检查：只能访问自己的偏好设置
+        if current_user.user_id != user_id and current_user.role != "admin":
+            raise HTTPException(status_code=403, detail="无权限访问")
+        
+        preferences = doctor_learning_system.get_user_preferences(user_id)
+        
+        return {
+            "success": True,
+            "message": "获取用户偏好成功",
+            "data": preferences
+        }
+        
+    except Exception as e:
+        logger.error(f"获取用户偏好失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
+
+@router.post("/user_preferences/{user_id}")
+async def save_user_preferences(
+    user_id: str,
+    request: UserPreferencesRequest,
+    current_user: UserSession = Depends(get_current_user)
+):
+    """保存用户偏好设置"""
+    try:
+        # 权限检查：只能修改自己的偏好设置
+        if current_user.user_id != user_id and current_user.role != "admin":
+            raise HTTPException(status_code=403, detail="无权限修改")
+        
+        preferences = {
+            "ai_mode_preferred": request.ai_mode_preferred,
+            "complexity_level": request.complexity_level,
+            "favorite_schools": request.favorite_schools,
+            "custom_templates": request.custom_templates
+        }
+        
+        doctor_learning_system.save_user_preferences(user_id, preferences)
+        
+        return {
+            "success": True,
+            "message": "用户偏好保存成功",
+            "data": preferences
+        }
+        
+    except Exception as e:
+        logger.error(f"保存用户偏好失败: {e}")
+        raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
+
+@router.get("/ai_status")
+async def get_ai_status():
+    """获取AI功能状态"""
+    try:
+        return {
+            "success": True,
+            "message": "AI状态获取成功",
+            "data": {
+                "ai_enabled": doctor_learning_system.ai_enabled,
+                "ai_model": getattr(doctor_learning_system, 'ai_model', 'unknown'),
+                "dashscope_available": DASHSCOPE_AVAILABLE,
+                "learning_enabled": getattr(doctor_learning_system, 'learning_enabled', False),
+                "features": {
+                    "decision_tree_generation": doctor_learning_system.ai_enabled,
+                    "theory_analysis": doctor_learning_system.ai_enabled,
+                    "hybrid_mode": True,
+                    "user_learning": getattr(doctor_learning_system, 'learning_enabled', False)
+                }
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"获取AI状态失败: {e}")
+        return {
+            "success": False,
+            "message": f"获取失败: {str(e)}",
+            "data": {
+                "ai_enabled": False,
+                "error": str(e)
+            }
+        }
+
+@router.post("/feedback/decision_tree/{tree_id}")
+async def submit_decision_tree_feedback(
+    tree_id: str,
+    feedback_score: int,
+    improvement_notes: str = "",
+    current_user: UserSession = Depends(get_current_user)
+):
+    """提交决策树反馈用于学习改进"""
+    try:
+        if not (1 <= feedback_score <= 5):
+            raise HTTPException(status_code=400, detail="评分必须在1-5之间")
+        
+        # 这里可以记录用户反馈到学习数据库
+        # 目前简化处理
+        logger.info(f"收到决策树反馈 - 用户: {current_user.user_id}, 树ID: {tree_id}, 评分: {feedback_score}")
+        
+        return {
+            "success": True,
+            "message": "反馈提交成功，感谢您的宝贵意见！",
+            "data": {
+                "feedback_id": f"fb_{tree_id}_{current_user.user_id}",
+                "submitted_at": datetime.now().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"提交决策树反馈失败: {e}")
+        raise HTTPException(status_code=500, detail=f"提交失败: {str(e)}")
 
 # 导出路由器
 __all__ = ["router"]

@@ -487,6 +487,95 @@
             cursor: pointer;
             margin-left: 10px;
         }
+        
+        /* AI模式切换开关样式 */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .toggle-switch input[type="checkbox"] {
+            display: none;
+        }
+        
+        .toggle-label {
+            display: block;
+            width: 50px;
+            height: 24px;
+            background-color: #cbd5e0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .toggle-switch input[type="checkbox"]:checked + .toggle-label {
+            background-color: #3b82f6;
+        }
+        
+        .toggle-switch input[type="checkbox"]:checked + .toggle-label .toggle-slider {
+            transform: translateX(26px);
+        }
+        
+        /* 数据来源标识样式 */
+        .data-source-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .data-source-ai {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .data-source-template {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .data-source-fallback {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #8b4513;
+        }
+        
+        /* 生成状态指示器 */
+        .generation-status {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            display: none;
+        }
+        
+        .generation-status.ai-mode {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+        
+        .generation-status.template-mode {
+            background: #fef3f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+        }
     </style>
 </head>
 <body>
@@ -506,9 +595,30 @@
             </div>
 
             <!-- AI功能 -->
-            <div class="section-title">🤖 AI功能</div>
+            <div class="section-title">🤖 智能功能</div>
+            
+            <!-- AI模式选择 -->
+            <div class="ai-mode-selector" style="margin-bottom: 15px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <span style="font-weight: 500; color: #374151;">生成模式:</span>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="aiModeToggle" checked>
+                        <label for="aiModeToggle" class="toggle-label">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <span id="aiModeText" style="font-size: 12px; color: #6b7280;">AI智能模式</span>
+                </div>
+                <div id="aiStatusInfo" style="font-size: 11px; color: #9ca3af;">
+                    <span id="aiStatusIndicator">⏳ 检查AI状态中...</span>
+                </div>
+            </div>
+            
             <div class="btn-group">
-                <button class="btn btn-primary" id="generateBtn">🚀 AI生成决策树</button>
+                <button class="btn btn-primary" id="generateBtn">
+                    <span id="generateBtnIcon">🤖</span> 
+                    <span id="generateBtnText">智能生成决策树</span>
+                </button>
                 <button class="btn btn-warning" id="analyzeBtn">🧠 理论分析</button>
                 <button class="btn btn-success" id="suggestBtn">💡 遗漏检测</button>
             </div>
@@ -550,6 +660,19 @@
             <div class="header">
                 <h1 style="color: #1e40af; margin-bottom: 10px;">🌳 可视化决策树构建器</h1>
                 <p style="color: #6b7280; font-size: 14px;">构建中医智能诊疗决策树，支持AI生成和可视化编辑</p>
+            </div>
+
+            <!-- 生成状态和数据来源显示 -->
+            <div id="generationStatusPanel" class="generation-status" style="display: none;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="dataSourceBadge" class="data-source-badge data-source-template">Template</span>
+                        <span id="generationInfo">已使用标准模板生成</span>
+                    </div>
+                    <div style="font-size: 10px; color: #6b7280;">
+                        <span id="generationTime">即时</span>
+                    </div>
+                </div>
             </div>
 
             <div class="canvas-area">
@@ -623,9 +746,34 @@
             return value;
         }
 
+        // 全局AI状态变量
+        let aiStatus = {
+            enabled: false,
+            available: false,
+            model: 'unknown',
+            features: {
+                decision_tree_generation: false,
+                theory_analysis: false,
+                hybrid_mode: false
+            }
+        };
+        
+        // 用户模式偏好
+        let userPreferences = {
+            aiModePreferred: true,
+            complexityLevel: 'standard'
+        };
+
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('页面初始化开始...');
+            console.log('🚀 页面初始化开始...');
+            
+            // 初始化AI状态检查
+            initializeAIStatus();
+            
+            // 初始化模式切换
+            initializeModeToggle();
+            
             console.log('检查元素是否存在:');
             console.log('generateBtn:', document.getElementById('generateBtn'));
             console.log('analyzeBtn:', document.getElementById('analyzeBtn'));
@@ -784,9 +932,115 @@
             }
         }
 
-        // AI生成决策树
+        // 初始化AI状态检查
+        async function initializeAIStatus() {
+            try {
+                console.log('🔍 检查AI状态...');
+                const response = await fetch('/api/ai_status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    aiStatus = data.data;
+                    updateAIStatusDisplay();
+                    console.log('✅ AI状态获取成功:', aiStatus);
+                } else {
+                    console.warn('⚠️ AI状态获取失败:', data.message);
+                    updateAIStatusDisplay(false, data.message);
+                }
+            } catch (error) {
+                console.error('❌ AI状态检查失败:', error);
+                updateAIStatusDisplay(false, '网络连接失败');
+            }
+        }
+        
+        // 更新AI状态显示
+        function updateAIStatusDisplay(success = true, errorMessage = '') {
+            const statusIndicator = document.getElementById('aiStatusIndicator');
+            const aiModeToggle = document.getElementById('aiModeToggle');
+            const aiModeText = document.getElementById('aiModeText');
+            
+            if (success && aiStatus.ai_enabled) {
+                statusIndicator.innerHTML = `✅ AI已就绪 (${aiStatus.ai_model})`;
+                statusIndicator.style.color = '#059669';
+                aiModeToggle.disabled = false;
+            } else {
+                const message = errorMessage || 'AI服务不可用，将使用模板模式';
+                statusIndicator.innerHTML = `⚠️ ${message}`;
+                statusIndicator.style.color = '#d97706';
+                aiModeToggle.checked = false;
+                aiModeToggle.disabled = true;
+                updateModeDisplay(false);
+            }
+        }
+        
+        // 初始化模式切换
+        function initializeModeToggle() {
+            const aiModeToggle = document.getElementById('aiModeToggle');
+            
+            if (aiModeToggle) {
+                aiModeToggle.addEventListener('change', function() {
+                    const useAI = this.checked && aiStatus.ai_enabled;
+                    updateModeDisplay(useAI);
+                    console.log('🔄 模式切换:', useAI ? 'AI模式' : '模板模式');
+                });
+            }
+        }
+        
+        // 更新模式显示
+        function updateModeDisplay(useAI) {
+            const aiModeText = document.getElementById('aiModeText');
+            const generateBtnIcon = document.getElementById('generateBtnIcon');
+            const generateBtnText = document.getElementById('generateBtnText');
+            
+            if (useAI) {
+                aiModeText.textContent = 'AI智能模式';
+                aiModeText.style.color = '#3b82f6';
+                generateBtnIcon.textContent = '🤖';
+                generateBtnText.textContent = 'AI智能生成';
+            } else {
+                aiModeText.textContent = '标准模板模式';
+                aiModeText.style.color = '#6b7280';
+                generateBtnIcon.textContent = '📋';
+                generateBtnText.textContent = '标准模板生成';
+            }
+            
+            userPreferences.aiModePreferred = useAI;
+        }
+        
+        // 显示生成状态和数据来源
+        function showGenerationStatus(source, info, time) {
+            const statusPanel = document.getElementById('generationStatusPanel');
+            const dataSourceBadge = document.getElementById('dataSourceBadge');
+            const generationInfo = document.getElementById('generationInfo');
+            const generationTime = document.getElementById('generationTime');
+            
+            // 更新数据来源标识
+            dataSourceBadge.className = `data-source-badge data-source-${source}`;
+            switch (source) {
+                case 'ai':
+                    dataSourceBadge.textContent = '🤖 AI Generated';
+                    generationInfo.textContent = info || '已使用AI智能生成';
+                    break;
+                case 'template':
+                    dataSourceBadge.textContent = '📋 Template';
+                    generationInfo.textContent = info || '已使用标准模板生成';
+                    break;
+                case 'template_fallback':
+                    dataSourceBadge.textContent = '⚠️ Fallback';
+                    generationInfo.textContent = info || 'AI失败，使用模板备用';
+                    break;
+            }
+            
+            generationTime.textContent = time || '即时';
+            
+            // 显示状态面板
+            statusPanel.style.display = 'block';
+            statusPanel.className = `generation-status ${source === 'ai' ? 'ai-mode' : 'template-mode'}`;
+        }
+
+        // AI生成决策树（升级版）
         async function generateAITree() {
-            console.log('AI生成决策树被调用');
+            console.log('🚀 智能生成决策树被调用');
             
             // 直接使用getCurrentDiseaseName()，不声明局部变量
             if (!getCurrentDiseaseName()) {
@@ -795,8 +1049,14 @@
             }
 
             const doctorThought = document.getElementById('doctorThought').value.trim();
+            const useAI = document.getElementById('aiModeToggle').checked && aiStatus.ai_enabled;
             
-            showLoading('AI正在生成决策树...');
+            // 根据模式显示不同的loading信息
+            const loadingMessage = useAI ? 
+                (doctorThought ? 'AI正在根据您的思路生成决策树...' : 'AI正在生成标准决策树...') :
+                '正在加载标准模板...';
+            
+            showLoading(loadingMessage);
 
             try {
                 const response = await fetch('/api/generate_visual_decision_tree', {
@@ -806,23 +1066,42 @@
                     },
                     body: JSON.stringify({
                         disease_name: getCurrentDiseaseName(),
-                        thinking_process: doctorThought || `请为${getCurrentDiseaseName()}生成标准的中医诊疗决策树`,
+                        thinking_process: doctorThought,
+                        use_ai: useAI,
                         include_tcm_analysis: true,
-                        complexity_level: 'standard'
+                        complexity_level: userPreferences.complexityLevel
                     })
                 });
 
-                const data = await response.json();
+                const result = await response.json();
                 
-                if (data.success && data.data && data.data.paths) {
-                    generateNodesFromPaths(data.data.paths);
+                if (result.success && result.data && result.data.paths) {
+                    const pathsData = result.data.paths;
+                    const source = result.data.source || 'template';
+                    const generationTime = result.data.generation_time || '即时';
+                    
+                    generateNodesFromPaths(pathsData);
                     hideLoading();
-                    showResult('成功', `✅ AI成功生成了${data.data.paths.length}条诊疗路径！`, 'success');
+                    
+                    // 显示生成状态
+                    showGenerationStatus(
+                        source, 
+                        result.message,
+                        generationTime
+                    );
+                    
+                    showResult('成功', `✅ 成功生成了${pathsData.length}条诊疗路径！`, 'success');
+                    console.log('📊 生成统计:', {
+                        source: source,
+                        pathCount: pathsData.length,
+                        aiEnabled: aiStatus.ai_enabled,
+                        userThinking: !!doctorThought
+                    });
                 } else {
-                    throw new Error(data.message || '生成失败');
+                    throw new Error(result.message || '生成失败');
                 }
             } catch (error) {
-                console.error('AI生成失败:', error);
+                console.error('❌ 生成失败:', error);
                 hideLoading();
                 showResult('错误', `❌ 生成失败: ${error.message}`, 'error');
             }

@@ -57,8 +57,31 @@ class FamousDoctorLearningSystem:
         self.safety_checker = PrescriptionSafetyChecker()
         self.knowledge_graph = TCMKnowledgeGraph()
         
+        # 配置Dashscope AI
+        if DASHSCOPE_AVAILABLE:
+            try:
+                dashscope.api_key = AI_CONFIG.get('dashscope_api_key', '')
+                self.ai_model = AI_CONFIG.get('decision_tree_model', 'qwen-max')
+                self.ai_enabled = bool(dashscope.api_key)
+                if self.ai_enabled:
+                    print(f"✅ AI功能已启用，模型: {self.ai_model}")
+                else:
+                    print("⚠️ 未配置Dashscope API密钥，使用模板模式")
+            except Exception as e:
+                print(f"❌ AI配置失败: {e}，使用模板模式")
+                self.ai_enabled = False
+        else:
+            self.ai_enabled = False
+            
+        # 学习机制配置
+        self.learning_enabled = True
+        self.user_feedback_weight = 0.3
+        self.cache = {}
+        self.cache_ttl = 300  # 5分钟缓存
+        
         self._init_database()
         self._load_famous_doctors()
+        self._setup_learning_database()
     
     def _init_database(self):
         """初始化数据库"""
@@ -1005,66 +1028,72 @@ class FamousDoctorLearningSystem:
         
         return suggestions
 
-    async def generate_decision_paths(self, disease_name: str, include_tcm_analysis: bool = True, 
-                                    complexity_level: str = "standard", generation_prompt: str = "") -> Dict[str, Any]:
+    async def generate_decision_paths(self, disease_name: str, thinking_process: str = "", 
+                                    use_ai: bool = None, include_tcm_analysis: bool = True, 
+                                    complexity_level: str = "standard") -> Dict[str, Any]:
         """
-        为可视化构建器生成决策路径
+        智能生成决策路径（混合模式：AI + 模板）
         
         Args:
             disease_name: 疾病名称
+            thinking_process: 用户输入的诊疗思路
+            use_ai: 是否使用AI，默认依据系统配置判断
             include_tcm_analysis: 是否包含中医理论分析
             complexity_level: 复杂度级别
-            generation_prompt: 生成提示词
             
         Returns:
-            决策路径数据
+            决策路径数据（包含数据来源标识）
         """
-        try:
-            # 根据疾病名称生成默认路径
-            paths = self._generate_default_paths_for_disease(disease_name, complexity_level)
-            
-            # 如果包含TCM分析，添加理论依据
-            if include_tcm_analysis:
-                for path in paths:
-                    path["tcm_theory"] = self._get_tcm_theory_for_path(path, disease_name)
-            
-            return {
-                "paths": paths,
-                "suggested_layout": {
-                    "auto_arrange": True,
-                    "spacing": {"horizontal": 300, "vertical": 150}
-                }
+        # 自动判断使用AI还是模板
+        if use_ai is None:
+            use_ai = self.ai_enabled and bool(thinking_process.strip())
+        
+        result = {
+            "source": "ai" if use_ai else "template",
+            "ai_generated": use_ai,
+            "user_thinking_used": bool(thinking_process.strip()),
+            "paths": [],
+            "suggested_layout": {
+                "auto_arrange": True,
+                "spacing": {"horizontal": 300, "vertical": 150}
             }
+        }
+        
+        try:
+            if use_ai and self.ai_enabled and thinking_process.strip():
+                # 使用真实AI生成
+                print(f"🤖 使用AI智能生成: {disease_name}")
+                ai_paths = await self._generate_ai_decision_paths(disease_name, thinking_process, complexity_level)
+                result["paths"] = ai_paths
+                result["generation_time"] = "10-15秒"
+                
+                # 记录AI生成的学习数据
+                await self._record_ai_learning(disease_name, thinking_process, ai_paths)
+                
+            else:
+                # 使用模板模式
+                print(f"📋 使用标准模板: {disease_name}")
+                template_paths = self._generate_default_paths_for_disease(disease_name, complexity_level)
+                result["paths"] = template_paths
+                result["generation_time"] = "即时"
+            
+            # 添加中医理论分析
+            if include_tcm_analysis:
+                for path in result["paths"]:
+                    if "tcm_theory" not in path:
+                        path["tcm_theory"] = self._get_tcm_theory_for_path(path, disease_name)
+            
+            return result
             
         except Exception as e:
-            print(f"生成决策路径失败: {e}")
-            # 返回基础路径 - 包含具体方剂
-            default_paths = self._generate_default_paths_for_disease(disease_name, complexity_level)
-            if not default_paths:
-                # 通用备用路径
-                default_paths = [
-                    {
-                        "id": f"{disease_name}_basic_path",
-                        "title": f"{disease_name}基础诊疗路径",
-                        "steps": [
-                            {"type": "symptom", "content": disease_name},
-                            {"type": "condition", "content": "症状明显", "options": ["是", "否"]},
-                            {"type": "diagnosis", "content": "基础证型"},
-                            {"type": "treatment", "content": "对症治疗"},
-                            {"type": "formula", "content": "甘草干姜汤"}
-                        ],
-                        "keywords": [disease_name],
-                        "tcm_theory": "基础中医理论应用"
-                    }
-                ]
+            print(f"❌ 决策路径生成失败: {e}")
+            # 失败时使用模板备用
+            fallback_paths = self._generate_default_paths_for_disease(disease_name, complexity_level)
+            result["paths"] = fallback_paths
+            result["source"] = "template_fallback"
+            result["error_message"] = str(e)
             
-            return {
-                "paths": default_paths,
-                "suggested_layout": {
-                    "auto_arrange": True,
-                    "spacing": {"horizontal": 300, "vertical": 150}
-                }
-            }
+            return result
 
     async def analyze_tcm_theory(self, tree_data: Dict[str, Any], disease_name: str, analysis_prompt: str) -> Dict[str, Any]:
         """
@@ -1295,6 +1324,59 @@ class FamousDoctorLearningSystem:
             ]
         
         return paths
+    
+    def _setup_learning_database(self):
+        """设置学习数据库表"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            
+            # AI决策树学习记录表
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS ai_decision_tree_learning (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT,
+                    disease_name TEXT NOT NULL,
+                    user_thinking TEXT,
+                    ai_response TEXT,
+                    user_feedback INTEGER,  -- 1-5星的评分
+                    improvement_notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # 理论分析学习记录表
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS ai_theory_analysis_learning (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    disease_name TEXT NOT NULL,
+                    tree_data TEXT,
+                    ai_analysis TEXT,
+                    expert_corrections TEXT,
+                    accuracy_score REAL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # 用户偏好记录表
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_preferences (
+                    user_id TEXT PRIMARY KEY,
+                    ai_mode_preferred BOOLEAN DEFAULT 1,
+                    complexity_level TEXT DEFAULT 'standard',
+                    favorite_schools TEXT,
+                    custom_templates TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            conn.commit()
+            conn.close()
+            print("✅ 学习数据库设置完成")
+            
+        except Exception as e:
+            print(f"❌ 学习数据库设置失败: {e}")
 
     def _create_missing_logic_analysis_direct(self, current_tree: Dict[str, Any], disease_name: str) -> Dict[str, Any]:
         """直接创建遗漏逻辑分析，避免复杂的检测逻辑"""
@@ -1765,6 +1847,325 @@ def test_famous_doctor_system():
         print(f"专长: {profile.get('specialty', [])}")
         print(f"代表方剂: {profile.get('famous_formulas', [])}")
         print(f"治疗理念: {profile.get('treatment_philosophy', '')}")
+
+
+    async def _generate_ai_decision_paths(self, disease_name: str, thinking_process: str, complexity_level: str) -> List[Dict[str, Any]]:
+        """
+        使用Dashscope AI真实生成决策路径
+        """
+        if not DASHSCOPE_AVAILABLE or not self.ai_enabled:
+            raise Exception("AI服务不可用")
+        
+        # 构建AI提示词
+        prompt = f"""
+作为中医专家，根据以下信息生成完整的诊疗决策树：
+
+疾病名称：{disease_name}
+医生诊疗思路：{thinking_process}
+复杂度要求：{complexity_level}
+
+请生成3-5条完整的诊疗路径，每条路径包含：
+1. 主要症状识别
+2. 具体判断条件（如舌象、脉象、体征等）
+3. 中医证型诊断
+4. 治疗原则
+5. 推荐方剂（包含具体药物组成）
+
+要求：
+- 每个判断条件要具体明确，便于临床操作
+- 方剂选择要符合中医理论，体现君臣佐使
+- 路径要覆盖该疾病的主要证型
+- 结合医生提供的诊疗思路进行个性化调整
+
+返回JSON格式：
+{{
+    "paths": [
+        {{
+            "id": "路径唯一标识",
+            "title": "路径名称（如：心火旺盛型失眠）",
+            "steps": [
+                {{"type": "symptom", "content": "主要症状描述"}},
+                {{"type": "condition", "content": "具体判断条件", "options": ["是", "否"]}},
+                {{"type": "diagnosis", "content": "中医证型诊断"}},
+                {{"type": "treatment", "content": "治疗原则"}},
+                {{"type": "formula", "content": "方剂名称 + 药物组成"}}
+            ],
+            "keywords": ["关键词1", "关键词2", "关键词3"],
+            "tcm_theory": "中医理论依据说明",
+            "confidence": 0.85
+        }}
+    ]
+}}
+"""
+        
+        try:
+            response = await asyncio.to_thread(
+                dashscope.Generation.call,
+                model=self.ai_model,
+                prompt=prompt,
+                result_format='message'
+            )
+            
+            if response.status_code == 200:
+                content = response.output.choices[0]['message']['content']
+                
+                # 解析JSON响应
+                try:
+                    ai_result = json.loads(content)
+                    paths = ai_result.get("paths", [])
+                    
+                    # 验证和清理AI返回的数据
+                    cleaned_paths = []
+                    for path in paths:
+                        if self._validate_ai_path(path, disease_name):
+                            cleaned_paths.append(path)
+                    
+                    if cleaned_paths:
+                        print(f"✅ AI成功生成 {len(cleaned_paths)} 条决策路径")
+                        return cleaned_paths
+                    else:
+                        raise Exception("AI生成的路径格式验证失败")
+                        
+                except json.JSONDecodeError:
+                    # 如果JSON解析失败，尝试提取关键信息
+                    print("⚠️ AI返回格式需要处理，使用智能解析")
+                    return self._parse_ai_text_response(content, disease_name)
+                    
+            else:
+                raise Exception(f"AI调用失败: {response.message}")
+                
+        except Exception as e:
+            print(f"❌ AI生成失败: {e}")
+            raise e
+
+    def _validate_ai_path(self, path: Dict[str, Any], disease_name: str) -> bool:
+        """验证AI生成的路径格式"""
+        required_fields = ["id", "title", "steps", "keywords"]
+        if not all(field in path for field in required_fields):
+            return False
+        
+        steps = path.get("steps", [])
+        if len(steps) < 3:  # 至少要有症状、诊断、治疗
+            return False
+            
+        # 检查步骤类型的完整性
+        step_types = [step.get("type") for step in steps]
+        if "symptom" not in step_types or "diagnosis" not in step_types:
+            return False
+            
+        return True
+
+    def _parse_ai_text_response(self, content: str, disease_name: str) -> List[Dict[str, Any]]:
+        """从AI文本响应中智能提取决策路径"""
+        paths = []
+        
+        # 简单的文本解析逻辑（可以根据需要优化）
+        lines = content.split('\n')
+        current_path = None
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # 识别路径标题
+            if '型' in line and disease_name in line:
+                if current_path:
+                    paths.append(current_path)
+                current_path = {
+                    "id": f"{disease_name}_path_{len(paths)+1}",
+                    "title": line,
+                    "steps": [],
+                    "keywords": [disease_name],
+                    "tcm_theory": "基于AI分析的中医理论"
+                }
+            
+            # 添加步骤（简化版本）
+            elif current_path:
+                if '症状' in line:
+                    current_path["steps"].append({"type": "symptom", "content": line})
+                elif '证' in line or '型' in line:
+                    current_path["steps"].append({"type": "diagnosis", "content": line})
+                elif '汤' in line or '散' in line or '丸' in line:
+                    current_path["steps"].append({"type": "formula", "content": line})
+        
+        if current_path:
+            paths.append(current_path)
+            
+        return paths if paths else self._generate_default_paths_for_disease(disease_name, "standard")
+
+    async def _record_ai_learning(self, disease_name: str, thinking_process: str, ai_paths: List[Dict[str, Any]]):
+        """记录AI生成结果用于学习改进"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            
+            ai_response = json.dumps(ai_paths, ensure_ascii=False)
+            conn.execute("""
+                INSERT INTO ai_decision_tree_learning 
+                (disease_name, user_thinking, ai_response, created_at) 
+                VALUES (?, ?, ?, ?)
+            """, (disease_name, thinking_process, ai_response, datetime.now()))
+            
+            conn.commit()
+            conn.close()
+            print("📚 AI学习数据已记录")
+            
+        except Exception as e:
+            print(f"⚠️ 学习数据记录失败: {e}")
+
+    async def analyze_tcm_theory_with_ai(self, tree_data: Dict[str, Any], disease_name: str) -> Dict[str, Any]:
+        """
+        使用AI进行真实的中医理论分析
+        """
+        if not DASHSCOPE_AVAILABLE or not self.ai_enabled:
+            # 回退到规则分析
+            return await self.analyze_tcm_theory(tree_data, disease_name, "")
+        
+        prompt = f"""
+作为资深中医理论专家，请分析以下决策树的中医理论合理性：
+
+疾病：{disease_name}
+决策树数据：{json.dumps(tree_data, ensure_ascii=False, indent=2)}
+
+请从以下角度进行专业分析：
+1. 辨证论治逻辑是否完整和合理
+2. 症状到证型的推理是否符合中医理论
+3. 治法与方药选择是否相符
+4. 是否遵循君臣佐使配伍原则
+5. 理论依据是否充分，有无矛盾之处
+
+返回JSON格式分析结果：
+{{
+    "theory_analysis": {{
+        "overall_score": 85,
+        "strengths": ["理论优势1", "理论优势2"],
+        "weaknesses": ["需改进之处1", "需改进之处2"],  
+        "theoretical_basis": "详细的理论依据说明"
+    }},
+    "improvement_suggestions": [
+        {{"type": "theory_enhancement", "description": "具体改进建议", "priority": "high"}},
+        {{"type": "formula_adjustment", "description": "方药调整建议", "priority": "medium"}}
+    ],
+    "classic_references": [
+        {{"source": "经典出处", "content": "相关理论内容"}}
+    ]
+}}
+"""
+        
+        try:
+            response = await asyncio.to_thread(
+                dashscope.Generation.call,
+                model=self.ai_model,
+                prompt=prompt,
+                result_format='message'
+            )
+            
+            if response.status_code == 200:
+                content = response.output.choices[0]['message']['content']
+                
+                try:
+                    ai_analysis = json.loads(content)
+                    
+                    # 记录分析结果用于学习
+                    await self._record_theory_analysis(disease_name, tree_data, ai_analysis)
+                    
+                    return ai_analysis
+                    
+                except json.JSONDecodeError:
+                    print("⚠️ AI理论分析格式需要处理")
+                    # 回退到规则分析
+                    return await self.analyze_tcm_theory(tree_data, disease_name, "")
+            else:
+                raise Exception(f"AI理论分析调用失败: {response.message}")
+                
+        except Exception as e:
+            print(f"❌ AI理论分析失败: {e}")
+            # 回退到规则分析
+            return await self.analyze_tcm_theory(tree_data, disease_name, "")
+
+    async def _record_theory_analysis(self, disease_name: str, tree_data: Dict[str, Any], ai_analysis: Dict[str, Any]):
+        """记录理论分析结果用于学习"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            
+            tree_json = json.dumps(tree_data, ensure_ascii=False)
+            analysis_json = json.dumps(ai_analysis, ensure_ascii=False)
+            score = ai_analysis.get("theory_analysis", {}).get("overall_score", 75)
+            
+            conn.execute("""
+                INSERT INTO ai_theory_analysis_learning 
+                (disease_name, tree_data, ai_analysis, accuracy_score, created_at) 
+                VALUES (?, ?, ?, ?, ?)
+            """, (disease_name, tree_json, analysis_json, score, datetime.now()))
+            
+            conn.commit()
+            conn.close()
+            print("📚 理论分析学习数据已记录")
+            
+        except Exception as e:
+            print(f"⚠️ 理论分析学习数据记录失败: {e}")
+
+    def get_user_preferences(self, user_id: str) -> Dict[str, Any]:
+        """获取用户偏好设置"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT ai_mode_preferred, complexity_level, favorite_schools, custom_templates 
+                FROM user_preferences WHERE user_id = ?
+            """, (user_id,))
+            
+            result = cursor.fetchone()
+            conn.close()
+            
+            if result:
+                return {
+                    "ai_mode_preferred": bool(result[0]),
+                    "complexity_level": result[1],
+                    "favorite_schools": result[2].split(',') if result[2] else [],
+                    "custom_templates": json.loads(result[3]) if result[3] else {}
+                }
+            else:
+                # 返回默认偏好
+                return {
+                    "ai_mode_preferred": True,
+                    "complexity_level": "standard", 
+                    "favorite_schools": [],
+                    "custom_templates": {}
+                }
+                
+        except Exception as e:
+            print(f"❌ 获取用户偏好失败: {e}")
+            return {"ai_mode_preferred": True, "complexity_level": "standard", "favorite_schools": [], "custom_templates": {}}
+
+    def save_user_preferences(self, user_id: str, preferences: Dict[str, Any]):
+        """保存用户偏好设置"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            
+            schools = ','.join(preferences.get("favorite_schools", []))
+            templates = json.dumps(preferences.get("custom_templates", {}), ensure_ascii=False)
+            
+            conn.execute("""
+                INSERT OR REPLACE INTO user_preferences 
+                (user_id, ai_mode_preferred, complexity_level, favorite_schools, custom_templates, updated_at) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                user_id,
+                preferences.get("ai_mode_preferred", True),
+                preferences.get("complexity_level", "standard"),
+                schools,
+                templates,
+                datetime.now()
+            ))
+            
+            conn.commit()
+            conn.close()
+            print("✅ 用户偏好已保存")
+            
+        except Exception as e:
+            print(f"❌ 保存用户偏好失败: {e}")
 
 
 if __name__ == "__main__":

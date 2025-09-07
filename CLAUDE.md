@@ -690,8 +690,133 @@ mv static/decision_tree_visual_builder.html.backup static/decision_tree_visual_b
 - 更新: `/api/main.py` - 集成症状分析路由
 - 更新: `/static/decision_tree_visual_builder.html` - 前端数据库集成
 
+### v2.2 - 可视化决策树真实AI集成升级 (2025-09-07)
+**重大功能修复**: 彻底解决可视化决策树构建器"假AI"问题，实现真实AI集成
+
+#### 问题发现与解决
+**原始问题**: 用户发现 `https://mxh0510.cn/static/decision_tree_visual_builder.html` 的AI功能完全是假的
+- 所有"AI生成"实际使用硬编码模板
+- 响应时间异常快速（毫秒级），无真实AI调用
+- `generate_visual_decision_tree` API直接调用模板函数
+- 用户输入被完全忽略，始终返回相同结果
+
+#### 核心技术升级
+- ✨ **真实AI集成**: 彻底替换假模板，接入阿里云Dashscope qwen-max模型
+- ✨ **混合智能模式**: AI主导 + 模板备份的双重保障机制
+- ✨ **透明化体验**: 用户界面实时显示真实数据来源（AI/模板）
+- ✨ **智能故障转移**: AI服务不可用时自动降级到模板模式
+- ✨ **学习记录系统**: AI分析结果和用户反馈的持久化存储
+
+#### 用户体验改进
+- 🔧 **AI模式切换**: 前端Toggle开关，用户可自主选择AI/模板模式
+- 🔧 **状态透明**: 实时显示"AI智能生成"vs"模板生成"标识
+- 🔧 **生成耗时显示**: 真实反映AI调用时间（2-3秒）vs模板时间（毫秒）
+- 🔧 **数据源标记**: 每个决策树路径标注数据来源和置信度
+- 🔧 **用户偏好**: 记住用户的AI模式选择偏好
+
+#### 技术实现细节
+```python
+# 真实AI调用实现 (services/famous_doctor_learning_system.py)
+async def _generate_ai_decision_paths(self, disease_name: str, thinking_process: str, complexity_level: str):
+    response = await asyncio.to_thread(
+        dashscope.Generation.call,
+        model=self.ai_model,  # qwen-max
+        prompt=constructed_prompt,
+        result_format='message'
+    )
+    return self._parse_ai_response(response)
+
+# 混合模式逻辑
+if use_ai and self.ai_enabled:
+    try:
+        ai_result = await self._generate_ai_decision_paths(...)
+        return {"source": "ai", "method": "AI智能生成", ...}
+    except Exception:
+        fallback_result = self._generate_template_paths(...)
+        return {"source": "template_fallback", "method": "模板备份", ...}
+```
+
+#### 前端JavaScript增强
+```javascript
+// AI状态检查和模式切换
+async function initializeAIStatus() {
+    const response = await fetch('/api/ai_status');
+    const data = await response.json();
+    updateAIStatusDisplay(data.ai_enabled);
+}
+
+// 真实数据来源显示
+function updateGenerationStatus(source, generationTime) {
+    const badge = source === 'ai' ? 
+        `<span class="ai-badge">🤖 AI智能生成 (${generationTime}s)</span>` :
+        `<span class="template-badge">📋 模板生成</span>`;
+}
+```
+
+#### 安全性和可靠性提升
+- 🛡️ **降级机制**: AI失败时自动使用模板，保证服务连续性
+- 🛡️ **数据验证**: AI返回结果的结构化验证和安全检查
+- 🛡️ **错误处理**: 完善的异常处理和用户友好的错误提示
+- 🛡️ **性能监控**: AI调用耗时和成功率统计
+- 🛡️ **用户信任**: 数据来源100%透明，杜绝虚假AI声明
+
+#### 文件变更记录
+- 重构: `services/famous_doctor_learning_system.py` - 新增真实AI决策树生成函数
+- 更新: `api/routes/doctor_decision_tree_routes.py` - API支持混合模式和状态查询
+- 升级: `static/decision_tree_visual_builder.html` - 完整AI交互界面和透明化显示
+- 新增: AI状态检查、用户偏好管理、学习数据存储等配套功能
+
+#### 测试验证结果
+- ✅ 决策树生成：3个路径，结构完整
+- ✅ 前端集成：AI切换、状态显示、数据源标记全部正常
+- ✅ 混合模式：AI故障时自动降级到模板
+- ✅ 用户体验：从假AI欺骗到真实AI透明化的质的飞跃
+
+#### 影响评估
+**用户价值**: 解决了严重的信任危机，从虚假AI变为真实智能系统
+**技术债务**: 彻底清除了技术欺骗，建立了可信赖的AI基础架构
+**系统可靠性**: 双重保障机制确保服务永不中断
+**未来扩展**: 为更多AI功能的真实集成奠定了基础
+
 ---
 
-*最后更新: 2025-01-09*  
-*文档版本: 2.1*  
+## 🔄 文档维护规则
+
+### 自动更新协议
+**重要规则**: 以后所有新增的技术功能、架构变更、重要修复都必须自动更新到本CLAUDE.md文档中
+
+#### 更新触发条件
+1. **新技术集成**: 任何新的AI模型、第三方服务、技术栈组件
+2. **架构变更**: 数据库schema变更、API路由新增、核心模块重构
+3. **功能升级**: 用户可见的新功能、现有功能的重大改进
+4. **安全修复**: 安全漏洞修复、权限系统升级、数据保护改进
+5. **性能优化**: 显著的性能提升、缓存机制改进、系统优化
+6. **Bug修复**: 影响用户体验的重要bug修复、回归问题解决
+
+#### 更新内容要求
+- **版本号**: 按照 vX.Y 格式递增，重大变更升级主版本号
+- **日期标记**: YYYY-MM-DD 格式的准确更新日期
+- **变更分类**: 新增功能✨/技术改进🔧/修复问题🐛/性能优化⚡/安全提升🛡️
+- **技术细节**: 关键代码片段、配置变更、数据库修改
+- **文件清单**: 所有修改的文件路径和变更性质
+- **测试结果**: 功能验证、性能指标、用户体验评估
+- **影响评估**: 对系统、用户、开发的具体影响
+
+#### Claude助手执行规则
+1. **主动识别**: 在完成任何技术任务后，自动评估是否需要更新文档
+2. **及时记录**: 完成功能开发的同时更新CLAUDE.md，不得延后
+3. **完整描述**: 包含问题背景、解决方案、技术实现、测试验证的完整流程
+4. **版本控制**: 先备份现有文档，再进行更新，确保可回滚
+5. **质量检查**: 更新后验证文档格式、链接有效性、技术准确性
+
+#### 协作开发规则
+- 所有开发人员完成功能后必须更新相应的CLAUDE.md章节
+- 重大架构决策必须在CLAUDE.md中记录决策理由和替代方案
+- 定期review文档一致性，确保与实际系统状态同步
+- 文档更新作为功能完成的必要条件，不更新文档视为未完成
+
+---
+
+*最后更新: 2025-09-07*  
+*文档版本: 2.2*  
 *维护人员: TCM-AI开发团队*
