@@ -937,19 +937,43 @@
             try {
                 console.log('🔍 检查AI状态...');
                 const response = await fetch('/api/ai_status');
-                const data = await response.json();
                 
-                if (data.success) {
-                    aiStatus = data.data;
-                    updateAIStatusDisplay();
-                    console.log('✅ AI状态获取成功:', aiStatus);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        aiStatus = data.data;
+                        updateAIStatusDisplay();
+                        console.log('✅ AI状态获取成功:', aiStatus);
+                    } else {
+                        console.warn('⚠️ AI状态获取失败:', data.message);
+                        updateAIStatusDisplay(false, data.message);
+                    }
                 } else {
-                    console.warn('⚠️ AI状态获取失败:', data.message);
-                    updateAIStatusDisplay(false, data.message);
+                    console.warn('⚠️ AI状态API不可用 (404)，使用降级模式');
+                    // 降级处理：假设AI可用，让用户自己选择
+                    aiStatus.ai_enabled = true;
+                    updateAIStatusDisplay(true, '');
+                    
+                    // 更新状态显示
+                    const statusIndicator = document.getElementById('aiStatusIndicator');
+                    if (statusIndicator) {
+                        statusIndicator.innerHTML = '⚡ 混合模式 (API降级)';
+                        statusIndicator.style.color = '#f59e0b';
+                    }
                 }
             } catch (error) {
-                console.error('❌ AI状态检查失败:', error);
-                updateAIStatusDisplay(false, '网络连接失败');
+                console.error('❌ AI状态检查网络失败:', error);
+                console.log('🔄 启用降级模式，允许用户选择');
+                
+                // 网络错误也启用降级模式
+                aiStatus.ai_enabled = true;
+                updateAIStatusDisplay(true, '');
+                
+                const statusIndicator = document.getElementById('aiStatusIndicator');
+                if (statusIndicator) {
+                    statusIndicator.innerHTML = '⚡ 混合模式 (网络降级)';
+                    statusIndicator.style.color = '#f59e0b';
+                }
             }
         }
         
@@ -960,16 +984,28 @@
             const aiModeText = document.getElementById('aiModeText');
             
             if (success && aiStatus.ai_enabled) {
-                statusIndicator.innerHTML = `✅ AI已就绪 (${aiStatus.model || 'qwen-max'})`;
-                statusIndicator.style.color = '#059669';
+                // AI可用或降级模式
+                if (!statusIndicator.innerHTML.includes('混合模式')) {
+                    statusIndicator.innerHTML = `✅ AI已就绪 (${aiStatus.model || 'qwen-max'})`;
+                    statusIndicator.style.color = '#059669';
+                }
                 aiModeToggle.disabled = false;
-            } else {
+                
+                console.log('🎛️ AI模式切换已启用');
+            } else if (errorMessage && !errorMessage.includes('降级')) {
+                // 只有在真正错误时才禁用
                 const message = errorMessage || 'AI服务不可用，将使用模板模式';
                 statusIndicator.innerHTML = `⚠️ ${message}`;
                 statusIndicator.style.color = '#d97706';
                 aiModeToggle.checked = false;
                 aiModeToggle.disabled = true;
                 updateModeDisplay(false);
+                
+                console.log('🚫 AI模式切换已禁用');
+            } else {
+                // 降级模式：保持切换可用
+                aiModeToggle.disabled = false;
+                console.log('⚡ 降级模式：AI切换保持可用');
             }
         }
         
