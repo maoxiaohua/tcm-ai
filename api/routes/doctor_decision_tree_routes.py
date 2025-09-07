@@ -633,6 +633,13 @@ async def generate_visual_decision_tree(
         logger.info(f"请求智能生成决策树: {request.disease_name}")
         
         try:
+            # 🔍 API路由调试信息
+            print(f"📡 API路由调试:")
+            print(f"  - 疾病名称: {request.disease_name}")
+            print(f"  - 思维过程长度: {len(request.thinking_process.strip()) if request.thinking_process else 0}")
+            print(f"  - use_ai设为None，将自动判断")
+            print(f"  - 调用doctor_learning_system.generate_decision_paths...")
+            
             # 调用新的智能生成方法
             generation_result = await doctor_learning_system.generate_decision_paths(
                 disease_name=request.disease_name,
@@ -641,6 +648,11 @@ async def generate_visual_decision_tree(
                 include_tcm_analysis=request.include_tcm_analysis,
                 complexity_level=request.complexity_level
             )
+            
+            print(f"📡 API路由返回结果:")
+            print(f"  - source: {generation_result.get('source', 'MISSING')}")
+            print(f"  - ai_generated: {generation_result.get('ai_generated', 'MISSING')}")
+            print(f"  - user_thinking_used: {generation_result.get('user_thinking_used', 'MISSING')}")
             
             return {
                 "success": True,
