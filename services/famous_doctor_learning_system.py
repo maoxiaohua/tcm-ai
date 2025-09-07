@@ -49,7 +49,7 @@ class ClinicalCase:
 class FamousDoctorLearningSystem:
     """名医处方学习系统"""
     
-    def __init__(self, db_path: str = "/opt/tcm/data/famous_doctors.sqlite"):
+    def __init__(self, db_path: str = "/opt/tcm-ai/data/famous_doctors.sqlite"):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(exist_ok=True)
         
@@ -538,6 +538,166 @@ class FamousDoctorLearningSystem:
         conn.close()
         return profile
     
+    async def generate_decision_paths(self, disease_name: str, thinking_process: str, path_prompt: str) -> Dict[str, Any]:
+        """
+        生成分支路径结构的决策树
+        
+        Args:
+            disease_name: 疾病名称
+            thinking_process: 医生思维过程
+            path_prompt: 路径生成提示词
+            
+        Returns:
+            分支路径数据结构
+        """
+        try:
+            # 这里应该调用AI服务生成路径，目前使用规则生成
+            # 实际部署时应该集成阿里云Dashscope或其他AI服务
+            
+            # 分析医生思维过程，提取关键信息
+            extracted_info = self._extract_thinking_elements(disease_name, thinking_process)
+            
+            # 生成分支路径
+            paths = self._generate_clinical_paths(extracted_info)
+            
+            return {
+                "paths": paths
+            }
+            
+        except Exception as e:
+            print(f"生成决策路径失败: {e}")
+            # 返回默认路径结构
+            return self._create_default_paths(disease_name)
+    
+    def _extract_thinking_elements(self, disease_name: str, thinking_process: str) -> Dict[str, Any]:
+        """
+        从医生思维描述中提取诊疗要素
+        
+        Args:
+            disease_name: 疾病名称
+            thinking_process: 思维过程描述
+            
+        Returns:
+            提取的诊疗要素
+        """
+        # 使用简单的关键词提取（实际应该用NLP）
+        symptoms = []
+        conditions = []
+        diagnoses = []
+        treatments = []
+        formulas = []
+        
+        # 症状关键词
+        symptom_keywords = ['失眠', '头痛', '胃痛', '腹泻', '咳嗽', '发热', '乏力', '心悸']
+        for keyword in symptom_keywords:
+            if keyword in thinking_process:
+                symptoms.append(keyword)
+        
+        # 判断条件关键词
+        condition_keywords = ['舌红', '舌淡', '苔厚', '苔薄', '脉滑', '脉数', '脉沉', '脉细', '面色萎黄', '面红']
+        for keyword in condition_keywords:
+            if keyword in thinking_process:
+                conditions.append(keyword)
+        
+        # 证型关键词
+        diagnosis_keywords = ['心火', '脾虚', '肾虚', '肝郁', '痰湿', '血瘀', '气滞', '阳虚', '阴虚']
+        for keyword in diagnosis_keywords:
+            if keyword in thinking_process:
+                diagnoses.append(keyword)
+        
+        # 方剂关键词
+        formula_keywords = ['黄连阿胶汤', '归脾汤', '逍遥散', '补中益气汤', '六味地黄丸', '金匮肾气丸']
+        for keyword in formula_keywords:
+            if keyword in thinking_process:
+                formulas.append(keyword)
+        
+        return {
+            "disease": disease_name,
+            "symptoms": symptoms or [disease_name],
+            "conditions": conditions or ["症状明显", "症状隐隐"],
+            "diagnoses": diagnoses or ["实证", "虚证"],
+            "treatments": ["对症治疗"] if not diagnoses else [f"治疗{d}" for d in diagnoses[:2]],
+            "formulas": formulas or ["对症方剂"]
+        }
+    
+    def _generate_clinical_paths(self, extracted_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        根据提取的要素生成临床路径
+        
+        Args:
+            extracted_info: 提取的诊疗要素
+            
+        Returns:
+            临床路径列表
+        """
+        paths = []
+        disease = extracted_info["disease"]
+        
+        # 生成实证路径
+        if extracted_info["conditions"] and extracted_info["diagnoses"]:
+            for i, (condition, diagnosis) in enumerate(zip(extracted_info["conditions"][:2], extracted_info["diagnoses"][:2])):
+                formula = extracted_info["formulas"][i] if i < len(extracted_info["formulas"]) else "对症方剂"
+                treatment = extracted_info["treatments"][i] if i < len(extracted_info["treatments"]) else "对症治疗"
+                
+                path = {
+                    "id": f"path_{i+1}",
+                    "steps": [
+                        {"type": "symptom", "content": disease},
+                        {"type": "condition", "content": condition, "result": True},
+                        {"type": "diagnosis", "content": diagnosis},
+                        {"type": "treatment", "content": treatment},
+                        {"type": "formula", "content": formula}
+                    ],
+                    "keywords": [disease] + extracted_info["symptoms"][:3] + [condition],
+                    "created_by": "AI生成"
+                }
+                paths.append(path)
+        
+        # 如果没有提取到足够信息，生成默认路径
+        if not paths:
+            paths = self._create_default_paths(disease)["paths"]
+        
+        return paths
+    
+    def _create_default_paths(self, disease_name: str) -> Dict[str, Any]:
+        """
+        创建默认的分支路径
+        
+        Args:
+            disease_name: 疾病名称
+            
+        Returns:
+            默认路径结构
+        """
+        return {
+            "paths": [
+                {
+                    "id": f"default_path_1",
+                    "steps": [
+                        {"type": "symptom", "content": disease_name},
+                        {"type": "condition", "content": "症状重", "result": True},
+                        {"type": "diagnosis", "content": "实证"},
+                        {"type": "treatment", "content": "泻实"},
+                        {"type": "formula", "content": "清热方"}
+                    ],
+                    "keywords": [disease_name, "症状重", "实证"],
+                    "created_by": "系统默认"
+                },
+                {
+                    "id": f"default_path_2",
+                    "steps": [
+                        {"type": "symptom", "content": disease_name},
+                        {"type": "condition", "content": "症状轻", "result": True},
+                        {"type": "diagnosis", "content": "虚证"},
+                        {"type": "treatment", "content": "补虚"},
+                        {"type": "formula", "content": "补益方"}
+                    ],
+                    "keywords": [disease_name, "症状轻", "虚证"],
+                    "created_by": "系统默认"
+                }
+            ]
+        }
+    
     def get_learning_statistics(self) -> Dict[str, Any]:
         """获取学习系统统计信息"""
         try:
@@ -615,6 +775,911 @@ class FamousDoctorLearningSystem:
         except Exception as e:
             print(f"添加用药经验失败: {e}")
             return False
+    
+    async def analyze_doctor_thinking(self, thinking_process: str, disease_name: str, analysis_prompt: str) -> Dict[str, Any]:
+        """
+        分析医生的诊疗思维过程
+        
+        Args:
+            thinking_process: 医生的思维描述
+            disease_name: 疾病名称
+            analysis_prompt: 分析提示词
+            
+        Returns:
+            分析结果
+        """
+        try:
+            # 这里应该调用AI服务进行分析，目前使用模拟分析
+            # 实际部署时应该集成阿里云Dashscope或其他AI服务
+            
+            # 提取关键信息
+            key_points = self._extract_key_points(thinking_process, disease_name)
+            missing_considerations = self._identify_missing_considerations(thinking_process, disease_name)
+            suggested_workflow = self._suggest_workflow(thinking_process, disease_name)
+            
+            return {
+                "key_points": key_points,
+                "missing_considerations": missing_considerations,
+                "suggested_workflow": suggested_workflow
+            }
+            
+        except Exception as e:
+            print(f"分析医生思维失败: {e}")
+            # 返回默认分析结果
+            return {
+                "key_points": [
+                    f"医生对{disease_name}有基本的认识和治疗思路",
+                    "考虑了主要症状和治疗方案",
+                    "体现了中医辨证论治思维"
+                ],
+                "missing_considerations": [
+                    "建议补充四诊合参的详细描述",
+                    "可以考虑更多的鉴别诊断",
+                    "注意个体差异和体质因素",
+                    "加强随访和疗效评估"
+                ],
+                "suggested_workflow": "1. 详细四诊收集 → 2. 综合辨证分析 → 3. 确定治则治法 → 4. 方药选择 → 5. 疗效观察与调整"
+            }
+    
+    async def generate_decision_tree(self, disease_name: str, thinking_process: str, schools: List[str], tree_prompt: str) -> Dict[str, Any]:
+        """
+        生成诊疗决策树
+        
+        Args:
+            disease_name: 疾病名称
+            thinking_process: 医生思维过程
+            schools: 选择的中医流派
+            tree_prompt: 决策树生成提示词
+            
+        Returns:
+            决策树数据结构
+        """
+        try:
+            # 这里应该调用AI服务生成决策树，目前使用规则生成
+            # 实际部署时应该集成阿里云Dashscope或其他AI服务
+            
+            # 生成基础决策树结构
+            tree_levels = self._generate_tree_levels(disease_name, thinking_process)
+            
+            # 生成流派建议
+            school_suggestions = self._generate_school_suggestions(disease_name, thinking_process, schools)
+            
+            return {
+                "tree": {
+                    "levels": tree_levels
+                },
+                "school_suggestions": school_suggestions
+            }
+            
+        except Exception as e:
+            print(f"生成决策树失败: {e}")
+            # 返回默认决策树结构
+            return {
+                "tree": {
+                    "levels": [
+                        {
+                            "title": "症状观察",
+                            "type": "symptom",
+                            "nodes": [
+                                {"name": f"{disease_name}典型症状", "description": "主要临床表现"},
+                                {"name": "伴随症状", "description": "次要症状表现"},
+                                {"name": "诱发因素", "description": "病因病机分析"}
+                            ]
+                        },
+                        {
+                            "title": "辨证分析",
+                            "type": "diagnosis",
+                            "nodes": [
+                                {"name": "主要证型", "description": "常见证候类型"},
+                                {"name": "兼夹证", "description": "复合证候分析"},
+                                {"name": "体质评估", "description": "个体差异考虑"}
+                            ]
+                        },
+                        {
+                            "title": "治疗方案",
+                            "type": "treatment",
+                            "nodes": [
+                                {"name": "主治法", "description": "核心治疗原则"},
+                                {"name": "辅助治疗", "description": "配合治疗方法"},
+                                {"name": "预防调护", "description": "日常调养建议"}
+                            ]
+                        }
+                    ]
+                },
+                "school_suggestions": school_suggestions
+            }
+    
+    def _extract_key_points(self, thinking_process: str, disease_name: str) -> List[str]:
+        """从思维过程中提取关键诊断要点"""
+        key_points = []
+        
+        # 基于关键词提取
+        if "症状" in thinking_process:
+            key_points.append(f"识别了{disease_name}的相关症状")
+        if "舌" in thinking_process or "脉" in thinking_process:
+            key_points.append("考虑了舌脉诊查要点")
+        if "方" in thinking_process or "药" in thinking_process:
+            key_points.append("制定了具体的方药治疗方案")
+        if "证" in thinking_process or "辨" in thinking_process:
+            key_points.append("运用了辨证论治思维")
+        
+        # 默认要点
+        if not key_points:
+            key_points = [
+                f"对{disease_name}有基本认识",
+                "具备中医诊疗思维",
+                "考虑了治疗方案"
+            ]
+        
+        return key_points
+    
+    def _identify_missing_considerations(self, thinking_process: str, disease_name: str) -> List[str]:
+        """识别可能遗漏的考虑点"""
+        missing = []
+        
+        # 检查是否遗漏重要方面
+        if "四诊" not in thinking_process:
+            missing.append("建议补充完整的四诊信息")
+        if "体质" not in thinking_process:
+            missing.append("考虑患者个体体质差异")
+        if "鉴别" not in thinking_process:
+            missing.append("加强与相似疾病的鉴别诊断")
+        if "随访" not in thinking_process:
+            missing.append("制定随访观察计划")
+        if "禁忌" not in thinking_process:
+            missing.append("注意用药禁忌和注意事项")
+        
+        # 默认建议
+        if not missing:
+            missing = [
+                "建议结合现代医学检查结果",
+                "注意药物配伍禁忌",
+                "考虑季节气候因素影响"
+            ]
+        
+        return missing
+    
+    def _suggest_workflow(self, thinking_process: str, disease_name: str) -> str:
+        """建议标准化的诊疗流程"""
+        return f"针对{disease_name}的标准诊疗流程：1. 详细问诊收集病史 → 2. 四诊合参全面检查 → 3. 辨证分型确定证候 → 4. 制定治则选择方药 → 5. 观察疗效及时调整"
+    
+    def _generate_tree_levels(self, disease_name: str, thinking_process: str) -> List[Dict[str, Any]]:
+        """生成决策树层级结构"""
+        # 基础的三层结构：症状-证型-治疗
+        return [
+            {
+                "title": "症状识别",
+                "type": "symptom",
+                "nodes": [
+                    {"name": f"{disease_name}主症", "description": "核心临床表现"},
+                    {"name": "次要症状", "description": "伴随症状表现"},
+                    {"name": "体征观察", "description": "客观体征检查"}
+                ]
+            },
+            {
+                "title": "证候辨识",
+                "type": "diagnosis", 
+                "nodes": [
+                    {"name": "主要证型", "description": "最常见证候类型"},
+                    {"name": "兼证分析", "description": "复合证候判断"},
+                    {"name": "病位病性", "description": "病变部位和性质"}
+                ]
+            },
+            {
+                "title": "治疗决策",
+                "type": "treatment",
+                "nodes": [
+                    {"name": "治疗原则", "description": "核心治疗策略"},
+                    {"name": "方药选择", "description": "具体处方方案"},
+                    {"name": "调护建议", "description": "日常调养指导"}
+                ]
+            }
+        ]
+    
+    def _generate_school_suggestions(self, disease_name: str, thinking_process: str, schools: List[str]) -> List[Dict[str, str]]:
+        """生成各流派的补充建议"""
+        suggestions = []
+        
+        school_advice_map = {
+            "张仲景经方派": f"从经方角度看{disease_name}，建议严格按照条文进行辨证，注重方证对应，考虑原方的适应证和禁忌症",
+            "叶天士温病派": f"温病学派认为{disease_name}需要重视卫气营血辨证，注意病邪的传变规律，用药宜清灵活泼",
+            "李东垣脾胃派": f"脾胃学派强调{disease_name}的治疗要重视脾胃功能，注意升清降浊，慎用苦寒药物",
+            "朱丹溪滋阴派": f"丹溪学派认为{disease_name}需要重视阴液的保护，注意养阴清热，避免过用温燥之品",
+            "郑钦安火神派": f"火神派观点认为{disease_name}需要重视阳气的作用，适当温阳扶正，但需防止助火",
+            "刘渡舟经方派": f"现代经方应用认为{disease_name}需要灵活运用经方，结合现代临床实践，注重个体化治疗"
+        }
+        
+        for school in schools:
+            if school in school_advice_map:
+                suggestions.append({
+                    "school": school,
+                    "advice": school_advice_map[school]
+                })
+        
+        # 如果没有匹配的流派，提供通用建议
+        if not suggestions:
+            suggestions.append({
+                "school": "综合观点",
+                "advice": f"针对{disease_name}，建议综合运用各家经验，因人制宜，辨证论治，注重整体调理"
+            })
+        
+        return suggestions
+
+    async def generate_decision_paths(self, disease_name: str, include_tcm_analysis: bool = True, 
+                                    complexity_level: str = "standard", generation_prompt: str = "") -> Dict[str, Any]:
+        """
+        为可视化构建器生成决策路径
+        
+        Args:
+            disease_name: 疾病名称
+            include_tcm_analysis: 是否包含中医理论分析
+            complexity_level: 复杂度级别
+            generation_prompt: 生成提示词
+            
+        Returns:
+            决策路径数据
+        """
+        try:
+            # 根据疾病名称生成默认路径
+            paths = self._generate_default_paths_for_disease(disease_name, complexity_level)
+            
+            # 如果包含TCM分析，添加理论依据
+            if include_tcm_analysis:
+                for path in paths:
+                    path["tcm_theory"] = self._get_tcm_theory_for_path(path, disease_name)
+            
+            return {
+                "paths": paths,
+                "suggested_layout": {
+                    "auto_arrange": True,
+                    "spacing": {"horizontal": 300, "vertical": 150}
+                }
+            }
+            
+        except Exception as e:
+            print(f"生成决策路径失败: {e}")
+            # 返回基础路径 - 包含具体方剂
+            default_paths = self._generate_default_paths_for_disease(disease_name, complexity_level)
+            if not default_paths:
+                # 通用备用路径
+                default_paths = [
+                    {
+                        "id": f"{disease_name}_basic_path",
+                        "title": f"{disease_name}基础诊疗路径",
+                        "steps": [
+                            {"type": "symptom", "content": disease_name},
+                            {"type": "condition", "content": "症状明显", "options": ["是", "否"]},
+                            {"type": "diagnosis", "content": "基础证型"},
+                            {"type": "treatment", "content": "对症治疗"},
+                            {"type": "formula", "content": "甘草干姜汤"}
+                        ],
+                        "keywords": [disease_name],
+                        "tcm_theory": "基础中医理论应用"
+                    }
+                ]
+            
+            return {
+                "paths": default_paths,
+                "suggested_layout": {
+                    "auto_arrange": True,
+                    "spacing": {"horizontal": 300, "vertical": 150}
+                }
+            }
+
+    async def analyze_tcm_theory(self, tree_data: Dict[str, Any], disease_name: str, analysis_prompt: str) -> Dict[str, Any]:
+        """
+        基于中医理论分析决策树
+        
+        Args:
+            tree_data: 决策树数据
+            disease_name: 疾病名称  
+            analysis_prompt: 分析提示词
+            
+        Returns:
+            理论分析结果
+        """
+        try:
+            # 分析决策树的理论合理性
+            theory_score = self._calculate_theory_score(tree_data, disease_name)
+            strengths = self._identify_theory_strengths(tree_data, disease_name)
+            weaknesses = self._identify_theory_weaknesses(tree_data, disease_name)
+            
+            result = {
+                "theory_analysis": {
+                    "overall_score": theory_score,
+                    "strengths": strengths,
+                    "weaknesses": weaknesses,
+                    "theoretical_basis": f"基于中医{disease_name}的传统理论体系分析"
+                },
+                "improvement_suggestions": self._get_improvement_suggestions(tree_data, disease_name),
+                "knowledge_supplements": self._get_knowledge_supplements(disease_name)
+            }
+            
+            # 确保返回有效结果
+            return result
+            
+        except Exception as e:
+            print(f"TCM理论分析失败: {e}")
+            # 返回默认分析
+            return {
+                "theory_analysis": {
+                    "overall_score": 75,
+                    "strengths": ["基本辨证思路清晰"],
+                    "weaknesses": ["可进一步完善"],
+                    "theoretical_basis": f"中医{disease_name}理论应用"
+                },
+                "improvement_suggestions": [
+                    {
+                        "type": "theory_enhancement",
+                        "description": "建议加强理论依据",
+                        "priority": "medium"
+                    }
+                ],
+                "knowledge_supplements": [
+                    {
+                        "topic": "基础理论",
+                        "content": f"{disease_name}的基本理论",
+                        "source": "中医内科学"
+                    }
+                ]
+            }
+
+    async def detect_missing_logic(self, current_tree: Dict[str, Any], disease_name: str, detection_prompt: str) -> Dict[str, Any]:
+        """
+        检测决策树遗漏的诊疗逻辑
+        
+        Args:
+            current_tree: 当前决策树数据
+            disease_name: 疾病名称
+            detection_prompt: 检测提示词
+            
+        Returns:
+            遗漏逻辑检测结果
+        """
+        try:
+            # 直接返回遗漏逻辑分析，避免调用可能有问题的辅助方法
+            return self._create_missing_logic_analysis_direct(current_tree, disease_name)
+            
+        except Exception as e:
+            print(f"遗漏逻辑检测失败: {e}")
+            # 返回默认检测结果
+            return {
+                "missing_analyses": [
+                    {
+                        "category": "基础检测",
+                        "items": [
+                            {
+                                "type": "general_check",
+                                "content": "建议补充更多诊疗细节",
+                                "description": "决策树可能需要更多细化",
+                                "importance": "medium",
+                                "suggested_addition": {
+                                    "step_type": "condition",
+                                    "step_content": "补充判断条件"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "quick_additions": [
+                    {
+                        "title": "补充基础路径",
+                        "path_data": {
+                            "steps": [
+                                {"type": "condition", "content": "症状是否典型"},
+                                {"type": "diagnosis", "content": "确认诊断"}
+                            ]
+                        }
+                    }
+                ]
+            }
+
+    def _generate_default_paths_for_disease(self, disease_name: str, complexity_level: str) -> List[Dict[str, Any]]:
+        """为特定疾病生成默认诊疗路径"""
+        paths = []
+        
+        # 基于疾病名称的专门路径生成
+        if disease_name == "失眠":
+            paths = [
+                {
+                    "id": "insomnia_heart_fire",
+                    "title": "心火旺盛型失眠",
+                    "steps": [
+                        {"type": "symptom", "content": "失眠"},
+                        {"type": "condition", "content": "舌红苔黄，心烦口干", "options": ["是", "否"]},
+                        {"type": "diagnosis", "content": "心火旺盛证"},
+                        {"type": "treatment", "content": "清心火，安神志"},
+                        {"type": "formula", "content": "黄连阿胶汤"}
+                    ],
+                    "keywords": ["失眠", "多梦", "心烦", "口干", "舌红", "苔黄"],
+                    "tcm_theory": "心主神明，心火亢盛则神不安"
+                },
+                {
+                    "id": "insomnia_heart_spleen_deficiency",
+                    "title": "心脾两虚型失眠",
+                    "steps": [
+                        {"type": "symptom", "content": "失眠"},
+                        {"type": "condition", "content": "面色萎黄，健忘心悸", "options": ["是", "否"]},
+                        {"type": "diagnosis", "content": "心脾两虚证"},
+                        {"type": "treatment", "content": "补益心脾，养血安神"},
+                        {"type": "formula", "content": "归脾汤"}
+                    ],
+                    "keywords": ["失眠", "健忘", "心悸", "面色萎黄", "舌淡", "脉弱"],
+                    "tcm_theory": "心脾同源，脾虚不生血，心虚失神明"
+                },
+                {
+                    "id": "insomnia_liver_qi_stagnation",
+                    "title": "肝郁化火型失眠",
+                    "steps": [
+                        {"type": "symptom", "content": "失眠"},
+                        {"type": "condition", "content": "易怒，胸胁胀满", "options": ["是", "否"]},
+                        {"type": "diagnosis", "content": "肝郁化火证"},
+                        {"type": "treatment", "content": "疏肝解郁，清热安神"},
+                        {"type": "formula", "content": "逍遥散合甘麦大枣汤"}
+                    ],
+                    "keywords": ["失眠", "易怒", "胸胁胀满", "口苦", "脉弦"],
+                    "tcm_theory": "肝主疏泄，肝郁化火，扰动心神"
+                }
+            ]
+        elif disease_name == "胃痛":
+            paths = [
+                {
+                    "id": "stomach_pain_spleen_cold",
+                    "title": "脾胃虚寒型胃痛",
+                    "steps": [
+                        {"type": "symptom", "content": "胃痛"},
+                        {"type": "condition", "content": "喜温喜按，遇冷加重", "options": ["是", "否"]},
+                        {"type": "diagnosis", "content": "脾胃虚寒证"},
+                        {"type": "treatment", "content": "温中健脾，和胃止痛"},
+                        {"type": "formula", "content": "理中汤"}
+                    ],
+                    "keywords": ["胃痛", "隐隐", "喜温", "喜按", "舌淡", "苔白"],
+                    "tcm_theory": "脾胃为后天之本，虚寒则痛"
+                },
+                {
+                    "id": "stomach_pain_liver_qi",
+                    "title": "肝气犯胃型胃痛",
+                    "steps": [
+                        {"type": "symptom", "content": "胃痛"},
+                        {"type": "condition", "content": "胀痛，情绪波动时加重", "options": ["是", "否"]},
+                        {"type": "diagnosis", "content": "肝气犯胃证"},
+                        {"type": "treatment", "content": "疏肝理气，和胃止痛"},
+                        {"type": "formula", "content": "柴胡疏肝散"}
+                    ],
+                    "keywords": ["胃痛", "胀痛", "情绪", "嗳气", "脉弦"],
+                    "tcm_theory": "肝主疏泄，肝气不舒则横逆犯胃"
+                }
+            ]
+        else:
+            # 通用疾病路径模板 - 增强版
+            paths = [
+                {
+                    "id": f"{disease_name}_heat_syndrome",
+                    "title": f"{disease_name}实热证型",
+                    "steps": [
+                        {"type": "symptom", "content": disease_name},
+                        {"type": "condition", "content": "舌红苔黄，脉数有力", "options": ["是", "否"]},
+                        {"type": "diagnosis", "content": "实热证"},
+                        {"type": "treatment", "content": "清热泻火"},
+                        {"type": "formula", "content": "黄连解毒汤加减"}
+                    ],
+                    "keywords": [disease_name, "舌红", "苔黄", "脉数", "实热"],
+                    "tcm_theory": "实则泻之，热者清之，以苦寒直折热邪"
+                },
+                {
+                    "id": f"{disease_name}_deficiency_cold",
+                    "title": f"{disease_name}虚寒证型",
+                    "steps": [
+                        {"type": "symptom", "content": disease_name},
+                        {"type": "condition", "content": "舌淡苔白，脉沉细弱", "options": ["是", "否"]},
+                        {"type": "diagnosis", "content": "虚寒证"},
+                        {"type": "treatment", "content": "温阳益气"},
+                        {"type": "formula", "content": "理中汤合四君子汤"}
+                    ],
+                    "keywords": [disease_name, "舌淡", "苔白", "脉弱", "虚寒"],
+                    "tcm_theory": "虚则补之，寒者热之，以甘温补中焦阳气"
+                },
+                {
+                    "id": f"{disease_name}_qi_stagnation",
+                    "title": f"{disease_name}气滞证型",
+                    "steps": [
+                        {"type": "symptom", "content": disease_name},
+                        {"type": "condition", "content": "胸闷不舒，情志不畅", "options": ["是", "否"]},
+                        {"type": "diagnosis", "content": "气机郁滞证"},
+                        {"type": "treatment", "content": "疏肝理气"},
+                        {"type": "formula", "content": "逍遥散加减"}
+                    ],
+                    "keywords": [disease_name, "胸闷", "情志", "气滞", "脉弦"],
+                    "tcm_theory": "气为血之帅，气行则血行，通则不痛"
+                }
+            ]
+        
+        return paths
+
+    def _create_missing_logic_analysis_direct(self, current_tree: Dict[str, Any], disease_name: str) -> Dict[str, Any]:
+        """直接创建遗漏逻辑分析，避免复杂的检测逻辑"""
+        try:
+            # 获取当前已有的证型和条件
+            existing_diagnoses = set()
+            existing_conditions = set()
+            
+            if "paths" in current_tree:
+                for path in current_tree["paths"]:
+                    for step in path.get("steps", []):
+                        if step.get("type") == "diagnosis":
+                            existing_diagnoses.add(step.get("content", ""))
+                        elif step.get("type") == "condition":
+                            existing_conditions.add(step.get("content", ""))
+            
+            # 定义常见证型和条件
+            common_data = {
+                "失眠": {
+                    "syndromes": ["心火旺盛证", "心脾两虚证", "肝郁化火证", "心肾不交证", "痰热扰心证"],
+                    "conditions": ["舌红苔黄", "舌淡苔白", "胸胁胀满", "五心烦热", "痰多"],
+                    "formulas": ["黄连阿胶汤", "归脾汤", "逍遥散", "天王补心丹", "温胆汤"]
+                },
+                "胃痛": {
+                    "syndromes": ["脾胃虚寒证", "肝气犯胃证", "胃阴不足证", "湿热中阻证", "瘀血阻络证"],
+                    "conditions": ["喜温喜按", "胀痛拒按", "口干咽燥", "口苦黏腻", "刺痛固定"],
+                    "formulas": ["理中汤", "柴胡疏肝散", "麦门冬汤", "黄芩汤", "失笑散"]
+                }
+            }
+            
+            disease_data = common_data.get(disease_name, {
+                "syndromes": [f"{disease_name}虚证", f"{disease_name}实证", f"{disease_name}虚实夹杂证"],
+                "conditions": ["舌红苔黄", "舌淡苔白", "脉象变化"],
+                "formulas": ["补益方剂", "清热方剂", "调和方剂"]
+            })
+            
+            # 找出遗漏的证型
+            missing_syndromes = [s for s in disease_data["syndromes"] if s not in existing_diagnoses]
+            missing_conditions = [c for c in disease_data["conditions"] if c not in existing_conditions]
+            
+            missing_analyses = []
+            
+            if missing_syndromes:
+                missing_analyses.append({
+                    "category": "证型分析",
+                    "items": [
+                        {
+                            "type": "missing_syndrome",
+                            "content": syndrome,
+                            "description": f"{disease_name}的{syndrome}是重要证型",
+                            "importance": "high",
+                            "suggested_addition": {
+                                "step_type": "diagnosis",
+                                "step_content": syndrome
+                            }
+                        } for syndrome in missing_syndromes[:3]
+                    ]
+                })
+            
+            if missing_conditions:
+                missing_analyses.append({
+                    "category": "判断条件",
+                    "items": [
+                        {
+                            "type": "missing_condition",
+                            "content": condition,
+                            "description": f"建议增加{condition}的判断",
+                            "importance": "medium",
+                            "suggested_addition": {
+                                "step_type": "condition",
+                                "step_content": condition
+                            }
+                        } for condition in missing_conditions[:3]
+                    ]
+                })
+            
+            quick_additions = [
+                {
+                    "title": "补充鉴别诊断路径",
+                    "path_data": {
+                        "steps": [
+                            {"type": "condition", "content": "是否符合典型特征"},
+                            {"type": "diagnosis", "content": f"确诊{disease_name}"}
+                        ]
+                    }
+                }
+            ]
+            
+            return {
+                "missing_analyses": missing_analyses,
+                "quick_additions": quick_additions
+            }
+            
+        except Exception as e:
+            print(f"直接分析失败: {e}")
+            # 返回最简单的默认结果
+            return {
+                "missing_analyses": [
+                    {
+                        "category": "基础分析",
+                        "items": [
+                            {
+                                "type": "general_suggestion",
+                                "content": "建议完善决策树",
+                                "description": "当前决策树可以进一步细化",
+                                "importance": "medium"
+                            }
+                        ]
+                    }
+                ],
+                "quick_additions": [
+                    {
+                        "title": "基础补充",
+                        "path_data": {"steps": [{"type": "condition", "content": "补充判断条件"}]}
+                    }
+                ]
+            }
+
+    def _get_tcm_theory_for_path(self, path: Dict[str, Any], disease_name: str) -> str:
+        """为路径获取中医理论依据"""
+        try:
+            # 根据诊断和治疗方法生成理论依据
+            diagnosis_step = next((step for step in path.get("steps", []) if step.get("type") == "diagnosis"), None)
+            treatment_step = next((step for step in path.get("steps", []) if step.get("type") == "treatment"), None)
+            
+            if diagnosis_step and treatment_step:
+                diagnosis = diagnosis_step.get("content", "")
+                treatment = treatment_step.get("content", "")
+                
+                # 基于关键词匹配理论
+                if "虚" in diagnosis:
+                    return f"{disease_name}属虚证范畴，治疗以{treatment}为主，体现'虚则补之'的治疗原则"
+                elif "实" in diagnosis or "热" in diagnosis:
+                    return f"{disease_name}属实热证范畴，治疗以{treatment}为主，体现'实则泻之，热者清之'的治疗原则"
+                elif "气滞" in diagnosis or "肝郁" in diagnosis:
+                    return f"{disease_name}多因气机不利所致，治疗以{treatment}为主，体现'通则不痛'的治疗理念"
+                else:
+                    return f"{disease_name}的治疗遵循{treatment}原则，符合中医辨证论治精神"
+            
+            return f"基于中医{disease_name}的传统理论指导治疗"
+            
+        except Exception as e:
+            print(f"获取TCM理论失败: {e}")
+            return "基于中医传统理论"
+
+    def _calculate_theory_score(self, tree_data: Dict[str, Any], disease_name: str) -> int:
+        """计算理论合理性评分"""
+        try:
+            score = 60  # 基础分
+            
+            # 检查是否有完整的辨证过程
+            if "paths" in tree_data:
+                for path in tree_data["paths"]:
+                    steps = path.get("steps", [])
+                    step_types = [step.get("type") for step in steps]
+                    
+                    # 完整的诊疗流程加分
+                    if all(t in step_types for t in ["symptom", "condition", "diagnosis", "treatment", "formula"]):
+                        score += 15
+                    
+                    # 有中医理论依据加分
+                    if path.get("tcm_theory"):
+                        score += 10
+                    
+                    # 关键词丰富加分
+                    if len(path.get("keywords", [])) >= 4:
+                        score += 5
+            
+            return min(score, 100)  # 最高100分
+            
+        except Exception as e:
+            print(f"计算理论评分失败: {e}")
+            return 70
+
+    def _identify_theory_strengths(self, tree_data: Dict[str, Any], disease_name: str) -> List[str]:
+        """识别理论优势"""
+        strengths = []
+        
+        try:
+            if "paths" in tree_data and tree_data["paths"]:
+                path_count = len(tree_data["paths"])
+                if path_count >= 3:
+                    strengths.append("覆盖了该疾病的主要证型")
+                
+                # 检查是否有完整的诊疗流程
+                for path in tree_data["paths"]:
+                    steps = path.get("steps", [])
+                    if len(steps) >= 5:
+                        strengths.append("诊疗流程完整，层次清晰")
+                        break
+                
+                # 检查是否有理论依据
+                if any(path.get("tcm_theory") for path in tree_data["paths"]):
+                    strengths.append("具备中医理论依据")
+            
+            # 默认优势
+            if not strengths:
+                strengths = ["基本框架合理", "符合中医思维"]
+                
+        except Exception as e:
+            print(f"识别理论优势失败: {e}")
+            strengths = ["基本结构清晰"]
+        
+        return strengths
+
+    def _identify_theory_weaknesses(self, tree_data: Dict[str, Any], disease_name: str) -> List[str]:
+        """识别理论不足"""
+        weaknesses = []
+        
+        try:
+            if "paths" in tree_data and tree_data["paths"]:
+                # 检查路径数量
+                if len(tree_data["paths"]) < 3:
+                    weaknesses.append("可增加更多证型路径")
+                
+                # 检查判断条件的具体性
+                vague_conditions = 0
+                for path in tree_data["paths"]:
+                    for step in path.get("steps", []):
+                        if step.get("type") == "condition":
+                            content = step.get("content", "")
+                            if len(content) < 6 or "症状" in content:
+                                vague_conditions += 1
+                
+                if vague_conditions > 0:
+                    weaknesses.append("部分判断条件可以更加具体化")
+                
+                # 检查是否缺少鉴别诊断
+                has_differential = any(
+                    "鉴别" in step.get("content", "") 
+                    for path in tree_data["paths"] 
+                    for step in path.get("steps", [])
+                )
+                if not has_differential:
+                    weaknesses.append("建议补充鉴别诊断要点")
+            
+            # 默认不足
+            if not weaknesses:
+                weaknesses = ["可进一步细化诊疗细节"]
+                
+        except Exception as e:
+            print(f"识别理论不足失败: {e}")
+            weaknesses = ["需要进一步完善"]
+        
+        return weaknesses
+
+    def _get_improvement_suggestions(self, tree_data: Dict[str, Any], disease_name: str) -> List[Dict[str, str]]:
+        """获取改进建议"""
+        suggestions = [
+            {
+                "type": "theory_enhancement",
+                "description": "建议增加更详细的四诊信息收集",
+                "priority": "high"
+            },
+            {
+                "type": "differential_diagnosis",
+                "description": "补充与相关疾病的鉴别要点",
+                "priority": "medium"
+            },
+            {
+                "type": "individualization",
+                "description": "增加个体化治疗的考虑因素",
+                "priority": "medium"
+            }
+        ]
+        
+        return suggestions
+
+    def _get_knowledge_supplements(self, disease_name: str) -> List[Dict[str, str]]:
+        """获取知识补充建议"""
+        supplements = [
+            {
+                "topic": "病机理论",
+                "content": f"{disease_name}的基本病机和病理生理",
+                "source": "中医内科学"
+            },
+            {
+                "topic": "方剂配伍",
+                "content": f"治疗{disease_name}的经典方剂及其配伍原理",
+                "source": "方剂学"
+            },
+            {
+                "topic": "临床经验",
+                "content": f"名医治疗{disease_name}的特色经验",
+                "source": "临床实践"
+            }
+        ]
+        
+        return supplements
+
+    def _detect_missing_syndromes(self, current_tree: Dict[str, Any], disease_name: str) -> List[Dict[str, Any]]:
+        """检测可能遗漏的证型"""
+        missing_analyses = []
+        
+        try:
+            # 获取当前已有的证型
+            existing_syndromes = set()
+            if "paths" in current_tree:
+                for path in current_tree["paths"]:
+                    for step in path.get("steps", []):
+                        if step.get("type") == "diagnosis":
+                            existing_syndromes.add(step.get("content", ""))
+            
+            # 根据疾病检查常见遗漏证型
+            common_syndromes = self._get_common_syndromes_for_disease(disease_name)
+            missing_syndromes = [s for s in common_syndromes if s not in existing_syndromes]
+            
+            if missing_syndromes:
+                missing_analyses.append({
+                    "category": "证型分析",
+                    "items": [
+                        {
+                            "type": "missing_syndrome",
+                            "content": syndrome,
+                            "description": f"{disease_name}的{syndrome}是常见证型，建议补充",
+                            "importance": "high",
+                            "suggested_addition": {
+                                "step_type": "diagnosis",
+                                "step_content": syndrome
+                            }
+                        } for syndrome in missing_syndromes[:3]  # 最多建议3个
+                    ]
+                })
+            
+        except Exception as e:
+            print(f"检测遗漏证型失败: {e}")
+        
+        return missing_analyses
+
+    def _get_common_syndromes_for_disease(self, disease_name: str) -> List[str]:
+        """获取疾病的常见证型"""
+        syndrome_map = {
+            "失眠": ["心火旺盛证", "心脾两虚证", "肝郁化火证", "心肾不交证", "痰热扰心证"],
+            "胃痛": ["脾胃虚寒证", "肝气犯胃证", "胃阴不足证", "湿热中阻证", "瘀血阻络证"],
+            "头痛": ["风寒头痛", "风热头痛", "肝阳上亢", "痰浊头痛", "血瘀头痛"],
+            "咳嗽": ["风寒咳嗽", "风热咳嗽", "痰湿咳嗽", "痰热咳嗽", "肺阴虚咳嗽"]
+        }
+        
+        return syndrome_map.get(disease_name, [f"{disease_name}常见证型"])
+
+    def _suggest_quick_additions(self, current_tree: Dict[str, Any], disease_name: str) -> List[Dict[str, Any]]:
+        """建议快速添加的内容"""
+        additions = []
+        
+        # 检查是否缺少鉴别诊断
+        has_differential = False
+        if "paths" in current_tree:
+            for path in current_tree["paths"]:
+                for step in path.get("steps", []):
+                    if "鉴别" in step.get("content", ""):
+                        has_differential = True
+                        break
+        
+        if not has_differential:
+            additions.append({
+                "title": "添加鉴别诊断路径",
+                "path_data": {
+                    "steps": [
+                        {"type": "condition", "content": "是否伴有典型特征"},
+                        {"type": "diagnosis", "content": f"排除相关疾病，确诊{disease_name}"}
+                    ]
+                }
+            })
+        
+        # 检查是否缺少预后评估
+        has_prognosis = False
+        if "paths" in current_tree:
+            for path in current_tree["paths"]:
+                for step in path.get("steps", []):
+                    if "预后" in step.get("content", "") or "随访" in step.get("content", ""):
+                        has_prognosis = True
+                        break
+        
+        if not has_prognosis:
+            additions.append({
+                "title": "添加预后评估",
+                "path_data": {
+                    "steps": [
+                        {"type": "condition", "content": "治疗效果评估"},
+                        {"type": "treatment", "content": "调整治疗方案"}
+                    ]
+                }
+            })
+        
+        return additions
 
 
 # 测试和演示功能
