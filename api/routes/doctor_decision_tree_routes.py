@@ -637,14 +637,14 @@ async def generate_visual_decision_tree(
             print(f"📡 API路由调试:")
             print(f"  - 疾病名称: {request.disease_name}")
             print(f"  - 思维过程长度: {len(request.thinking_process.strip()) if request.thinking_process else 0}")
-            print(f"  - use_ai设为None，将自动判断")
+            print(f"  - use_ai: {request.use_ai}")
             print(f"  - 调用doctor_learning_system.generate_decision_paths...")
             
             # 调用新的智能生成方法
             generation_result = await doctor_learning_system.generate_decision_paths(
                 disease_name=request.disease_name,
                 thinking_process=request.thinking_process,
-                use_ai=None,  # 自动判断
+                use_ai=request.use_ai,  # 使用前端传递的参数
                 include_tcm_analysis=request.include_tcm_analysis,
                 complexity_level=request.complexity_level
             )

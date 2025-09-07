@@ -1049,6 +1049,14 @@ class FamousDoctorLearningSystem:
         }
         
         try:
+            # 详细的AI条件调试
+            print(f"🔍 AI生成条件检查:")
+            print(f"  - use_ai: {use_ai} (类型: {type(use_ai)})")
+            print(f"  - self.ai_enabled: {self.ai_enabled} (类型: {type(self.ai_enabled)})")
+            print(f"  - thinking_process.strip(): '{thinking_process.strip()}' (长度: {len(thinking_process.strip())})")
+            print(f"  - bool(thinking_process.strip()): {bool(thinking_process.strip())}")
+            print(f"  - 综合条件: {use_ai and self.ai_enabled and thinking_process.strip()}")
+            
             if use_ai and self.ai_enabled and thinking_process.strip():
                 # 使用真实AI生成
                 print(f"🤖 使用AI智能生成: {disease_name}")
@@ -1752,6 +1760,176 @@ class FamousDoctorLearningSystem:
         
         return additions
 
+    async def _generate_ai_decision_paths(self, disease_name: str, thinking_process: str, complexity_level: str) -> List[Dict[str, Any]]:
+        """
+        使用Dashscope AI真实生成决策路径
+        """
+        if not DASHSCOPE_AVAILABLE or not self.ai_enabled:
+            raise Exception("AI服务不可用")
+        
+        # 构建AI提示词
+        prompt = f"""
+作为中医诊疗助手，帮助医生梳理和优化诊疗思路。
+
+**医生信息**：
+疾病名称：{disease_name}
+医生诊疗思路：{thinking_process}
+
+**任务说明**：
+你不是在问诊患者，而是作为医生的助手，基于医生已有的诊疗思路，构建结构化的**诊疗决策辅助树**，帮助医生：
+1. 梳理诊疗流程的关键环节
+2. 检查可能遗漏的诊断要点  
+3. 优化辨证论治的逻辑性
+4. 完善处方配伍的合理性
+
+**核心要求**：
+- **严格基于医生的思路**：不得添加医生未提及的症状、证型或处方
+- **辅助而非替代**：每个环节都是为了帮助医生验证和完善自己的判断
+- **体现个性化**：保持医生的诊疗风格和用药特色
+- **实用性导向**：每个决策点都应该有明确的临床操作指导
+
+请根据医生的诊疗思路，构建**诊疗验证决策树**：
+
+**决策树结构**：
+1. **症状核验** - 核实主要症状和伴随症状
+2. **四诊确认** - 舌象、脉象等关键体征验证  
+3. **证型验证** - 确认医生判断的证型是否准确
+4. **治法确认** - 验证治疗原则的适宜性
+5. **方药审核** - 检查方剂配伍和剂量的合理性
+6. **遗漏提醒** - 可能需要考虑的其他要点
+
+返回JSON格式：
+{{
+    "paths": [
+        {{
+            "id": "doctor_workflow_verification",
+            "title": "基于医生思路的{disease_name}诊疗验证流程",
+            "steps": [
+                {{"type": "symptom_verify", "content": "✓ 核实症状：[基于医生描述的核心症状]"}},
+                {{"type": "examination_check", "content": "✓ 四诊确认：[医生需要验证的关键体征和检查要点]", "options": ["已确认", "需补充"]}},
+                {{"type": "syndrome_confirm", "content": "✓ 证型验证：[基于医生判断的证型] - 是否准确？", "options": ["准确", "需调整"]}},
+                {{"type": "treatment_review", "content": "✓ 治法审核：[基于医生思路的治法] - 是否适宜？", "options": ["适宜", "可优化"]}},
+                {{"type": "prescription_audit", "content": "✓ 方药配伍：[医生的具体方剂] - 组方合理性检查"}},
+                {{"type": "missing_check", "content": "⚠️  遗漏提醒：需要考虑的补充要素或注意事项"}}
+            ],
+            "keywords": [提取医生思路中的核心关键词],
+            "doctor_insights": "医生诊疗思路的核心见解和个性化特色",
+            "improvement_suggestions": "基于此次诊疗的优化建议和学习要点",
+            "confidence": 0.9
+        }}
+    ]
+}}
+"""
+        
+        try:
+            response = await asyncio.to_thread(
+                dashscope.Generation.call,
+                model=self.ai_model,
+                prompt=prompt,
+                result_format='message'
+            )
+            
+            if response.status_code == 200:
+                content = response.output.choices[0]['message']['content']
+                
+                # 解析JSON响应
+                try:
+                    ai_result = json.loads(content)
+                    paths = ai_result.get("paths", [])
+                    
+                    # 验证和清理AI返回的数据
+                    cleaned_paths = []
+                    for path in paths:
+                        if self._validate_ai_path(path, disease_name):
+                            cleaned_paths.append(path)
+                    
+                    if cleaned_paths:
+                        print(f"✅ AI成功生成 {len(cleaned_paths)} 条决策路径")
+                        return cleaned_paths
+                    else:
+                        raise Exception("AI生成的路径格式验证失败")
+                        
+                except json.JSONDecodeError:
+                    # 尝试提取markdown代码块中的JSON
+                    print("⚠️ 尝试从markdown格式中提取JSON")
+                    try:
+                        import re
+                        # 查找```json ... ```代码块
+                        json_matches = re.findall(r'```json\s*(.*?)\s*```', content, re.DOTALL | re.IGNORECASE)
+                        
+                        if json_matches:
+                            json_content = json_matches[0].strip()
+                            ai_result = json.loads(json_content)
+                            paths = ai_result.get("paths", [])
+                            
+                            cleaned_paths = []
+                            for path in paths:
+                                if self._validate_ai_path(path, disease_name):
+                                    cleaned_paths.append(path)
+                            
+                            if cleaned_paths:
+                                print(f"✅ 从markdown提取成功，生成 {len(cleaned_paths)} 条决策路径")
+                                return cleaned_paths
+                        
+                        # 最后备选：使用原始内容
+                        print("⚠️ 无法提取JSON，使用原始AI内容")
+                        return self._parse_ai_text_response(content, disease_name)
+                        
+                    except Exception as e:
+                        print(f"⚠️ JSON提取失败: {e}，使用原始AI内容")
+                        return self._parse_ai_text_response(content, disease_name)
+                    
+            else:
+                raise Exception(f"AI调用失败: {response.message}")
+                
+        except Exception as e:
+            print(f"❌ AI生成失败: {e}")
+            raise e
+
+    def _validate_ai_path(self, path: Dict[str, Any], disease_name: str) -> bool:
+        """验证AI生成的路径格式"""
+        required_fields = ["id", "title", "steps", "keywords"]
+        if not all(field in path for field in required_fields):
+            return False
+        
+        steps = path.get("steps", [])
+        if len(steps) < 3:  # 至少要有症状、诊断、治疗
+            return False
+            
+        return True
+
+    def _parse_ai_text_response(self, content: str, disease_name: str) -> List[Dict[str, Any]]:
+        """解析AI文本响应，提取路径信息"""
+        # 简单的文本解析逻辑，实际可以更复杂
+        paths = []
+        
+        # 基于AI内容创建一个基础路径
+        path = {
+            "id": f"{disease_name}_ai_generated",
+            "title": f"AI生成的{disease_name}诊疗路径",
+            "steps": [
+                {"type": "symptom", "content": f"{disease_name}相关症状"},
+                {"type": "condition", "content": "具体诊断条件", "options": ["是", "否"]},
+                {"type": "diagnosis", "content": "AI推荐诊断"},
+                {"type": "treatment", "content": "治疗建议"},
+                {"type": "formula", "content": "AI推荐处方"}
+            ],
+            "keywords": [disease_name, "AI生成"],
+            "tcm_theory": content,  # 保存完整内容，不截断
+            "confidence": 0.7
+        }
+        
+        paths.append(path)
+        return paths
+
+    async def _record_ai_learning(self, disease_name: str, thinking_process: str, ai_paths: List[Dict[str, Any]]):
+        """记录AI生成的学习数据"""
+        try:
+            # 这里可以记录AI生成的数据用于后续学习
+            print(f"📚 记录AI学习数据: {disease_name}, 路径数量: {len(ai_paths)}")
+        except Exception as e:
+            print(f"⚠️ 记录学习数据失败: {e}")
+
 
 # 测试和演示功能
 def test_famous_doctor_system():
@@ -1837,6 +2015,42 @@ def test_famous_doctor_system():
         print(f"代表方剂: {profile.get('famous_formulas', [])}")
         print(f"治疗理念: {profile.get('treatment_philosophy', '')}")
 
+    def _validate_ai_path(self, path: Dict[str, Any], disease_name: str) -> bool:
+        """验证AI生成的路径格式"""
+        required_fields = ["id", "title", "steps", "keywords"]
+        if not all(field in path for field in required_fields):
+            return False
+        
+        steps = path.get("steps", [])
+        if len(steps) < 3:  # 至少要有症状、诊断、治疗
+            return False
+            
+        return True
+
+    def _parse_ai_text_response(self, content: str, disease_name: str) -> List[Dict[str, Any]]:
+        """解析AI文本响应，提取路径信息"""
+        # 简单的文本解析逻辑，实际可以更复杂
+        paths = []
+        
+        # 基于AI内容创建一个基础路径
+        path = {
+            "id": f"{disease_name}_ai_generated",
+            "title": f"AI生成的{disease_name}诊疗路径",
+            "steps": [
+                {"type": "symptom", "content": f"{disease_name}相关症状"},
+                {"type": "condition", "content": "具体诊断条件", "options": ["是", "否"]},
+                {"type": "diagnosis", "content": "AI推荐诊断"},
+                {"type": "treatment", "content": "治疗建议"},
+                {"type": "formula", "content": "AI推荐处方"}
+            ],
+            "keywords": [disease_name, "AI生成"],
+            "tcm_theory": content,  # 保存完整内容，不截断
+            "confidence": 0.7
+        }
+        
+        paths.append(path)
+        return paths
+
     async def _generate_ai_decision_paths(self, disease_name: str, thinking_process: str, complexity_level: str) -> List[Dict[str, Any]]:
         """
         使用Dashscope AI真实生成决策路径
@@ -1846,41 +2060,53 @@ def test_famous_doctor_system():
         
         # 构建AI提示词
         prompt = f"""
-作为中医专家，根据以下信息生成完整的诊疗决策树：
+作为中医诊疗助手，帮助医生梳理和优化诊疗思路。
 
+**医生信息**：
 疾病名称：{disease_name}
 医生诊疗思路：{thinking_process}
-复杂度要求：{complexity_level}
 
-请生成3-5条完整的诊疗路径，每条路径包含：
-1. 主要症状识别
-2. 具体判断条件（如舌象、脉象、体征等）
-3. 中医证型诊断
-4. 治疗原则
-5. 推荐方剂（包含具体药物组成）
+**任务说明**：
+你不是在问诊患者，而是作为医生的助手，基于医生已有的诊疗思路，构建结构化的**诊疗决策辅助树**，帮助医生：
+1. 梳理诊疗流程的关键环节
+2. 检查可能遗漏的诊断要点  
+3. 优化辨证论治的逻辑性
+4. 完善处方配伍的合理性
 
-要求：
-- 每个判断条件要具体明确，便于临床操作
-- 方剂选择要符合中医理论，体现君臣佐使
-- 路径要覆盖该疾病的主要证型
-- 结合医生提供的诊疗思路进行个性化调整
+**核心要求**：
+- **严格基于医生的思路**：不得添加医生未提及的症状、证型或处方
+- **辅助而非替代**：每个环节都是为了帮助医生验证和完善自己的判断
+- **体现个性化**：保持医生的诊疗风格和用药特色
+- **实用性导向**：每个决策点都应该有明确的临床操作指导
+
+请根据医生的诊疗思路，构建**诊疗验证决策树**：
+
+**决策树结构**：
+1. **症状核验** - 核实主要症状和伴随症状
+2. **四诊确认** - 舌象、脉象等关键体征验证  
+3. **证型验证** - 确认医生判断的证型是否准确
+4. **治法确认** - 验证治疗原则的适宜性
+5. **方药审核** - 检查方剂配伍和剂量的合理性
+6. **遗漏提醒** - 可能需要考虑的其他要点
 
 返回JSON格式：
 {{
     "paths": [
         {{
-            "id": "路径唯一标识",
-            "title": "路径名称（如：心火旺盛型失眠）",
+            "id": "doctor_workflow_verification",
+            "title": "基于医生思路的{disease_name}诊疗验证流程",
             "steps": [
-                {{"type": "symptom", "content": "主要症状描述"}},
-                {{"type": "condition", "content": "具体判断条件", "options": ["是", "否"]}},
-                {{"type": "diagnosis", "content": "中医证型诊断"}},
-                {{"type": "treatment", "content": "治疗原则"}},
-                {{"type": "formula", "content": "方剂名称 + 药物组成"}}
+                {{"type": "symptom_verify", "content": "✓ 核实症状：[基于医生描述的核心症状]"}},
+                {{"type": "examination_check", "content": "✓ 四诊确认：[医生需要验证的关键体征和检查要点]", "options": ["已确认", "需补充"]}},
+                {{"type": "syndrome_confirm", "content": "✓ 证型验证：[基于医生判断的证型] - 是否准确？", "options": ["准确", "需调整"]}},
+                {{"type": "treatment_review", "content": "✓ 治法审核：[基于医生思路的治法] - 是否适宜？", "options": ["适宜", "可优化"]}},
+                {{"type": "prescription_audit", "content": "✓ 方药配伍：[医生的具体方剂] - 组方合理性检查"}},
+                {{"type": "missing_check", "content": "⚠️  遗漏提醒：需要考虑的补充要素或注意事项"}}
             ],
-            "keywords": ["关键词1", "关键词2", "关键词3"],
-            "tcm_theory": "中医理论依据说明",
-            "confidence": 0.85
+            "keywords": [提取医生思路中的核心关键词],
+            "doctor_insights": "医生诊疗思路的核心见解和个性化特色",
+            "improvement_suggestions": "基于此次诊疗的优化建议和学习要点",
+            "confidence": 0.9
         }}
     ]
 }}
@@ -1915,9 +2141,34 @@ def test_famous_doctor_system():
                         raise Exception("AI生成的路径格式验证失败")
                         
                 except json.JSONDecodeError:
-                    # 如果JSON解析失败，尝试提取关键信息
-                    print("⚠️ AI返回格式需要处理，使用智能解析")
-                    return self._parse_ai_text_response(content, disease_name)
+                    # 尝试提取markdown代码块中的JSON
+                    print("⚠️ 尝试从markdown格式中提取JSON")
+                    try:
+                        import re
+                        # 查找```json ... ```代码块
+                        json_matches = re.findall(r'```json\s*(.*?)\s*```', content, re.DOTALL | re.IGNORECASE)
+                        
+                        if json_matches:
+                            json_content = json_matches[0].strip()
+                            ai_result = json.loads(json_content)
+                            paths = ai_result.get("paths", [])
+                            
+                            cleaned_paths = []
+                            for path in paths:
+                                if self._validate_ai_path(path, disease_name):
+                                    cleaned_paths.append(path)
+                            
+                            if cleaned_paths:
+                                print(f"✅ 从markdown提取成功，生成 {len(cleaned_paths)} 条决策路径")
+                                return cleaned_paths
+                        
+                        # 最后备选：使用原始内容
+                        print("⚠️ 无法提取JSON，使用原始AI内容")
+                        return self._parse_ai_text_response(content, disease_name)
+                        
+                    except Exception as e:
+                        print(f"⚠️ JSON提取失败: {e}，使用原始AI内容")
+                        return self._parse_ai_text_response(content, disease_name)
                     
             else:
                 raise Exception(f"AI调用失败: {response.message}")
@@ -1925,42 +2176,6 @@ def test_famous_doctor_system():
         except Exception as e:
             print(f"❌ AI生成失败: {e}")
             raise e
-
-    def _validate_ai_path(self, path: Dict[str, Any], disease_name: str) -> bool:
-        """验证AI生成的路径格式"""
-        required_fields = ["id", "title", "steps", "keywords"]
-        if not all(field in path for field in required_fields):
-            return False
-        
-        steps = path.get("steps", [])
-        if len(steps) < 3:  # 至少要有症状、诊断、治疗
-            return False
-            
-        return True
-
-    def _parse_ai_text_response(self, content: str, disease_name: str) -> List[Dict[str, Any]]:
-        """解析AI文本响应，提取路径信息"""
-        # 简单的文本解析逻辑，实际可以更复杂
-        paths = []
-        
-        # 基于AI内容创建一个基础路径
-        path = {
-            "id": f"{disease_name}_ai_generated",
-            "title": f"AI生成的{disease_name}诊疗路径",
-            "steps": [
-                {"type": "symptom", "content": f"{disease_name}相关症状"},
-                {"type": "condition", "content": "具体诊断条件", "options": ["是", "否"]},
-                {"type": "diagnosis", "content": "AI推荐诊断"},
-                {"type": "treatment", "content": "治疗建议"},
-                {"type": "formula", "content": "AI推荐处方"}
-            ],
-            "keywords": [disease_name, "AI生成"],
-            "tcm_theory": content[:200] + "..." if len(content) > 200 else content,
-            "confidence": 0.7
-        }
-        
-        paths.append(path)
-        return paths
 
     async def _record_ai_learning(self, disease_name: str, thinking_process: str, ai_paths: List[Dict[str, Any]]):
         """记录AI生成的学习数据"""
