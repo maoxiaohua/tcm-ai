@@ -18,7 +18,7 @@ INFO:api.security_integration:Setting up security system...
 INFO:api.security_integration:Security system setup completed
 INFO:__main__:Security system activated
 INFO:__main__:使用阿里云qwen大模型，Agent系统已移除
-INFO:     Started server process [531158]
+INFO:     Started server process [2196440]
 INFO:     Waiting for application startup.
 INFO:__main__:Application startup: Initializing online-only resources...
 INFO:     Application startup complete.
@@ -26,5 +26,7 @@ ERROR:    [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000)
 INFO:     Waiting for application shutdown.
 INFO:__main__:Application shutdown.
 INFO:     Application shutdown complete.
+✅ AI功能已启用，模型: qwen-max
+✅ 学习数据库设置完成
 警告: 模糊药材提取器不可用
 Zhang Zhongjing decision system not available: No module named 'zhang_zhongjing_decision_system'
