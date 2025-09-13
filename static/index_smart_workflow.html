@@ -2379,7 +2379,7 @@
         }
 
         // 添加消息
-        function addMessage(sender, content, showFeedback = false) {
+        function addMessage(sender, content, showFeedback = false, isPaid = false, prescriptionId = null) {
             const container = document.getElementById('messagesContainer');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
@@ -2390,12 +2390,31 @@
             // 检测是否包含处方
             const containsPrescriptionContent = containsPrescription(content);
             
-            messageDiv.innerHTML = `
-                <div class="message-avatar">${sender === 'user' ? '👤' : (selectedDoctor ? doctors[selectedDoctor].avatar : '🤖')}</div>
-                <div class="message-content">
-                    <div class="message-text">${formatMessage(content)}</div>
-                    <div class="message-time">${timeStr}</div>
-                    ${sender === 'ai' && containsPrescriptionContent ? `
+            // 如果有处方ID，保存到元素属性中
+            if (prescriptionId) {
+                messageDiv.setAttribute('data-prescription-id', prescriptionId);
+            }
+            
+            // 根据支付状态决定显示内容
+            let prescriptionActionsHtml = '';
+            if (sender === 'ai' && containsPrescriptionContent) {
+                if (isPaid) {
+                    // 已支付，显示解锁状态
+                    prescriptionActionsHtml = `
+                        <div class="prescription-paid" style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #10b981;">
+                            <div style="font-size: 13px; color: #059669; margin-bottom: 8px;">
+                                <strong>✅ 处方已解锁</strong> - 支付成功，您可以联系代煎服务
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="showDecorationInfo('${prescriptionId}')" 
+                                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                    🍵 联系代煎服务
+                                </button>
+                            </div>
+                        </div>`;
+                } else {
+                    // 未支付，显示支付按钮
+                    prescriptionActionsHtml = `
                         <div class="prescription-actions" style="margin-top: 15px; padding: 12px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
                             <div style="font-size: 13px; color: #374151; margin-bottom: 8px;">
                                 <strong>📋 处方建议</strong> - 为确保用药安全，建议您：
@@ -2721,6 +2740,9 @@
             
 
             try {
+                // 🔑 关键修复：获取当前对话历史以维持上下文连续性
+                const conversationHistory = getCurrentConversationHistory();
+                
                 const response = await fetch('/api/consultation/chat', {
                     method: 'POST',
                     headers: {
@@ -2729,7 +2751,8 @@
                     body: JSON.stringify({
                         message: message,
                         conversation_id: currentConversationId,
-                        selected_doctor: selectedDoctor
+                        selected_doctor: selectedDoctor,
+                        conversation_history: conversationHistory // 传递对话历史
                     }),
                 });
 
@@ -2764,11 +2787,16 @@
                 
                 // 智能判断是否显示点评 - 只有包含处方时才显示
                 const shouldShowFeedback = containsPrescription(aiReply);
-                addMessage('ai', aiReply, shouldShowFeedback);
+                
+                // 🔑 关键修复：检查是否有处方ID和支付状态
+                const prescriptionId = data.prescription_id || null;
+                const isPaid = data.is_paid || false;
+                
+                addMessage('ai', aiReply, shouldShowFeedback, isPaid, prescriptionId);
                 
                 // 记录诊断阶段
                 if (shouldShowFeedback) {
-                    console.log('检测到处方内容，显示点评功能');
+                    console.log('检测到处方内容，显示点评功能，处方ID:', prescriptionId, '支付状态:', isPaid);
                 } else {
                     console.log('普通对话，不显示点评');
                 }
@@ -4025,6 +4053,94 @@ ${data.analysis_result}`;
             localStorage.removeItem('userToken');
         }
 
+        // 🔑 获取当前对话历史，用于维持上下文连续性
+        function getCurrentConversationHistory() {
+            const isMobile = window.innerWidth <= 768;
+            const containerSelector = isMobile ? 'mobileMessagesContainer' : 'messagesContainer';
+            const messagesContainer = document.getElementById(containerSelector);
+            
+            if (!messagesContainer) {
+                console.warn('未找到消息容器，返回空历史');
+                return [];
+            }
+            
+            const history = [];
+            const messages = messagesContainer.querySelectorAll('.message');
+            
+            messages.forEach(messageEl => {
+                const isUser = messageEl.classList.contains('user');
+                const textEl = messageEl.querySelector('.message-text');
+                
+                if (textEl && textEl.textContent.trim()) {
+                    history.push({
+                        role: isUser ? 'user' : 'assistant',
+                        content: textEl.textContent.trim()
+                    });
+                }
+            });
+            
+            console.log(`🔄 获取对话历史: ${history.length}条消息`);
+            return history;
+        }
+
+        // 🔑 标记处方为已支付状态
+        function markPrescriptionAsPaid(prescriptionId) {
+            console.log('🔄 标记处方为已支付:', prescriptionId);
+            
+            // 检测当前是移动端还是PC端
+            const isMobile = window.innerWidth <= 768;
+            const containerSelector = isMobile ? 'mobileMessagesContainer' : 'messagesContainer';
+            const messagesContainer = document.getElementById(containerSelector);
+            
+            if (!messagesContainer) {
+                console.warn('未找到消息容器');
+                return;
+            }
+            
+            // 查找包含处方操作的消息
+            const prescriptionMessages = messagesContainer.querySelectorAll('.message.ai .prescription-actions');
+            
+            prescriptionMessages.forEach(actionsDiv => {
+                const messageDiv = actionsDiv.closest('.message');
+                
+                // 如果指定了处方ID，只处理匹配的处方
+                if (prescriptionId) {
+                    const msgPrescriptionId = messageDiv.getAttribute('data-prescription-id');
+                    if (msgPrescriptionId && msgPrescriptionId !== prescriptionId) {
+                        return; // 跳过不匹配的处方
+                    }
+                }
+                
+                // 替换为已支付状态
+                actionsDiv.outerHTML = `
+                    <div class="prescription-paid" style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #10b981;">
+                        <div style="font-size: 13px; color: #059669; margin-bottom: 8px;">
+                            <strong>✅ 处方已解锁</strong> - 支付成功，您可以联系代煎服务
+                        </div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button onclick="showDecorationInfo('${prescriptionId || 'unknown'}')" 
+                                    style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                🍵 联系代煎服务
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // 标记处方ID
+                if (prescriptionId) {
+                    messageDiv.setAttribute('data-prescription-id', prescriptionId);
+                }
+                
+                console.log('✅ 已更新处方状态为已支付');
+            });
+            
+            // 🔑 关键：立即保存更新后的状态
+            if (selectedDoctor) {
+                saveCurrentDoctorHistory();
+                console.log('✅ 已保存支付状态到历史记录');
+            }
+        }
+
         // 显示消息提示
         function showMessage(message, type = 'info') {
             // 创建消息提示元素
@@ -4773,6 +4889,9 @@ ${data.analysis_result}`;
                             hideWechatQRModal();
                             hidePaymentModal();
                             showMessage('支付成功！您的处方已确认', 'success');
+                            
+                            // 🔑 关键修复：更新UI中的处方状态为已支付
+                            markPrescriptionAsPaid(result.data.prescription_id);
                             
                             // 显示代煎服务信息
                             setTimeout(() => {
@@ -5794,12 +5913,29 @@ ${data.analysis_result}`;
                     const timeEl = messageEl.querySelector('.message-time');
                     
                     if (textEl && textEl.innerHTML.trim()) {
-                        messages.push({
+                        const messageData = {
                             type: isUser ? 'user' : 'ai',
                             content: textEl.innerHTML,
                             time: timeEl ? timeEl.textContent : new Date().toLocaleTimeString(),
                             timestamp: Date.now()
-                        });
+                        };
+                        
+                        // 如果是AI消息且包含处方，保存处方状态
+                        if (!isUser) {
+                            const prescriptionId = messageEl.getAttribute('data-prescription-id');
+                            const isPaid = messageEl.querySelector('.prescription-paid') !== null;
+                            const hasActions = messageEl.querySelector('.prescription-actions') !== null;
+                            
+                            if (prescriptionId || isPaid || hasActions) {
+                                messageData.prescriptionData = {
+                                    prescriptionId: prescriptionId,
+                                    isPaid: isPaid,
+                                    hasActions: hasActions
+                                };
+                            }
+                        }
+                        
+                        messages.push(messageData);
                     }
                 });
                 
@@ -5918,10 +6054,15 @@ ${data.analysis_result}`;
                         // 对于AI消息，检测是否包含处方以决定是否显示评价系统
                         const shouldShowFeedback = msg.type === 'ai' && containsPrescription(msg.content);
                         
+                        // 检查是否有处方数据
+                        const prescriptionData = msg.prescriptionData;
+                        const isPaid = prescriptionData ? prescriptionData.isPaid : false;
+                        const prescriptionId = prescriptionData ? prescriptionData.prescriptionId : null;
+                        
                         if (isMobile) {
-                            addMobileMessage(msg.type, msg.content, shouldShowFeedback);
+                            addMobileMessage(msg.type, msg.content, shouldShowFeedback, isPaid, prescriptionId);
                         } else {
-                            addMessageWithTime(msg.type, msg.content, msg.time, shouldShowFeedback);
+                            addMessageWithTime(msg.type, msg.content, msg.time, shouldShowFeedback, isPaid, prescriptionId);
                         }
                     });
                     
@@ -5954,16 +6095,61 @@ ${data.analysis_result}`;
             }
         }
         
-        function addMessageWithTime(sender, content, timeStr, showFeedback = false) {
+        function addMessageWithTime(sender, content, timeStr, showFeedback = false, isPaid = false, prescriptionId = null) {
             const container = document.getElementById('messagesContainer');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
+            
+            // 检测是否包含处方
+            const containsPrescriptionContent = containsPrescription(content);
+            
+            // 如果有处方ID，保存到元素属性中
+            if (prescriptionId) {
+                messageDiv.setAttribute('data-prescription-id', prescriptionId);
+            }
+            
+            // 根据支付状态决定显示内容
+            let prescriptionActionsHtml = '';
+            if (sender === 'ai' && containsPrescriptionContent) {
+                if (isPaid) {
+                    prescriptionActionsHtml = `
+                        <div class="prescription-paid" style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #10b981;">
+                            <div style="font-size: 13px; color: #059669; margin-bottom: 8px;">
+                                <strong>✅ 处方已解锁</strong> - 支付成功，您可以联系代煎服务
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="showDecorationInfo('${prescriptionId}')" 
+                                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                    🍵 联系代煎服务
+                                </button>
+                            </div>
+                        </div>`;
+                } else {
+                    prescriptionActionsHtml = `
+                        <div class="prescription-actions" style="margin-top: 15px; padding: 12px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                            <div style="font-size: 13px; color: #374151; margin-bottom: 8px;">
+                                <strong>📋 处方建议</strong> - 为确保用药安全，建议您：
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="confirmPrescription('${btoa(encodeURIComponent(content))}')" 
+                                        style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                    🛒 确认处方并支付
+                                </button>
+                                <button onclick="consultDoctor()" 
+                                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                    👨‍⚕️ 咨询专业医生
+                                </button>
+                            </div>
+                        </div>`;
+                }
+            }
             
             messageDiv.innerHTML = `
                 <div class="message-avatar">${sender === 'user' ? '👤' : (selectedDoctor ? doctors[selectedDoctor].avatar : '🤖')}</div>
                 <div class="message-content">
                     <div class="message-text">${formatMessage(content)}</div>
                     <div class="message-time">${timeStr}</div>
+                    ${prescriptionActionsHtml}
                     ${sender === 'ai' && showFeedback ? `
                         <div class="feedback-controls">
                             <div class="feedback-label">这个回答有帮助吗？</div>
@@ -6142,7 +6328,7 @@ ${data.analysis_result}`;
         }
 
         // 移动端添加消息
-        function addMobileMessage(sender, content, showFeedback = false) {
+        function addMobileMessage(sender, content, showFeedback = false, isPaid = false, prescriptionId = null) {
             const container = document.getElementById('mobileMessagesContainer');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
@@ -6169,9 +6355,54 @@ ${data.analysis_result}`;
                     .replace(/^(- )/g, '<span style="color: #10b981;">• </span>');
             }
             
+            // 检测是否包含处方
+            const containsPrescriptionContent = containsPrescription(content);
+            
+            // 如果有处方ID，保存到元素属性中
+            if (prescriptionId) {
+                messageDiv.setAttribute('data-prescription-id', prescriptionId);
+            }
+            
+            // 根据支付状态决定显示内容
+            let prescriptionActionsHtml = '';
+            if (sender === 'ai' && containsPrescriptionContent) {
+                if (isPaid) {
+                    prescriptionActionsHtml = `
+                        <div class="prescription-paid" style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #10b981;">
+                            <div style="font-size: 13px; color: #059669; margin-bottom: 8px;">
+                                <strong>✅ 处方已解锁</strong> - 支付成功，您可以联系代煎服务
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="showDecorationInfo('${prescriptionId}')" 
+                                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                    🍵 联系代煎服务
+                                </button>
+                            </div>
+                        </div>`;
+                } else {
+                    prescriptionActionsHtml = `
+                        <div class="prescription-actions" style="margin-top: 15px; padding: 12px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                            <div style="font-size: 13px; color: #374151; margin-bottom: 8px;">
+                                <strong>📋 处方建议</strong> - 为确保用药安全，建议您：
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="confirmPrescription('${btoa(encodeURIComponent(content))}')" 
+                                        style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                    🛒 确认处方并支付
+                                </button>
+                                <button onclick="consultDoctor()" 
+                                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                    👨‍⚕️ 咨询专业医生
+                                </button>
+                            </div>
+                        </div>`;
+                }
+            }
+
             const messageContent = `
                 <div class="message-content">
                     <div class="message-text">${formattedContent}</div>
+                    ${prescriptionActionsHtml}
                     ${sender === 'ai' && showFeedback ? `
                         <div class="feedback-controls">
                             <div class="feedback-label">这个回答有帮助吗？</div>
@@ -6251,6 +6482,9 @@ ${data.analysis_result}`;
             
 
             try {
+                // 🔑 关键修复：获取当前对话历史以维持上下文连续性
+                const conversationHistory = getCurrentConversationHistory();
+                
                 const response = await fetch('/api/consultation/chat', {
                     method: 'POST',
                     headers: {
@@ -6259,7 +6493,8 @@ ${data.analysis_result}`;
                     body: JSON.stringify({
                         message: message,
                         conversation_id: currentConversationId,
-                        selected_doctor: selectedDoctor
+                        selected_doctor: selectedDoctor,
+                        conversation_history: conversationHistory // 传递对话历史
                     }),
                     signal: controller.signal
                 });
@@ -6291,11 +6526,16 @@ ${data.analysis_result}`;
                 if (aiReply) {
                     // 智能判断是否显示评价系统 - 只有包含处方时才显示
                     const shouldShowFeedback = containsPrescription(aiReply);
-                    addMobileMessage('ai', aiReply, shouldShowFeedback);
+                    
+                    // 🔑 关键修复：检查是否有处方ID和支付状态
+                    const prescriptionId = data.prescription_id || (data.data && data.data.prescription_id) || null;
+                    const isPaid = data.is_paid || (data.data && data.data.is_paid) || false;
+                    
+                    addMobileMessage('ai', aiReply, shouldShowFeedback, isPaid, prescriptionId);
                     
                     // 记录诊断阶段
                     if (shouldShowFeedback) {
-                        console.log('移动端检测到处方内容，显示点评功能');
+                        console.log('移动端检测到处方内容，显示点评功能，处方ID:', prescriptionId, '支付状态:', isPaid);
                     } else {
                         console.log('移动端普通对话，不显示点评');
                     }
