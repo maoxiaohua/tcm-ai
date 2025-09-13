@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 中医智能问诊 - 专业版</title>
+    <title>智汇中医 - AI智能问诊工作流</title>
     
     <!-- Open Graph / 微信分享优化 -->
     <meta property="og:title" content="🏥 AI 中医智能问诊助手 - 专业版">
@@ -102,7 +102,7 @@
             align-items: center;
         }
 
-        .history-btn, .new-chat-btn {
+        .history-btn, .new-chat-btn, .auth-btn {
             background: rgba(255,255,255,0.2);
             border: 1px solid rgba(255,255,255,0.3);
             color: white;
@@ -114,7 +114,7 @@
             white-space: nowrap;
         }
 
-        .history-btn:hover, .new-chat-btn:hover {
+        .history-btn:hover, .new-chat-btn:hover, .auth-btn:hover {
             background: rgba(255,255,255,0.3);
         }
 
@@ -122,101 +122,47 @@
             background: rgba(255,255,255,0.15);
         }
 
-        /* 页面导航下拉菜单 */
-        .nav-dropdown {
-            position: relative;
-            display: inline-block;
-        }
-
-        .nav-dropdown-btn {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s;
-            white-space: nowrap;
+        .user-info {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            background: rgba(255,255,255,0.15);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
         }
 
-        .nav-dropdown-btn:hover {
+        .user-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
             background: rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
         }
 
-        .nav-dropdown-content {
-            display: none;
-            position: absolute;
-            right: 0;
-            top: 100%;
-            margin-top: 8px;
-            background: white;
-            min-width: 250px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            border-radius: 12px;
-            z-index: 1000;
-            border: 1px solid #e5e7eb;
-            overflow: hidden;
-        }
-
-        .nav-dropdown-content.show {
-            display: block;
-        }
-
-        .nav-dropdown-header {
-            background: #f8f9fa;
-            padding: 12px 16px;
-            font-weight: 600;
-            font-size: 14px;
-            color: #374151;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .nav-dropdown-section {
-            padding: 8px 0;
-        }
-
-        .nav-dropdown-section:not(:last-child) {
-            border-bottom: 1px solid #f3f4f6;
-        }
-
-        .nav-dropdown-item {
-            display: block;
-            padding: 10px 16px;
-            color: #374151;
-            text-decoration: none;
-            font-size: 14px;
-            transition: all 0.2s;
-            cursor: pointer;
-            border: none;
-            background: none;
-            width: 100%;
-            text-align: left;
-        }
-
-        .nav-dropdown-item:hover {
-            background: #f3f4f6;
-            color: #1f2937;
-        }
-
-        .nav-dropdown-item.primary {
-            color: #3b82f6;
+        .user-name {
+            font-size: 13px;
             font-weight: 500;
         }
 
-        .nav-dropdown-item.secondary {
-            color: #6b7280;
+        .logout-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
         }
 
-        /* 移动端导航 */
-        @media (max-width: 768px) {
-            .nav-dropdown {
-                display: none; /* 移动端隐藏下拉菜单 */
-            }
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.2);
         }
+
 
         /* 主内容区域 */
         .main-content {
@@ -1452,6 +1398,141 @@
             transition: background 0.2s;
         }
 
+        /* 登录模态框样式 */
+        .login-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .login-modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 0;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 24px;
+            border-radius: 16px 16px 0 0;
+            text-align: center;
+        }
+
+        .login-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .login-form {
+            padding: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+            font-size: 14px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .login-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .login-btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .login-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .login-btn.primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .login-btn.secondary {
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .login-btn.secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .error-message {
+            color: #ef4444;
+            font-size: 13px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
         .close-btn:hover {
             background: rgba(255,255,255,0.2);
         }
@@ -1693,68 +1774,24 @@
                     <p class="header-subtitle">传统中医 × 人工智能 - 专业版</p>
                 </div>
                 <div class="header-actions">
-                    <!-- 页面导航下拉菜单 -->
-                    <div class="nav-dropdown">
-                        <button class="nav-dropdown-btn" onclick="toggleNavDropdown()">
-                            🔗 页面导航 ▼
+                    <!-- 未登录状态 -->
+                    <div id="authButtons" style="display: flex; gap: 12px;">
+                        <button class="auth-btn" onclick="showLoginModal()" title="用户登录">
+                            🔐 登录
                         </button>
-                        <div class="nav-dropdown-content" id="navDropdown">
-                            <div class="nav-dropdown-header">系统页面导航</div>
-                            
-                            <div class="nav-dropdown-section">
-                                <button class="nav-dropdown-item primary" onclick="navigateToPage('/')">
-                                    🏠 主页 - AI中医问诊
-                                </button>
-                                <button class="nav-dropdown-item primary" onclick="navigateToPage('/prescription/checker')">
-                                    🏥 智能处方检测
-                                </button>
-                                <button class="nav-dropdown-item primary" onclick="navigateToPage('/prescription/learning')">
-                                    📚 处方学习案例
-                                </button>
-                                <button class="nav-dropdown-item" onclick="navigateToPage('/register')">
-                                    👤 用户注册
-                                </button>
-                                <button class="nav-dropdown-item" onclick="navigateToPage('/phone-binding')">
-                                    📱 手机绑定
-                                </button>
-                                <button class="nav-dropdown-item" onclick="navigateToPage('/history')">
-                                    📋 历史记录
-                                </button>
-                            </div>
-                            
-                            <div class="nav-dropdown-section">
-                                <button class="nav-dropdown-item primary" onclick="navigateToPage('/doctor/portal')">
-                                    👨‍⚕️ 医生门户
-                                </button>
-                                <button class="nav-dropdown-item" onclick="navigateToPage('/doctor/thinking-v2')">
-                                    🧠 医生思维录入 (推荐)
-                                </button>
-                                <button class="nav-dropdown-item secondary" onclick="navigateToPage('/doctor/thinking')">
-                                    🧠 医生思维录入 (旧版)
-                                </button>
-                                <button class="nav-dropdown-item" onclick="navigateToPage('/doctor/management')">
-                                    🔧 医生管理
-                                </button>
-                            </div>
-                            
-                            <div class="nav-dropdown-section">
-                                <button class="nav-dropdown-item" onclick="navigateToPage('/system/monitor')">
-                                    🖥️ 系统性能与模块安全监控
-                                </button>
-                                <button class="nav-dropdown-item" onclick="navigateToPage('/qr_gallery')">
-                                    📱 二维码画廊
-                                </button>
-                                <button class="nav-dropdown-item secondary" onclick="navigateToPage('/static/wechat_share.html')">
-                                    💬 微信分享页面
-                                </button>
-                            </div>
-                        </div>
+                        <button class="history-btn" onclick="openRegisterPage()" title="注册账户">
+                            👤 注册
+                        </button>
                     </div>
                     
-                    <button class="history-btn" onclick="openRegisterPage()" title="注册账户">
-                        👤 注册
-                    </button>
-                    <button class="history-btn" onclick="openHistoryPage()" title="查看问诊历史">
+                    <!-- 已登录状态 -->
+                    <div id="userInfo" class="user-info" style="display: none;">
+                        <div class="user-avatar" id="userAvatar">👤</div>
+                        <span class="user-name" id="userName">游客</span>
+                        <button class="logout-btn" onclick="logout()">退出</button>
+                    </div>
+                    
+                    <button class="history-btn" onclick="openHistoryPage()" title="查看问诊历史" id="historyBtn">
                         📋 历史记录
                     </button>
                     <button class="new-chat-btn" onclick="startNewChat()">
@@ -1880,6 +1917,10 @@
         let isVoiceRecording = false;
         let mediaRecorder = null;
         let audioChunks = [];
+        
+        // 认证相关变量
+        let currentUser = null;
+        let userToken = null;
 
         // 医生数据
         const doctors = {
@@ -1994,23 +2035,89 @@
             localStorage.setItem('currentConversationId', currentConversationId);
         }
 
-        // 渲染医生卡片
-        function renderDoctorCards() {
+        // 全局变量：推荐医生列表
+        let recommendedDoctors = [];
+        let isUsingRecommendedDoctors = false;
+
+        // 获取AI推荐医生
+        async function getRecommendedDoctors(symptoms) {
+            try {
+                const response = await fetch('/api/doctor-matching/recommend', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        patient_id: currentConversationId || 'anonymous-' + Date.now(),
+                        symptoms: symptoms,
+                        max_results: 6
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('获取推荐医生失败');
+                }
+
+                const result = await response.json();
+                if (result.success && result.data.recommended_doctors) {
+                    return result.data.recommended_doctors;
+                }
+                return [];
+            } catch (error) {
+                console.error('获取推荐医生错误:', error);
+                return [];
+            }
+        }
+
+        // 渲染医生卡片（支持默认医生和推荐医生）
+        function renderDoctorCards(useRecommended = false) {
             const container = document.getElementById('doctorsGrid');
             container.innerHTML = '';
+            
+            let doctorsToRender = {};
+            
+            if (useRecommended && recommendedDoctors.length > 0) {
+                // 使用推荐医生，但保持原有的格式
+                recommendedDoctors.forEach(doctor => {
+                    // 将API返回的医生转换为原有格式
+                    const doctorId = doctor.uuid || doctor.name.toLowerCase().replace(/\s+/g, '_');
+                    doctorsToRender[doctorId] = {
+                        name: doctor.name,
+                        school: doctor.title || '中医师',
+                        avatar: getAvatarForDoctor(doctor.name),
+                        specialty: doctor.specialties.join(', ') || '中医内科',
+                        introduction: doctor.introduction || '',
+                        rating: doctor.average_rating,
+                        consultationCount: doctor.consultation_count
+                    };
+                });
+                isUsingRecommendedDoctors = true;
+            } else {
+                // 使用默认医生
+                doctorsToRender = doctors;
+                isUsingRecommendedDoctors = false;
+            }
 
-            Object.entries(doctors).forEach(([key, doctor]) => {
+            Object.entries(doctorsToRender).forEach(([key, doctor]) => {
                 const card = document.createElement('div');
                 card.className = 'doctor-card';
-                card.onclick = () => selectDoctor(key);
+                card.onclick = () => selectDoctor(key, doctor);
+                
+                // 添加推荐标识和评分信息
+                const recommendationBadge = isUsingRecommendedDoctors ? 
+                    `<div style="background: #10b981; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 4px;">AI推荐</div>` : '';
+                
+                const ratingInfo = doctor.rating ? 
+                    `<div style="font-size: 11px; color: #f59e0b; margin-top: 2px;">⭐ ${doctor.rating.toFixed(1)} (${doctor.consultationCount || 0}例)</div>` : '';
                 
                 card.innerHTML = `
                     <div class="doctor-header">
                         <div class="doctor-info">
                             <div class="doctor-avatar">${doctor.avatar}</div>
                             <div class="doctor-details">
-                                <h3>${doctor.name}</h3>
+                                <h3>${doctor.name} ${recommendationBadge}</h3>
                                 <span class="doctor-school">${doctor.school}</span>
+                                ${ratingInfo}
                             </div>
                         </div>
                         <div class="selection-indicator">
@@ -2024,10 +2131,140 @@
                 
                 container.appendChild(card);
             });
+            
+            // 添加切换按钮
+            addDoctorToggleButton(container);
         }
 
-        // 选择医生
-        function selectDoctor(doctorKey) {
+        // 为医生分配头像
+        function getAvatarForDoctor(doctorName) {
+            const avatarMap = {
+                '张仲景': '🎯',
+                '叶天士': '🌡️', 
+                '李东垣': '🌱',
+                '郑钦安': '🔥',
+                '刘渡舟': '⚖️'
+            };
+            return avatarMap[doctorName] || '👨‍⚕️';
+        }
+
+        // 添加医生切换按钮
+        function addDoctorToggleButton(container) {
+            const toggleButton = document.createElement('div');
+            toggleButton.style.cssText = `
+                margin-top: 10px; 
+                text-align: center; 
+                padding: 8px;
+                background: #f3f4f6; 
+                border-radius: 8px; 
+                cursor: pointer;
+                font-size: 12px;
+                color: #374151;
+                transition: all 0.2s;
+            `;
+            toggleButton.innerHTML = isUsingRecommendedDoctors ? 
+                '🔄 切换到经典名医' : '🤖 使用AI推荐医生';
+                
+            toggleButton.onclick = () => {
+                renderDoctorCards(!isUsingRecommendedDoctors);
+            };
+            
+            toggleButton.onmouseover = () => {
+                toggleButton.style.background = '#e5e7eb';
+            };
+            
+            toggleButton.onmouseout = () => {
+                toggleButton.style.background = '#f3f4f6';
+            };
+            
+            container.appendChild(toggleButton);
+        }
+
+        // 智能推荐医生（基于用户输入的症状）
+        async function recommendDoctorsForSymptoms(userInput) {
+            const symptoms = extractSymptomsFromText(userInput);
+            if (symptoms.length > 0) {
+                console.log('🤖 检测到症状，获取AI推荐医生:', symptoms);
+                recommendedDoctors = await getRecommendedDoctors(symptoms);
+                if (recommendedDoctors.length > 0) {
+                    console.log('✅ 获取到推荐医生:', recommendedDoctors.length, '位');
+                    // 重新渲染医生卡片，优先显示推荐医生
+                    renderDoctorCards(true);
+                }
+            }
+        }
+
+        // 从文本中提取症状关键词
+        function extractSymptomsFromText(text) {
+            const symptomKeywords = [
+                '头痛', '头疼', '头晕', '眩晕', '失眠', '焦虑', '抑郁', '心悸', '胸闷', '乏力', '发热',
+                '胃痛', '胃疼', '肚子疼', '肚子痛', '腹痛', '腹胀', '腹泻', '便秘', '食欲不振', '消化不良', 
+                '咳嗽', '哮喘', '鼻炎', '气喘', '感冒', '发烧', '喉咙痛', '咽痛', '流鼻涕',
+                '月经不调', '痛经', '白带异常', '不孕', '更年期', '妇科', '小儿发热', '小儿咳嗽', '小儿腹泻',
+                '湿疹', '痤疮', '皮肤病', '青春痘', '腰痛', '关节痛', '颈椎病', '膝盖痛', '耳鸣', '听力下降', '鼻塞',
+                '牙痛', '口腔溃疡', '便血', '尿频', '尿急', '水肿', '出汗', '盗汗', '手脚冰凉', '四肢无力'
+            ];
+            
+            const foundSymptoms = [];
+            for (const symptom of symptomKeywords) {
+                if (text.includes(symptom)) {
+                    foundSymptoms.push(symptom);
+                }
+            }
+            return foundSymptoms;
+        }
+        
+        // 症状同义词映射
+        function getSymptomSynonyms() {
+            return {
+                '腹痛': ['肚子疼', '肚子痛', '腹部疼痛', '腹部不适'],
+                '肚子疼': ['腹痛', '肚子痛', '腹部疼痛'],
+                '头痛': ['头疼', '头部疼痛'],
+                '胃痛': ['胃疼', '胃部疼痛', '胃不舒服'],
+                '发热': ['发烧', '体温升高'],
+                '咽痛': ['喉咙痛', '咽喉疼痛']
+            };
+        }
+        
+        // 检查症状是否相关（考虑同义词和医学关联）
+        function isSymptomsRelated(userSymptoms, aiSymptom) {
+            const synonyms = getSymptomSynonyms();
+            
+            // 直接匹配
+            if (userSymptoms.includes(aiSymptom)) {
+                return true;
+            }
+            
+            // 同义词检查
+            for (const userSymptom of userSymptoms) {
+                if (synonyms[userSymptom] && synonyms[userSymptom].includes(aiSymptom)) {
+                    return true;
+                }
+                if (synonyms[aiSymptom] && synonyms[aiSymptom].includes(userSymptom)) {
+                    return true;
+                }
+            }
+            
+            // 医学关联性检查（常见的症状组合）
+            const medicalAssociations = {
+                '腹痛': ['腹泻', '便秘', '食欲不振', '腹胀'],
+                '肚子疼': ['腹泻', '便秘', '食欲不振', '腹胀'],
+                '头痛': ['头晕', '眩晕', '失眠'],
+                '发热': ['乏力', '出汗'],
+                '感冒': ['咳嗽', '流鼻涕', '鼻塞', '喉咙痛']
+            };
+            
+            for (const userSymptom of userSymptoms) {
+                if (medicalAssociations[userSymptom] && medicalAssociations[userSymptom].includes(aiSymptom)) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        // 选择医生（支持默认医生和推荐医生）
+        function selectDoctor(doctorKey, doctorData = null) {
             const messagesContainer = document.getElementById('messagesContainer');
             // 检查是否有真正的对话内容（用户消息或AI回复）
             const userMessages = messagesContainer.querySelectorAll('.message.user');
@@ -2046,11 +2283,20 @@
             });
 
             // 添加新的选中状态
-            event.currentTarget.classList.add('selected');
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('selected');
+            }
 
             const previousDoctor = selectedDoctor;
             selectedDoctor = doctorKey;
-            const doctor = doctors[doctorKey];
+            
+            // 获取医生信息（优先使用传入的doctorData，然后是默认doctors对象）
+            const doctor = doctorData || doctors[doctorKey] || {
+                name: '医生',
+                school: '中医师', 
+                avatar: '👨‍⚕️',
+                specialty: '中医内科'
+            };
 
             // 更新顶部医生信息条
             document.getElementById('currentDoctorAvatar').textContent = doctor.avatar;
@@ -2090,11 +2336,38 @@
             const now = new Date();
             const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
             
+            // 检测是否包含处方
+            const containsPrescriptionContent = containsPrescription(content);
+            
             messageDiv.innerHTML = `
                 <div class="message-avatar">${sender === 'user' ? '👤' : (selectedDoctor ? doctors[selectedDoctor].avatar : '🤖')}</div>
                 <div class="message-content">
                     <div class="message-text">${formatMessage(content)}</div>
                     <div class="message-time">${timeStr}</div>
+                    ${sender === 'ai' && containsPrescriptionContent ? `
+                        <div class="prescription-actions" style="margin-top: 15px; padding: 12px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                            <div style="font-size: 13px; color: #374151; margin-bottom: 8px;">
+                                <strong>📋 处方建议</strong> - 为确保用药安全，建议您：
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="confirmPrescription('${btoa(encodeURIComponent(content))}')" 
+                                        style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                    🛒 确认处方并支付
+                                </button>
+                                <button onclick="consultDoctor()" 
+                                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                    👨‍⚕️ 咨询专业医生
+                                </button>
+                                <button onclick="savePrescription('${btoa(encodeURIComponent(content))}')" 
+                                        style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                    💾 保存处方
+                                </button>
+                            </div>
+                            <div style="font-size: 11px; color: #6b7280; margin-top: 8px; font-style: italic;">
+                                ⚠️ 此为AI建议处方，实际用药请遵医嘱
+                            </div>
+                        </div>
+                    ` : ''}
                     ${sender === 'ai' && showFeedback ? `
                         <div class="feedback-controls">
                             <div class="feedback-label">这个回答有帮助吗？</div>
@@ -2373,6 +2646,14 @@
             addMessage('user', message);
             input.value = '';
             adjustTextareaHeight();
+            
+            // 智能推荐医生（在用户发送第一条消息时，检测症状并推荐医生）
+            if (!isUsingRecommendedDoctors) {
+                // 检测症状并异步推荐医生，不阻塞当前对话
+                recommendDoctorsForSymptoms(message).catch(error => {
+                    console.warn('推荐医生功能异常:', error);
+                });
+            }
 
             // 显示加载状态
             const sendBtn = document.getElementById('sendBtn');
@@ -2405,10 +2686,34 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                const data = await response.json();
+                const responseData = await response.json();
+                
+                // 处理新的API响应格式
+                let aiReply;
+                if (responseData.success && responseData.data && responseData.data.reply) {
+                    aiReply = responseData.data.reply;
+                } else if (responseData.reply) {
+                    aiReply = responseData.reply; // 兼容旧格式
+                } else {
+                    throw new Error('API响应格式错误: 未找到reply字段');
+                }
+                
+                // 医疗安全检查
+                const aiWarnings = checkMedicalSafety(aiReply);
+                if (aiWarnings.length > 0) {
+                    showMedicalWarnings(aiWarnings);
+                    // 记录AI响应中的安全问题
+                    aiWarnings.forEach(warning => {
+                        logSecurityEvent(`ai_${warning.type}`, aiReply, warning);
+                    });
+                }
+                
+                // 检查症状编造
+                detectSymptomFabrication(message, aiReply);
+                
                 // 智能判断是否显示点评 - 只有包含处方时才显示
-                const shouldShowFeedback = containsPrescription(data.reply);
-                addMessage('ai', data.reply, shouldShowFeedback);
+                const shouldShowFeedback = containsPrescription(aiReply);
+                addMessage('ai', aiReply, shouldShowFeedback);
                 
                 // 记录诊断阶段
                 if (shouldShowFeedback) {
@@ -2443,76 +2748,395 @@
 
         // 打开注册页面
         function openRegisterPage() {
-            window.open('/register', '_blank');
+            window.open('/nav', '_blank');
         }
 
-        // 打开历史记录页面
+        // 打开病历记录页面
         function openHistoryPage() {
+            // 跳转到用户历史页面
             window.open('/history', '_blank');
         }
 
-        // 页面导航下拉菜单功能
-        function toggleNavDropdown() {
-            const dropdown = document.getElementById('navDropdown');
-            dropdown.classList.toggle('show');
+        // 显示病历记录模态框
+        async function showMedicalRecordsModal() {
+            try {
+                // 获取用户的病历记录
+                const response = await fetch('/api/medical-records/list', {
+                    headers: getAuthHeaders()
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    showMessage('获取病历记录失败', 'error');
+                    return;
+                }
+                
+                createMedicalRecordsModal(result.data || []);
+                
+            } catch (error) {
+                console.error('获取病历记录失败:', error);
+                showMessage('服务暂时不可用', 'error');
+            }
         }
 
-        // 导航到指定页面
-        function navigateToPage(url) {
-            // 关闭下拉菜单
-            const dropdown = document.getElementById('navDropdown');
-            dropdown.classList.remove('show');
-            
-            // 如果是主页，刷新当前页面
-            if (url === '/' && window.location.pathname === '/') {
-                window.location.reload();
-                return;
+        // 创建病历记录模态框
+        function createMedicalRecordsModal(records) {
+            // 检查是否已存在模态框
+            let modal = document.getElementById('medicalRecordsModal');
+            if (modal) {
+                modal.remove();
             }
             
-            // 导航到新页面
-            window.open(url, '_blank');
+            modal = document.createElement('div');
+            modal.id = 'medicalRecordsModal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1004;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; max-width: 800px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 24px; border-radius: 16px 16px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-size: 20px; font-weight: 600;">📋 我的病历记录</h3>
+                        <button onclick="hideMedicalRecordsModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">×</button>
+                    </div>
+                    <div style="padding: 24px; flex: 1; overflow-y: auto;">
+                        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                            <button onclick="showAllRecords()" id="allRecordsBtn" style="padding: 8px 16px; border: 2px solid #3b82f6; background: #3b82f6; color: white; border-radius: 20px; cursor: pointer; font-size: 13px;">
+                                全部记录
+                            </button>
+                            <button onclick="showConsultationRecords()" id="consultationBtn" style="padding: 8px 16px; border: 2px solid #3b82f6; background: white; color: #3b82f6; border-radius: 20px; cursor: pointer; font-size: 13px;">
+                                问诊记录
+                            </button>
+                            <button onclick="showPrescriptionRecords()" id="prescriptionBtn" style="padding: 8px 16px; border: 2px solid #3b82f6; background: white; color: #3b82f6; border-radius: 20px; cursor: pointer; font-size: 13px;">
+                                处方记录
+                            </button>
+                        </div>
+                        <div id="recordsContainer">
+                            ${records.length > 0 ? generateRecordsHTML(records) : '<div style="text-align: center; color: #6b7280; padding: 40px;">暂无病历记录</div>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
         }
 
-        // 点击其他地方关闭下拉菜单
-        document.addEventListener('click', function(event) {
-            const dropdown = document.getElementById('navDropdown');
-            const dropdownBtn = event.target.closest('.nav-dropdown');
-            
-            if (!dropdownBtn && dropdown) {
-                dropdown.classList.remove('show');
-            }
-        });
+        // 生成病历记录HTML
+        function generateRecordsHTML(records) {
+            return records.map(record => `
+                <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 16px; background: white;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div>
+                            <h4 style="margin: 0; color: #1f2937; font-size: 16px;">${record.doctor_name || '医生'} - ${record.type === 'consultation' ? '问诊记录' : '处方记录'}</h4>
+                            <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px;">${new Date(record.created_at).toLocaleString()}</p>
+                        </div>
+                        <span style="padding: 4px 12px; background: ${record.status === 'completed' ? '#dcfce7' : '#fef3c7'}; color: ${record.status === 'completed' ? '#166534' : '#92400e'}; border-radius: 12px; font-size: 12px;">
+                            ${record.status === 'completed' ? '已完成' : '进行中'}
+                        </span>
+                    </div>
+                    
+                    ${record.symptoms ? `
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #374151; font-size: 14px;">主要症状：</strong>
+                            <span style="color: #6b7280; font-size: 14px;">${record.symptoms}</span>
+                        </div>
+                    ` : ''}
+                    
+                    ${record.diagnosis ? `
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #374151; font-size: 14px;">诊断结果：</strong>
+                            <span style="color: #6b7280; font-size: 14px;">${record.diagnosis}</span>
+                        </div>
+                    ` : ''}
+                    
+                    ${record.prescription ? `
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #374151; font-size: 14px;">处方内容：</strong>
+                            <div style="background: #f8fafc; border-radius: 6px; padding: 12px; margin-top: 8px; font-family: monospace; font-size: 13px; white-space: pre-wrap; max-height: 100px; overflow-y: auto;">${record.prescription}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${record.payment_amount ? `
+                        <div style="margin-bottom: 12px;">
+                            <strong style="color: #374151; font-size: 14px;">费用：</strong>
+                            <span style="color: #ef4444; font-size: 14px; font-weight: 500;">¥ ${record.payment_amount}</span>
+                        </div>
+                    ` : ''}
+                    
+                    <div style="display: flex; gap: 8px; margin-top: 16px;">
+                        <button onclick="viewRecordDetail('${record.id}')" style="padding: 6px 12px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; cursor: pointer; color: #374151;">
+                            查看详情
+                        </button>
+                        ${record.type === 'prescription' && record.status === 'completed' ? `
+                            <button onclick="reorderPrescription('${record.id}')" style="padding: 6px 12px; background: #dbeafe; border: 1px solid #3b82f6; border-radius: 6px; font-size: 12px; cursor: pointer; color: #3b82f6;">
+                                重新购买
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
 
-        // 移动端页面导航
+        // 隐藏病历记录模态框
+        function hideMedicalRecordsModal() {
+            const modal = document.getElementById('medicalRecordsModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        // 显示所有记录
+        async function showAllRecords() {
+            updateRecordFilter('all');
+            const response = await fetch('/api/medical-records/list', {
+                headers: getAuthHeaders()
+            });
+            const result = await response.json();
+            updateRecordsContainer(result.data || []);
+        }
+
+        // 显示问诊记录
+        async function showConsultationRecords() {
+            updateRecordFilter('consultation');
+            const response = await fetch('/api/medical-records/list?type=consultation', {
+                headers: getAuthHeaders()
+            });
+            const result = await response.json();
+            updateRecordsContainer(result.data || []);
+        }
+
+        // 显示处方记录
+        async function showPrescriptionRecords() {
+            updateRecordFilter('prescription');
+            const response = await fetch('/api/medical-records/list?type=prescription', {
+                headers: getAuthHeaders()
+            });
+            const result = await response.json();
+            updateRecordsContainer(result.data || []);
+        }
+
+        // 更新记录过滤器样式
+        function updateRecordFilter(type) {
+            const buttons = ['allRecordsBtn', 'consultationBtn', 'prescriptionBtn'];
+            buttons.forEach(btnId => {
+                const btn = document.getElementById(btnId);
+                if (btn) {
+                    if ((type === 'all' && btnId === 'allRecordsBtn') ||
+                        (type === 'consultation' && btnId === 'consultationBtn') ||
+                        (type === 'prescription' && btnId === 'prescriptionBtn')) {
+                        btn.style.background = '#3b82f6';
+                        btn.style.color = 'white';
+                    } else {
+                        btn.style.background = 'white';
+                        btn.style.color = '#3b82f6';
+                    }
+                }
+            });
+        }
+
+        // 更新记录容器
+        function updateRecordsContainer(records) {
+            const container = document.getElementById('recordsContainer');
+            if (container) {
+                container.innerHTML = records.length > 0 ? generateRecordsHTML(records) : '<div style="text-align: center; color: #6b7280; padding: 40px;">暂无相关记录</div>';
+            }
+        }
+
+        // 查看记录详情
+        async function viewRecordDetail(recordId) {
+            try {
+                const response = await fetch(`/api/user/conversation/${recordId}`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (response.ok) {
+                    const record = await response.json();
+                    
+                    // 显示详细的记录信息
+                    showRecordDetailModal(record);
+                } else {
+                    showMessage('获取记录详情失败', 'error');
+                }
+            } catch (error) {
+                console.error('获取记录详情失败:', error);
+                showMessage('服务暂时不可用', 'error');
+            }
+        }
+
+        // 重新购买处方
+        async function reorderPrescription(recordId) {
+            try {
+                const response = await fetch(`/api/prescription/reorder/${recordId}`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    hideMedicalRecordsModal();
+                    showPaymentModal(result.data.prescription_id, result.data.amount);
+                } else {
+                    showMessage(result.message || '重新购买失败', 'error');
+                }
+            } catch (error) {
+                console.error('重新购买失败:', error);
+                showMessage('服务暂时不可用', 'error');
+            }
+        }
+        
+        // 获取医生显示名称
+        function getDoctorDisplayName(doctorKey) {
+            const doctorNames = {
+                'zhang_zhongjing': '张仲景',
+                'ye_tianshi': '叶天士',
+                'li_dongyuan': '李东垣',
+                'zhu_danxi': '朱丹溪',
+                'liu_duzhou': '刘渡舟',
+                'zheng_qin_an': '郑钦安'
+            };
+            return doctorNames[doctorKey] || doctorKey || '医生';
+        }
+        
+        // 显示记录详情模态框
+        function showRecordDetailModal(record) {
+            // 检查是否已存在模态框
+            let detailModal = document.getElementById('recordDetailModal');
+            if (detailModal) {
+                detailModal.remove();
+            }
+            
+            const doctorName = getDoctorDisplayName(record.doctor_name);
+            const visitDate = new Date(record.created_at).toLocaleString('zh-CN');
+            
+            detailModal = document.createElement('div');
+            detailModal.id = 'recordDetailModal';
+            detailModal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1005;
+            `;
+            
+            detailModal.innerHTML = `
+                <div style="background: white; border-radius: 16px; max-width: 700px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 24px; border-radius: 16px 16px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-size: 18px; font-weight: 600;">📋 对话详情 - ${doctorName}</h3>
+                        <button onclick="closeRecordDetailModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">×</button>
+                    </div>
+                    <div style="padding: 24px; flex: 1; overflow-y: auto;">
+                        <div style="background: #f8f9ff; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                            <h4 style="margin: 0 0 12px 0; color: #667eea; font-size: 16px;">基本信息</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div><strong>就诊时间:</strong> ${visitDate}</div>
+                                <div><strong>就诊次数:</strong> 第${record.session_count || 1}次</div>
+                                <div><strong>主诉:</strong> ${record.chief_complaint || '未记录'}</div>
+                                <div><strong>对话轮数:</strong> ${record.total_conversations || 0}轮</div>
+                            </div>
+                        </div>
+                        
+                        ${record.diagnosis_summary ? `
+                            <div style="background: #f0f9ff; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #3b82f6; font-size: 16px;">诊疗记录</h4>
+                                <div style="line-height: 1.6; color: #374151;">
+                                    <p style="margin-bottom: 12px;"><strong>诊断摘要:</strong> ${record.diagnosis_summary}</p>
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${record.prescription_given && record.prescription_given !== '未开方' ? `
+                            <div style="background: #f0f9ff; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #10b981; font-size: 16px;">处方内容</h4>
+                                <div style="background: white; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 14px; line-height: 1.5; white-space: pre-wrap; max-height: 200px; overflow-y: auto; border: 1px solid #d1d5db;">
+${record.prescription_given}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        <div style="background: #fefce8; border-radius: 12px; padding: 20px;">
+                            <h4 style="margin: 0 0 12px 0; color: #eab308; font-size: 16px;">对话状态</h4>
+                            <div style="display: flex; align-items: center;">
+                                <span style="padding: 6px 16px; background: ${record.session_status === 'completed' ? '#dcfce7' : '#fef3c7'}; color: ${record.session_status === 'completed' ? '#166534' : '#92400e'}; border-radius: 20px; font-size: 14px; font-weight: 500;">
+                                    ${record.session_status === 'completed' ? '已完成' : '进行中'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="padding: 20px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 12px;">
+                        <button onclick="closeRecordDetailModal()" style="padding: 10px 20px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer; color: #374151;">关闭</button>
+                        <button onclick="exportConversation('${record.session_id}')" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer;">📄 导出病历</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(detailModal);
+        }
+        
+        // 关闭记录详情模态框
+        function closeRecordDetailModal() {
+            const modal = document.getElementById('recordDetailModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        // 导出单个对话
+        async function exportConversation(sessionId) {
+            try {
+                const response = await fetch(`/api/user/conversation/${sessionId}/export`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `TCM_病历_${sessionId.slice(0,8)}_${new Date().toISOString().split('T')[0]}.html`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    // 关闭详情模态框
+                    closeRecordDetailModal();
+                    showMessage('导出成功', 'success');
+                } else {
+                    showMessage('导出失败，请重试', 'error');
+                }
+            } catch (error) {
+                console.error('导出失败:', error);
+                showMessage('导出失败，请检查网络连接', 'error');
+            }
+        }
+
+
+        // 移动端简化导航
         function showMobileNavigation() {
             const navigationHtml = `
                 <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;" onclick="this.remove()">
                     <div style="background: white; border-radius: 12px; padding: 20px; max-width: 90%; max-height: 80%; overflow-y: auto;" onclick="event.stopPropagation()">
                         <div style="text-align: center; font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #374151;">
-                            📱 系统页面导航
+                            📱 患者服务导航
                         </div>
                         
                         <div style="margin-bottom: 20px;">
-                            <div style="font-weight: 600; margin-bottom: 10px; color: #6b7280; font-size: 14px;">用户功能</div>
-                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/'); this.parentElement.parentElement.parentElement.remove();">🏠 主页 - AI中医问诊</button>
-                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/register'); this.parentElement.parentElement.parentElement.remove();">👤 用户注册</button>
-                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/phone-binding'); this.parentElement.parentElement.parentElement.remove();">📱 手机绑定</button>
-                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/history'); this.parentElement.parentElement.parentElement.remove();">📋 历史记录</button>
-                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/prescription/checker'); this.parentElement.parentElement.parentElement.remove();">🏥 智能处方检测</button>
-                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/prescription/learning'); this.parentElement.parentElement.parentElement.remove();">📚 处方学习案例</button>
-                        </div>
-                        
-                        <div style="margin-bottom: 20px;">
-                            <div style="font-weight: 600; margin-bottom: 10px; color: #6b7280; font-size: 14px;">医生功能</div>
-                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #e3f2fd; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/doctor/portal'); this.parentElement.parentElement.parentElement.remove();">👨‍⚕️ 医生门户</button>
-                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #e3f2fd; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/doctor/thinking-v2'); this.parentElement.parentElement.parentElement.remove();">🧠 医生思维录入 (推荐)</button>
-                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #e3f2fd; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/doctor/management'); this.parentElement.parentElement.parentElement.remove();">🔧 医生管理</button>
-                        </div>
-                        
-                        <div style="margin-bottom: 15px;">
-                            <div style="font-weight: 600; margin-bottom: 10px; color: #6b7280; font-size: 14px;">系统管理</div>
-                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #fff3e0; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/system/monitor'); this.parentElement.parentElement.parentElement.remove();">🖥️ 系统性能与模块安全监控</button>
-                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #fff3e0; border: none; border-radius: 8px; text-align: left;" onclick="navigateToPage('/qr_gallery'); this.parentElement.parentElement.parentElement.remove();">📱 二维码画廊</button>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="window.open('/', '_blank'); this.parentElement.parentElement.parentElement.remove();">🏠 主页 - AI中医问诊</button>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="window.open('/nav', '_blank'); this.parentElement.parentElement.parentElement.remove();">👤 用户注册</button>
+                            <button style="display: block; width: 100%; padding: 12px; margin-bottom: 8px; background: #f8f9fa; border: none; border-radius: 8px; text-align: left;" onclick="window.open('/history', '_blank'); this.parentElement.parentElement.parentElement.remove();">📋 历史记录</button>
                         </div>
                         
                         <button style="width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 500;" onclick="this.parentElement.parentElement.remove()">关闭</button>
@@ -3063,7 +3687,7 @@ ${data.analysis_result}`;
         
         // 检测回复是否包含处方
         function containsPrescription(text) {
-            // 安全检查：确保text参数有效
+            // 防止undefined错误
             if (!text || typeof text !== 'string') {
                 console.warn('containsPrescription: 无效的文本参数', text);
                 return false;
@@ -3112,29 +3736,1981 @@ ${data.analysis_result}`;
         }
 
         async function submitFeedback(rating) {
-                        // 检查网络状态
+            // 检查网络状态
             if (!checkNetworkStatus()) {
-                sendBtn.disabled = false;
                 return;
             }
             
+            try {
+                const response = await fetch('/api/review/feedback', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        conversation_id: currentConversationId,
+                        doctor_id: selectedDoctor,
+                        rating: rating,
+                        feedback_type: 'consultation',
+                        user_id: currentUser ? currentUser.id : null,
+                        timestamp: new Date().toISOString()
+                    }),
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(`感谢您的${rating}星评价！`, 'success');
+                } else {
+                    console.error('反馈提交失败:', result.message);
+                }
+                
+            } catch (error) {
+                console.error('Error submitting feedback:', error);
+            }
+        }
+
+        // ===================== 认证系统 =====================
+        
+        // 页面加载时检查登录状态
+        document.addEventListener('DOMContentLoaded', function() {
+            checkLoginStatus();
+        });
+
+        // 检查登录状态
+        function checkLoginStatus() {
+            // 按角色检查token
+            const patientToken = localStorage.getItem('patientToken');
+            const doctorToken = localStorage.getItem('doctorToken');
+            const adminToken = localStorage.getItem('adminToken');
+            const userToken = localStorage.getItem('userToken');
+            
+            // 优先使用角色专用token，然后fallback到通用token
+            const token = patientToken || doctorToken || adminToken || userToken;
+            const userData = localStorage.getItem('userData');
+            
+            if (token) {
+                // 如果有token但没有用户数据，尝试验证token
+                if (!userData) {
+                    verifyTokenAndLoadUserData(token);
+                } else {
+                    try {
+                        currentUser = JSON.parse(userData);
+                        userToken = token;
+                        updateUserInterface(true);
+                    } catch (e) {
+                        console.error('用户数据解析失败:', e);
+                        verifyTokenAndLoadUserData(token);
+                    }
+                }
+            } else {
+                updateUserInterface(false);
+            }
+        }
+        
+        // 验证token并加载用户数据
+        async function verifyTokenAndLoadUserData(token) {
+            try {
+                const response = await fetch('/api/auth/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.user) {
+                        currentUser = data.user;
+                        userToken = token;
+                        localStorage.setItem('userData', JSON.stringify(currentUser));
+                        updateUserInterface(true);
+                        return;
+                    }
+                }
+                
+                // token无效，清除数据
+                clearUserData();
+            } catch (error) {
+                console.error('验证token失败:', error);
+                clearUserData();
+            }
+        }
+
+        // 更新用户界面
+        function updateUserInterface(isLoggedIn) {
+            const authButtons = document.getElementById('authButtons');
+            const userInfo = document.getElementById('userInfo');
+            const userAvatar = document.getElementById('userAvatar');
+            const userName = document.getElementById('userName');
+            
+            if (isLoggedIn && currentUser) {
+                authButtons.style.display = 'none';
+                userInfo.style.display = 'flex';
+                
+                // 处理用户显示名称
+                let displayName = '用户';
+                if (currentUser.username) {
+                    displayName = currentUser.username;
+                } else if (currentUser.name) {
+                    displayName = currentUser.name;
+                } else if (currentUser.phone) {
+                    displayName = currentUser.phone;
+                } else if (currentUser.user_id) {
+                    // 将user_id转换为友好的显示名称
+                    if (currentUser.user_id.includes('patient')) {
+                        displayName = '患者用户';
+                    } else if (currentUser.user_id.includes('doctor')) {
+                        displayName = '医生用户';
+                    } else if (currentUser.user_id.includes('admin')) {
+                        displayName = '管理员';
+                    } else {
+                        displayName = currentUser.user_id;
+                    }
+                }
+                
+                userName.textContent = displayName;
+                userAvatar.textContent = displayName.charAt(0).toUpperCase();
+                
+                console.log('用户界面更新:', {
+                    isLoggedIn,
+                    currentUser,
+                    displayName
+                });
+            } else {
+                authButtons.style.display = 'flex';
+                userInfo.style.display = 'none';
+            }
+        }
+
+        // 显示登录模态框
+        function showLoginModal() {
+            const modal = document.getElementById('loginModal');
+            modal.style.display = 'flex';
+            
+            // 清空表单
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginError').style.display = 'none';
+        }
+
+        // 隐藏登录模态框
+        function hideLoginModal() {
+            const modal = document.getElementById('loginModal');
+            modal.style.display = 'none';
+        }
+
+        // 执行登录
+        async function performLogin() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            const errorDiv = document.getElementById('loginError');
+            
+            if (!username || !password) {
+                errorDiv.textContent = '请输入用户名和密码';
+                errorDiv.style.display = 'block';
+                return;
+            }
             
             try {
-                await fetch('/submit_feedback', {
+                const response = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        conversation_id: currentConversationId,
-                        rating: rating,
-                        timestamp: new Date().toISOString()
-                    }),
+                        username: username,
+                        password: password
+                    })
                 });
+                
+                const result = await response.json();
+                
+                if (result.success && result.user) {
+                    // 登录成功
+                    currentUser = result.user;
+                    userToken = result.token;
+                    
+                    // 保存到localStorage
+                    localStorage.setItem('userData', JSON.stringify(currentUser));
+                    localStorage.setItem('userToken', userToken);
+                    
+                    // 更新界面
+                    updateUserInterface(true);
+                    hideLoginModal();
+                    
+                    // 显示欢迎消息
+                    const welcomeName = currentUser.username || currentUser.name || currentUser.phone || '用户';
+                    showMessage(`欢迎回来，${welcomeName}！`, 'success');
+                    
+                } else {
+                    errorDiv.textContent = result.message || '登录失败，请检查用户名和密码';
+                    errorDiv.style.display = 'block';
+                }
             } catch (error) {
-                console.error('Error submitting feedback:', error);
+                console.error('登录请求失败:', error);
+                errorDiv.textContent = '网络错误，请检查网络连接';
+                errorDiv.style.display = 'block';
             }
         }
+
+        // 退出登录
+        function logout() {
+            currentUser = null;
+            userToken = null;
+            
+            // 清除localStorage
+            clearUserData();
+            
+            // 更新界面
+            updateUserInterface(false);
+            
+            // 显示退出消息
+            showMessage('已安全退出登录', 'info');
+        }
+
+        // 清除用户数据
+        function clearUserData() {
+            localStorage.removeItem('userData');
+            localStorage.removeItem('userToken');
+        }
+
+        // 显示消息提示
+        function showMessage(message, type = 'info') {
+            // 创建消息提示元素
+            const messageDiv = document.createElement('div');
+            messageDiv.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 8px;
+                color: white;
+                font-size: 14px;
+                z-index: 10000;
+                animation: slideInRight 0.3s ease-out;
+            `;
+            
+            // 根据类型设置颜色
+            switch (type) {
+                case 'success':
+                    messageDiv.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                    break;
+                case 'error':
+                    messageDiv.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                    break;
+                case 'info':
+                default:
+                    messageDiv.style.background = 'linear-gradient(135deg, #3b82f6, #2563eb)';
+                    break;
+            }
+            
+            messageDiv.textContent = message;
+            document.body.appendChild(messageDiv);
+            
+            // 3秒后自动移除
+            setTimeout(() => {
+                messageDiv.style.animation = 'slideOutRight 0.3s ease-out';
+                setTimeout(() => {
+                    if (messageDiv.parentNode) {
+                        messageDiv.parentNode.removeChild(messageDiv);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // 获取认证头
+        function getAuthHeaders() {
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            
+            if (userToken) {
+                headers['Authorization'] = `Bearer ${userToken}`;
+            }
+            
+            return headers;
+        }
+
+        // ===================== 认证系统结束 =====================
+
+        // ===================== 处方管理系统 =====================
+        
+        // 从对话历史中提取症状和诊断信息
+        function extractConversationSummary() {
+            const container = document.getElementById('messagesContainer');
+            let symptoms = '';
+            let diagnosis = '';
+            
+            if (container) {
+                const messages = container.querySelectorAll('.message');
+                const userMessages = [];
+                const aiMessages = [];
+                
+                messages.forEach(messageEl => {
+                    const textEl = messageEl.querySelector('.message-text');
+                    if (textEl) {
+                        const content = textEl.textContent.trim();
+                        if (messageEl.classList.contains('user')) {
+                            userMessages.push(content);
+                        } else if (messageEl.classList.contains('ai')) {
+                            aiMessages.push(content);
+                        }
+                    }
+                });
+                
+                // 提取用户描述的症状
+                symptoms = userMessages.join(' | ').substring(0, 500); // 限制长度
+                
+                // 提取AI的诊断信息
+                const lastAiMessage = aiMessages[aiMessages.length - 1] || '';
+                if (lastAiMessage.includes('证候') || lastAiMessage.includes('诊断')) {
+                    diagnosis = lastAiMessage.substring(0, 300); // 提取诊断信息
+                }
+            }
+            
+            return {
+                symptoms: symptoms || '患者症状描述',
+                diagnosis: diagnosis || 'AI中医诊断'
+            };
+        }
+        
+        // 确认处方并支付
+        async function confirmPrescription(encodedPrescription) {
+            try {
+                const prescriptionContent = decodeURIComponent(atob(encodedPrescription));
+                
+                // 检查是否已登录
+                if (!currentUser || !userToken) {
+                    showMessage('请先登录后再确认处方', 'error');
+                    showLoginModal();
+                    return;
+                }
+                
+                // 创建处方确认模态框
+                showPrescriptionConfirmModal(prescriptionContent);
+                
+            } catch (error) {
+                console.error('处方确认失败:', error);
+                showMessage('处方数据解析失败', 'error');
+            }
+        }
+
+        // 显示处方确认模态框
+        function showPrescriptionConfirmModal(prescriptionContent) {
+            // 检查是否已存在模态框
+            let modal = document.getElementById('prescriptionModal');
+            if (!modal) {
+                // 创建处方确认模态框
+                modal = document.createElement('div');
+                modal.id = 'prescriptionModal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1001;
+                `;
+                
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 16px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 24px; border-radius: 16px 16px 0 0;">
+                            <h3 style="margin: 0; font-size: 20px; font-weight: 600;">📋 处方确认</h3>
+                        </div>
+                        <div style="padding: 24px;">
+                            <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 20px; border-left: 4px solid #3b82f6;">
+                                <h4 style="margin: 0 0 12px 0; color: #374151;">处方内容：</h4>
+                                <div id="prescriptionContent" style="font-family: monospace; white-space: pre-wrap; line-height: 1.6; color: #1f2937;"></div>
+                            </div>
+                            
+                            <div style="background: #fef3c7; border-radius: 8px; padding: 16px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
+                                <h4 style="margin: 0 0 12px 0; color: #92400e;">⚠️ 重要提醒：</h4>
+                                <ul style="margin: 0; padding-left: 20px; color: #92400e; font-size: 14px;">
+                                    <li>此为AI生成的建议处方，仅供参考</li>
+                                    <li>确认处方将进入支付流程，支付后可联系代煎服务</li>
+                                    <li>建议在专业医生指导下使用</li>
+                                    <li>如有不适，请立即停药并就医</li>
+                                </ul>
+                            </div>
+                            
+                            <div style="background: #e0f2fe; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                                <h4 style="margin: 0 0 12px 0; color: #0277bd;">💰 费用说明：</h4>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <span>处方费用：</span>
+                                    <span style="font-weight: bold;">¥ 50.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <span>代煎费用：</span>
+                                    <span style="font-weight: bold;">¥ 30.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid #b3e5fc;">
+                                    <span style="font-weight: bold;">总计：</span>
+                                    <span style="font-weight: bold; color: #0277bd; font-size: 18px;">¥ 80.00</span>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; gap: 12px;">
+                                <button onclick="hidePrescriptionModal()" style="flex: 1; padding: 12px; border: 1px solid #d1d5db; background: #f9fafb; color: #374151; border-radius: 8px; cursor: pointer;">
+                                    取消
+                                </button>
+                                <button onclick="proceedToPayment()" style="flex: 1; padding: 12px; border: none; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                                    确认并支付 ¥80.00
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+            }
+            
+            // 更新处方内容
+            const contentDiv = modal.querySelector('#prescriptionContent');
+            contentDiv.textContent = prescriptionContent;
+            
+            // 显示模态框
+            modal.style.display = 'flex';
+        }
+
+        // 隐藏处方确认模态框
+        function hidePrescriptionModal() {
+            const modal = document.getElementById('prescriptionModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // 进入支付流程
+        async function proceedToPayment() {
+            try {
+                // 获取处方内容
+                const prescriptionContent = document.getElementById('prescriptionContent').textContent;
+                
+                // 确保用户信息存在
+                if (!currentUser) {
+                    showMessage('用户信息缺失，请重新登录', 'error');
+                    return;
+                }
+                
+                // 从对话历史中提取症状和诊断信息
+                const conversationSummary = extractConversationSummary();
+                
+                // 准备请求数据
+                const requestData = {
+                    patient_id: currentUser.id || currentUser.user_id || 'guest',
+                    conversation_id: currentConversationId || generateConversationId(),
+                    patient_name: currentUser.username || currentUser.name || '患者',
+                    patient_phone: currentUser.phone || '',
+                    symptoms: conversationSummary.symptoms,
+                    diagnosis: conversationSummary.diagnosis,
+                    ai_prescription: prescriptionContent
+                };
+                
+                // 调试信息
+                console.log('发送处方创建请求:', requestData);
+                console.log('认证头:', getAuthHeaders());
+                
+                // 按照后端API格式发送数据
+                const response = await fetch('/api/prescription/create', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(requestData)
+                });
+                
+                // 检查响应状态
+                console.log('响应状态:', response.status, response.statusText);
+                
+                const result = await response.json();
+                
+                // 调试信息
+                console.log('处方创建响应:', result);
+                
+                if (result.success && result.prescription_id) {
+                    // 处方创建成功，进入支付流程
+                    hidePrescriptionModal();
+                    showPaymentModal(result.prescription_id, 80.00);
+                } else {
+                    // 显示详细错误信息
+                    const errorMsg = result.message || result.detail || '处方创建失败';
+                    console.error('处方创建失败:', result);
+                    showMessage(errorMsg, 'error');
+                }
+                
+            } catch (error) {
+                console.error('支付流程启动失败:', error);
+                // 检查是否是网络错误
+                if (error instanceof TypeError && error.message.includes('fetch')) {
+                    showMessage('网络连接失败，请检查网络状态', 'error');
+                } else {
+                    showMessage(`服务暂时不可用: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // 咨询专业医生
+        function consultDoctor() {
+            if (!currentUser) {
+                showMessage('请先登录后再咨询医生', 'error');
+                showLoginModal();
+                return;
+            }
+            
+            // 获取当前处方内容
+            const prescriptionElement = document.querySelector('.prescription-content');
+            const prescriptionContent = prescriptionElement ? prescriptionElement.textContent : '';
+            
+            if (!prescriptionContent) {
+                showMessage('请先生成处方后再咨询医生', 'error');
+                return;
+            }
+            
+            // 显示医生咨询对话框
+            showDoctorConsultationModal(prescriptionContent);
+        }
+        
+        // 显示医生咨询对话框
+        function showDoctorConsultationModal(prescriptionContent) {
+            // 创建医生咨询模态框
+            let modal = document.getElementById('doctorConsultationModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'doctorConsultationModal';
+                modal.innerHTML = `
+                    <div class="modal-overlay" onclick="hideDoctorConsultationModal()">
+                        <div class="modal-content doctor-consultation-modal" onclick="event.stopPropagation()">
+                            <div class="modal-header">
+                                <h3>💬 咨询专业医生</h3>
+                                <button class="close-btn" onclick="hideDoctorConsultationModal()">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="consultation-info">
+                                    <p>您可以就以下AI生成的处方咨询我们的专业中医师：</p>
+                                    <div class="prescription-preview">
+                                        ${prescriptionContent}
+                                    </div>
+                                </div>
+                                <div class="doctor-list">
+                                    <h4>选择咨询医生：</h4>
+                                    <div class="available-doctors">
+                                        <div class="doctor-card" onclick="startConsultation('张医生', 'zhangyi')">
+                                            <div class="doctor-avatar">张</div>
+                                            <div class="doctor-info">
+                                                <div class="doctor-name">张医生</div>
+                                                <div class="doctor-specialty">中医内科 • 在线</div>
+                                                <div class="doctor-experience">20年经验</div>
+                                            </div>
+                                            <div class="consult-btn">💬 咨询</div>
+                                        </div>
+                                        <div class="doctor-card" onclick="startConsultation('李医生', 'liwang')">
+                                            <div class="doctor-avatar">李</div>
+                                            <div class="doctor-info">
+                                                <div class="doctor-name">李医生</div>
+                                                <div class="doctor-specialty">中医妇科 • 在线</div>
+                                                <div class="doctor-experience">15年经验</div>
+                                            </div>
+                                            <div class="consult-btn">💬 咨询</div>
+                                        </div>
+                                        <div class="doctor-card" onclick="startConsultation('王医生', 'wanglin')">
+                                            <div class="doctor-avatar">王</div>
+                                            <div class="doctor-info">
+                                                <div class="doctor-name">王医生</div>
+                                                <div class="doctor-specialty">中医儿科 • 在线</div>
+                                                <div class="doctor-experience">18年经验</div>
+                                            </div>
+                                            <div class="consult-btn">💬 咨询</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="consultation-notice">
+                                    <p><strong>💡 咨询说明：</strong></p>
+                                    <ul>
+                                        <li>专业医生将为您解答处方相关问题</li>
+                                        <li>可以询问药材功效、用法用量等</li>
+                                        <li>医生会根据您的具体情况调整处方</li>
+                                        <li>咨询费用：50元/次，约15分钟</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-secondary" onclick="hideDoctorConsultationModal()">
+                                    取消
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                
+                // 添加样式
+                if (!document.getElementById('doctorConsultationStyles')) {
+                    const styles = document.createElement('style');
+                    styles.id = 'doctorConsultationStyles';
+                    styles.innerHTML = `
+                        .doctor-consultation-modal {
+                            width: 90%;
+                            max-width: 600px;
+                            max-height: 80vh;
+                            overflow-y: auto;
+                        }
+                        .prescription-preview {
+                            background: #f8f9fa;
+                            border: 1px solid #e9ecef;
+                            border-radius: 8px;
+                            padding: 15px;
+                            margin: 10px 0;
+                            font-size: 14px;
+                            line-height: 1.6;
+                            max-height: 150px;
+                            overflow-y: auto;
+                        }
+                        .available-doctors {
+                            display: grid;
+                            gap: 10px;
+                            margin-top: 10px;
+                        }
+                        .doctor-card {
+                            display: flex;
+                            align-items: center;
+                            padding: 15px;
+                            border: 2px solid #e9ecef;
+                            border-radius: 12px;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            background: white;
+                        }
+                        .doctor-card:hover {
+                            border-color: #10b981;
+                            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+                            transform: translateY(-2px);
+                        }
+                        .doctor-avatar {
+                            width: 50px;
+                            height: 50px;
+                            border-radius: 50%;
+                            background: linear-gradient(135deg, #10b981, #059669);
+                            color: white;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-weight: bold;
+                            font-size: 18px;
+                            margin-right: 15px;
+                        }
+                        .doctor-info {
+                            flex: 1;
+                        }
+                        .doctor-name {
+                            font-weight: 600;
+                            font-size: 16px;
+                            margin-bottom: 4px;
+                        }
+                        .doctor-specialty {
+                            color: #10b981;
+                            font-size: 14px;
+                            margin-bottom: 2px;
+                        }
+                        .doctor-experience {
+                            color: #6b7280;
+                            font-size: 12px;
+                        }
+                        .consult-btn {
+                            background: linear-gradient(135deg, #10b981, #059669);
+                            color: white;
+                            padding: 8px 16px;
+                            border-radius: 20px;
+                            font-size: 14px;
+                            font-weight: 500;
+                        }
+                        .consultation-notice {
+                            background: #f0f9ff;
+                            border: 1px solid #bae6fd;
+                            border-radius: 8px;
+                            padding: 15px;
+                            margin-top: 20px;
+                        }
+                        .consultation-notice ul {
+                            margin: 8px 0 0 20px;
+                        }
+                        .consultation-notice li {
+                            margin-bottom: 4px;
+                            font-size: 14px;
+                        }
+                    `;
+                    document.head.appendChild(styles);
+                }
+            }
+            
+            modal.style.display = 'flex';
+            showMessage('请选择您想要咨询的医生', 'info');
+        }
+        
+        // 隐藏医生咨询对话框
+        function hideDoctorConsultationModal() {
+            const modal = document.getElementById('doctorConsultationModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // 开始与医生的咨询
+        function startConsultation(doctorName, doctorId) {
+            hideDoctorConsultationModal();
+            showMessage(`正在连接${doctorName}，请稍候...`, 'info');
+            
+            // 模拟连接医生
+            setTimeout(() => {
+                showMessage(`已成功连接${doctorName}！您可以开始咨询了`, 'success');
+                
+                // 这里可以集成真实的医生咨询系统
+                // 比如打开聊天窗口、WebSocket连接等
+                showDoctorChatInterface(doctorName, doctorId);
+            }, 2000);
+        }
+        
+        // 显示医生聊天界面（简化版本）
+        function showDoctorChatInterface(doctorName, doctorId) {
+            showMessage(`${doctorName}：您好！我已经看到您的处方，有什么问题可以随时问我。`, 'info');
+            
+            // 实际项目中这里应该集成真实的聊天系统
+            // 比如：
+            // - WebSocket实时通信
+            // - 聊天记录存储
+            // - 文件传输功能
+            // - 视频通话功能等
+        }
+
+        // 保存处方
+        async function savePrescription(encodedPrescription) {
+            try {
+                const prescriptionContent = decodeURIComponent(atob(encodedPrescription));
+                
+                if (!currentUser) {
+                    showMessage('请先登录后再保存处方', 'error');
+                    showLoginModal();
+                    return;
+                }
+                
+                const response = await fetch('/api/prescription/save', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        content: prescriptionContent,
+                        doctor_id: selectedDoctor,
+                        status: 'saved'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('处方已保存到您的病历记录中', 'success');
+                } else {
+                    showMessage(result.message || '处方保存失败', 'error');
+                }
+                
+            } catch (error) {
+                console.error('保存处方失败:', error);
+                showMessage('保存服务暂时不可用', 'error');
+            }
+        }
+
+        // 显示支付模态框
+        function showPaymentModal(prescriptionId, amount) {
+            // 检查是否已存在模态框
+            let modal = document.getElementById('paymentModal');
+            if (!modal) {
+                // 创建支付模态框
+                modal = document.createElement('div');
+                modal.id = 'paymentModal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1002;
+                `;
+                
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 16px; max-width: 400px; width: 90%;">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 24px; border-radius: 16px 16px 0 0; text-align: center;">
+                            <h3 style="margin: 0; font-size: 20px; font-weight: 600;">💳 选择支付方式</h3>
+                        </div>
+                        <div style="padding: 24px;">
+                            <div style="text-align: center; margin-bottom: 24px;">
+                                <div style="font-size: 32px; font-weight: bold; color: #3b82f6;">¥ ${amount.toFixed(2)}</div>
+                                <div style="font-size: 14px; color: #6b7280;">处方费用 + 代煎服务费</div>
+                            </div>
+                            
+                            <div style="margin-bottom: 24px;">
+                                <button onclick="payWithAlipay('${prescriptionId}', ${amount})" 
+                                        style="width: 100%; padding: 16px; border: 2px solid #1677ff; background: #f0f8ff; color: #1677ff; border-radius: 8px; font-size: 16px; font-weight: 500; cursor: pointer; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                    💙 支付宝支付
+                                </button>
+                                <button onclick="payWithWechat('${prescriptionId}', ${amount})" 
+                                        style="width: 100%; padding: 16px; border: 2px solid #07c160; background: #f0fff4; color: #07c160; border-radius: 8px; font-size: 16px; font-weight: 500; cursor: pointer; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                    💚 微信支付
+                                </button>
+                            </div>
+                            
+                            <div style="text-align: center;">
+                                <button onclick="hidePaymentModal()" 
+                                        style="color: #6b7280; background: none; border: none; cursor: pointer; text-decoration: underline; font-size: 14px;">
+                                    取消支付
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+            }
+            
+            // 显示模态框
+            modal.style.display = 'flex';
+        }
+
+        // 隐藏支付模态框
+        function hidePaymentModal() {
+            const modal = document.getElementById('paymentModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // 支付宝支付
+        async function payWithAlipay(prescriptionId, amount) {
+            try {
+                const response = await fetch('/api/payment/alipay/create', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        prescription_id: prescriptionId,
+                        amount: amount,
+                        payment_method: 'alipay'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    // 跳转到支付宝支付页面
+                    hidePaymentModal();
+                    showMessage('正在跳转到支付宝...', 'info');
+                    
+                    // 模拟支付跳转
+                    setTimeout(() => {
+                        window.open(result.data.payment_url || '#', '_blank');
+                        // 开始轮询支付状态
+                        pollPaymentStatus(result.data.payment_id);
+                    }, 1000);
+                } else {
+                    showMessage(result.message || '支付创建失败', 'error');
+                }
+                
+            } catch (error) {
+                console.error('支付宝支付失败:', error);
+                showMessage('支付服务暂时不可用', 'error');
+            }
+        }
+
+        // 微信支付
+        async function payWithWechat(prescriptionId, amount) {
+            try {
+                const response = await fetch('/api/payment/wechat/create', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        prescription_id: prescriptionId,
+                        amount: amount,
+                        payment_method: 'wechat'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    // 显示微信支付二维码
+                    hidePaymentModal();
+                    showWechatQRCode(result.data.qr_code, result.data.payment_id);
+                } else {
+                    showMessage(result.message || '支付创建失败', 'error');
+                }
+                
+            } catch (error) {
+                console.error('微信支付失败:', error);
+                showMessage('支付服务暂时不可用', 'error');
+            }
+        }
+
+        // 显示微信支付二维码
+        function showWechatQRCode(qrCode, paymentId) {
+            let modal = document.getElementById('wechatQRModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'wechatQRModal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1003;
+                `;
+                
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 16px; padding: 32px; text-align: center; max-width: 350px;">
+                        <h3 style="margin: 0 0 20px 0; color: #07c160;">💚 微信支付</h3>
+                        <div style="background: #f5f5f5; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                            <div style="font-size: 100px;">📱</div>
+                            <div style="margin-top: 12px; color: #666; font-size: 14px;">请使用微信扫描二维码支付</div>
+                        </div>
+                        <div style="color: #666; font-size: 12px; margin-bottom: 20px;">
+                            支付完成后页面将自动更新
+                        </div>
+                        <button onclick="hideWechatQRModal()" 
+                                style="padding: 8px 20px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 6px; cursor: pointer;">
+                            取消支付
+                        </button>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+            }
+            
+            // 显示模态框并开始轮询支付状态
+            modal.style.display = 'flex';
+            pollPaymentStatus(paymentId);
+        }
+
+        // 隐藏微信支付二维码
+        function hideWechatQRModal() {
+            const modal = document.getElementById('wechatQRModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // 轮询支付状态
+        async function pollPaymentStatus(paymentId) {
+            const maxAttempts = 60; // 最多轮询60次 (5分钟)
+            let attempts = 0;
+            
+            const poll = async () => {
+                try {
+                    const response = await fetch(`/api/payment/status/${paymentId}`, {
+                        headers: getAuthHeaders()
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success && result.data) {
+                        if (result.data.status === 'paid') {
+                            // 支付成功
+                            hideWechatQRModal();
+                            hidePaymentModal();
+                            showMessage('支付成功！您的处方已确认', 'success');
+                            
+                            // 显示代煎服务信息
+                            setTimeout(() => {
+                                showDecorationInfo(result.data.prescription_id);
+                            }, 2000);
+                            
+                            return;
+                        } else if (result.data.status === 'failed' || result.data.status === 'cancelled') {
+                            // 支付失败
+                            hideWechatQRModal();
+                            hidePaymentModal();
+                            showMessage('支付失败，请重试', 'error');
+                            return;
+                        }
+                    }
+                    
+                    // 继续轮询
+                    attempts++;
+                    if (attempts < maxAttempts) {
+                        setTimeout(poll, 5000); // 5秒后再次轮询
+                    } else {
+                        // 超时
+                        hideWechatQRModal();
+                        hidePaymentModal();
+                        showMessage('支付超时，请重试', 'error');
+                    }
+                    
+                } catch (error) {
+                    console.error('支付状态查询失败:', error);
+                    attempts++;
+                    if (attempts < maxAttempts) {
+                        setTimeout(poll, 5000);
+                    }
+                }
+            };
+            
+            // 开始轮询
+            poll();
+        }
+
+        // 显示代煎服务信息
+        function showDecorationInfo(prescriptionId) {
+            showMessage('代煎服务已启动，我们将在24小时内联系您安排配送', 'success');
+            
+            // 可以在这里添加更多代煎服务的详细信息
+            // 例如跳转到订单页面等
+        }
+
+        // ===================== 处方管理系统结束 =====================
+
+        // ===================== 医疗安全保障系统 =====================
+        
+        // 检查消息中的医疗安全问题
+        function checkMedicalSafety(content) {
+            const warnings = [];
+            
+            // 防止undefined错误
+            if (!content || typeof content !== 'string') {
+                console.warn('checkMedicalSafety: 无效的内容参数', content);
+                return warnings;
+            }
+            
+            // 检查西药相关内容
+            const westernMedicineKeywords = ['阿司匹林', '感冒灵', '抗生素', '青霉素', '头孢', '布洛芬', '对乙酰氨基酚'];
+            for (const keyword of westernMedicineKeywords) {
+                if (content.includes(keyword)) {
+                    warnings.push({
+                        type: 'western_medicine',
+                        message: `检测到西药成分"${keyword}"，本系统仅提供中医诊疗建议`
+                    });
+                }
+            }
+            
+            // 检查危险症状
+            const dangerousSymptoms = ['胸痛', '呼吸困难', '意识模糊', '大出血', '高热不退', '剧烈腹痛'];
+            for (const symptom of dangerousSymptoms) {
+                if (content.includes(symptom)) {
+                    warnings.push({
+                        type: 'emergency',
+                        message: `"${symptom}"可能为急症，建议立即就医`
+                    });
+                }
+            }
+            
+            // 检查孕妇禁用药材
+            const pregnancyForbidden = ['红花', '桃仁', '牛膝', '大黄', '芒硝', '附子', '肉桂'];
+            if (content.includes('孕妇') || content.includes('怀孕')) {
+                for (const herb of pregnancyForbidden) {
+                    if (content.includes(herb)) {
+                        warnings.push({
+                            type: 'pregnancy_risk',
+                            message: `"${herb}"孕妇禁用，请谨慎使用`
+                        });
+                    }
+                }
+            }
+            
+            return warnings;
+        }
+
+        // 显示医疗安全警告
+        function showMedicalWarnings(warnings) {
+            if (warnings.length === 0) return;
+            
+            const warningContainer = document.createElement('div');
+            warningContainer.style.cssText = `
+                position: fixed;
+                top: 100px;
+                right: 20px;
+                max-width: 300px;
+                z-index: 10001;
+                animation: slideInRight 0.3s ease-out;
+            `;
+            
+            warnings.forEach((warning, index) => {
+                const warningDiv = document.createElement('div');
+                warningDiv.style.cssText = `
+                    background: linear-gradient(135deg, #ef4444, #dc2626);
+                    color: white;
+                    padding: 12px 16px;
+                    border-radius: 8px;
+                    margin-bottom: 8px;
+                    font-size: 13px;
+                    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+                `;
+                
+                warningDiv.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <span>⚠️</span>
+                        <strong>医疗安全提醒</strong>
+                    </div>
+                    <div>${warning.message}</div>
+                `;
+                
+                warningContainer.appendChild(warningDiv);
+                
+                // 自动移除警告
+                setTimeout(() => {
+                    if (warningDiv.parentNode) {
+                        warningDiv.style.animation = 'slideOutRight 0.3s ease-out';
+                        setTimeout(() => {
+                            if (warningDiv.parentNode) {
+                                warningDiv.parentNode.removeChild(warningDiv);
+                            }
+                        }, 300);
+                    }
+                }, 8000 + index * 1000); // 错开移除时间
+            });
+            
+            document.body.appendChild(warningContainer);
+            
+            // 容器自清理
+            setTimeout(() => {
+                if (warningContainer.parentNode && warningContainer.children.length === 0) {
+                    warningContainer.parentNode.removeChild(warningContainer);
+                }
+            }, 15000);
+        }
+
+        // 记录安全事件
+        async function logSecurityEvent(eventType, content, details = {}) {
+            try {
+                const response = await fetch('/api/security/log-event', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        event_type: eventType,
+                        content: content,
+                        details: details,
+                        user_id: currentUser ? currentUser.id : null,
+                        conversation_id: currentConversationId,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                
+                const result = await response.json();
+                if (!result.success) {
+                    console.error('安全事件记录失败:', result.message);
+                }
+                
+            } catch (error) {
+                console.error('安全事件记录失败:', error);
+            }
+        }
+
+        // 检查症状编造
+        function detectSymptomFabrication(userInput, aiResponse) {
+            // 防止undefined错误
+            if (!userInput || typeof userInput !== 'string' || !aiResponse || typeof aiResponse !== 'string') {
+                console.warn('detectSymptomFabrication: 无效的参数', {userInput, aiResponse});
+                return;
+            }
+            
+            // 检查AI是否添加了用户未提及的症状（智能检测）
+            const userSymptoms = extractSymptomsFromText(userInput);
+            const aiSymptoms = extractSymptomsFromText(aiResponse);
+            
+            // 使用智能关联性检查，过滤掉医学上合理的症状
+            const fabricatedSymptoms = aiSymptoms.filter(symptom => 
+                !isSymptomsRelated(userSymptoms, symptom)
+            );
+            
+            // 只有当AI添加了明显不相关的症状时才报警
+            if (fabricatedSymptoms.length > 0 && userSymptoms.length > 0) {
+                // 计算编造症状的比例，避免误报
+                const fabricationRatio = fabricatedSymptoms.length / aiSymptoms.length;
+                
+                // 只有当编造比例超过50%且用户明确描述了症状时才报警
+                if (fabricationRatio > 0.5) {
+                    logSecurityEvent('symptom_fabrication', aiResponse, {
+                        user_symptoms: userSymptoms,
+                        ai_symptoms: aiSymptoms,
+                        fabricated: fabricatedSymptoms,
+                        fabrication_ratio: fabricationRatio
+                    });
+                    
+                    showMedicalWarnings([{
+                        type: 'symptom_fabrication',
+                        message: `AI可能添加了您未描述的症状，请核实: ${fabricatedSymptoms.join(', ')}`
+                    }]);
+                }
+            }
+        }
+
+        // 增强版本的消息发送，添加安全检查
+        const originalSendMessage = sendMessage;
+        sendMessage = async function() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            // 检查用户输入的安全性
+            const userWarnings = checkMedicalSafety(message);
+            if (userWarnings.length > 0) {
+                showMedicalWarnings(userWarnings);
+                // 记录安全事件
+                userWarnings.forEach(warning => {
+                    logSecurityEvent(warning.type, message, warning);
+                });
+            }
+            
+            // 调用原始发送函数
+            return originalSendMessage.call(this);
+        };
+
+        // ===================== 医疗安全保障系统结束 =====================
+
+        // ===================== 随访提醒系统 =====================
+        
+        // 页面加载时检查随访提醒
+        document.addEventListener('DOMContentLoaded', function() {
+            checkFollowUpReminders();
+        });
+
+        // 检查随访提醒
+        async function checkFollowUpReminders() {
+            if (!currentUser || !userToken) return;
+            
+            try {
+                const response = await fetch('/api/follow-up/reminders', {
+                    headers: getAuthHeaders()
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.data && result.data.length > 0) {
+                    // 显示随访提醒
+                    showFollowUpReminders(result.data);
+                }
+                
+            } catch (error) {
+                console.error('获取随访提醒失败:', error);
+            }
+        }
+
+        // 显示随访提醒
+        function showFollowUpReminders(reminders) {
+            // 检查是否已显示过提醒
+            const today = new Date().toDateString();
+            const shownToday = localStorage.getItem(`followup_shown_${today}`);
+            
+            if (shownToday) return;
+            
+            const reminderContainer = document.createElement('div');
+            reminderContainer.id = 'followUpContainer';
+            reminderContainer.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                max-width: 350px;
+                z-index: 10002;
+                animation: slideInRight 0.3s ease-out;
+            `;
+            
+            reminderContainer.innerHTML = `
+                <div style="background: linear-gradient(135deg, #10b981, #059669); color: white; border-radius: 12px; padding: 16px; box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3); margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 20px;">🔔</span>
+                            <strong style="font-size: 16px;">随访提醒</strong>
+                        </div>
+                        <button onclick="dismissFollowUpReminders()" style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 16px;">×</button>
+                    </div>
+                    
+                    <div style="font-size: 14px; line-height: 1.5; margin-bottom: 12px;">
+                        您有 <strong>${reminders.length}</strong> 条随访提醒
+                    </div>
+                    
+                    <div style="max-height: 200px; overflow-y: auto;">
+                        ${reminders.slice(0, 3).map(reminder => `
+                            <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; margin-bottom: 8px; font-size: 13px;">
+                                <div style="font-weight: 500; margin-bottom: 4px;">${reminder.title}</div>
+                                <div style="opacity: 0.9;">${reminder.message}</div>
+                                <div style="font-size: 11px; opacity: 0.8; margin-top: 6px;">
+                                    ${new Date(reminder.scheduled_date).toLocaleDateString()}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                        <button onclick="viewAllFollowUps()" style="flex: 1; background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                            查看全部
+                        </button>
+                        <button onclick="scheduleFollowUp()" style="flex: 1; background: white; border: none; color: #059669; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;">
+                            新建随访
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(reminderContainer);
+            
+            // 标记今天已显示
+            localStorage.setItem(`followup_shown_${today}`, 'true');
+            
+            // 10秒后自动隐藏
+            setTimeout(() => {
+                dismissFollowUpReminders();
+            }, 10000);
+        }
+
+        // 关闭随访提醒
+        function dismissFollowUpReminders() {
+            const container = document.getElementById('followUpContainer');
+            if (container) {
+                container.style.animation = 'slideOutRight 0.3s ease-out';
+                setTimeout(() => {
+                    if (container.parentNode) {
+                        container.parentNode.removeChild(container);
+                    }
+                }, 300);
+            }
+        }
+
+        // 查看所有随访
+        function viewAllFollowUps() {
+            dismissFollowUpReminders();
+            showFollowUpModal();
+        }
+
+        // 显示随访管理模态框
+        async function showFollowUpModal() {
+            try {
+                const response = await fetch('/api/follow-up/list', {
+                    headers: getAuthHeaders()
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    showMessage('获取随访记录失败', 'error');
+                    return;
+                }
+                
+                createFollowUpModal(result.data || []);
+                
+            } catch (error) {
+                console.error('获取随访记录失败:', error);
+                showMessage('服务暂时不可用', 'error');
+            }
+        }
+
+        // 创建随访管理模态框
+        function createFollowUpModal(followUps) {
+            let modal = document.getElementById('followUpModal');
+            if (modal) {
+                modal.remove();
+            }
+            
+            modal = document.createElement('div');
+            modal.id = 'followUpModal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1005;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; max-width: 700px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+                    <div style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 20px 24px; border-radius: 16px 16px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-size: 20px; font-weight: 600;">🔔 随访管理</h3>
+                        <button onclick="hideFollowUpModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">×</button>
+                    </div>
+                    <div style="padding: 24px; flex: 1; overflow-y: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <div style="display: flex; gap: 12px;">
+                                <button onclick="showActiveFollowUps()" id="activeFollowUpsBtn" style="padding: 8px 16px; border: 2px solid #10b981; background: #10b981; color: white; border-radius: 20px; cursor: pointer; font-size: 13px;">
+                                    待随访
+                                </button>
+                                <button onclick="showCompletedFollowUps()" id="completedFollowUpsBtn" style="padding: 8px 16px; border: 2px solid #10b981; background: white; color: #10b981; border-radius: 20px; cursor: pointer; font-size: 13px;">
+                                    已完成
+                                </button>
+                            </div>
+                            <button onclick="scheduleNewFollowUp()" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;">
+                                + 新建随访
+                            </button>
+                        </div>
+                        
+                        <div id="followUpContainer">
+                            ${followUps.length > 0 ? generateFollowUpHTML(followUps) : '<div style="text-align: center; color: #6b7280; padding: 40px;">暂无随访记录</div>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        // 生成随访记录HTML
+        function generateFollowUpHTML(followUps) {
+            return followUps.map(followUp => `
+                <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 12px; background: white;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div>
+                            <h4 style="margin: 0; color: #1f2937; font-size: 16px;">${followUp.title}</h4>
+                            <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px;">随访时间: ${new Date(followUp.scheduled_date).toLocaleString()}</p>
+                        </div>
+                        <span style="padding: 4px 12px; background: ${followUp.status === 'completed' ? '#dcfce7' : followUp.status === 'overdue' ? '#fee2e2' : '#fef3c7'}; color: ${followUp.status === 'completed' ? '#166534' : followUp.status === 'overdue' ? '#dc2626' : '#92400e'}; border-radius: 12px; font-size: 12px;">
+                            ${followUp.status === 'completed' ? '已完成' : followUp.status === 'overdue' ? '已逾期' : '待随访'}
+                        </span>
+                    </div>
+                    
+                    <div style="margin-bottom: 12px; font-size: 14px; color: #374151;">
+                        ${followUp.message}
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px;">
+                        ${followUp.status === 'pending' ? `
+                            <button onclick="completeFollowUp('${followUp.id}')" style="padding: 6px 12px; background: #dcfce7; border: 1px solid #10b981; border-radius: 6px; font-size: 12px; cursor: pointer; color: #059669;">
+                                标记完成
+                            </button>
+                            <button onclick="postponeFollowUp('${followUp.id}')" style="padding: 6px 12px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; font-size: 12px; cursor: pointer; color: #d97706;">
+                                延期随访
+                            </button>
+                        ` : ''}
+                        <button onclick="viewFollowUpDetail('${followUp.id}')" style="padding: 6px 12px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; cursor: pointer; color: #374151;">
+                            查看详情
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 隐藏随访模态框
+        function hideFollowUpModal() {
+            const modal = document.getElementById('followUpModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        // 新建随访
+        function scheduleFollowUp() {
+            dismissFollowUpReminders();
+            scheduleNewFollowUp();
+        }
+
+        // 安排新随访
+        function scheduleNewFollowUp() {
+            // 简化版新建随访对话框
+            const title = prompt('请输入随访标题:', '药物疗效跟踪');
+            if (!title) return;
+            
+            const days = prompt('几天后随访? (输入天数)', '7');
+            if (!days || isNaN(days)) return;
+            
+            const message = prompt('随访提醒内容:', '请问用药后症状是否有所改善？是否有不适反应？');
+            if (!message) return;
+            
+            createFollowUpReminder(title, parseInt(days), message);
+        }
+
+        // 创建随访提醒
+        async function createFollowUpReminder(title, days, message) {
+            try {
+                const response = await fetch('/api/follow-up/create', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        title: title,
+                        message: message,
+                        days_after: days,
+                        doctor_id: selectedDoctor,
+                        related_consultation_id: currentConversationId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(`随访提醒已设置，将在${days}天后提醒`, 'success');
+                    // 如果随访模态框打开，刷新内容
+                    const modal = document.getElementById('followUpModal');
+                    if (modal) {
+                        showFollowUpModal(); // 重新加载
+                    }
+                } else {
+                    showMessage(result.message || '设置随访提醒失败', 'error');
+                }
+                
+            } catch (error) {
+                console.error('创建随访提醒失败:', error);
+                showMessage('服务暂时不可用', 'error');
+            }
+        }
+
+        // 完成随访
+        async function completeFollowUp(followUpId) {
+            try {
+                const response = await fetch(`/api/follow-up/${followUpId}/complete`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('随访已标记完成', 'success');
+                    showFollowUpModal(); // 刷新列表
+                } else {
+                    showMessage(result.message || '操作失败', 'error');
+                }
+                
+            } catch (error) {
+                console.error('完成随访失败:', error);
+                showMessage('服务暂时不可用', 'error');
+            }
+        }
+
+        // 延期随访
+        async function postponeFollowUp(followUpId) {
+            const days = prompt('延期几天?', '3');
+            if (!days || isNaN(days)) return;
+            
+            try {
+                const response = await fetch(`/api/follow-up/${followUpId}/postpone`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        postpone_days: parseInt(days)
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(`随访已延期${days}天`, 'success');
+                    showFollowUpModal(); // 刷新列表
+                } else {
+                    showMessage(result.message || '延期失败', 'error');
+                }
+                
+            } catch (error) {
+                console.error('延期随访失败:', error);
+                showMessage('服务暂时不可用', 'error');
+            }
+        }
+
+        // 查看随访详情
+        function viewFollowUpDetail(followUpId) {
+            showMessage('随访详情功能开发中...', 'info');
+        }
+
+        // 显示待随访
+        async function showActiveFollowUps() {
+            updateFollowUpFilter('active');
+            const response = await fetch('/api/follow-up/list?status=pending', {
+                headers: getAuthHeaders()
+            });
+            const result = await response.json();
+            updateFollowUpContainer(result.data || []);
+        }
+
+        // 显示已完成随访
+        async function showCompletedFollowUps() {
+            updateFollowUpFilter('completed');
+            const response = await fetch('/api/follow-up/list?status=completed', {
+                headers: getAuthHeaders()
+            });
+            const result = await response.json();
+            updateFollowUpContainer(result.data || []);
+        }
+
+        // 更新随访过滤器样式
+        function updateFollowUpFilter(type) {
+            const buttons = ['activeFollowUpsBtn', 'completedFollowUpsBtn'];
+            buttons.forEach(btnId => {
+                const btn = document.getElementById(btnId);
+                if (btn) {
+                    if ((type === 'active' && btnId === 'activeFollowUpsBtn') ||
+                        (type === 'completed' && btnId === 'completedFollowUpsBtn')) {
+                        btn.style.background = '#10b981';
+                        btn.style.color = 'white';
+                    } else {
+                        btn.style.background = 'white';
+                        btn.style.color = '#10b981';
+                    }
+                }
+            });
+        }
+
+        // 更新随访容器
+        function updateFollowUpContainer(followUps) {
+            const container = document.getElementById('followUpContainer');
+            if (container) {
+                container.innerHTML = followUps.length > 0 ? generateFollowUpHTML(followUps) : '<div style="text-align: center; color: #6b7280; padding: 40px;">暂无相关记录</div>';
+            }
+        }
+
+        // ===================== 随访提醒系统结束 =====================
+
+        // ===================== 多设备会话同步系统 =====================
+        
+        let syncInterval = null;
+        let lastSyncTime = 0;
+        let isInitialSync = true;
+        
+        // 页面加载时启动同步
+        document.addEventListener('DOMContentLoaded', function() {
+            if (currentUser && userToken) {
+                startSessionSync();
+            }
+        });
+
+        // 启动会话同步
+        function startSessionSync() {
+            if (!currentUser || !userToken) return;
+            
+            // 首次同步
+            syncSessionFromServer();
+            
+            // 设置定期同步 (每30秒)
+            if (syncInterval) {
+                clearInterval(syncInterval);
+            }
+            
+            syncInterval = setInterval(() => {
+                syncSessionFromServer();
+            }, 30000); // 30秒同步一次
+            
+            // 页面可见性变化时同步
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden && currentUser) {
+                    syncSessionFromServer();
+                }
+            });
+        }
+
+        // 停止会话同步
+        function stopSessionSync() {
+            if (syncInterval) {
+                clearInterval(syncInterval);
+                syncInterval = null;
+            }
+        }
+
+        // 从服务器同步会话状态
+        async function syncSessionFromServer() {
+            try {
+                const response = await fetch('/api/session/sync', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        conversation_id: currentConversationId,
+                        doctor_id: selectedDoctor,
+                        last_sync_time: lastSyncTime,
+                        device_info: getDeviceInfo()
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    handleSyncData(result.data);
+                    lastSyncTime = Date.now();
+                }
+                
+            } catch (error) {
+                console.error('会话同步失败:', error);
+            }
+        }
+
+        // 处理同步数据
+        function handleSyncData(syncData) {
+            // 检查是否有新消息
+            if (syncData.new_messages && syncData.new_messages.length > 0) {
+                syncData.new_messages.forEach(message => {
+                    if (isInitialSync) return; // 首次同步不显示通知
+                    
+                    // 添加同步的消息到界面
+                    addSyncedMessage(message);
+                });
+                
+                // 显示同步通知
+                if (!isInitialSync && syncData.new_messages.length > 0) {
+                    showSyncNotification(`同步了${syncData.new_messages.length}条新消息`);
+                }
+            }
+            
+            // 同步医生选择
+            if (syncData.selected_doctor && syncData.selected_doctor !== selectedDoctor) {
+                if (!isInitialSync) {
+                    showSyncNotification(`已切换到${getDoctorName(syncData.selected_doctor)}`);
+                }
+                selectedDoctor = syncData.selected_doctor;
+                updateDoctorSelection();
+            }
+            
+            // 同步对话ID
+            if (syncData.conversation_id && syncData.conversation_id !== currentConversationId) {
+                currentConversationId = syncData.conversation_id;
+                localStorage.setItem('currentConversationId', currentConversationId);
+            }
+            
+            isInitialSync = false;
+        }
+
+        // 添加同步的消息
+        function addSyncedMessage(message) {
+            const container = document.getElementById('messagesContainer');
+            if (!container) return;
+            
+            // 检查消息是否已存在
+            const existingMessages = container.querySelectorAll('.message');
+            const messageExists = Array.from(existingMessages).some(msgEl => {
+                const timeEl = msgEl.querySelector('.message-time');
+                const textEl = msgEl.querySelector('.message-text');
+                return timeEl && textEl && 
+                       timeEl.textContent === message.time && 
+                       textEl.textContent.trim() === message.content.trim();
+            });
+            
+            if (!messageExists) {
+                addMessageWithTime(message.sender, message.content, message.time, message.show_feedback);
+            }
+        }
+
+        // 获取设备信息
+        function getDeviceInfo() {
+            return {
+                user_agent: navigator.userAgent,
+                screen_resolution: `${screen.width}x${screen.height}`,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                language: navigator.language,
+                device_type: window.innerWidth <= 768 ? 'mobile' : 'desktop'
+            };
+        }
+
+        // 获取医生名称
+        function getDoctorName(doctorId) {
+            return doctors[doctorId] ? doctors[doctorId].name : '医生';
+        }
+
+        // 显示同步通知
+        function showSyncNotification(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 13px;
+                z-index: 10003;
+                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+                animation: syncNotification 3s ease-out forwards;
+            `;
+            
+            notification.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 12px;">🔄</span>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // 3秒后移除
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+
+        // 同步当前状态到服务器
+        async function syncSessionToServer() {
+            if (!currentUser || !userToken) return;
+            
+            try {
+                // 获取当前所有消息
+                const messages = [];
+                const container = document.getElementById('messagesContainer');
+                if (container) {
+                    container.querySelectorAll('.message').forEach(messageEl => {
+                        const isUser = messageEl.classList.contains('user');
+                        const textEl = messageEl.querySelector('.message-text');
+                        const timeEl = messageEl.querySelector('.message-time');
+                        
+                        if (textEl && timeEl) {
+                            messages.push({
+                                sender: isUser ? 'user' : 'ai',
+                                content: textEl.textContent.trim(),
+                                time: timeEl.textContent,
+                                timestamp: Date.now()
+                            });
+                        }
+                    });
+                }
+                
+                const response = await fetch('/api/session/update', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        conversation_id: currentConversationId,
+                        doctor_id: selectedDoctor,
+                        messages: messages,
+                        device_info: getDeviceInfo(),
+                        sync_time: Date.now()
+                    })
+                });
+                
+                const result = await response.json();
+                if (!result.success) {
+                    console.error('会话状态上传失败:', result.message);
+                }
+                
+            } catch (error) {
+                console.error('会话状态上传失败:', error);
+            }
+        }
+
+        // 增强医生选择，添加同步功能
+        const originalSelectDoctor = selectDoctor;
+        selectDoctor = function(doctorId) {
+            originalSelectDoctor.call(this, doctorId);
+            
+            // 同步医生选择到服务器
+            if (currentUser && userToken) {
+                syncSessionToServer();
+            }
+        };
+
+        // 增强消息发送，添加同步功能
+        const originalAddMessage = addMessage;
+        addMessage = function(sender, content, showFeedback = false) {
+            originalAddMessage.call(this, sender, content, showFeedback);
+            
+            // 同步新消息到服务器
+            if (currentUser && userToken) {
+                setTimeout(() => {
+                    syncSessionToServer();
+                }, 500); // 延迟500ms确保DOM更新完成
+            }
+        };
+
+        // 登录时启动同步
+        const originalUpdateUserInterface = updateUserInterface;
+        updateUserInterface = function(isLoggedIn) {
+            originalUpdateUserInterface.call(this, isLoggedIn);
+            
+            if (isLoggedIn && currentUser) {
+                startSessionSync();
+            } else {
+                stopSessionSync();
+            }
+        };
+
+        // 页面卸载时停止同步
+        window.addEventListener('beforeunload', function() {
+            stopSessionSync();
+            // 最后一次同步
+            if (currentUser && userToken) {
+                syncSessionToServer();
+            }
+        });
+
+        // 添加CSS动画
+        const syncAnimationCSS = `
+            @keyframes syncNotification {
+                0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+                10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                90% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+            }
+        `;
+        
+        // 添加样式到页面
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = syncAnimationCSS;
+        document.head.appendChild(styleSheet);
+
+        // 显示同步状态指示器
+        function createSyncIndicator() {
+            const indicator = document.createElement('div');
+            indicator.id = 'syncIndicator';
+            indicator.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background: #10b981;
+                box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+                z-index: 10004;
+                animation: pulse 2s infinite;
+                display: none;
+            `;
+            
+            // 添加脉冲动画
+            const pulseCSS = `
+                @keyframes pulse {
+                    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+                    70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+                }
+            `;
+            
+            if (!document.getElementById('pulseStyle')) {
+                const pulseStyle = document.createElement('style');
+                pulseStyle.id = 'pulseStyle';
+                pulseStyle.textContent = pulseCSS;
+                document.head.appendChild(pulseStyle);
+            }
+            
+            document.body.appendChild(indicator);
+            
+            // 鼠标悬停显示提示
+            indicator.title = '多设备同步已启用';
+            
+            return indicator;
+        }
+
+        // 显示/隐藏同步指示器
+        function showSyncIndicator() {
+            let indicator = document.getElementById('syncIndicator');
+            if (!indicator) {
+                indicator = createSyncIndicator();
+            }
+            indicator.style.display = 'block';
+        }
+
+        function hideSyncIndicator() {
+            const indicator = document.getElementById('syncIndicator');
+            if (indicator) {
+                indicator.style.display = 'none';
+            }
+        }
+
+        // 在用户登录时显示同步指示器
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                if (currentUser && userToken) {
+                    showSyncIndicator();
+                }
+            }, 1000);
+        });
+
+        // ===================== 多设备会话同步系统结束 =====================
 
         // 历史记录管理系统
         function saveCurrentDoctorHistory() {
@@ -3374,15 +5950,22 @@ ${data.analysis_result}`;
             }
         }
 
-        // 移动端医生选择
-        function selectMobileDoctor(doctorKey) {
+        // 移动端医生选择（支持默认医生和推荐医生）
+        function selectMobileDoctor(doctorKey, doctorData = null) {
             // 保存当前医生的对话历史
             if (selectedDoctor && selectedDoctor !== doctorKey) {
                 saveCurrentDoctorHistory();
             }
             
             selectedDoctor = doctorKey;
-            const doctor = doctors[doctorKey];
+            
+            // 获取医生信息（优先使用传入的doctorData，然后是默认doctors对象）
+            const doctor = doctorData || doctors[doctorKey] || {
+                name: '医生',
+                school: '中医师', 
+                avatar: '👨‍⚕️',
+                specialty: '中医内科'
+            };
             
             // 更新移动端医生信息
             document.getElementById('mobileDoctorAvatar').textContent = doctor.avatar;
@@ -3402,22 +5985,53 @@ ${data.analysis_result}`;
             setTimeout(() => ensureMobileInputVisible(), 500);
         }
 
-        // 移动端渲染医生卡片
-        function renderMobileDoctorCards() {
+        // 移动端渲染医生卡片（支持默认医生和推荐医生）
+        function renderMobileDoctorCards(useRecommended = false) {
             const container = document.getElementById('mobileDoctorsGrid');
             container.innerHTML = '';
+            
+            let doctorsToRender = {};
+            
+            if (useRecommended && recommendedDoctors.length > 0) {
+                // 使用推荐医生，转换为移动端格式
+                recommendedDoctors.forEach(doctor => {
+                    const doctorId = doctor.uuid || doctor.name.toLowerCase().replace(/\s+/g, '_');
+                    doctorsToRender[doctorId] = {
+                        name: doctor.name,
+                        school: doctor.title || '中医师',
+                        avatar: getAvatarForDoctor(doctor.name),
+                        specialty: doctor.specialties.join(', ') || '中医内科',
+                        introduction: doctor.introduction || '',
+                        rating: doctor.average_rating,
+                        consultationCount: doctor.consultation_count
+                    };
+                });
+                isUsingRecommendedDoctors = true;
+            } else {
+                // 使用默认医生
+                doctorsToRender = doctors;
+                isUsingRecommendedDoctors = false;
+            }
 
-            Object.entries(doctors).forEach(([key, doctor]) => {
+            Object.entries(doctorsToRender).forEach(([key, doctor]) => {
                 const card = document.createElement('div');
                 card.className = 'mobile-doctor-card';
-                card.onclick = () => selectMobileDoctor(key);
+                card.onclick = () => selectMobileDoctor(key, doctor);
+                
+                // 添加推荐标识和评分信息
+                const recommendationBadge = isUsingRecommendedDoctors ? 
+                    `<div style="background: #10b981; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 4px; display: inline-block;">AI推荐</div>` : '';
+                
+                const ratingInfo = doctor.rating ? 
+                    `<div style="font-size: 11px; color: #f59e0b; margin-top: 2px;">⭐ ${doctor.rating.toFixed(1)} (${doctor.consultationCount || 0}例)</div>` : '';
                 
                 card.innerHTML = `
                     <div class="mobile-doctor-info">
                         <div class="mobile-doctor-avatar">${doctor.avatar}</div>
                         <div class="mobile-doctor-details">
-                            <h3>${doctor.name}</h3>
+                            <h3>${doctor.name} ${recommendationBadge}</h3>
                             <div class="school">${doctor.school}</div>
+                            ${ratingInfo}
                         </div>
                     </div>
                     <div class="mobile-doctor-specialty">
@@ -3427,6 +6041,34 @@ ${data.analysis_result}`;
                 
                 container.appendChild(card);
             });
+            
+            // 添加移动端切换按钮
+            addMobileDoctorToggleButton(container);
+        }
+
+        // 添加移动端医生切换按钮
+        function addMobileDoctorToggleButton(container) {
+            const toggleButton = document.createElement('div');
+            toggleButton.style.cssText = `
+                margin: 10px 16px; 
+                text-align: center; 
+                padding: 12px;
+                background: #f3f4f6; 
+                border-radius: 8px; 
+                cursor: pointer;
+                font-size: 14px;
+                color: #374151;
+                transition: all 0.2s;
+                font-weight: 500;
+            `;
+            toggleButton.innerHTML = isUsingRecommendedDoctors ? 
+                '🔄 切换到经典名医' : '🤖 使用AI推荐医生';
+                
+            toggleButton.onclick = () => {
+                renderMobileDoctorCards(!isUsingRecommendedDoctors);
+            };
+            
+            container.appendChild(toggleButton);
         }
 
         // 移动端添加消息
@@ -3566,10 +6208,20 @@ ${data.analysis_result}`;
                     loadingMsg.remove();
                 }
                 
-                if (data.reply) {
+                // 处理新的API响应格式 (移动端)
+                let aiReply;
+                if (data.success && data.data && data.data.reply) {
+                    aiReply = data.data.reply;
+                } else if (data.reply) {
+                    aiReply = data.reply; // 兼容旧格式
+                } else {
+                    throw new Error('API响应格式错误: 未找到reply字段');
+                }
+                
+                if (aiReply) {
                     // 智能判断是否显示评价系统 - 只有包含处方时才显示
-                    const shouldShowFeedback = containsPrescription(data.reply);
-                    addMobileMessage('ai', data.reply, shouldShowFeedback);
+                    const shouldShowFeedback = containsPrescription(aiReply);
+                    addMobileMessage('ai', aiReply, shouldShowFeedback);
                     
                     // 记录诊断阶段
                     if (shouldShowFeedback) {
@@ -4114,6 +6766,32 @@ ${data.analysis_result}`;
             <div class="upload-status-mobile" id="mobileUploadStatus">
                 <div class="mobile-status-item" id="mobileTongueStatus">👅 舌诊: <span>未上传</span></div>
                 <div class="mobile-status-item" id="mobileFaceStatus">😊 面诊: <span>未上传</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录模态框 -->
+    <div id="loginModal" class="login-modal">
+        <div class="login-modal-content">
+            <div class="login-header">
+                <h3>用户登录</h3>
+            </div>
+            <div class="login-form">
+                <div class="form-group">
+                    <label class="form-label">用户名/手机号</label>
+                    <input type="text" id="loginUsername" class="form-input" placeholder="请输入用户名或手机号">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" id="loginPassword" class="form-input" placeholder="请输入密码">
+                </div>
+                <div class="error-message" id="loginError">
+                    登录失败，请检查用户名和密码
+                </div>
+                <div class="login-buttons">
+                    <button class="login-btn secondary" onclick="hideLoginModal()">取消</button>
+                    <button class="login-btn primary" onclick="performLogin()">登录</button>
+                </div>
             </div>
         </div>
     </div>
