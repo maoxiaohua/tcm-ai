@@ -1974,8 +1974,9 @@
         });
 
         function initializeApp() {
+            generateConversationId();
             renderDoctorCards();
-            loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
+            loadConversationHistory();
             
             // 设置默认医生 - 张仲景（最全面的医师）
             setDefaultDoctor('zhang_zhongjing');
@@ -2025,83 +2026,13 @@
             loadDoctorHistory(doctorKey);
         }
 
-        // 生成对话ID - 按用户类型隔离
+        // 生成对话ID
         function generateConversationId() {
-            // 获取页面类型来区分用户会话
-            const pageType = getPageType();
-            const userId = getCurrentUserId();
-            
-            // 生成基础UUID
-            const baseId = 'xxxx-xxxx-4xxx-yxxx-xxxx'.replace(/[xy]/g, function(c) {
+            currentConversationId = 'xxxx-xxxx-4xxx-yxxx-xxxx'.replace(/[xy]/g, function(c) {
                 var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
                 return v.toString(16);
             });
-            
-            // 为不同用户类型添加前缀，确保隔离
-            currentConversationId = `${pageType}-${userId}-${baseId}`;
-            
-            // 使用带用户标识的key存储，避免跨用户污染
-            const storageKey = `conversationId_${pageType}_${userId}`;
-            localStorage.setItem(storageKey, currentConversationId);
-        }
-        
-        // 获取页面类型
-        function getPageType() {
-            const path = window.location.pathname;
-            if (path.includes('/smart')) {
-                return 'smart_workflow';
-            } else {
-                return 'guest_portal';
-            }
-        }
-        
-        // 获取当前用户ID
-        function getCurrentUserId() {
-            // 尝试从多个来源获取用户ID
-            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-            if (currentUser.id || currentUser.user_id) {
-                return currentUser.id || currentUser.user_id;
-            }
-            
-            // 智能工作流程页面的用户
-            const smartUser = localStorage.getItem('currentUserId');
-            if (smartUser) {
-                return smartUser;
-            }
-            
-            // 游客用户 - 生成唯一标识
-            const guestId = localStorage.getItem('guestUserId');
-            if (guestId) {
-                return guestId;
-            }
-            
-            // 生成新的游客ID
-            const newGuestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('guestUserId', newGuestId);
-            return newGuestId;
-        }
-        
-        // 调试功能：清除当前页面类型的对话数据
-        function clearCurrentPageConversation() {
-            const pageType = getPageType();
-            const userId = getCurrentUserId();
-            const storageKey = `conversationId_${pageType}_${userId}`;
-            
-            localStorage.removeItem(storageKey);
-            
-            // 清空当前对话
-            currentConversationId = '';
-            
-            // 清空消息容器
-            const messagesContainer = document.getElementById('messagesContainer');
-            if (messagesContainer) {
-                messagesContainer.innerHTML = '';
-            }
-            
-            // 重新生成新的对话ID
-            generateConversationId();
-            
-            console.log(`已清除${pageType}用户(${userId})的对话数据，新对话ID: ${currentConversationId}`);
+            localStorage.setItem('currentConversationId', currentConversationId);
         }
 
         // 全局变量：推荐医生列表
@@ -5991,21 +5922,11 @@ ${data.analysis_result}`;
             container.scrollTop = container.scrollHeight;
         }
         
-        // 加载对话历史 - 按用户类型隔离
+        // 加载对话历史
         function loadConversationHistory() {
-            const pageType = getPageType();
-            const userId = getCurrentUserId();
-            const storageKey = `conversationId_${pageType}_${userId}`;
-            
-            // 尝试加载当前用户类型的对话ID
-            const storedId = localStorage.getItem(storageKey);
+            const storedId = localStorage.getItem('currentConversationId');
             if (storedId) {
                 currentConversationId = storedId;
-                console.log(`已加载${pageType}用户(${userId})的对话ID: ${currentConversationId}`);
-            } else {
-                // 如果没有存储的ID，生成新的
-                generateConversationId();
-                console.log(`为${pageType}用户(${userId})生成新对话ID: ${currentConversationId}`);
             }
             
             // 如果有选中的医生，加载该医生的历史记录
