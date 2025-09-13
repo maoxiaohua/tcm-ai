@@ -3811,10 +3811,10 @@ ${data.analysis_result}`;
             const patientToken = localStorage.getItem('patientToken');
             const doctorToken = localStorage.getItem('doctorToken');
             const adminToken = localStorage.getItem('adminToken');
-            const userToken = localStorage.getItem('userToken');
+            const storedUserToken = localStorage.getItem('userToken');
             
             // 优先使用角色专用token，然后fallback到通用token
-            const token = patientToken || doctorToken || adminToken || userToken;
+            const token = patientToken || doctorToken || adminToken || storedUserToken;
             const userData = localStorage.getItem('userData');
             
             if (token) {
@@ -5434,8 +5434,12 @@ ${data.analysis_result}`;
             }
         }
 
-        // 从服务器同步会话状态
+        // 从服务器同步会话状态 - 暂时禁用，API不存在
         async function syncSessionFromServer() {
+            // 暂时禁用多设备同步功能
+            // TODO: 实现 /api/session/sync 接口后启用
+            return;
+            
             try {
                 const response = await fetch('/api/session/sync', {
                     method: 'POST',
@@ -5489,7 +5493,9 @@ ${data.analysis_result}`;
             // 同步对话ID
             if (syncData.conversation_id && syncData.conversation_id !== currentConversationId) {
                 currentConversationId = syncData.conversation_id;
-                localStorage.setItem('currentConversationId', currentConversationId);
+                const userId = getCurrentUserId();
+                const storageKey = `conversationId_${userId}`;
+                localStorage.setItem(storageKey, currentConversationId);
             }
             
             isInitialSync = false;
