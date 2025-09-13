@@ -1973,7 +1973,27 @@
             initializeApp();
         });
 
+        // 清理旧的localStorage数据，确保数据隔离
+        function cleanupOldUserData() {
+            // 清理旧格式的历史记录（不含用户ID的）
+            const keys = Object.keys(localStorage);
+            const oldHistoryKeys = keys.filter(key => 
+                key.startsWith('tcm_doctor_history_') && 
+                !key.includes('guest_portal_') && 
+                !key.includes('smart_user_') &&
+                !key.match(/tcm_doctor_history_[\w\-]+_[\w\-]+/)  // 不匹配新格式 userId_doctorId
+            );
+            
+            oldHistoryKeys.forEach(key => {
+                localStorage.removeItem(key);
+                console.log('智能工作流页面已清理旧历史记录:', key);
+            });
+        }
+
         function initializeApp() {
+            // 首先清理旧数据，确保数据隔离
+            cleanupOldUserData();
+            
             renderDoctorCards();
             loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
             
@@ -2041,28 +2061,29 @@
         
         // 获取当前用户ID
         function getCurrentUserId() {
-            // 尝试从多个来源获取用户ID
+            // 🚨 重要：智能工作流页面(index_smart_workflow.html)只使用登录用户数据
+            // 这确保与游客页面的数据完全隔离
+            
+            // 优先使用登录用户信息
             const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
             if (currentUser.id || currentUser.user_id) {
-                return currentUser.id || currentUser.user_id;
+                const userId = currentUser.id || currentUser.user_id;
+                console.log('智能工作流页面使用登录用户ID:', userId);
+                return userId;
             }
             
-            // 智能工作流程页面的用户
+            // 智能工作流程页面的专用用户ID
             const smartUser = localStorage.getItem('currentUserId');
             if (smartUser) {
+                console.log('智能工作流页面使用存储用户ID:', smartUser);
                 return smartUser;
             }
             
-            // 游客用户 - 生成唯一标识
-            const guestId = localStorage.getItem('guestUserId');
-            if (guestId) {
-                return guestId;
-            }
-            
-            // 生成新的游客ID
-            const newGuestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('guestUserId', newGuestId);
-            return newGuestId;
+            // 如果没有登录用户，生成智能工作流专用ID
+            const newSmartId = 'smart_user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('currentUserId', newSmartId);
+            console.log('智能工作流页面生成新用户ID:', newSmartId);
+            return newSmartId;
         }
 
         // 全局变量：推荐医生列表
@@ -3183,7 +3204,8 @@ ${record.prescription_given}
             if (choice) {
                 // 用户选择清空当前医生的历史记录
                 if (selectedDoctor) {
-                    const historyKey = `tcm_doctor_history_${selectedDoctor}`;
+                    const userId = getCurrentUserId();
+                    const historyKey = `tcm_doctor_history_${userId}_${selectedDoctor}`;
                     localStorage.removeItem(historyKey);
                     console.log(`已清空${selectedDoctor}医生的历史记录`);
                 }
@@ -5792,7 +5814,8 @@ ${data.analysis_result}`;
                 const trimmedMessages = messages.slice(-maxMessages);
                 
                 // 保存到localStorage
-                const historyKey = `tcm_doctor_history_${selectedDoctor}`;
+                const userId = getCurrentUserId();
+                const historyKey = `tcm_doctor_history_${userId}_${selectedDoctor}`;
                 const dataToSave = JSON.stringify({
                     messages: trimmedMessages,
                     lastUpdated: new Date().toISOString(),
@@ -5834,7 +5857,8 @@ ${data.analysis_result}`;
                     // 重试保存（只保存最近的消息）
                     try {
                         const recentMessages = messages.slice(-20);
-                        const historyKey = `tcm_doctor_history_${selectedDoctor}`;
+                        const userId = getCurrentUserId();
+                        const historyKey = `tcm_doctor_history_${userId}_${selectedDoctor}`;
                         localStorage.setItem(historyKey, JSON.stringify({
                             messages: recentMessages,
                             lastUpdated: new Date().toISOString(),
@@ -5850,7 +5874,8 @@ ${data.analysis_result}`;
         }
         
         function loadDoctorHistory(doctorKey) {
-            const historyKey = `tcm_doctor_history_${doctorKey}`;
+            const userId = getCurrentUserId();
+            const historyKey = `tcm_doctor_history_${userId}_${doctorKey}`;
             const storedHistory = localStorage.getItem(historyKey);
             
             // 检测当前是移动端还是PC端
@@ -6644,7 +6669,8 @@ ${data.analysis_result}`;
         function cleanOldHistoryRecords() {
             try {
                 const keys = Object.keys(localStorage);
-                const historyKeys = keys.filter(key => key.startsWith('tcm_doctor_history_'));
+                const userId = getCurrentUserId();
+                const historyKeys = keys.filter(key => key.startsWith(`tcm_doctor_history_${userId}_`));
                 
                 // 如果有超过10个医生的历史记录，清理最旧的
                 if (historyKeys.length > 10) {
@@ -6680,7 +6706,8 @@ ${data.analysis_result}`;
             console.log('屏幕尺寸:', window.innerWidth + 'x' + window.innerHeight);
             
             const keys = Object.keys(localStorage);
-            const historyKeys = keys.filter(key => key.startsWith('tcm_doctor_history_'));
+            const userId = getCurrentUserId();
+            const historyKeys = keys.filter(key => key.startsWith(`tcm_doctor_history_${userId}_`));
             console.log('历史记录数量:', historyKeys.length);
             
             historyKeys.forEach(key => {

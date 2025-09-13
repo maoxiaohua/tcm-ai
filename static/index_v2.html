@@ -1933,6 +1933,9 @@
         });
 
         function initializeApp() {
+            // 首先清理旧数据，确保数据隔离
+            cleanupOldUserData();
+            
             renderDoctorCards();
             loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
             
@@ -2011,28 +2014,46 @@
         
         // 获取当前用户ID
         function getCurrentUserId() {
-            // 尝试从多个来源获取用户ID
-            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-            if (currentUser.id || currentUser.user_id) {
-                return currentUser.id || currentUser.user_id;
-            }
+            // 🚨 重要：游客页面(index_v2.html)强制使用游客模式，不读取登录用户信息
+            // 这确保游客页面和登录页面的数据完全隔离
             
-            // 智能工作流程页面的用户
-            const smartUser = localStorage.getItem('currentUserId');
-            if (smartUser) {
-                return smartUser;
-            }
-            
-            // 游客用户 - 生成唯一标识
-            const guestId = localStorage.getItem('guestUserId');
+            // 游客用户 - 使用专用的游客ID存储键
+            const guestId = localStorage.getItem('guestPortalUserId');
             if (guestId) {
                 return guestId;
             }
             
-            // 生成新的游客ID
-            const newGuestId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('guestUserId', newGuestId);
+            // 生成新的游客ID，使用专用前缀区别于其他页面
+            const newGuestId = 'guest_portal_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('guestPortalUserId', newGuestId);
+            console.log('游客页面生成新用户ID:', newGuestId);
             return newGuestId;
+        }
+        
+        // 清理旧的localStorage数据，确保数据隔离
+        function cleanupOldUserData() {
+            // 清理可能存在的旧版本用户数据
+            const oldKeys = ['guestUserId', 'conversationId_maoxiaohua', 'conversationId_guest'];
+            oldKeys.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    console.log('已清理旧数据键:', key);
+                }
+            });
+            
+            // 清理旧格式的历史记录（不含用户ID的）
+            const keys = Object.keys(localStorage);
+            const oldHistoryKeys = keys.filter(key => 
+                key.startsWith('tcm_doctor_history_') && 
+                !key.includes('guest_portal_') && 
+                !key.includes('smart_user_') &&
+                !key.match(/tcm_doctor_history_[\w\-]+_[\w\-]+/)  // 不匹配新格式 userId_doctorId
+            );
+            
+            oldHistoryKeys.forEach(key => {
+                localStorage.removeItem(key);
+                console.log('已清理旧历史记录:', key);
+            });
         }
         
         // 调试功能：清除当前用户的对话数据
@@ -2592,7 +2613,8 @@
             if (choice) {
                 // 用户选择清空当前医生的历史记录
                 if (selectedDoctor) {
-                    const historyKey = `tcm_doctor_history_${selectedDoctor}`;
+                    const userId = getCurrentUserId();
+                    const historyKey = `tcm_doctor_history_${userId}_${selectedDoctor}`;
                     localStorage.removeItem(historyKey);
                     console.log(`已清空${selectedDoctor}医生的历史记录`);
                 }
@@ -3243,7 +3265,8 @@ ${data.analysis_result}`;
                 const trimmedMessages = messages.slice(-maxMessages);
                 
                 // 保存到localStorage
-                const historyKey = `tcm_doctor_history_${selectedDoctor}`;
+                const userId = getCurrentUserId();
+                const historyKey = `tcm_doctor_history_${userId}_${selectedDoctor}`;
                 const dataToSave = JSON.stringify({
                     messages: trimmedMessages,
                     lastUpdated: new Date().toISOString(),
@@ -3285,7 +3308,8 @@ ${data.analysis_result}`;
                     // 重试保存（只保存最近的消息）
                     try {
                         const recentMessages = messages.slice(-20);
-                        const historyKey = `tcm_doctor_history_${selectedDoctor}`;
+                        const userId = getCurrentUserId();
+                        const historyKey = `tcm_doctor_history_${userId}_${selectedDoctor}`;
                         localStorage.setItem(historyKey, JSON.stringify({
                             messages: recentMessages,
                             lastUpdated: new Date().toISOString(),
@@ -3301,7 +3325,8 @@ ${data.analysis_result}`;
         }
         
         function loadDoctorHistory(doctorKey) {
-            const historyKey = `tcm_doctor_history_${doctorKey}`;
+            const userId = getCurrentUserId();
+            const historyKey = `tcm_doctor_history_${userId}_${doctorKey}`;
             const storedHistory = localStorage.getItem(historyKey);
             
             // 检测当前是移动端还是PC端
@@ -4019,7 +4044,8 @@ ${data.analysis_result}`;
         function cleanOldHistoryRecords() {
             try {
                 const keys = Object.keys(localStorage);
-                const historyKeys = keys.filter(key => key.startsWith('tcm_doctor_history_'));
+                const userId = getCurrentUserId();
+                const historyKeys = keys.filter(key => key.startsWith(`tcm_doctor_history_${userId}_`));
                 
                 // 如果有超过10个医生的历史记录，清理最旧的
                 if (historyKeys.length > 10) {
@@ -4055,7 +4081,8 @@ ${data.analysis_result}`;
             console.log('屏幕尺寸:', window.innerWidth + 'x' + window.innerHeight);
             
             const keys = Object.keys(localStorage);
-            const historyKeys = keys.filter(key => key.startsWith('tcm_doctor_history_'));
+            const userId = getCurrentUserId();
+            const historyKeys = keys.filter(key => key.startsWith(`tcm_doctor_history_${userId}_`));
             console.log('历史记录数量:', historyKeys.length);
             
             historyKeys.forEach(key => {
