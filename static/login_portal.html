@@ -535,10 +535,10 @@
             document.getElementById('successMessage').style.display = 'none';
         }
 
-        // 页面初始化
+        // 页面初始化 - 重定向到新的统一认证页面
         document.addEventListener('DOMContentLoaded', function() {
-            updateDebugInfo('页面加载完成');
-            hideMessages();
+            updateDebugInfo('重定向到统一认证页面...');
+            window.location.replace('/static/auth_portal.html');
             
             // 为每个角色卡片添加事件监听
             ['guest', 'patient', 'doctor', 'admin'].forEach(role => {

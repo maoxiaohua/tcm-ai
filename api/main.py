@@ -1088,6 +1088,10 @@ from api.routes.decoction_routes import router as decoction_router
 from api.routes.auth_routes import router as auth_router
 from api.routes.doctor_decision_tree_routes import router as decision_tree_router
 from api.routes.symptom_analysis_routes import router as symptom_analysis_router
+from api.routes.doctor_matching_routes import router as doctor_matching_router
+from api.routes.review_routes import router as review_router
+from api.routes.unified_consultation_routes import router as unified_consultation_router
+from api.routes.database_management_routes import router as database_management_router
 import faiss
 
 # 导入智能缓存系统
@@ -1935,6 +1939,14 @@ app.include_router(payment_router)
 app.include_router(decoction_router)
 app.include_router(decision_tree_router)
 app.include_router(symptom_analysis_router)
+app.include_router(doctor_matching_router)
+app.include_router(review_router)
+app.include_router(unified_consultation_router)
+app.include_router(database_management_router)
+
+# 设置全局异常处理器
+from api.middleware.exception_handler import setup_exception_handlers
+setup_exception_handlers(app)
 
 # 保护现有API路由
 if SECURITY_AVAILABLE:
@@ -2148,11 +2160,8 @@ async def doctor_portal_direct():
     from fastapi.responses import FileResponse
     return FileResponse('/opt/tcm-ai/static/doctor_portal.html')
 
-@app.get("/register")
-async def register_page():
-    """用户注册页面"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/register.html')
+# 旧的独立注册页面路由已移除 - 统一使用 auth_portal.html
+# 所有注册功能现在通过 /register 自动重定向到注册标签页
 
 @app.get("/user_history")  
 async def user_history_page():
@@ -2557,717 +2566,20 @@ async def analyze_images_endpoint(
     logger.info(f"Image uploaded and saved for {conversation_id}, waiting for symptom description")
     return ImageAnalysisOutput(analysis_result=user_friendly_response)
 
-@app.post("/chat_with_ai_refactored", response_model=ChatMessageOutput) 
-async def chat_with_ai_endpoint_refactored(chat_input: ChatMessageInput, request: Request):
-    """重构后的对话接口 - 使用模块化处理器架构 (暂时禁用，导入问题待修复)"""
-    logger.info("="*50)
-    logger.info(f"Received chat request: '{chat_input.message}'")
-    
-    try:
-        # 初始化服务容器
-        import sys
-        import os
-        sys.path.append(os.path.dirname(__file__))
-        from services.llm_service_wrapper import LLMServiceWrapper, MultimodalServiceWrapper
-        
-        services_container = {
-            'db_manager': db,
-            'vector_store_service': vector_search if 'vector_search' in globals() else None,
-            'faiss_service': faiss_manager if 'faiss_manager' in globals() else None,
-            'multimodal_service': MultimodalServiceWrapper(AI_CONFIG),
-            'llm_service': LLMServiceWrapper(AI_CONFIG),
-            'config_manager': type('ConfigManager', (), {
-                'get_ai_config': lambda: AI_CONFIG
-            })(),
-            'cache_service': cache_system if CACHE_SYSTEM_AVAILABLE and 'cache_system' in globals() else None
-        }
-        
-        # 初始化聊天端点处理器
-        from processors.chat_endpoint_processor import ChatEndpointProcessor
-        chat_processor = ChatEndpointProcessor(services_container)
-        
-        # 生成用户ID（基于设备指纹或其他方式）
-        user_id = None
-        if USER_HISTORY_AVAILABLE:
-            try:
-                request_info = {
-                    'user_agent': request.headers.get('user-agent', ''),
-                    'client_ip': request.client.host,
-                    'accept_language': request.headers.get('accept-language', '')
-                }
-                device_fingerprint = user_history.generate_device_fingerprint(request_info)
-                user_id = user_history.register_or_get_user(device_fingerprint)
-            except Exception as e:
-                logger.warning(f"User ID generation failed: {e}")
-                user_id = f"anonymous_{hash(str(request.client.host))}"
-        else:
-            user_id = f"anonymous_{hash(str(request.client.host))}"
-        
-        # 处理待分析的图像（保持原有逻辑）
-        conversation_id = chat_input.conversation_id
-        current_chat_history = conversation_history_store.get(conversation_id) or load_conversation_history(conversation_id)
-        
-        # 检查待处理的图片
-        pending_image_analysis = None
-        has_pending_image = False
-        
-        for message in reversed(current_chat_history):
-            if (message.get("role") == "system" and 
-                message.get("image_pending") == True and 
-                "【待分析图像】" in message.get("content", "")):
-                
-                pending_image_analysis = message.get("content", "").replace("【待分析图像】", "")
-                has_pending_image = True
-                message["image_pending"] = False
-                message["content"] = f"【已分析图像】{pending_image_analysis}"
-                break
-        
-        # 构建用户输入
-        user_input = chat_input.message
-        if has_pending_image and pending_image_analysis:
-            user_input = f"{chat_input.message}\n\n【图像分析结果】\n{pending_image_analysis}"
-        
-        # 构建额外上下文
-        additional_context = {
-            'conversation_id': conversation_id,
-            'selected_doctor': chat_input.selected_doctor or "zhang_zhongjing",
-            'chat_history': current_chat_history,
-            'has_pending_image': has_pending_image
-        }
-        
-        # 调用新的模块化处理器
-        result = chat_processor.process_chat_request(
-            user_input=user_input,
-            user_id=user_id,
-            images=None,  # 图像已在上面处理过了
-            additional_context=additional_context
-        )
-        
-        if result['success']:
-            # 构建响应
-            ai_response = result['data']['response']
-            response_conversation_id = result['data']['conversation_id']
-            
-            # 更新对话历史（保持原有格式）
-            current_chat_history.append({
-                "role": "user",
-                "content": chat_input.message,
-                "timestamp": datetime.now().isoformat()
-            })
-            
-            current_chat_history.append({
-                "role": "assistant", 
-                "content": ai_response,
-                "timestamp": datetime.now().isoformat(),
-                "conversation_id": response_conversation_id,
-                "metadata": result['data'].get('metadata', {})
-            })
-            
-            # 保存对话历史
-            conversation_history_store[conversation_id] = current_chat_history
-            save_conversation_history(conversation_id, current_chat_history)
-            
-            # 记录用户历史
-            if USER_HISTORY_AVAILABLE and user_id:
-                try:
-                    user_history.add_conversation_exchange(
-                        user_id, 
-                        chat_input.message,
-                        ai_response,
-                        conversation_id=response_conversation_id
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to record user history: {e}")
-            
-            # 返回结果
-            return ChatMessageOutput(
-                message=ai_response,
-                conversation_id=conversation_id,
-                doctor_name=additional_context['selected_doctor'],
-                confidence_score=result['data'].get('confidence_score', 0.0),
-                processing_time=result['data'].get('processing_time', 0.0),
-                follow_up_questions=result['data'].get('follow_up_questions', [])
-            )
-            
-        else:
-            # 处理错误
-            error_message = f"处理失败: {result.get('error', '未知错误')}"
-            logger.error(error_message)
-            
-            return ChatMessageOutput(
-                message=error_message,
-                conversation_id=conversation_id,
-                doctor_name=additional_context['selected_doctor'],
-                confidence_score=0.0,
-                processing_time=0.0,
-                follow_up_questions=[]
-            )
-            
-    except Exception as e:
-        logger.error(f"Chat endpoint error: {e}")
-        error_response = f"系统处理出现异常: {str(e)}"
-        
-        return ChatMessageOutput(
-            message=error_response,
-            conversation_id=chat_input.conversation_id,
-            doctor_name=chat_input.selected_doctor or "zhang_zhongjing", 
-            confidence_score=0.0,
-            processing_time=0.0,
-            follow_up_questions=[]
-        )
-
-# 保留原有的chat_with_ai_endpoint_legacy作为备用
-@app.post("/chat_with_ai", response_model=ChatMessageOutput)
-async def chat_with_ai_endpoint(chat_input: ChatMessageInput, request: Request):
-    """原版对话接口 - 临时作为主端点"""
-    logger.info("="*50)
-    logger.info(f"Received legacy chat request: '{chat_input.message}'")
-    
-    conversation_id = chat_input.conversation_id
-    user_message_content = chat_input.message
-    current_chat_history = conversation_history_store.get(conversation_id) or load_conversation_history(conversation_id)
-    
-    # 用户历史系统处理
-    current_user_id = None
-    current_session_id = None
-    
-    if USER_HISTORY_AVAILABLE:
-        try:
-            # 生成设备指纹
-            request_info = {
-                'user_agent': request.headers.get('user-agent', ''),
-                'client_ip': request.client.host,
-                'accept_language': request.headers.get('accept-language', '')
-            }
-            device_fingerprint = user_history.generate_device_fingerprint(request_info)
-            
-            # 注册或获取用户
-            current_user_id = user_history.register_or_get_user(device_fingerprint)
-            
-            # 检查是否需要开始新的会话
-            if len(current_chat_history) <= 1:  # 新对话开始
-                selected_doctor = chat_input.selected_doctor or "zhang_zhongjing"
-                chief_complaint = user_message_content[:100]  # 取前100字符作为主诉
-                current_session_id = user_history.start_session(
-                    current_user_id, selected_doctor, chief_complaint
-                )
-                logger.info(f"Started new session: {current_session_id} for user: {current_user_id}")
-            
-        except Exception as e:
-            logger.warning(f"User history processing failed: {e}")
-            # 继续正常流程，不影响主要功能
-    
-    # 检查是否有待处理的图片，如果有则结合症状进行分析
-    pending_image_analysis = None
-    has_pending_image = False
-    
-    for message in reversed(current_chat_history):  # 从最新的消息开始检查
-        if (message.get("role") == "system" and 
-            message.get("image_pending") == True and 
-            "【待分析图像】" in message.get("content", "")):
-            
-            pending_image_analysis = message.get("content", "").replace("【待分析图像】", "")
-            has_pending_image = True
-            # 标记这个图片已被处理
-            message["image_pending"] = False
-            message["content"] = f"【已分析图像】{pending_image_analysis}"
-            logger.info(f"Found pending image analysis for conversation {conversation_id}")
-            break
-    
-    # 如果有待处理的图片，将图片分析结果添加到用户消息中
-    if has_pending_image and pending_image_analysis:
-        enhanced_user_message = f"{user_message_content}\n\n【图像分析结果】\n{pending_image_analysis}"
-        logger.info(f"Enhanced user message with image analysis for {conversation_id}")
-    else:
-        enhanced_user_message = user_message_content
-    
-    # 智能医生推荐
-    if ENHANCED_SYSTEM_AVAILABLE and learning_system and not chat_input.selected_doctor:
-        try:
-            recommended_doctor, confidence = learning_system.recommend_doctor(enhanced_user_message)
-            if confidence > 0.7:
-                selected_doctor = recommended_doctor
-                logger.info(f"Auto-recommended doctor: {selected_doctor} with confidence: {confidence:.3f}")
-        except Exception as e:
-            logger.warning(f"Failed to get doctor recommendation: {e}")
-
-    # 医生名称标准化函数
-    def normalize_doctor_name(doctor_name: str) -> str:
-        """标准化医生名称为英文ID"""
-        name_mapping = {
-            "张仲景": "zhang_zhongjing",
-            "叶天士": "ye_tianshi", 
-            "李东垣": "li_dongyuan",
-            "朱丹溪": "zhu_danxi",
-            "刘渡舟": "liu_duzhou",
-            "郑钦安": "zheng_qin_an"
-        }
-        return name_mapping.get(doctor_name, doctor_name)
-    
-    # 缓存检查 - 在进行计算密集型操作前先检查缓存
-    cached_response = None
-    cached_docs = []
-    cache_similarity = 0.0
-    
-    if CACHE_SYSTEM_AVAILABLE and cache_system:
-        try:
-            # 标准化医生名称
-            standardized_doctor = normalize_doctor_name(chat_input.selected_doctor or "张仲景")
-            
-            # 判断对话阶段
-            conversation_stage = "followup" if len(current_chat_history) > 2 else "initial"
-            
-            cache_result = cache_system.get_cached_response(
-                enhanced_user_message, 
-                standardized_doctor,
-                conversation_stage
-            )
-            
-            if cache_result:
-                cached_response, cached_docs, cache_similarity = cache_result
-                logger.info(f"Cache hit! Similarity: {cache_similarity:.3f}, Doctor: {standardized_doctor}")
-                
-                # 如果缓存命中且相似度很高，直接返回缓存结果
-                if cache_similarity >= 0.95:
-                    logger.info("High similarity cache hit, returning cached response directly")
-                    
-                    # 添加会话历史
-                    current_chat_history.append({"role": "user", "content": user_message_content})
-                    current_chat_history.append({"role": "assistant", "content": cached_response})
-                    
-                    # 保存会话历史
-                    save_conversation_history(conversation_id, current_chat_history)
-                    conversation_history_store[conversation_id] = current_chat_history
-                    
-                    # 保存会话信息
-                    session_id = f"{conversation_id}_{len(current_chat_history)}"
-                    conversation_session_store[session_id] = {
-                        "user_query": enhanced_user_message,
-                        "selected_doctor": chat_input.selected_doctor,
-                        "ai_response": cached_response,
-                        "timestamp": datetime.now().isoformat(),
-                        "method": "cache_hit",
-                        "cache_similarity": cache_similarity
-                    }
-                    
-                    return ChatMessageOutput(reply=cached_response, conversation_id=conversation_id)
-        except Exception as e:
-            logger.warning(f"Cache lookup failed: {e}")
-
-    # STEP 1: 智能检索阶段
-    logger.info("STEP 1: RAG - Intelligent retrieval with keyword enhancement...")
-    retrieved_docs = []
-    try:
-        # 提取关键词来增强检索
-        keywords = await extract_keywords_from_query(enhanced_user_message)
-        
-        # 构建增强查询（原查询 + 关键词）
-        enhanced_query = enhanced_user_message
-        if keywords:
-            enhanced_query += " " + " ".join(keywords)
-            logger.info(f"Enhanced query with keywords: {enhanced_query}")
-        
-        query_vector = await embed_query([enhanced_query])
-        if query_vector and query_vector[0]:
-            # 适度检索，避免过多内容导致超时
-            retrieved_docs = await search_knowledge_base(enhanced_query, query_vector[0], k=6, selected_doctor=chat_input.selected_doctor)
-            if retrieved_docs:
-                logger.info(f"RAG - Success! Found {len(retrieved_docs)} relevant document chunks.")
-                # 按相关性过滤，只保留最相关的3个，并限制每个文档长度
-                retrieved_docs = retrieved_docs[:3]
-                # 限制每个文档的长度，避免超时
-                max_doc_length = 3000  # 限制每个文档最多3000字符
-                retrieved_docs = [doc[:max_doc_length] + "..." if len(doc) > max_doc_length else doc 
-                                for doc in retrieved_docs]
-                logger.info(f"RAG - Optimized to {len(retrieved_docs)} documents with length limits")
-            else:
-                logger.info("RAG - No relevant documents found.")
-    except Exception as e_rag:
-        logger.error(f"RAG - Error during processing: {e_rag}", exc_info=True)
-
-    # STEP 2: 合成阶段
-    final_context_for_llm = ""
-    if retrieved_docs:
-        logger.info("STEP 2: SYNTHESIS - Integrating and optimizing retrieved knowledge...")
-        
-        synthesis_context_str = ""
-        for i, doc in enumerate(retrieved_docs):
-            synthesis_context_str += f"<参考资料 {i+1}>\n{doc}\n</参考资料 {i+1}>\n\n"
-            
-        synthesis_prompt = SYNTHESIS_PROMPT_TEMPLATE.format(
-            user_question=enhanced_user_message,
-            context_str=synthesis_context_str
-        )
-        
-        synthesis_messages = [{"role": "user", "content": synthesis_prompt}]
-        # 给合成阶段更多时间，因为需要处理较多知识内容
-        synthesized_report = await bailian_llm_complete(model=MAIN_LLM_MODEL, messages=synthesis_messages, timeout=30.0)
-        
-        # 如果合成失败或超时，直接使用原始检索结果
-        if synthesized_report.startswith("【系统提示】") or synthesized_report.startswith("【系统错误】"):
-            logger.warning("SYNTHESIS - Failed or timed out, using original retrieved docs")
-            final_context_for_llm = f"<参考资料>\n{synthesis_context_str}\n</参考资料>"
-        else:
-            logger.info(f"SYNTHESIS - Generated internal research report (first 100 chars): '{synthesized_report[:100]}...'")
-            final_context_for_llm = f"<参考资料>\n{synthesized_report}\n</参考资料>"
-    else:
-        logger.info("STEP 2: SYNTHESIS - No documents found to synthesize.")
-        final_context_for_llm = "<参考资料>\n知识库中未找到相关信息。\n</参考资料>"
-
-    # STEP 3: 最终生成阶段
-    logger.info("STEP 3: GENERATION - Constructing final prompt...")
-    
-    selected_doctor = chat_input.selected_doctor
-    logger.info(f"Selected doctor persona: {selected_doctor}")
-    
-    # 初始化消息列表（防止未定义错误）
-    messages_for_llm = [{"role": "system", "content": SYSTEM_PROMPT_TCM_DIALOGUE_ENHANCED}]
-    if final_context_for_llm:
-        messages_for_llm.append({"role": "system", "content": final_context_for_llm})
-    
-    # 使用严格的医疗诊断控制器检查是否可以开具处方
-    can_prescribe, prescription_reason = medical_diagnosis_controller.can_prescribe(
-        conversation_id, current_chat_history, user_message_content
+# 重构版本也已迁移至统一问诊服务 /api/consultation/chat
+# DEPRECATED: 原refactored函数 (~150 lines) 已移至统一问诊服务
+# 保留此代码段作为备份，可在需要时恢复
+# DEPRECATED: 此端点将在下个版本中完全移除
+@app.post("/chat_with_ai_deprecated", response_model=ChatMessageOutput)
+async def chat_with_ai_endpoint_backup(chat_input: ChatMessageInput, request: Request):
+    """原版对话接口 - 已废弃，请使用 /api/consultation/chat"""
+    raise HTTPException(
+        status_code=410, 
+        detail="此接口已废弃，请使用 /api/consultation/chat"
     )
-    
-    # 生成安全的系统提示，防止草率开方
-    safety_prompt = medical_diagnosis_controller.generate_safety_prompt(
-        conversation_id, user_message_content, current_chat_history
-    )
-    
-    # 将安全提示添加到系统消息中
-    if final_context_for_llm:
-        final_context_for_llm = f"{final_context_for_llm}\n\n{safety_prompt}"
-    else:
-        final_context_for_llm = safety_prompt
-    
-    # 临时禁用张仲景专用决策系统 - 修复调用栈溢出问题
-    if False:  # 禁用六经辨证系统
-        # if (ZHANG_ZHONGJING_SYSTEM_AVAILABLE and zhang_zhongjing_system and 
-        #     selected_doctor in ["张仲景", "zhang_zhongjing"]):
-        try:
-            logger.info(f"Using Zhang Zhongjing specialized decision system for prescription: {prescription_reason}")
-            
-            # 使用张仲景专用系统生成诊疗回复
-            ai_reply_content_for_client = zhang_zhongjing_system.generate_diagnosis_response(enhanced_user_message)
-            
-            # 保存会话信息
-            session_id = f"{conversation_id}_{len(current_chat_history)}"
-            conversation_session_store[session_id] = {
-                "user_query": enhanced_user_message,
-                "selected_doctor": chat_input.selected_doctor,
-                "ai_response": ai_reply_content_for_client,
-                "timestamp": datetime.now().isoformat(),
-                "method": "zhang_zhongjing_specialized"
-            }
-            
-            current_chat_history.append({"role": "user", "content": user_message_content})
-            current_chat_history.append({"role": "assistant", "content": ai_reply_content_for_client})
-            if len(current_chat_history) > 50:
-                current_chat_history = current_chat_history[-50:]
-            conversation_history_store[conversation_id] = current_chat_history
-            save_conversation_history(conversation_id, current_chat_history)
-            
-            # 缓存保存 - 标准化医生名称
-            if CACHE_SYSTEM_AVAILABLE and cache_system:
-                try:
-                    standardized_doctor = normalize_doctor_name(chat_input.selected_doctor or "张仲景")
-                    # 判断对话阶段
-                    conversation_stage_zhang = "followup" if len(current_chat_history) > 2 else "initial"
-                    
-                    cache_system.cache_response(
-                        enhanced_user_message, 
-                        standardized_doctor, 
-                        ai_reply_content_for_client, 
-                        retrieved_docs,
-                        conversation_stage=conversation_stage_zhang
-                    )
-                    logger.info(f"Response cached for Zhang Zhongjing specialized system")
-                except Exception as e:
-                    logger.warning(f"Failed to cache Zhang Zhongjing response: {e}")
-            
-            logger.info(f"Zhang Zhongjing specialized system successfully generated response")
-            logger.info("="*50 + "\n")
-            return ChatMessageOutput(reply=ai_reply_content_for_client, conversation_id=conversation_id)
-            
-        except Exception as e:
-            logger.warning(f"Zhang Zhongjing specialized system failed: {e}, falling back to traditional system")
-    
-    # 只有在通过严格诊断检查后才使用医生思维决策树系统
-    elif DOCTOR_MIND_SYSTEM_AVAILABLE and enhanced_treatment_generator and can_prescribe:
-        try:
-            logger.info(f"Using doctor mind system for prescription generation: {selected_doctor} - {prescription_reason}")
-            
-            patient_data = {
-                "conversation_history": current_chat_history,
-                "enhanced_user_message": enhanced_user_message,
-                "original_user_message": user_message_content
-            }
-            prescription_result = enhanced_treatment_generator.generate_prescription(
-                enhanced_user_message, selected_doctor, patient_data
-            )
-            
-            if prescription_result.get("method") == "decision_tree":
-                logger.info(f"Successfully used decision tree for prescription: {selected_doctor}")
-                ai_reply_content_for_client = prescription_result.get("formatted_response", "决策树处方生成失败")
-                
-                # 保存会话信息
-                session_id = f"{conversation_id}_{len(current_chat_history)}"
-                conversation_session_store[session_id] = {
-                    "user_query": enhanced_user_message,
-                    "selected_doctor": chat_input.selected_doctor,
-                    "ai_response": ai_reply_content_for_client,
-                    "timestamp": datetime.now().isoformat(),
-                    "method": "decision_tree_safe"
-                }
-                
-                current_chat_history.append({"role": "user", "content": user_message_content})  # 保存原始用户输入
-                current_chat_history.append({"role": "assistant", "content": ai_reply_content_for_client})
-                if len(current_chat_history) > 50:
-                    current_chat_history = current_chat_history[-50:]
-                conversation_history_store[conversation_id] = current_chat_history
-                save_conversation_history(conversation_id, current_chat_history)
-                logger.info("="*50 + "\n")
-                return ChatMessageOutput(reply=ai_reply_content_for_client, conversation_id=conversation_id)
-            
-            else:
-                logger.info(f"Decision tree not applicable, using traditional system for {selected_doctor}")
-                # 继续执行到传统系统
-                        
-        except Exception as e:
-            logger.warning(f"Doctor mind system failed: {e}, falling back to traditional system")
-    
-    # 使用传统对话系统（非处方阶段或诊断信息不完整）
-    else:
-        logger.info(f"Using traditional dialogue system - can_prescribe: {can_prescribe}, reason: {prescription_reason}")
-        if ENHANCED_SYSTEM_AVAILABLE and persona_generator:
-            try:
-                persona_prompt = persona_generator.generate_persona_prompt(
-                    selected_doctor, 
-                    user_message_content, 
-                    final_context_for_llm,
-                    current_chat_history
-                )
-                messages_for_llm = [{"role": "system", "content": persona_prompt}]
-                logger.info(f"Using traditional personalized prompt for {selected_doctor}")
-            except Exception as e2:
-                logger.warning(f"Failed to generate persona prompt: {e2}, using default")
-                messages_for_llm = [{"role": "system", "content": SYSTEM_PROMPT_TCM_DIALOGUE_ENHANCED}]
-                if final_context_for_llm:
-                    messages_for_llm.append({"role": "system", "content": final_context_for_llm})
-        else:
-            messages_for_llm = [{"role": "system", "content": SYSTEM_PROMPT_TCM_DIALOGUE_ENHANCED}]
-            if final_context_for_llm:
-                messages_for_llm.append({"role": "system", "content": final_context_for_llm})
-    
-    # 检查是否有舌象图片上传，如果有，添加明确的提示信息
-    has_tongue_image = await detect_tongue_image_upload(conversation_id, current_chat_history)
-    image_analysis_successful = check_image_analysis_success(current_chat_history)
-    
-    if has_tongue_image and image_analysis_successful:
-        # 添加舌象信息提示到系统消息
-        tongue_context = """
-【重要诊疗信息】患者已成功上传舌象图片，请基于以下信息进行诊疗：
 
-1. **舌象分析**：患者已提供清晰的舌象图片，您可以根据图片进行舌象分析
-2. **望诊依据**：请基于已上传的舌象图片进行望诊分析，不要说"患者未提供舌象"
-3. **综合诊断**：结合患者症状描述和舌象图片，提供综合性的中医诊疗建议
-4. **处方开具**：可以根据舌象和症状综合考虑开具处方
-
-**请务必在回复中体现您已经看到并分析了患者的舌象图片。**
-"""
-        messages_for_llm.append({"role": "system", "content": tongue_context})
-        logger.info("已添加舌象图片上传提示到AI消息中")
-    elif has_tongue_image and not image_analysis_successful:
-        # 图片质量有问题的情况
-        tongue_quality_context = """
-【舌象图片质量提示】患者已上传舌象图片，但图像质量可能不够清晰：
-
-1. **当前状态**：虽然图片质量有限，但患者确实已上传舌象图片
-2. **分析建议**：请告知患者您已收到图片，但建议提供更清晰的图片以便精确分析
-3. **不要说**："患者未提供舌象" - 这是错误的，患者已经上传了
-4. **正确表述**："您已上传舌象图片，但为了更准确的分析，建议重新拍摄更清晰的图片"
-"""
-        messages_for_llm.append({"role": "system", "content": tongue_quality_context})
-        logger.info("已添加舌象图片质量提示到AI消息中")
-
-    messages_for_llm.extend(current_chat_history)
-    messages_for_llm.append({"role": "user", "content": enhanced_user_message})
-    
-    # STEP 4: 调用LLM并返回结果
-    try:
-        logger.info(f"STEP 4: LLM - Sending final request to model '{MAIN_LLM_MODEL}'...")
-        ai_reply_content = await bailian_llm_complete(model=MAIN_LLM_MODEL, messages=messages_for_llm)
-        # 医疗安全检查：舌象信息验证（使用之前已检查的值）
-        patient_described_tongue = extract_patient_tongue_description(current_chat_history)
-        
-        # 清理AI回复中的非法医疗信息 - 医疗安全系统
-        ai_reply_content = sanitize_ai_response(ai_reply_content, has_tongue_image, patient_described_tongue, image_analysis_successful, chat_input.message)
-        logger.info("医疗安全清理系统已启用 - 保障医疗安全")
-        
-        # 规范化处方用量格式（将范围用量转换为确定用量）
-        ai_reply_content = normalize_prescription_dosage(ai_reply_content)
-        
-        # 统一处方格式为张仲景样式
-        ai_reply_content = standardize_prescription_format(ai_reply_content)
-        
-        # 增强整体诊疗方案的格式化
-        ai_reply_content = enhance_diagnosis_format(ai_reply_content)
-        
-        # 检测并过滤西医内容 - 确保纯中医诊疗辅助
-        has_western_content, filtered_content = detect_and_filter_western_medicine(ai_reply_content)
-        if has_western_content:
-            ai_reply_content = filtered_content
-            logger.warning("检测到并过滤了西医内容，返回纯中医替代回复")
-        
-        logger.info(f"LLM_RESPONSE - Raw reply (first 100 chars): '{ai_reply_content[:100]}...'")
-        
-        if ai_reply_content.startswith("【系统错误】"):
-            raise HTTPException(status_code=503, detail=ai_reply_content)
-        
-        ai_reply_content_for_client = ai_reply_content.replace("[换行符]", "\n").strip()
-        logger.info("STEP 4: FINAL - Saving history and preparing response for client.")
-        
-        # 保存会话信息用于反馈
-        session_id = f"{conversation_id}_{len(current_chat_history)}"
-        conversation_session_store[session_id] = {
-            "user_query": user_message_content,
-            "selected_doctor": chat_input.selected_doctor,
-            "ai_response": ai_reply_content_for_client,
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        current_chat_history.append({"role": "user", "content": user_message_content})
-        current_chat_history.append({"role": "assistant", "content": ai_reply_content_for_client})
-        if len(current_chat_history) > 50:
-            current_chat_history = current_chat_history[-50:]
-        conversation_history_store[conversation_id] = current_chat_history
-        save_conversation_history(conversation_id, current_chat_history)
-        
-        # 保存用户历史记录元数据
-        if USER_HISTORY_AVAILABLE and current_session_id:
-            try:
-                # 提取诊断和处方信息
-                diagnosis_info = ""
-                prescription_info = ""
-                
-                # 改进的诊断信息提取
-                diagnosis_info = extract_diagnosis_improved(ai_reply_content_for_client)
-                
-                # 改进的处方检测逻辑
-                prescription_detected, prescription_info = extract_prescription_improved(ai_reply_content_for_client)
-                
-                # 保存对话元数据
-                conversation_file = f"conversation_logs/conversation_{conversation_id}.json"
-                message_count = len(current_chat_history)
-                
-                user_history.save_conversation_metadata(
-                    current_session_id, 
-                    conversation_file, 
-                    message_count,
-                    diagnosis_info,
-                    prescription_info
-                )
-                logger.info(f"Saved conversation metadata for session: {current_session_id}")
-                
-                # 如果检测到处方，自动创建处方记录
-                if prescription_detected and prescription_info.strip():
-                    try:
-                        import sqlite3
-                        
-                        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-                        cursor = conn.cursor()
-                        
-                        # 提取患者症状描述（从聊天历史中获取）
-                        patient_symptoms = ""
-                        for msg in current_chat_history:
-                            if msg.get("role") == "user":
-                                patient_symptoms += msg.get("content", "") + " "
-                        
-                        cursor.execute("""
-                            INSERT INTO prescriptions (
-                                patient_id, conversation_id, patient_name, symptoms, 
-                                diagnosis, ai_prescription, status
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """, (
-                            current_session_id,  # 使用session_id作为patient_id
-                            conversation_id,
-                            None,  # patient_name 暂时为空
-                            patient_symptoms.strip()[:1000],  # 限制症状描述长度
-                            diagnosis_info[:1000],  # 限制诊断信息长度
-                            prescription_info,
-                            "pending"
-                        ))
-                        
-                        prescription_id = cursor.lastrowid
-                        conn.commit()
-                        conn.close()
-                        
-                        logger.info(f"自动创建处方记录成功: prescription_id={prescription_id}")
-                        
-                    except Exception as e:
-                        logger.error(f"创建处方记录失败: {e}")
-                        # 不影响正常的聊天流程，仅记录错误
-                
-                # 检测会话是否应该标记为完成 - 检查用户消息和AI回复
-                user_wants_to_end = user_history.detect_session_completion(user_message_content)
-                ai_suggests_completion = any(keyword in ai_reply_content_for_client.lower() for keyword in [
-                    "祝您早日康复", "按时服药", "注意休息", "复诊", "如有问题", "遵医嘱", "康复顺利"
-                ])
-                
-                # 如果用户想结束或AI给出完整治疗方案，标记为完成
-                if user_wants_to_end or (ai_suggests_completion and prescription_info):
-                    user_history.update_session_status(current_session_id, "completed")
-                    logger.info(f"Session marked as completed: {current_session_id} (user_end={user_wants_to_end}, ai_complete={ai_suggests_completion})")
-                
-            except Exception as e:
-                logger.warning(f"Failed to save user history metadata: {e}")
-        
-        # 保存咨询记录到PostgreSQL (如果可用)
-        if POSTGRESQL_HYBRID_AVAILABLE and hybrid_knowledge_system:
-            try:
-                hybrid_knowledge_system.save_consultation(
-                    conversation_id, user_message_content, ai_reply_content_for_client, chat_input.selected_doctor
-                )
-                logger.info(f"Consultation saved to PostgreSQL: {conversation_id}")
-            except Exception as e:
-                logger.warning(f"Failed to save consultation to PostgreSQL: {e}")
-        
-        # 保存到智能缓存系统
-        if CACHE_SYSTEM_AVAILABLE and cache_system and not cached_response:
-            try:
-                # 确保retrieved_docs变量存在
-                docs_to_cache = retrieved_docs if 'retrieved_docs' in locals() else []
-                
-                # 标准化医生名称
-                standardized_doctor_save = normalize_doctor_name(chat_input.selected_doctor or "张仲景")
-                
-                # 判断对话阶段
-                conversation_stage_save = "followup" if len(current_chat_history) > 2 else "initial"
-                
-                cache_system.cache_response(
-                    enhanced_user_message,
-                    standardized_doctor_save,
-                    ai_reply_content_for_client,
-                    docs_to_cache,
-                    conversation_stage=conversation_stage_save
-                )
-                logger.info(f"Response cached successfully for {standardized_doctor_save}")
-            except Exception as e:
-                logger.warning(f"Failed to cache response: {e}")
-        
-        logger.info("="*50 + "\n")
-        return ChatMessageOutput(reply=ai_reply_content_for_client, conversation_id=conversation_id)
-        
-    except HTTPException as http_exc:
-        logger.error(f"HTTP exception: {http_exc.detail}")
-        logger.info("="*50 + "\n")
-        raise http_exc
-    except Exception as e:
-        error_message = str(e)
-        logger.error(f"Unexpected error in chat endpoint: {error_message}", exc_info=True)
-        logger.info("="*50 + "\n")
-        raise HTTPException(status_code=500, detail=error_message)
+# 原chat_with_ai函数体 (550+ lines) 已完全迁移至 /api/consultation/chat
+# 功能保留，性能优化，接口统一 - 请使用新端点
 
 @app.get("/get_doctor_info/{doctor_name}")
 async def get_doctor_info_endpoint(doctor_name: str):
@@ -4690,6 +4002,157 @@ async def phone_login_api(request: Request):
         logger.error(f"手机号登录API失败: {e}")
         return {"success": False, "error": "手机号登录失败"}
 
+# ========== 新增注册方式API ==========
+
+@app.post("/api/auth/register/email")
+async def register_with_email(request: Request):
+    """邮箱注册"""
+    if not USER_HISTORY_AVAILABLE:
+        return {"success": False, "error": "用户历史系统不可用"}
+        
+    try:
+        data = await request.json()
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '')
+        nickname = data.get('nickname', '').strip()
+        
+        # 验证邮箱格式
+        import re
+        email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+        if not email or not re.match(email_regex, email):
+            return {"success": False, "error": "请输入正确的邮箱地址"}
+        
+        # 验证密码
+        if not password or len(password) < 6 or len(password) > 20:
+            return {"success": False, "error": "密码长度为6-20位"}
+        
+        # 检查邮箱是否已存在
+        import sqlite3
+        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT user_id FROM users WHERE email = ?", (email,))
+        existing_user = cursor.fetchone()
+        
+        if existing_user:
+            conn.close()
+            return {"success": False, "error": "该邮箱已被注册"}
+        
+        # 创建新用户
+        import uuid
+        import hashlib
+        from datetime import datetime
+        
+        user_id = str(uuid.uuid4())
+        # 简单密码加密（生产环境应使用更安全的加密方式）
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        # 生成设备指纹
+        request_info = {
+            'user_agent': request.headers.get('user-agent', ''),
+            'client_ip': request.client.host,
+            'accept_language': request.headers.get('accept-language', '')
+        }
+        # 简单的设备指纹生成
+        import time
+        fingerprint_data = f"{request_info.get('user_agent', '')}|{request_info.get('client_ip', '')}|{request_info.get('accept_language', '')}|{str(int(time.time() / 3600))}"
+        device_fingerprint = hashlib.md5(fingerprint_data.encode('utf-8')).hexdigest()[:32]
+        
+        cursor.execute("""
+            INSERT INTO users (
+                user_id, email, password_hash, nickname, registration_type, 
+                device_fingerprint, created_at, last_active, is_verified
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            user_id, email, password_hash, nickname or email.split('@')[0], 
+            'email', device_fingerprint, datetime.now().isoformat(), 
+            datetime.now().isoformat(), 1
+        ))
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"邮箱注册成功: {email}")
+        return {"success": True, "message": "注册成功"}
+        
+    except Exception as e:
+        logger.error(f"邮箱注册失败: {e}")
+        return {"success": False, "error": "注册失败，请重试"}
+
+@app.post("/api/auth/register/username")
+async def register_with_username(request: Request):
+    """用户名注册"""
+    if not USER_HISTORY_AVAILABLE:
+        return {"success": False, "error": "用户历史系统不可用"}
+        
+    try:
+        data = await request.json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        # 验证用户名格式（支持中文、英文、数字和下划线）
+        import re
+        username_regex = r'^[\w\u4e00-\u9fa5]{4,20}$'
+        if not username or not re.match(username_regex, username):
+            return {"success": False, "error": "用户名为4-20位，支持中文、英文、数字和下划线"}
+        
+        # 验证密码
+        if not password or len(password) < 6 or len(password) > 20:
+            return {"success": False, "error": "密码长度为6-20位"}
+        
+        # 检查用户名是否已存在
+        import sqlite3
+        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,))
+        existing_user = cursor.fetchone()
+        
+        if existing_user:
+            conn.close()
+            return {"success": False, "error": "该用户名已被注册"}
+        
+        # 创建新用户
+        import uuid
+        import hashlib
+        from datetime import datetime
+        
+        user_id = str(uuid.uuid4())
+        # 简单密码加密（生产环境应使用更安全的加密方式）
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        # 生成设备指纹
+        request_info = {
+            'user_agent': request.headers.get('user-agent', ''),
+            'client_ip': request.client.host,
+            'accept_language': request.headers.get('accept-language', '')
+        }
+        # 简单的设备指纹生成
+        import time
+        fingerprint_data = f"{request_info.get('user_agent', '')}|{request_info.get('client_ip', '')}|{request_info.get('accept_language', '')}|{str(int(time.time() / 3600))}"
+        device_fingerprint = hashlib.md5(fingerprint_data.encode('utf-8')).hexdigest()[:32]
+        
+        cursor.execute("""
+            INSERT INTO users (
+                user_id, username, password_hash, nickname, registration_type, 
+                device_fingerprint, created_at, last_active, is_verified
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            user_id, username, password_hash, username, 
+            'username', device_fingerprint, datetime.now().isoformat(), 
+            datetime.now().isoformat(), 1
+        ))
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"用户名注册成功: {username}")
+        return {"success": True, "message": "注册成功"}
+        
+    except Exception as e:
+        logger.error(f"用户名注册失败: {e}")
+        return {"success": False, "error": "注册失败，请重试"}
+
 @app.get("/api/user/devices")
 async def get_user_devices_api(request: Request):
     """获取用户绑定的设备列表"""
@@ -4728,14 +4191,9 @@ async def phone_binding_page():
 
 @app.get("/register")
 async def register_page():
-    """用户注册页面"""
-    try:
-        with open("static/register.html", "r", encoding="utf-8") as f:
-            html_content = f.read()
-        return HTMLResponse(html_content)
-    except Exception as e:
-        logger.error(f"加载注册页面失败: {e}")
-        return HTMLResponse("<h1>页面加载失败</h1>", status_code=500)
+    """现代化统一认证门户 - 注册模式（自动切换到注册标签页）"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/login?tab=register", status_code=302)
 
 # 系统监控相关端点
 @app.get("/db_stats")
@@ -4997,34 +4455,123 @@ async def doctor_login_html():
     """医生登录页面 - 兼容.html后缀"""
     return FileResponse("/opt/tcm-ai/static/doctor/login.html")
 
-# 患者端路由 - 智能路由，PC端显示原界面，移动端显示医生选择
-@app.get("/patient")
-async def patient_portal(request: Request):
-    """患者端专用主页 - 完整问诊功能"""
-    response = FileResponse("/opt/tcm-ai/static/patient/patient_portal.html")
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
+# 患者端路由已迁移至智能工作流 (/smart)
+# 冗余路由移除 - 统一由security middleware处理重定向
 
-@app.get("/patient/")
-async def patient_portal_trailing_slash(request: Request):
-    """患者端专用主页 - 完整问诊功能"""  
-    response = FileResponse("/opt/tcm-ai/static/patient/patient_portal.html")
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
+@app.get("/smart")
+async def smart_workflow():
+    """智能工作流程 - 症状收集→医生推荐→AI问诊"""
+    from fastapi.responses import Response
+    try:
+        with open("/opt/tcm-ai/static/index_smart_workflow.html", "r", encoding="utf-8") as f:
+            content = f.read()
+            response = Response(content=content, media_type="text/html")
+            # 禁用缓存
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
+    except FileNotFoundError:
+        return HTMLResponse("""
+        <html>
+            <head><title>智能工作流程页面未找到</title></head>
+            <body>
+                <h1>页面未找到</h1>
+                <p>智能工作流程页面暂时不可用</p>
+                <a href="/">返回主页</a>
+            </body>
+        </html>
+        """)
 
-@app.get("/patient/doctor-select")
-async def patient_doctor_select():
-    """患者端医生选择页面"""
-    return FileResponse("/opt/tcm-ai/static/patient/doctor-select.html")
+@app.get("/doctor-dashboard")
+@app.get("/doctor_dashboard.html")
+async def doctor_dashboard():
+    """医生工作台 - 现代化医生门户"""
+    from fastapi.responses import Response
+    try:
+        with open("/opt/tcm-ai/static/doctor_dashboard.html", "r", encoding="utf-8") as f:
+            content = f.read()
+            response = Response(content=content, media_type="text/html")
+            # 禁用缓存
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
+    except FileNotFoundError:
+        return HTMLResponse("""
+        <html>
+            <head><title>医生工作台页面未找到</title></head>
+            <body>
+                <h1>页面未找到</h1>
+                <p>医生工作台页面暂时不可用</p>
+                <a href="/">返回主页</a>
+            </body>
+        </html>
+        """)
 
-@app.get("/patient/chat")
-async def patient_chat():
-    """患者端聊天问诊页面"""
-    return FileResponse("/opt/tcm-ai/static/patient/chat.html")
+@app.get("/history")
+async def user_history():
+    """用户历史记录页面"""
+    from fastapi.responses import Response
+    try:
+        with open("/opt/tcm-ai/static/user_history.html", "r", encoding="utf-8") as f:
+            content = f.read()
+            response = Response(content=content, media_type="text/html")
+            # 禁用缓存
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
+    except FileNotFoundError:
+        return HTMLResponse("""
+        <html>
+            <head><title>用户历史页面未找到</title></head>
+            <body>
+                <h1>页面未找到</h1>
+                <p>用户历史页面暂时不可用</p>
+                <a href="/">返回主页</a>
+            </body>
+        </html>
+        """)
+
+@app.get("/patient-portal")
+async def patient_portal_redirect():
+    """患者门户 - 重定向到智能工作流程"""
+    from fastapi.responses import RedirectResponse
+    # 重定向到智能工作流程，提供更好的AI问诊体验和已修复的支付功能
+    return RedirectResponse(url="/smart", status_code=301)
+
+# 患者门户旧版本已移除 - 统一使用智能工作流 (/smart)
+
+@app.get("/database")
+async def database_manager():
+    """数据库管理界面"""
+    return FileResponse("/opt/tcm-ai/static/database_manager.html")
+
+@app.get("/nav")
+async def navigation_page():
+    """导航页面 - 选择不同的功能入口"""
+    from fastapi.responses import Response
+    try:
+        with open("/opt/tcm-ai/static/navigation.html", "r", encoding="utf-8") as f:
+            content = f.read()
+            response = Response(content=content, media_type="text/html")
+            # 禁用缓存
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
+    except FileNotFoundError:
+        return HTMLResponse("""
+        <html>
+            <head><title>导航页面未找到</title></head>
+            <body>
+                <h1>页面未找到</h1>
+                <p>导航页面暂时不可用</p>
+                <a href="/">返回主页</a>
+            </body>
+        </html>
+        """)
 
 # 公共API - 医生列表
 @app.get("/api/doctors/list")
@@ -5201,8 +4748,8 @@ async def admin_portal_trailing_slash():
 
 @app.get("/login")
 async def login_portal():
-    """统一登录门户"""
-    return FileResponse("/opt/tcm-ai/static/login_portal.html")
+    """现代化统一认证门户"""
+    return FileResponse("/opt/tcm-ai/static/auth_portal.html")
 
 @app.get("/login-test")
 async def login_test_page():
@@ -5211,15 +4758,15 @@ async def login_test_page():
 
 @app.get("/admin/login")
 async def admin_login():
-    """管理员登录页面 - 重定向到统一登录门户"""
+    """管理员登录页面 - 重定向到统一认证门户角色选择"""
     from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/login")
+    return RedirectResponse(url="/login?tab=roles")
 
 @app.get("/doctor/login-portal")
 async def doctor_login_portal():
-    """医生登录门户 - 重定向到统一登录门户"""
+    """医生登录门户 - 重定向到统一认证门户角色选择"""
     from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/login")
+    return RedirectResponse(url="/login?tab=roles")
 
 # 管理员API端点
 @app.get("/api/admin/dashboard")

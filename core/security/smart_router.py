@@ -20,7 +20,7 @@ class SmartRouter:
     def __init__(self):
         self.interface_mappings = {
             UserRole.ANONYMOUS: "/",             # 匿名用户 → 主页问诊界面
-            UserRole.PATIENT: "/patient",        # 患者 → 专用患者界面
+            UserRole.PATIENT: "/smart",          # 患者 → 智能工作流界面
             UserRole.DOCTOR: "/doctor",          # 医生 → 医生界面
             UserRole.ADMIN: "/admin",            # 管理员 → 管理界面
             UserRole.SUPERADMIN: "/admin"        # 超级管理员 → 管理界面
@@ -28,7 +28,7 @@ class SmartRouter:
         
         # 界面对应的静态文件
         self.static_files = {
-            "/patient": "/opt/tcm-ai/static/patient/patient_portal.html",
+            "/smart": "/opt/tcm-ai/static/index_smart_workflow.html",
             "/doctor": "/opt/tcm-ai/static/doctor/index.html", 
             "/admin": "/opt/tcm-ai/static/admin/index.html"
         }
@@ -37,13 +37,13 @@ class SmartRouter:
         self.protected_routes = {
             "/doctor": [UserRole.DOCTOR, UserRole.ADMIN, UserRole.SUPERADMIN],
             "/admin": [UserRole.ADMIN, UserRole.SUPERADMIN],
-            "/patient": [UserRole.PATIENT, UserRole.ADMIN, UserRole.SUPERADMIN],  # 患者页面需要登录
+            "/smart": [UserRole.PATIENT, UserRole.ADMIN, UserRole.SUPERADMIN],  # 智能工作流需要登录
             "/api/doctor": [UserRole.DOCTOR, UserRole.ADMIN, UserRole.SUPERADMIN],
             "/api/admin": [UserRole.ADMIN, UserRole.SUPERADMIN]
         }
         
         # 需要强制登录的路径（匿名用户访问会重定向到登录页）
-        self.login_required_paths = ["/patient", "/doctor", "/admin"]
+        self.login_required_paths = ["/smart", "/doctor", "/admin"]
     
     async def route_user(self, request: Request) -> Tuple[str, Optional[FileResponse]]:
         """
@@ -200,6 +200,9 @@ class AuthenticationHandler:
             user_agent=user_agent
         )
         
+        # 3. 将用户详细信息添加到会话中（用于前端显示）
+        session.user_details = user_info
+        
         return True, session, "登录成功"
     
     async def logout(self, session_token: str) -> bool:
@@ -211,7 +214,7 @@ class AuthenticationHandler:
     
     async def _authenticate_user(self, username: str, password: str) -> Optional[Dict]:
         """
-        用户认证（从admin_accounts表查询）
+        统一用户认证（仅查询users表）
         """
         import sqlite3
         import hashlib
@@ -219,11 +222,14 @@ class AuthenticationHandler:
         conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
         cursor = conn.cursor()
         
-        # 查询管理员账户表
+        # 统一查询users表（已包含所有用户）
         cursor.execute("""
-            SELECT user_id, password_hash, role, is_active 
-            FROM admin_accounts 
-            WHERE username = ? OR email = ?
+            SELECT user_id, username, email, password_hash, nickname, 
+                   registration_type, role, is_active, is_verified
+            FROM users 
+            WHERE (username = ? OR email = ?) 
+            AND password_hash IS NOT NULL 
+            AND is_active = 1
         """, (username, username))
         
         row = cursor.fetchone()
@@ -232,20 +238,22 @@ class AuthenticationHandler:
         if not row:
             return None
         
-        user_id, password_hash, role, is_active = row
+        user_id, db_username, db_email, password_hash, nickname, registration_type, role, is_active, is_verified = row
         
         # 验证密码
-        if not is_active:
-            return None
-            
         input_hash = hashlib.sha256(password.encode()).hexdigest()
         if input_hash != password_hash:
             return None
         
         return {
             "user_id": user_id,
-            "role": role,
-            "is_active": is_active
+            "role": role or "patient",  # 默认角色为patient
+            "is_active": bool(is_active),
+            "username": db_username,
+            "email": db_email,
+            "nickname": nickname,
+            "registration_type": registration_type,
+            "is_verified": bool(is_verified)
         }
     
     def _get_client_ip(self, request: Request) -> str:

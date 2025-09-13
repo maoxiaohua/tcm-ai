@@ -430,6 +430,26 @@
                         </div>
                     </div>
                     
+                    <div class="option-card" onclick="selectOption('email')" id="emailOption">
+                        <div class="option-header">
+                            <span class="option-icon">✉️</span>
+                            <span class="option-title">邮箱注册</span>
+                        </div>
+                        <div class="option-description">
+                            使用邮箱地址注册，安全可靠，支持找回密码和账户验证
+                        </div>
+                    </div>
+                    
+                    <div class="option-card" onclick="selectOption('username')" id="usernameOption">
+                        <div class="option-header">
+                            <span class="option-icon">🔑</span>
+                            <span class="option-title">用户名注册</span>
+                        </div>
+                        <div class="option-description">
+                            使用用户名和密码注册，简单快捷，适合不想绑定手机或邮箱的用户
+                        </div>
+                    </div>
+                    
                     <div class="option-card" onclick="selectOption('guest')" id="guestOption">
                         <div class="option-header">
                             <span class="option-icon">👤</span>
@@ -531,6 +551,95 @@
                 </button>
             </div>
             
+            <!-- 邮箱注册表单 -->
+            <div id="emailRegister" class="register-form">
+                <h2 style="margin-bottom: 25px; color: #333; font-size: 20px;">邮箱注册</h2>
+                
+                <div class="features-list">
+                    <h3>邮箱注册优势：</h3>
+                    <div class="feature-item">安全可靠，支持找回密码</div>
+                    <div class="feature-item">多设备历史记录同步</div>
+                    <div class="feature-item">专属健康档案管理</div>
+                    <div class="feature-item">数据云端安全备份</div>
+                    <div class="feature-item">个性化治疗建议</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="registerEmail">邮箱地址</label>
+                    <input type="email" class="form-input" id="registerEmail" placeholder="请输入您的邮箱地址">
+                    <div class="error-message" id="registerEmailError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="registerEmailPassword">设置密码</label>
+                    <input type="password" class="form-input" id="registerEmailPassword" placeholder="请设置6-20位密码">
+                    <div class="error-message" id="registerEmailPasswordError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="registerEmailConfirm">确认密码</label>
+                    <input type="password" class="form-input" id="registerEmailConfirm" placeholder="请再次输入密码">
+                    <div class="error-message" id="registerEmailConfirmError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="registerEmailNickname">昵称（可选）</label>
+                    <input type="text" class="form-input" id="registerEmailNickname" placeholder="设置您的昵称" maxlength="20">
+                    <div class="error-message" id="registerEmailNicknameError"></div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="completeEmailRegister()" style="margin-bottom: 15px;">
+                    完成注册
+                </button>
+                
+                <button class="btn btn-secondary" onclick="backToOptions()" style="width: 100%;">
+                    返回选择
+                </button>
+            </div>
+            
+            <!-- 用户名注册表单 -->
+            <div id="usernameRegister" class="register-form">
+                <h2 style="margin-bottom: 25px; color: #333; font-size: 20px;">用户名注册</h2>
+                
+                <div class="features-list">
+                    <h3>用户名注册特点：</h3>
+                    <div class="feature-item">简单快捷，无需验证</div>
+                    <div class="feature-item">保护隐私，不需手机邮箱</div>
+                    <div class="feature-item">支持历史记录保存</div>
+                    <div class="feature-item">可随时升级绑定手机</div>
+                    <div class="feature-item">完整AI问诊功能</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="registerUsername">用户名</label>
+                    <input type="text" class="form-input" id="registerUsername" placeholder="请设置4-20位用户名" maxlength="20">
+                    <div class="error-message" id="registerUsernameError"></div>
+                    <div class="help-text" style="font-size: 12px; color: #666; margin-top: 5px;">
+                        支持中文、英文、数字和下划线
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="registerUsernamePassword">设置密码</label>
+                    <input type="password" class="form-input" id="registerUsernamePassword" placeholder="请设置6-20位密码">
+                    <div class="error-message" id="registerUsernamePasswordError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="registerUsernameConfirm">确认密码</label>
+                    <input type="password" class="form-input" id="registerUsernameConfirm" placeholder="请再次输入密码">
+                    <div class="error-message" id="registerUsernameConfirmError"></div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="completeUsernameRegister()" style="margin-bottom: 15px;">
+                    完成注册
+                </button>
+                
+                <button class="btn btn-secondary" onclick="backToOptions()" style="width: 100%;">
+                    返回选择
+                </button>
+            </div>
+            
             <!-- 加载状态 -->
             <div class="loading" id="loading">
                 <div class="spinner"></div>
@@ -603,6 +712,10 @@
             // 选中当前选项
             if (option === 'phone') {
                 document.getElementById('phoneOption').classList.add('selected');
+            } else if (option === 'email') {
+                document.getElementById('emailOption').classList.add('selected');
+            } else if (option === 'username') {
+                document.getElementById('usernameOption').classList.add('selected');
             } else if (option === 'guest') {
                 document.getElementById('guestOption').classList.add('selected');
             }
@@ -616,6 +729,12 @@
             if (selectedOption === 'phone') {
                 showForm('phoneRegister');
                 setTimeout(() => document.getElementById('registerPhone').focus(), 100);
+            } else if (selectedOption === 'email') {
+                showForm('emailRegister');
+                setTimeout(() => document.getElementById('registerEmail').focus(), 100);
+            } else if (selectedOption === 'username') {
+                showForm('usernameRegister');
+                setTimeout(() => document.getElementById('registerUsername').focus(), 100);
             } else if (selectedOption === 'guest') {
                 showForm('guestRegister');
             }
@@ -778,6 +897,140 @@
                 window.location.href = `/phone-binding?login=${phone}`;
             } else if (phone) {
                 alert('请输入正确的手机号格式');
+            }
+        }
+        
+        // ========== 邮箱注册相关函数 ==========
+        
+        // 验证邮箱格式
+        function validateEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+        
+        // 验证密码强度
+        function validatePassword(password) {
+            return password && password.length >= 6 && password.length <= 20;
+        }
+        
+        // 完成邮箱注册
+        async function completeEmailRegister() {
+            const email = document.getElementById('registerEmail').value.trim();
+            const password = document.getElementById('registerEmailPassword').value;
+            const confirmPassword = document.getElementById('registerEmailConfirm').value;
+            const nickname = document.getElementById('registerEmailNickname').value.trim();
+            
+            // 验证邮箱格式
+            if (!email || !validateEmail(email)) {
+                showError('registerEmailError', '请输入正确的邮箱地址');
+                return;
+            }
+            
+            // 验证密码
+            if (!validatePassword(password)) {
+                showError('registerEmailPasswordError', '密码长度为6-20位');
+                return;
+            }
+            
+            // 验证密码一致性
+            if (password !== confirmPassword) {
+                showError('registerEmailConfirmError', '两次输入的密码不一致');
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                const response = await fetch('/api/auth/register/email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password,
+                        nickname: nickname
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('🎉 注册成功！\n欢迎加入TCM AI，您的健康管理之旅从现在开始！');
+                    // 可以自动登录或跳转到登录页面
+                    window.location.href = '/history';
+                } else {
+                    showError('registerEmailNicknameError', result.error || '注册失败');
+                }
+            } catch (error) {
+                console.error('邮箱注册失败:', error);
+                showError('registerEmailNicknameError', '网络错误，请重试');
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        // ========== 用户名注册相关函数 ==========
+        
+        // 验证用户名格式
+        function validateUsername(username) {
+            // 支持中文、英文、数字和下划线，4-20位
+            const usernameRegex = /^[\w\u4e00-\u9fa5]{4,20}$/;
+            return usernameRegex.test(username);
+        }
+        
+        // 完成用户名注册
+        async function completeUsernameRegister() {
+            const username = document.getElementById('registerUsername').value.trim();
+            const password = document.getElementById('registerUsernamePassword').value;
+            const confirmPassword = document.getElementById('registerUsernameConfirm').value;
+            
+            // 验证用户名
+            if (!username || !validateUsername(username)) {
+                showError('registerUsernameError', '用户名为4-20位，支持中文、英文、数字和下划线');
+                return;
+            }
+            
+            // 验证密码
+            if (!validatePassword(password)) {
+                showError('registerUsernamePasswordError', '密码长度为6-20位');
+                return;
+            }
+            
+            // 验证密码一致性
+            if (password !== confirmPassword) {
+                showError('registerUsernameConfirmError', '两次输入的密码不一致');
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                const response = await fetch('/api/auth/register/username', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('🎉 注册成功！\n欢迎加入TCM AI，您的健康管理之旅从现在开始！');
+                    // 可以自动登录或跳转到登录页面
+                    window.location.href = '/history';
+                } else {
+                    showError('registerUsernameConfirmError', result.error || '注册失败');
+                }
+            } catch (error) {
+                console.error('用户名注册失败:', error);
+                showError('registerUsernameConfirmError', '网络错误，请重试');
+            } finally {
+                hideLoading();
             }
         }
         

@@ -35,13 +35,9 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             if request.url.path == "/":
                 # 主页恢复早期问诊界面
                 return FileResponse("/opt/tcm-ai/static/index_v2.html")
-            elif request.url.path in ["/patient", "/patient/"]:
-                # 强制患者页面返回医生选择界面，禁用缓存
-                response = FileResponse("/opt/tcm-ai/static/patient/doctor-select.html")
-                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-                response.headers["Pragma"] = "no-cache"
-                response.headers["Expires"] = "0"
-                return response
+            elif request.url.path in ["/patient", "/patient/", "/patient-portal"]:
+                # 重定向患者相关页面到智能工作流
+                return RedirectResponse(url="/smart", status_code=302)
             elif request.url.path in ["/doctor", "/doctor/", "/admin", "/admin/"]:
                 # 检查用户认证状态
                 current_user = await get_current_user(request, None)
@@ -151,14 +147,27 @@ def setup_security_routes(app: FastAPI):
         success, session, message = await auth_handler.login(username, password, request)
         
         if success:
+            # 构建用户信息，包含详细字段
+            user_data = {
+                "user_id": session.user_id,
+                "role": session.role.value,
+                "permissions": [p.value for p in session.permissions]
+            }
+            
+            # 如果会话中有用户详细信息，添加到响应中
+            if hasattr(session, 'user_details') and session.user_details:
+                details = session.user_details
+                user_data.update({
+                    "username": details.get("username"),
+                    "email": details.get("email"),
+                    "nickname": details.get("nickname"),
+                    "registration_type": details.get("registration_type")
+                })
+            
             response = {
                 "success": True,
                 "message": message,
-                "user": {
-                    "user_id": session.user_id,
-                    "role": session.role.value,
-                    "permissions": [p.value for p in session.permissions]
-                },
+                "user": user_data,
                 "redirect_url": smart_router.interface_mappings[session.role],
                 "token": session.session_token  # 添加token字段到响应中
             }
@@ -191,18 +200,59 @@ def setup_security_routes(app: FastAPI):
     @app.get("/api/auth/profile")
     async def get_profile(current_user: UserSession = Depends(get_current_user)):
         """获取当前用户信息"""
+        # 构建基本用户信息
+        user_data = {
+            "user_id": current_user.user_id,
+            "role": current_user.role.value,
+            "permissions": [p.value for p in current_user.permissions],
+            "session_info": {
+                "created_at": current_user.created_at.isoformat(),
+                "last_activity": current_user.last_activity.isoformat(),
+                "expires_at": current_user.expires_at.isoformat()
+            }
+        }
+        
+        # 如果会话中有用户详细信息，添加到响应中
+        if hasattr(current_user, 'user_details') and current_user.user_details:
+            details = current_user.user_details
+            user_data.update({
+                "username": details.get("username"),
+                "email": details.get("email"),
+                "nickname": details.get("nickname"),
+                "registration_type": details.get("registration_type")
+            })
+        else:
+            # 如果会话中没有详细信息，从统一users表获取
+            import sqlite3
+            try:
+                conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+                cursor = conn.cursor()
+                
+                # 从统一的users表获取用户信息
+                cursor.execute("""
+                    SELECT username, email, nickname, registration_type, role
+                    FROM users WHERE user_id = ?
+                """, (current_user.user_id,))
+                
+                row = cursor.fetchone()
+                if row:
+                    username, email, nickname, registration_type, role = row
+                    user_data.update({
+                        "username": username,
+                        "email": email,
+                        "nickname": nickname,
+                        "registration_type": registration_type,
+                        "role": role
+                    })
+                
+                conn.close()
+            except Exception as e:
+                # 如果数据库查询失败，不影响基本信息返回
+                pass
+        
         return {
             "success": True,
-            "user": {
-                "user_id": current_user.user_id,
-                "role": current_user.role.value,
-                "permissions": [p.value for p in current_user.permissions],
-                "session_info": {
-                    "created_at": current_user.created_at.isoformat(),
-                    "last_activity": current_user.last_activity.isoformat(),
-                    "expires_at": current_user.expires_at.isoformat()
-                }
-            }
+            "user": user_data
         }
     
     @app.get("/api/security/dashboard")

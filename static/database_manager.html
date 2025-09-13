@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCM-AI 数据库管理器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .database-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .tab-button {
+            padding: 15px 25px;
+            background: #ecf0f1;
+            border: none;
+            border-radius: 10px 10px 0 0;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+            text-align: left;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .tab-button.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .tab-button:hover:not(.active) {
+            background: #d5dbdb;
+        }
+
+        /* 核心业务数据库按钮样式 */
+        .tab-button.primary {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: #ecf0f1;
+            border: 2px solid #3498db;
+            min-width: 300px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .tab-button.primary:hover:not(.active) {
+            background: linear-gradient(135deg, #34495e, #2c3e50);
+            border-color: #5dade2;
+            transform: translateY(-2px);
+        }
+
+        .tab-button.primary.active {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            border-color: #85c1e9;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        /* 辅助数据库按钮样式 */
+        .tab-button.secondary {
+            background: rgba(52, 73, 94, 0.6);
+            color: #bdc3c7;
+            min-height: 40px;
+            font-size: 0.85rem;
+            min-width: 200px;
+            border-radius: 6px;
+        }
+
+        .tab-button.secondary:hover:not(.active) {
+            background: rgba(52, 73, 94, 0.8);
+            color: #ecf0f1;
+        }
+
+        .tab-button small {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+
+        /* 折叠区域样式 */
+        .collapsible-header {
+            transition: all 0.3s ease;
+        }
+
+        .collapsible-header:hover {
+            color: #ecf0f1 !important;
+        }
+
+        #auxiliary-tabs {
+            transition: all 0.3s ease;
+        }
+
+        .database-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border-left: 5px solid #3498db;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .info-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .info-card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .table-header {
+            background: #34495e;
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-header h3 {
+            font-size: 1.3rem;
+        }
+
+        .record-count {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .sql-editor {
+            background: #2c3e50;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .sql-textarea {
+            width: 100%;
+            height: 150px;
+            background: #34495e;
+            border: none;
+            border-radius: 5px;
+            color: #ecf0f1;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            padding: 15px;
+            resize: vertical;
+        }
+
+        .sql-buttons {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+
+        .error-message {
+            background: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .success-message {
+            background: #27ae60;
+            color: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .schema-info {
+            background: #ecf0f1;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .schema-info pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+
+        .quick-queries {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .quick-query-btn {
+            background: #9b59b6;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .quick-query-btn:hover {
+            background: #8e44ad;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .database-tabs {
+                flex-wrap: wrap;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            th, td {
+                padding: 10px 8px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗄️ TCM-AI 数据库管理器</h1>
+            <p>可视化管理您的SQLite数据库 - 查看表结构、数据内容和执行SQL查询</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 核心业务数据库 -->
+            <div class="core-databases">
+                <h2 style="color: #ecf0f1; margin-bottom: 15px; font-size: 1.2rem;">🏥 核心业务数据库</h2>
+                <div class="database-tabs">
+                    <button class="tab-button active primary" onclick="switchDatabase('user_history')">
+                        <div>👥 用户账户数据库</div>
+                        <small>用户、医生、问诊、处方等核心数据</small>
+                    </button>
+                    <button class="tab-button primary" onclick="switchDatabase('famous_doctors')">
+                        <div>👨‍⚕️ 名医知识库</div>
+                        <small>五大名医诊疗知识和经验</small>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 系统辅助数据库 -->
+            <div class="auxiliary-databases" style="margin-top: 20px;">
+                <div class="collapsible-header" onclick="toggleAuxiliaryDatabases()" style="cursor: pointer; color: #bdc3c7; margin-bottom: 10px; font-size: 1rem;">
+                    <span id="aux-toggle">▶</span> 🔧 系统辅助数据库 (缓存、日志等)
+                </div>
+                <div id="auxiliary-tabs" class="database-tabs" style="display: none; opacity: 0.8;">
+                    <button class="tab-button secondary" onclick="switchDatabase('cache')">缓存数据库</button>
+                    <button class="tab-button secondary" onclick="switchDatabase('intelligent_cache')">智能缓存数据库</button>
+                </div>
+            </div>
+
+            <!-- 数据库信息面板 -->
+            <div class="database-info">
+                <h2>📊 数据库概览</h2>
+                <div id="database-overview" class="info-grid">
+                    <div class="loading">正在加载数据库信息...</div>
+                </div>
+            </div>
+
+            <!-- 快速查询按钮 -->
+            <div class="quick-queries">
+                <button class="quick-query-btn" onclick="loadQuickQuery('user_stats')">用户统计</button>
+                <button class="quick-query-btn" onclick="loadQuickQuery('recent_conversations')">最近对话</button>
+                <button class="quick-query-btn" onclick="loadQuickQuery('prescription_stats')">处方统计</button>
+                <button class="quick-query-btn" onclick="loadQuickQuery('table_sizes')">表大小分析</button>
+                <button class="quick-query-btn" onclick="loadQuickQuery('foreign_keys')">外键关系</button>
+                <button class="quick-query-btn" onclick="loadQuickQuery('indexes')">索引信息</button>
+            </div>
+
+            <!-- SQL编辑器 -->
+            <div class="sql-editor">
+                <h3 style="color: #ecf0f1; margin-bottom: 15px;">🔍 SQL查询编辑器</h3>
+                <textarea id="sql-query" class="sql-textarea" placeholder="输入您的SQL查询语句...">SELECT name FROM sqlite_master WHERE type='table';</textarea>
+                <div class="sql-buttons">
+                    <button class="btn btn-primary" onclick="executeQuery()">执行查询</button>
+                    <button class="btn btn-success" onclick="loadTableSchema()">查看表结构</button>
+                    <button class="btn btn-warning" onclick="clearResults()">清空结果</button>
+                </div>
+            </div>
+
+            <!-- 消息提示 -->
+            <div id="error-message" class="error-message"></div>
+            <div id="success-message" class="success-message"></div>
+
+            <!-- 查询结果显示区域 -->
+            <div id="query-results"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentDatabase = 'user_history';
+        
+        // 切换数据库
+        function switchDatabase(dbName) {
+            currentDatabase = dbName;
+            
+            // 更新标签页状态
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 重新加载数据库信息
+            loadDatabaseOverview();
+        }
+        
+        // 加载数据库概览信息
+        async function loadDatabaseOverview() {
+            try {
+                const response = await fetch('/api/database/overview', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({database: currentDatabase})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayDatabaseOverview(data.data);
+                } else {
+                    showError('加载数据库信息失败: ' + data.message);
+                }
+            } catch (error) {
+                showError('网络错误: ' + error.message);
+            }
+        }
+        
+        // 显示数据库概览信息
+        function displayDatabaseOverview(data) {
+            const container = document.getElementById('database-overview');
+            
+            let html = '';
+            
+            // 基本信息卡片
+            html += `
+                <div class="info-card">
+                    <h3>📊 基本信息</h3>
+                    <p><strong>数据库:</strong> ${data.database_name}</p>
+                    <p><strong>文件大小:</strong> ${data.file_size}</p>
+                    <p><strong>表数量:</strong> ${data.table_count}</p>
+                    <p><strong>最后修改:</strong> ${data.last_modified}</p>
+                </div>
+            `;
+            
+            // 表信息卡片
+            if (data.tables && data.tables.length > 0) {
+                html += `
+                    <div class="info-card">
+                        <h3>📋 数据表</h3>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                `;
+                
+                data.tables.forEach(table => {
+                    html += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #ecf0f1;">
+                            <span style="cursor: pointer; color: #3498db;" onclick="loadTableData('${table.name}')">${table.name}</span>
+                            <span style="background: #ecf0f1; padding: 3px 8px; border-radius: 10px; font-size: 0.8rem;">${table.count || 0} 条记录</span>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        // 加载表数据
+        async function loadTableData(tableName) {
+            const query = `SELECT * FROM ${tableName} LIMIT 100`;
+            document.getElementById('sql-query').value = query;
+            await executeQuery();
+        }
+        
+        // 执行SQL查询
+        async function executeQuery() {
+            const query = document.getElementById('sql-query').value.trim();
+            if (!query) {
+                showError('请输入SQL查询语句');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/database/query', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        database: currentDatabase,
+                        query: query
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayQueryResults(data.data);
+                    showSuccess(`查询成功，返回 ${data.data.rows ? data.data.rows.length : 0} 条记录`);
+                } else {
+                    showError('查询失败: ' + data.message);
+                }
+            } catch (error) {
+                showError('网络错误: ' + error.message);
+            }
+        }
+        
+        // 显示查询结果
+        function displayQueryResults(data) {
+            const container = document.getElementById('query-results');
+            
+            if (!data.columns || !data.rows) {
+                container.innerHTML = '<div class="loading">查询执行成功，但无返回结果</div>';
+                return;
+            }
+            
+            let html = `
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>📊 查询结果</h3>
+                        <span class="record-count">${data.rows.length} 条记录</span>
+                    </div>
+                    <div style="overflow-x: auto; max-height: 500px;">
+                        <table>
+                            <thead>
+                                <tr>
+            `;
+            
+            // 表头
+            data.columns.forEach(col => {
+                html += `<th>${col}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            // 数据行
+            data.rows.forEach(row => {
+                html += '<tr>';
+                row.forEach(cell => {
+                    const cellValue = cell === null ? '<em style="color:#999;">NULL</em>' : String(cell);
+                    const displayValue = cellValue.length > 100 ? cellValue.substring(0, 100) + '...' : cellValue;
+                    html += `<td title="${cellValue}">${displayValue}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div></div>';
+            container.innerHTML = html;
+        }
+        
+        // 加载快速查询
+        function loadQuickQuery(queryType) {
+            const quickQueries = {
+                'user_stats': 'SELECT COUNT(*) as total_users, COUNT(CASE WHEN is_verified = 1 THEN 1 END) as verified_users FROM users;',
+                'recent_conversations': 'SELECT conversation_id, created_at, status FROM user_sessions ORDER BY created_at DESC LIMIT 10;',
+                'prescription_stats': 'SELECT status, COUNT(*) as count FROM prescriptions GROUP BY status;',
+                'table_sizes': "SELECT name, COUNT(*) as record_count FROM sqlite_master m LEFT JOIN pragma_table_info(m.name) p GROUP BY name HAVING m.type='table';",
+                'foreign_keys': 'PRAGMA foreign_key_list;',
+                'indexes': "SELECT name, tbl_name, sql FROM sqlite_master WHERE type='index';"
+            };
+            
+            if (quickQueries[queryType]) {
+                document.getElementById('sql-query').value = quickQueries[queryType];
+            }
+        }
+        
+        // 加载表结构
+        async function loadTableSchema() {
+            const query = document.getElementById('sql-query').value;
+            const tableMatch = query.match(/FROM\\s+(\\w+)/i);
+            
+            if (tableMatch) {
+                const tableName = tableMatch[1];
+                document.getElementById('sql-query').value = `PRAGMA table_info(${tableName});`;
+                await executeQuery();
+            } else {
+                showError('请先选择一个表或在查询中包含表名');
+            }
+        }
+        
+        // 清空结果
+        function clearResults() {
+            document.getElementById('query-results').innerHTML = '';
+            document.getElementById('sql-query').value = '';
+        }
+        
+        // 显示错误信息
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        // 显示成功信息
+        function showSuccess(message) {
+            const successDiv = document.getElementById('success-message');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+        
+        // 折叠/展开辅助数据库
+        function toggleAuxiliaryDatabases() {
+            const auxiliaryTabs = document.getElementById('auxiliary-tabs');
+            const toggleIcon = document.getElementById('aux-toggle');
+            
+            if (auxiliaryTabs.style.display === 'none') {
+                auxiliaryTabs.style.display = 'flex';
+                auxiliaryTabs.style.opacity = '1';
+                toggleIcon.textContent = '▼';
+            } else {
+                auxiliaryTabs.style.display = 'none';
+                auxiliaryTabs.style.opacity = '0';
+                toggleIcon.textContent = '▶';
+            }
+        }
+        
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDatabaseOverview();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智汇中医 - 选择入口</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        .header {
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 3em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            color: #666;
+        }
+        
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .option-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 3px solid transparent;
+        }
+        
+        .option-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+            border-color: #667eea;
+        }
+        
+        .option-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .option-title {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .option-description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        
+        .option-features {
+            list-style: none;
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        
+        .option-features li {
+            padding: 5px 0;
+            color: #28a745;
+            position: relative;
+            padding-left: 20px;
+        }
+        
+        .option-features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .classic-card {
+            border-left: 5px solid #6c757d;
+        }
+        
+        .smart-card {
+            border-left: 5px solid #667eea;
+        }
+        
+        .doctor-card {
+            border-left: 5px solid #28a745;
+        }
+        
+        .patient-card {
+            border-left: 5px solid #ffc107;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        
+        .new-badge {
+            background: #28a745;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .options-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 智汇中医</h1>
+            <p>传统中医 × 人工智能 = 个性化诊疗体验</p>
+        </div>
+        
+        <div class="options-grid">
+            <!-- 智能工作流程版本 (推荐) -->
+            <div class="option-card smart-card" onclick="window.location.href='/smart'">
+                <div class="option-icon">🚀</div>
+                <div class="option-title">
+                    智能工作流程
+                    <span class="badge new-badge">推荐</span>
+                </div>
+                <div class="option-description">
+                    基于症状智能推荐医生，完整的诊疗闭环体验
+                </div>
+                <ul class="option-features">
+                    <li>症状收集 → 医生推荐</li>
+                    <li>个性化医生匹配</li>
+                    <li>AI智能问诊</li>
+                    <li>处方付费查看</li>
+                    <li>服务评价系统</li>
+                </ul>
+                <a href="/smart" class="btn">开始智能问诊</a>
+            </div>
+            
+            <!-- 经典版本 -->
+            <div class="option-card classic-card" onclick="window.location.href='/'">
+                <div class="option-icon">🏛️</div>
+                <div class="option-title">经典问诊模式</div>
+                <div class="option-description">
+                    传统的医生选择模式，适合有明确医生偏好的用户
+                </div>
+                <ul class="option-features">
+                    <li>直接选择医生</li>
+                    <li>五大名医人格</li>
+                    <li>传统问诊模式</li>
+                    <li>历史记录保存</li>
+                    <li>图像诊断支持</li>
+                </ul>
+                <a href="/" class="btn">经典问诊</a>
+            </div>
+            
+            <!-- 医生工作台 -->
+            <div class="option-card doctor-card" onclick="window.location.href='/doctor-dashboard'">
+                <div class="option-icon">👨‍⚕️</div>
+                <div class="option-title">
+                    医生工作台
+                    <span class="badge new-badge">全新</span>
+                </div>
+                <div class="option-description">
+                    专为中医师设计的现代化工作台
+                </div>
+                <ul class="option-features">
+                    <li>问诊管理系统</li>
+                    <li>患者评价管理</li>
+                    <li>处方审查工具</li>
+                    <li>数据统计分析</li>
+                    <li>工作流程优化</li>
+                </ul>
+                <a href="/login?tab=roles" class="btn">医生登录</a>
+            </div>
+            
+            <!-- 患者门户 -->
+            <div class="option-card patient-card" onclick="window.location.href='/patient-portal'">
+                <div class="option-icon">👤</div>
+                <div class="option-title">
+                    患者专用门户
+                    <span class="badge new-badge">全新</span>
+                </div>
+                <div class="option-description">
+                    完整的患者诊疗体验平台
+                </div>
+                <ul class="option-features">
+                    <li>5步式问诊流程</li>
+                    <li>支付和处方管理</li>
+                    <li>医生评价反馈</li>
+                    <li>历史记录查询</li>
+                    <li>移动端优化</li>
+                </ul>
+                <a href="/register" class="btn">患者注册/登录</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>💡 提示：</strong>首次使用推荐选择"智能工作流程"，体验完整的症状分析→医生推荐→AI问诊流程</p>
+            <p>系统版本: v2.4 智能工作流程版 | 更新时间: 2025-09-09</p>
+        </div>
+    </div>
+</body>
+</html>

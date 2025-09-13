@@ -748,6 +748,8 @@
         let currentUserId = null;
         let allSessions = [];
         let currentFilter = 'all';
+        let userToken = null;
+        let currentUser = null;
         
         // 医生信息映射
         const doctorInfo = {
@@ -767,6 +769,8 @@
         // 初始化页面
         async function initializePage() {
             try {
+                // 先检查登录状态
+                checkLoginStatus();
                 await loadUserInfo();
                 await loadSessionHistory();
             } catch (error) {
@@ -775,19 +779,86 @@
             }
         }
         
+        // 检查登录状态
+        function checkLoginStatus() {
+            // 按角色检查token
+            const patientToken = localStorage.getItem('patientToken');
+            const doctorToken = localStorage.getItem('doctorToken');
+            const adminToken = localStorage.getItem('adminToken');
+            const userTokenStored = localStorage.getItem('userToken');
+            
+            // 优先使用角色专用token，然后fallback到通用token
+            userToken = patientToken || doctorToken || adminToken || userTokenStored;
+            const userData = localStorage.getItem('userData');
+            
+            if (userToken) {
+                try {
+                    currentUser = userData ? JSON.parse(userData) : null;
+                    console.log('检测到用户token:', userToken.substring(0, 20) + '...');
+                    console.log('用户数据:', currentUser);
+                } catch (error) {
+                    console.error('解析用户数据失败:', error);
+                    currentUser = null;
+                }
+            } else {
+                console.log('未检测到用户token');
+            }
+        }
+        
+        // 获取认证头
+        function getAuthHeaders() {
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            
+            if (userToken) {
+                headers['Authorization'] = `Bearer ${userToken}`;
+            }
+            
+            return headers;
+        }
+        
         // 加载用户信息
         async function loadUserInfo() {
             try {
-                const response = await fetch('/api/user/info');
-                if (response.ok) {
-                    const userInfo = await response.json();
+                // 优先尝试认证API（真正的注册用户）
+                const authResponse = await fetch('/api/auth/profile', {
+                    headers: getAuthHeaders()
+                });
+                
+                if (authResponse.ok) {
+                    const authData = await authResponse.json();
+                    if (authData.success && authData.user) {
+                        const userInfo = {
+                            user_id: authData.user.user_id,
+                            role: authData.user.role,
+                            permissions: authData.user.permissions,
+                            registration_type: authData.user.registration_type || 'authenticated',
+                            username: authData.user.username,
+                            email: authData.user.email,
+                            nickname: authData.user.nickname || authData.user.username
+                        };
+                        currentUserId = userInfo.user_id;
+                        currentUser = userInfo;
+                        updateUserInterface(userInfo);
+                        return;
+                    }
+                }
+                
+                // 如果认证API失败，fallback到设备用户API
+                const deviceResponse = await fetch('/api/user/info', {
+                    headers: getAuthHeaders()
+                });
+                
+                if (deviceResponse.ok) {
+                    const userInfo = await deviceResponse.json();
                     currentUserId = userInfo.user_id;
-                    
-                    // 更新用户界面
+                    currentUser = userInfo;
                     updateUserInterface(userInfo);
                 } else {
                     throw new Error('获取用户信息失败');
                 }
+                
             } catch (error) {
                 console.error('加载用户信息失败:', error);
                 // 显示默认用户信息
@@ -799,8 +870,25 @@
         // 更新用户界面
         function updateUserInterface(userInfo) {
             const userName = userInfo.nickname || `用户_${userInfo.user_id.slice(-4)}`;
-            const userType = userInfo.registration_type === 'phone' ? 
-                `已验证用户（${userInfo.phone_number})` : '设备用户';
+            
+            // 更新用户类型显示逻辑
+            let userType;
+            if (userInfo.registration_type === 'authenticated') {
+                // 已认证的用户（通过patient/doctor账户登录）
+                userType = `已注册用户（${userInfo.role || '用户'}）`;
+            } else if (userInfo.registration_type === 'phone') {
+                // 手机验证用户
+                userType = `已验证用户（${userInfo.phone_number}）`;
+            } else if (userInfo.registration_type === 'username') {
+                // 用户名注册用户
+                userType = `注册用户（${userInfo.username}）`;
+            } else if (userInfo.registration_type === 'email') {
+                // 邮箱注册用户
+                userType = `注册用户（${userInfo.email}）`;
+            } else {
+                // 设备用户
+                userType = '设备用户';
+            }
             
             document.getElementById('userName').textContent = userName;
             document.getElementById('userType').textContent = userType;
@@ -836,9 +924,7 @@
                 
                 const response = await fetch('/api/user/sessions', {
                     method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: getAuthHeaders(),
                     timeout: 30000
                 });
                 
@@ -1110,7 +1196,9 @@
         // 显示对话详情
         async function showConversationDetail(sessionId) {
             try {
-                const response = await fetch(`/api/user/conversation/${sessionId}`);
+                const response = await fetch(`/api/user/conversation/${sessionId}`, {
+                    headers: getAuthHeaders()
+                });
                 if (response.ok) {
                     const detail = await response.json();
                     displayConversationDetail(detail);
@@ -1180,7 +1268,9 @@
         // 导出单个对话
         async function exportConversation(sessionId) {
             try {
-                const response = await fetch(`/api/user/conversation/${sessionId}/export`);
+                const response = await fetch(`/api/user/conversation/${sessionId}/export`, {
+                    headers: getAuthHeaders()
+                });
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
@@ -1312,7 +1402,9 @@
             const deviceList = document.getElementById('deviceList');
             
             try {
-                const response = await fetch('/api/user/devices');
+                const response = await fetch('/api/user/devices', {
+                    headers: getAuthHeaders()
+                });
                 if (response.ok) {
                     const data = await response.json();
                     

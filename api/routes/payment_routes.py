@@ -23,6 +23,12 @@ class CreateOrderRequest(BaseModel):
     shipping_address: Optional[str] = None
     notes: Optional[str] = None
 
+class CreatePaymentRequest(BaseModel):
+    """创建支付请求（前端调用）"""
+    prescription_id: int
+    amount: float
+    payment_method: str
+
 class OrderStatusResponse(BaseModel):
     """订单状态响应"""
     success: bool
@@ -46,6 +52,54 @@ def calculate_prescription_amount(prescription_id: int) -> float:
     decoction_fee = 30.0
     
     return base_amount + herb_amount
+
+@router.post("/alipay/create")
+async def create_alipay_payment(request: CreatePaymentRequest):
+    """创建支付宝支付订单"""
+    try:
+        # 生成订单号
+        order_no = f"TCM{datetime.now().strftime('%Y%m%d%H%M%S')}{str(uuid.uuid4())[:8]}"
+        
+        # 模拟支付数据（开发环境）
+        payment_url = f"https://openapi.alipay.com/gateway.do?out_trade_no={order_no}"
+        
+        return {
+            "success": True,
+            "data": {
+                "payment_id": order_no,
+                "payment_url": payment_url,
+                "order_no": order_no,
+                "amount": request.amount
+            },
+            "message": "支付宝支付订单创建成功"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建支付宝支付失败: {e}")
+
+@router.post("/wechat/create") 
+async def create_wechat_payment(request: CreatePaymentRequest):
+    """创建微信支付订单"""
+    try:
+        # 生成订单号
+        order_no = f"TCM{datetime.now().strftime('%Y%m%d%H%M%S')}{str(uuid.uuid4())[:8]}"
+        
+        # 模拟二维码数据（开发环境）
+        qr_code = f"weixin://wxpay/bizpayurl?pr={order_no}"
+        
+        return {
+            "success": True,
+            "data": {
+                "payment_id": order_no,
+                "qr_code": qr_code,
+                "order_no": order_no,
+                "amount": request.amount
+            },
+            "message": "微信支付订单创建成功"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建微信支付失败: {e}")
 
 @router.post("/create-order")
 async def create_payment_order(request: CreateOrderRequest):
@@ -129,6 +183,34 @@ async def create_payment_order(request: CreateOrderRequest):
         raise HTTPException(status_code=500, detail=f"创建订单失败: {e}")
     finally:
         conn.close()
+
+@router.get("/status/{payment_id}")
+async def get_payment_status(payment_id: str):
+    """查询支付状态（模拟）"""
+    try:
+        # 模拟支付状态检查
+        # 在实际环境中，这里会调用真实的支付平台API
+        import random
+        
+        # 10%概率返回已支付状态（用于演示）
+        if random.random() < 0.1:
+            status = "paid"
+            message = "支付成功"
+        else:
+            status = "pending"
+            message = "等待支付"
+        
+        return {
+            "success": True,
+            "data": {
+                "payment_id": payment_id,
+                "status": status,
+                "message": message
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"查询支付状态失败: {e}")
 
 @router.get("/order/{order_id}/status")
 async def get_order_status(order_id: int):
