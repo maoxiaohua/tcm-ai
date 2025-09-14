@@ -4386,8 +4386,50 @@ ${data.analysis_result}`;
 
         // 清除用户数据
         function clearUserData() {
+            // 清除基础用户信息
             localStorage.removeItem('userData');
             localStorage.removeItem('userToken');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('currentUserId');
+            localStorage.removeItem('patientToken');
+            localStorage.removeItem('doctorToken');
+            localStorage.removeItem('adminToken');
+            
+            // 🚨 安全修复：清除所有用户相关的对话历史数据
+            const userId = getCurrentUserId();
+            if (userId) {
+                const keys = Object.keys(localStorage);
+                const userDataKeys = keys.filter(key => 
+                    key.startsWith(`tcm_doctor_history_${userId}_`) ||
+                    key.startsWith(`conversationId_${userId}`) ||
+                    key.startsWith(`followup_shown_`) ||
+                    key.includes(userId)
+                );
+                
+                userDataKeys.forEach(key => {
+                    localStorage.removeItem(key);
+                    console.log(`🧹 已清除用户数据: ${key}`);
+                });
+                
+                console.log(`🧹 用户(${userId})退出：已清除${userDataKeys.length}项相关数据`);
+            }
+            
+            // 清除全局变量
+            currentUser = null;
+            userToken = null;
+            currentConversationId = null;
+            selectedDoctor = null;
+            
+            // 清除页面上的对话内容
+            const containers = ['messagesContainer', 'mobileMessagesContainer'];
+            containers.forEach(containerId => {
+                const container = document.getElementById(containerId);
+                if (container) {
+                    container.innerHTML = '';
+                }
+            });
+            
+            console.log('🧹 用户数据清除完成');
         }
 
         // 🔑 获取当前对话历史，用于维持上下文连续性
