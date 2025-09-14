@@ -2083,14 +2083,40 @@
         }
 
         function initializeApp() {
+            console.log('🚀 初始化TCM-AI智能工作流系统');
+            
+            // 🔍 用户状态检测和管理
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            const hasRealUser = !!(currentUser.id || currentUser.user_id);
+            
+            console.log('👤 用户状态检测:', hasRealUser ? '真实登录用户' : '访客模式');
+            if (hasRealUser) {
+                console.log('🔑 登录用户信息:', currentUser.username || currentUser.name || currentUser.id);
+            }
+            
+            // 设置初始用户状态
+            window.lastKnownUser = localStorage.getItem('currentUser');
+            
             // 首先清理旧数据，确保数据隔离
             cleanupOldUserData();
+            
+            // 🔄 定期检测用户状态变化（每5秒检查一次）
+            setInterval(() => {
+                detectUserChange();
+            }, 5000);
             
             renderDoctorCards();
             loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
             
             // 设置默认医生 - 张仲景（最全面的医师）
             setDefaultDoctor('zhang_zhongjing');
+            
+            // 🧹 暴露全局清理函数（供外部调用）
+            window.clearCurrentUserData = clearCurrentUserData;
+            window.switchUserContext = switchUserContext;
+            
+            // 🔗 添加页面级用户管理控制
+            addUserManagementControls();
             
             // 添加调试功能（仅在开发环境或特定条件下）
             if (isDebugMode()) {
@@ -2099,6 +2125,8 @@
                 console.log('  - diagnoseHistoryIssues(): 诊断历史记录问题');
                 console.log('  - checkLocalStorageUsage(): 检查存储使用情况');
                 console.log('  - cleanOldHistoryRecords(): 清理旧的历史记录');
+                console.log('  - clearCurrentUserData(): 清理当前用户数据');
+                console.log('  - switchUserContext(): 切换用户上下文');
                 
                 // 将调试函数暴露到全局
                 window.diagnoseHistoryIssues = diagnoseHistoryIssues;
@@ -2156,26 +2184,241 @@
             // 🚨 重要：智能工作流页面(index_smart_workflow.html)只使用登录用户数据
             // 这确保与游客页面的数据完全隔离
             
-            // 优先使用登录用户信息
+            // 🔑 优先使用真实登录用户信息 
             const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
             if (currentUser.id || currentUser.user_id) {
                 const userId = currentUser.id || currentUser.user_id;
-                console.log('智能工作流页面使用登录用户ID:', userId);
-                return userId;
+                console.log('🔑 使用真实登录用户ID:', userId);
+                return `real_user_${userId}`; // 加前缀区分真实用户
             }
             
-            // 智能工作流程页面的专用用户ID
+            // ⚠️ 访客模式 - 智能工作流程页面的临时用户ID
             const smartUser = localStorage.getItem('currentUserId');
             if (smartUser) {
-                console.log('智能工作流页面使用存储用户ID:', smartUser);
-                return smartUser;
+                console.log('🔄 使用临时访客用户ID:', smartUser);
+                return smartUser; // 已有smart_user_前缀
             }
             
-            // 如果没有登录用户，生成智能工作流专用ID
+            // 🆕 生成新的访客用户ID
             const newSmartId = 'smart_user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             localStorage.setItem('currentUserId', newSmartId);
-            console.log('智能工作流页面生成新用户ID:', newSmartId);
+            console.log('🆕 生成新访客用户ID:', newSmartId);
             return newSmartId;
+        }
+
+        /**
+         * 🧹 清理当前用户的所有数据（用于登出）
+         */
+        function clearCurrentUserData() {
+            try {
+                const currentUserId = getCurrentUserId();
+                console.log('🧹 开始清理用户数据，用户ID:', currentUserId);
+                
+                // 1. 清理当前用户的所有历史记录
+                const keys = Object.keys(localStorage);
+                const userHistoryKeys = keys.filter(key => 
+                    key.includes(`_${currentUserId}_`) || 
+                    key.endsWith(`_${currentUserId}`)
+                );
+                
+                let cleanedCount = 0;
+                userHistoryKeys.forEach(key => {
+                    localStorage.removeItem(key);
+                    cleanedCount++;
+                    console.log('🗑️ 删除用户数据:', key);
+                });
+                
+                // 2. 清理用户认证信息
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('userToken');
+                localStorage.removeItem('currentUserId');
+                
+                // 3. 重置全局变量
+                window.currentUser = null;
+                window.userToken = null;
+                window.currentConversationId = null;
+                window.selectedDoctor = null;
+                
+                // 4. 清理UI状态
+                clearAllMessages();
+                resetDoctorSelection();
+                
+                console.log(`✅ 用户数据清理完成，共删除 ${cleanedCount} 项数据`);
+                return cleanedCount;
+                
+            } catch (error) {
+                console.error('❌ 清理用户数据失败:', error);
+                return 0;
+            }
+        }
+
+        /**
+         * 🔄 切换用户时的数据隔离处理
+         */
+        function switchUserContext() {
+            try {
+                // 清理之前用户的UI状态
+                clearAllMessages();
+                resetDoctorSelection();
+                
+                // 重新初始化新用户的状态
+                const newUserId = getCurrentUserId();
+                console.log('🔄 切换到用户上下文:', newUserId);
+                
+                // 加载新用户的历史记录
+                setTimeout(() => {
+                    loadUserHistoryForAllDoctors();
+                }, 100);
+                
+            } catch (error) {
+                console.error('❌ 切换用户上下文失败:', error);
+            }
+        }
+
+        /**
+         * 🗑️ 清理所有消息
+         */
+        function clearAllMessages() {
+            const containers = ['messagesContainer', 'mobileMessagesContainer'];
+            containers.forEach(containerId => {
+                const container = document.getElementById(containerId);
+                if (container) {
+                    container.innerHTML = '';
+                    console.log('🗑️ 清理消息容器:', containerId);
+                }
+            });
+        }
+
+        /**
+         * 🔄 重置医生选择状态
+         */
+        function resetDoctorSelection() {
+            window.selectedDoctor = null;
+            
+            // 重置医生选择UI
+            const doctorCards = document.querySelectorAll('.doctor-card');
+            doctorCards.forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // 重置手机版医生选择
+            const mobileDoctorSelect = document.getElementById('mobileDoctorSelect');
+            if (mobileDoctorSelect) {
+                mobileDoctorSelect.value = '';
+            }
+            
+            console.log('🔄 医生选择状态已重置');
+        }
+
+        /**
+         * 🔍 检测用户状态变化
+         */
+        function detectUserChange() {
+            const currentStoredUser = localStorage.getItem('currentUser');
+            const lastKnownUser = window.lastKnownUser || null;
+            
+            if (currentStoredUser !== lastKnownUser) {
+                console.log('🔍 检测到用户状态变化');
+                console.log('之前用户:', lastKnownUser);
+                console.log('当前用户:', currentStoredUser);
+                
+                window.lastKnownUser = currentStoredUser;
+                
+                // 用户状态发生变化，执行切换处理
+                switchUserContext();
+                return true;
+            }
+            
+            return false;
+        }
+
+        /**
+         * 🔗 添加页面级用户管理控制
+         */
+        function addUserManagementControls() {
+            // 只在调试模式或特定情况下显示
+            if (!isDebugMode()) return;
+            
+            const controlsHTML = `
+                <div id="userManagementPanel" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 8px; z-index: 9999; font-size: 12px; max-width: 200px;">
+                    <div style="font-weight: bold; margin-bottom: 8px;">👤 用户管理</div>
+                    <div id="currentUserDisplay" style="margin-bottom: 8px; font-size: 11px;"></div>
+                    <button onclick="testUserDataIsolation()" style="width: 100%; margin-bottom: 4px; padding: 4px; font-size: 11px;">🔍 测试数据隔离</button>
+                    <button onclick="clearCurrentUserData() && showMessage('用户数据已清理', 'success')" style="width: 100%; margin-bottom: 4px; padding: 4px; font-size: 11px;">🧹 清理当前用户</button>
+                    <button onclick="switchUserContext() && showMessage('用户上下文已切换', 'info')" style="width: 100%; padding: 4px; font-size: 11px;">🔄 切换用户上下文</button>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', controlsHTML);
+            updateCurrentUserDisplay();
+            
+            // 每5秒更新一次用户显示
+            setInterval(updateCurrentUserDisplay, 5000);
+        }
+
+        /**
+         * 🔄 更新当前用户显示
+         */
+        function updateCurrentUserDisplay() {
+            const display = document.getElementById('currentUserDisplay');
+            if (!display) return;
+            
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            const currentUserId = getCurrentUserId();
+            
+            if (currentUser.id || currentUser.user_id) {
+                display.innerHTML = `🔑 真实用户<br>${currentUser.username || currentUser.name || 'N/A'}<br>ID: ${currentUserId}`;
+                display.style.color = '#4ade80'; // 绿色
+            } else {
+                display.innerHTML = `⚠️ 访客模式<br>ID: ${currentUserId}`;
+                display.style.color = '#fbbf24'; // 黄色
+            }
+        }
+
+        /**
+         * 🧪 测试用户数据隔离
+         */
+        function testUserDataIsolation() {
+            console.log('🧪 开始用户数据隔离测试');
+            
+            const currentUserId = getCurrentUserId();
+            const allKeys = Object.keys(localStorage);
+            
+            console.log('当前用户ID:', currentUserId);
+            console.log('localStorage总键数:', allKeys.length);
+            
+            // 查找当前用户相关的数据
+            const userKeys = allKeys.filter(key => 
+                key.includes(currentUserId) ||
+                key.includes('currentUser') ||
+                key.includes('userToken') ||
+                key.includes('currentUserId')
+            );
+            
+            console.log('当前用户相关数据键:', userKeys);
+            
+            // 查找其他用户的数据（泄露检测）
+            const otherUserKeys = allKeys.filter(key => 
+                (key.includes('real_user_') || key.includes('smart_user_')) && 
+                !key.includes(currentUserId)
+            );
+            
+            console.log('其他用户数据键（数据泄露检测）:', otherUserKeys);
+            
+            if (otherUserKeys.length > 0) {
+                console.warn('⚠️ 检测到其他用户数据，可能存在数据泄露');
+                showMessage(`警告：检测到${otherUserKeys.length}个其他用户数据项`, 'warning');
+            } else {
+                console.log('✅ 数据隔离正常');
+                showMessage('数据隔离测试通过', 'success');
+            }
+            
+            return {
+                currentUserId,
+                userKeys: userKeys.length,
+                otherUserKeys: otherUserKeys.length,
+                isolated: otherUserKeys.length === 0
+            };
         }
 
         // 全局变量：推荐医生列表
@@ -2857,8 +3100,8 @@
                 const shouldShowFeedback = containsPrescription(aiReply);
                 
                 // 🔑 关键修复：检查是否有处方ID和支付状态
-                const prescriptionId = data.prescription_id || null;
-                const isPaid = data.is_paid || false;
+                const prescriptionId = responseData.data?.prescription_id || null;
+                const isPaid = responseData.data?.is_paid || false;
                 
                 // 🆕 状态管理集成：分析AI消息并更新状态
                 if (window.conversationStateManager) {
@@ -3844,7 +4087,7 @@ ${data.analysis_result}`;
         }
 
         
-        // 检测回复是否包含处方
+        // 检测回复是否包含处方（使用渲染器的统一逻辑）
         function containsPrescription(text) {
             // 防止undefined错误
             if (!text || typeof text !== 'string') {
@@ -3852,6 +4095,21 @@ ${data.analysis_result}`;
                 return false;
             }
             
+            // 使用处方渲染器的统一检测逻辑
+            if (window.prescriptionRenderer) {
+                return window.prescriptionRenderer.containsPrescription(text);
+            }
+            
+            // 备用检测逻辑（如果渲染器未加载）
+            const hasHerbs = /[当归|党参|黄芪|白术|茯苓|甘草|生地|熟地|川芎|白芍|柴胡|黄芩|半夏|陈皮]/.test(text);
+            const hasDosage = /\d+[克g]/.test(text);
+            const hasPrescriptionKeyword = /处方|方剂|药方|组方/.test(text);
+            
+            return (hasHerbs && hasDosage) || hasPrescriptionKeyword;
+        }
+
+        // 遗留代码保留（为了向后兼容）
+        function containsPrescription_legacy(text) {
             // 处方关键词检测
             const prescriptionKeywords = [
                 '处方', '方剂', '药方', '中药', '服用', '煎服', '每日', '克', 'g',
@@ -4766,6 +5024,16 @@ ${data.analysis_result}`;
 
         // 显示支付模态框
         function showPaymentModal(prescriptionId, amount) {
+            // 获取处方内容
+            const prescriptionContent = getPrescriptionContent();
+            let formattedContent = '';
+            
+            if (prescriptionContent && window.prescriptionRenderer) {
+                formattedContent = window.prescriptionRenderer.formatForPaymentModal(prescriptionContent);
+            } else {
+                formattedContent = '<p class="no-content">正在加载处方内容...</p>';
+            }
+            
             // 检查是否已存在模态框
             let modal = document.getElementById('paymentModal');
             if (!modal) {
@@ -4786,14 +5054,24 @@ ${data.analysis_result}`;
                 `;
                 
                 modal.innerHTML = `
-                    <div style="background: white; border-radius: 16px; max-width: 400px; width: 90%;">
-                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 24px; border-radius: 16px 16px 0 0; text-align: center;">
-                            <h3 style="margin: 0; font-size: 20px; font-weight: 600;">💳 选择支付方式</h3>
+                    <div style="background: white; border-radius: 16px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto;">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 24px; border-radius: 16px 16px 0 0; text-align: center; position: sticky; top: 0; z-index: 1;">
+                            <h3 style="margin: 0; font-size: 20px; font-weight: 600;">📋 处方确认与支付</h3>
                         </div>
+                        
                         <div style="padding: 24px;">
-                            <div style="text-align: center; margin-bottom: 24px;">
-                                <div style="font-size: 32px; font-weight: bold; color: #3b82f6;">¥ ${amount.toFixed(2)}</div>
-                                <div style="font-size: 14px; color: #6b7280;">处方费用 + 代煎服务费</div>
+                            <div style="margin-bottom: 24px; background: #f8fafc; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb;">
+                                <h4 style="margin: 0 0 16px 0; color: #374151; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+                                    📋 问诊汇总信息
+                                </h4>
+                                <div id="prescriptionModalContent">
+                                    ${formattedContent}
+                                </div>
+                            </div>
+                            
+                            <div style="text-align: center; margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-radius: 12px; border: 1px solid #3b82f6;">
+                                <div style="font-size: 32px; font-weight: bold; color: #1e40af; margin-bottom: 8px;">¥ ${amount.toFixed(2)}</div>
+                                <div style="font-size: 14px; color: #1e40af;">包含：处方诊疗费 + 代煎服务费</div>
                             </div>
                             
                             <div style="margin-bottom: 24px;">
@@ -4818,6 +5096,12 @@ ${data.analysis_result}`;
                 `;
                 
                 document.body.appendChild(modal);
+            } else {
+                // 更新已存在的模态框内容
+                const contentDiv = modal.querySelector('#prescriptionModalContent');
+                if (contentDiv) {
+                    contentDiv.innerHTML = formattedContent;
+                }
             }
             
             // 显示模态框
@@ -5829,6 +6113,16 @@ ${data.analysis_result}`;
                     })
                 });
                 
+                // 检查响应状态
+                if (response.status === 404) {
+                    console.log('🔄 会话同步功能暂未启用 (404)');
+                    return; // 优雅处理404，不报错
+                }
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const result = await response.json();
                 if (!result.success) {
                     console.error('会话状态上传失败:', result.message);
@@ -6565,8 +6859,8 @@ ${data.analysis_result}`;
                     const shouldShowFeedback = containsPrescription(aiReply);
                     
                     // 🔑 关键修复：检查是否有处方ID和支付状态
-                    const prescriptionId = data.prescription_id || (data.data && data.data.prescription_id) || null;
-                    const isPaid = data.is_paid || (data.data && data.data.is_paid) || false;
+                    const prescriptionId = responseData.data?.prescription_id || null;
+                    const isPaid = responseData.data?.is_paid || false;
                     
                     addMobileMessage('ai', aiReply, shouldShowFeedback, isPaid, prescriptionId);
                     

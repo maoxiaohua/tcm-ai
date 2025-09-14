@@ -8,12 +8,23 @@ class PrescriptionRenderer {
         this.paymentStatus = null;
         this.prescriptionId = null;
         
-        // 处方关键词检测
+        // 处方关键词检测（强化版）
         this.prescriptionKeywords = [
             '处方如下', '方剂组成', '药物组成', '具体方药',
             '方解', '君药', '臣药', '佐药', '使药',
             '【君药】', '【臣药】', '【佐药】', '【使药】',
-            '三、处方建议', '处方方案', '治疗方案', '用药方案'
+            '三、处方建议', '处方方案', '治疗方案', '用药方案',
+            '建议方药', '推荐方剂', '可考虑', '方剂:', '处方:',
+            '药材组成', '中药配伍', '组方', '方用'
+        ];
+
+        // 常见中药材名称（用于更严格的检测）
+        this.commonHerbs = [
+            '当归', '白芍', '川芎', '熟地', '党参', '白术', '茯苓', '甘草',
+            '黄芪', '人参', '生地', '麦冬', '五味子', '山药', '泽泻', '牡丹皮',
+            '山茱萸', '附子', '肉桂', '干姜', '半夏', '陈皮', '茯神', '远志',
+            '酸枣仁', '龙骨', '牡蛎', '柴胡', '黄芩', '连翘', '金银花', '板蓝根',
+            '桔梗', '杏仁', '枇杷叶', '川贝母', '百合', '知母', '石膏', '栀子'
         ];
 
         // 临时建议关键词
@@ -26,15 +37,37 @@ class PrescriptionRenderer {
     }
 
     /**
-     * 检测内容是否包含处方
+     * 检测内容是否包含处方（强化版检测）
      */
     containsPrescription(content) {
         if (!content || typeof content !== 'string') return false;
 
-        const hasKeywords = this.prescriptionKeywords.some(keyword => content.includes(keyword));
-        const hasDosage = /\d+[克g]\s*[，,，]/.test(content);
+        // 1. 检测明确的处方关键词
+        const hasExplicitKeywords = this.prescriptionKeywords.some(keyword => content.includes(keyword));
         
-        return hasKeywords && hasDosage;
+        // 2. 检测药材+剂量的模式
+        const hasDosagePattern = /\d+[克g]\s*[，,，]/.test(content);
+        
+        // 3. 检测常见中药材名称
+        const herbCount = this.commonHerbs.filter(herb => content.includes(herb)).length;
+        
+        // 4. 检测典型的方剂描述模式
+        const hasFormulaPattern = /[：:]\s*\w+\s*\d+[克g]/.test(content); // 如"党参: 15克"
+        const hasHerbList = /\d+\s*[味个]\s*药/.test(content); // 如"6味药"
+        
+        // 综合判断 - 满足以下任一条件即为处方：
+        return (
+            // 明确的处方关键词 + 有剂量
+            (hasExplicitKeywords && hasDosagePattern) ||
+            // 包含3种以上常见药材 + 有剂量
+            (herbCount >= 3 && hasDosagePattern) ||
+            // 有典型的方剂格式
+            hasFormulaPattern ||
+            // 明确提到药味数量
+            hasHerbList ||
+            // 包含5种以上药材（即使没有剂量也可能是处方）
+            herbCount >= 5
+        );
     }
 
     /**
@@ -51,10 +84,16 @@ class PrescriptionRenderer {
         this.paymentStatus = isPaid;
         this.prescriptionId = prescriptionId;
 
-        if (!this.containsPrescription(content)) {
-            // 普通对话内容，直接返回
-            return content;
+        // 🔒 安全检查：强制检测处方内容
+        const containsActualPrescription = this.containsPrescription(content);
+        
+        if (!containsActualPrescription) {
+            // 普通对话内容，进行基础格式化
+            return this.renderDiagnosisAnalysis(content);
         }
+
+        // 🚨 检测到处方内容 - 根据支付状态决定显示方式
+        console.log('🔒 检测到处方内容，支付状态:', isPaid, '处方ID:', prescriptionId);
 
         if (this.isTemporaryAdvice(content)) {
             // 临时建议，显示完整内容但加特殊标识
@@ -63,9 +102,11 @@ class PrescriptionRenderer {
 
         if (isPaid) {
             // 已付费用户，显示完整处方
+            console.log('✅ 用户已付费，显示完整处方');
             return this.renderFullPrescription(content);
         } else {
-            // 未付费用户，显示预览模式
+            // 未付费用户，强制显示预览模式（隐藏具体处方内容）
+            console.log('🔒 用户未付费，显示预览模式');
             return this.renderPrescriptionPreview(content);
         }
     }
@@ -131,9 +172,12 @@ class PrescriptionRenderer {
                 <div class="diagnosis-section">
                     <h4 class="section-title">🩺 专业诊断分析</h4>
                     <div class="diagnosis-content">
-                        ${diagnosisInfo.syndrome ? `<p><strong>证候诊断：</strong>${diagnosisInfo.syndrome}</p>` : ''}
+                        ${diagnosisInfo.syndrome ? `<p><strong>辨证分析：</strong>${diagnosisInfo.syndrome}</p>` : ''}
                         ${diagnosisInfo.pathogenesis ? `<p><strong>病机分析：</strong>${diagnosisInfo.pathogenesis}</p>` : ''}
                         ${diagnosisInfo.treatment ? `<p><strong>治疗原则：</strong>${diagnosisInfo.treatment}</p>` : ''}
+                        ${diagnosisInfo.analysis ? `<p><strong>综合分析：</strong>${diagnosisInfo.analysis}</p>` : ''}
+                        ${!diagnosisInfo.syndrome && !diagnosisInfo.pathogenesis && !diagnosisInfo.treatment && !diagnosisInfo.analysis ? 
+                            '<p><strong>专业辨证：</strong>完整的中医四诊合参分析，包含证候判断、病机分析、治疗方案等</p>' : ''}
                     </div>
                 </div>
 
@@ -268,26 +312,76 @@ class PrescriptionRenderer {
     }
 
     /**
-     * 提取诊断信息
+     * 提取诊断信息（强化版）
      */
     extractDiagnosisInfo(content) {
         const info = {
             syndrome: null,
             pathogenesis: null,
-            treatment: null
+            treatment: null,
+            analysis: null
         };
 
-        // 匹配证候
-        const syndromeMatch = content.match(/证候[：:]\s*([^。\n]+)/);
-        if (syndromeMatch) info.syndrome = syndromeMatch[1];
+        // 匹配辨证分析（多种模式）
+        const analysisPatterns = [
+            /辨证为[：:]?([^。，\n]+)/,
+            /初步辨证[：:]?([^。，\n]+)/,
+            /证候[：:]\s*([^。\n]+)/,
+            /【([^】]*合病[^】]*)】/,
+            /\*\*([^*]*合病[^*]*)\*\*/
+        ];
+        
+        for (const pattern of analysisPatterns) {
+            const match = content.match(pattern);
+            if (match) {
+                info.syndrome = match[1].replace(/[*】【]/g, '').trim();
+                break;
+            }
+        }
 
-        // 匹配病机
-        const pathogenesisMatch = content.match(/病机[：:]\s*([^。\n]+)/);
-        if (pathogenesisMatch) info.pathogenesis = pathogenesisMatch[1];
+        // 匹配病机分析
+        const pathogenesisPatterns = [
+            /病机[：:]\s*([^。\n]+)/,
+            /病因病机[：:]\s*([^。\n]+)/,
+            /发病机理[：:]\s*([^。\n]+)/
+        ];
+        
+        for (const pattern of pathogenesisPatterns) {
+            const match = content.match(pattern);
+            if (match) {
+                info.pathogenesis = match[1];
+                break;
+            }
+        }
 
-        // 匹配治法
-        const treatmentMatch = content.match(/治法[：:]\s*([^。\n]+)/);
-        if (treatmentMatch) info.treatment = treatmentMatch[1];
+        // 匹配治法原则
+        const treatmentPatterns = [
+            /治法[：:]\s*([^。\n]+)/,
+            /治疗原则[：:]\s*([^。\n]+)/,
+            /治宜[：:]?\s*([^。\n]+)/,
+            /方法[：:]\s*([^。\n]+)/
+        ];
+        
+        for (const pattern of treatmentPatterns) {
+            const match = content.match(pattern);
+            if (match) {
+                info.treatment = match[1].replace(/[*】【]/g, '').trim();
+                break;
+            }
+        }
+
+        // 提取整体分析摘要（取前面的分析部分，避免处方内容）
+        const beforePrescription = content.split(/【处方|【君药|处方如下|方剂组成/)[0];
+        if (beforePrescription && beforePrescription.length > 50) {
+            // 取最后一个完整段落作为分析摘要
+            const paragraphs = beforePrescription.split('\n\n').filter(p => p.trim());
+            if (paragraphs.length > 0) {
+                const lastParagraph = paragraphs[paragraphs.length - 1].trim();
+                if (lastParagraph.length > 30 && lastParagraph.length < 200) {
+                    info.analysis = lastParagraph.replace(/[*#【】]/g, '').trim();
+                }
+            }
+        }
 
         return info;
     }
@@ -338,6 +432,404 @@ class PrescriptionRenderer {
         // 提取方剂名称
         const formulaMatch = content.match(/方[名用][：:]?\s*([^。\n,，]+)/);
         return formulaMatch ? formulaMatch[1] : '个性化方剂';
+    }
+
+    /**
+     * 格式化支付弹窗中的处方内容（问诊汇总信息）
+     */
+    formatForPaymentModal(content) {
+        if (!content || typeof content !== 'string') {
+            return '<p class="no-content">暂无处方内容</p>';
+        }
+
+        const sections = [];
+        const lines = content.split('\n').filter(line => line.trim());
+
+        // 解析内容结构
+        let currentSection = null;
+        let currentContent = [];
+
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            
+            // 检测章节标题
+            if (this.isSectionTitle(trimmedLine)) {
+                // 保存上一个章节
+                if (currentSection && currentContent.length > 0) {
+                    sections.push({
+                        title: currentSection,
+                        content: currentContent.join('<br>')
+                    });
+                }
+                
+                // 开始新章节
+                currentSection = this.formatSectionTitle(trimmedLine);
+                currentContent = [];
+            } else if (trimmedLine) {
+                // 添加到当前章节内容
+                currentContent.push(this.formatLineContent(trimmedLine));
+            }
+        }
+
+        // 保存最后一个章节
+        if (currentSection && currentContent.length > 0) {
+            sections.push({
+                title: currentSection,
+                content: currentContent.join('<br>')
+            });
+        }
+
+        // 如果没有找到章节结构，创建默认结构
+        if (sections.length === 0) {
+            const parsedPrescription = this.parsePrescriptionContent(content);
+            const diagnosisInfo = this.extractDiagnosisInfo(content);
+            
+            // 添加诊断分析
+            if (diagnosisInfo.syndrome || diagnosisInfo.pathogenesis || diagnosisInfo.treatment) {
+                let diagnosisContent = [];
+                if (diagnosisInfo.syndrome) diagnosisContent.push(`<strong>证候：</strong>${diagnosisInfo.syndrome}`);
+                if (diagnosisInfo.pathogenesis) diagnosisContent.push(`<strong>病机：</strong>${diagnosisInfo.pathogenesis}`);
+                if (diagnosisInfo.treatment) diagnosisContent.push(`<strong>治法：</strong>${diagnosisInfo.treatment}`);
+                
+                sections.push({
+                    title: '🩺 诊断分析',
+                    content: diagnosisContent.join('<br>')
+                });
+            }
+
+            // 添加处方内容
+            if (parsedPrescription.herbs && parsedPrescription.herbs.length > 0) {
+                const herbsList = parsedPrescription.herbs.map(herb => 
+                    `<span class="herb-item">${herb.name} <strong>${herb.dosage}${herb.unit}</strong></span>`
+                ).join('、');
+                
+                sections.push({
+                    title: '📋 处方组成',
+                    content: `<div class="herbs-list">${herbsList}</div>`
+                });
+            }
+
+            // 添加煎服方法（如果有）
+            const decoction = this.extractDecoctionMethod(content);
+            if (decoction) {
+                sections.push({
+                    title: '🍵 煎服方法',
+                    content: decoction
+                });
+            }
+
+            // 添加注意事项（如果有）
+            const precautions = this.extractPrecautions(content);
+            if (precautions) {
+                sections.push({
+                    title: '⚠️ 注意事项',
+                    content: precautions
+                });
+            }
+        }
+
+        // 生成最终HTML
+        return this.renderPaymentModalSections(sections);
+    }
+
+    /**
+     * 检测是否为章节标题
+     */
+    isSectionTitle(line) {
+        const sectionPatterns = [
+            /^[一二三四五六七八九十]+[、．。]/,  // 中文序号
+            /^\d+[、．。]/,                      // 阿拉伯数字序号
+            /^[证病机治方药煎服注意][候机法剂物服意][：:]/,  // 中医术语开头
+            /^【[^】]+】/,                        // 【标题】格式
+            /^[▪•·]/,                          // 项目符号
+            /^处方[如下建议方案]/                    // 处方相关
+        ];
+        
+        return sectionPatterns.some(pattern => pattern.test(line));
+    }
+
+    /**
+     * 格式化章节标题
+     */
+    formatSectionTitle(title) {
+        // 移除序号和符号，保留核心内容
+        let cleanTitle = title
+            .replace(/^[一二三四五六七八九十]+[、．。]\s*/, '')
+            .replace(/^\d+[、．。]\s*/, '')
+            .replace(/^【([^】]+)】/, '$1')
+            .replace(/[：:]$/, '');
+
+        // 添加适当的emoji图标
+        const iconMap = {
+            '证候': '🩺',
+            '诊断': '🩺',
+            '病机': '🧬',
+            '治法': '⚕️',
+            '方药': '📋',
+            '处方': '📋',
+            '煎服': '🍵',
+            '用法': '🍵',
+            '注意': '⚠️',
+            '禁忌': '⚠️'
+        };
+
+        for (const [key, icon] of Object.entries(iconMap)) {
+            if (cleanTitle.includes(key)) {
+                return `${icon} ${cleanTitle}`;
+            }
+        }
+
+        return cleanTitle;
+    }
+
+    /**
+     * 格式化行内容
+     */
+    formatLineContent(line) {
+        return line
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // 粗体
+            .replace(/([^0-9]+)(\d+[克g])/g, '<span class="herb-highlight">$1</span> <strong>$2</strong>');  // 药材高亮
+    }
+
+    /**
+     * 提取煎服方法
+     */
+    extractDecoctionMethod(content) {
+        const patterns = [
+            /煎服[方法]*[：:]([^。\n]+)/,
+            /用法用量[：:]([^。\n]+)/,
+            /每日[一二三1-3]剂[，,]?([^。\n]+)/
+        ];
+
+        for (const pattern of patterns) {
+            const match = content.match(pattern);
+            if (match) return match[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * 提取注意事项
+     */
+    extractPrecautions(content) {
+        const patterns = [
+            /注意事项[：:]([^。\n]+)/,
+            /禁忌[：:]([^。\n]+)/,
+            /忌[食用]([^。\n]+)/
+        ];
+
+        for (const pattern of patterns) {
+            const match = content.match(pattern);
+            if (match) return match[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * 渲染支付弹窗章节内容
+     */
+    renderPaymentModalSections(sections) {
+        if (sections.length === 0) {
+            return '<p class="no-content">处方内容解析中...</p>';
+        }
+
+        const sectionsHtml = sections.map(section => `
+            <div class="modal-section">
+                <h4 class="section-title">${section.title}</h4>
+                <div class="section-content">
+                    ${section.content}
+                </div>
+            </div>
+        `).join('');
+
+        return `
+            <div class="payment-modal-content">
+                ${sectionsHtml}
+                <div class="modal-footer">
+                    <p class="consultation-summary-note">
+                        <span class="note-icon">📋</span>
+                        <span>以上为${this.getDoctorName()}专业问诊汇总，支付后可获得完整处方详情</span>
+                    </p>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * 渲染普通诊断分析内容（结构化显示）
+     */
+    renderDiagnosisAnalysis(content) {
+        if (!content || typeof content !== 'string') {
+            return content;
+        }
+
+        const sections = [];
+        const lines = content.split('\n').filter(line => line.trim());
+
+        // 解析内容结构
+        let currentSection = null;
+        let currentContent = [];
+
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            
+            // 检测章节标题
+            if (this.isDiagnosisSection(trimmedLine)) {
+                // 保存上一个章节
+                if (currentSection && currentContent.length > 0) {
+                    sections.push({
+                        title: currentSection,
+                        content: currentContent.join('<br>')
+                    });
+                }
+                
+                // 开始新章节
+                currentSection = this.formatDiagnosisSectionTitle(trimmedLine);
+                currentContent = [];
+            } else if (trimmedLine) {
+                // 添加到当前章节内容
+                currentContent.push(this.formatLineContent(trimmedLine));
+            }
+        }
+
+        // 保存最后一个章节
+        if (currentSection && currentContent.length > 0) {
+            sections.push({
+                title: currentSection,
+                content: currentContent.join('<br>')
+            });
+        }
+
+        // 如果没有找到章节结构，按段落分组
+        if (sections.length === 0) {
+            const paragraphs = content.split('\n\n').filter(p => p.trim());
+            
+            if (paragraphs.length > 1) {
+                paragraphs.forEach((paragraph, index) => {
+                    const lines = paragraph.trim().split('\n').filter(line => line.trim());
+                    if (lines.length > 0) {
+                        const firstLine = lines[0].trim();
+                        let title = '📋 诊断分析';
+                        
+                        // 根据内容特征生成标题
+                        if (firstLine.includes('症状') || firstLine.includes('主诉')) {
+                            title = '📝 症状分析';
+                        } else if (firstLine.includes('证候') || firstLine.includes('辨证')) {
+                            title = '🩺 辨证分析';
+                        } else if (firstLine.includes('病机') || firstLine.includes('机理')) {
+                            title = '🧬 病机分析';
+                        } else if (firstLine.includes('治法') || firstLine.includes('治疗')) {
+                            title = '⚕️ 治疗原则';
+                        } else if (firstLine.includes('建议') || firstLine.includes('需要')) {
+                            title = '💡 医嘱建议';
+                        } else if (index === 0) {
+                            title = '🩺 初步分析';
+                        } else {
+                            title = `📋 分析要点 ${index + 1}`;
+                        }
+                        
+                        sections.push({
+                            title: title,
+                            content: lines.map(line => this.formatLineContent(line)).join('<br>')
+                        });
+                    }
+                });
+            } else {
+                // 单段内容，默认格式化
+                return `
+                    <div class="diagnosis-analysis">
+                        <div class="analysis-content">
+                            ${this.formatLineContent(content)}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // 生成最终HTML
+        return this.renderDiagnosisSections(sections);
+    }
+
+    /**
+     * 检测是否为诊断章节标题
+     */
+    isDiagnosisSection(line) {
+        const diagnosisPatterns = [
+            /^[一二三四五六七八九十]+[、．。]/,  // 中文序号
+            /^\d+[）)、．。]/,                   // 阿拉伯数字序号
+            /^[证病机治建议需要][候机法疗议要][：:]/,  // 中医术语开头
+            /^【[^】]+】/,                        // 【标题】格式
+            /^[▪•·]/,                           // 项目符号
+            /^(症状分析|辨证论治|病机|治法|建议|诊断)/     // 常见诊断术语
+        ];
+        
+        return diagnosisPatterns.some(pattern => pattern.test(line));
+    }
+
+    /**
+     * 格式化诊断章节标题
+     */
+    formatDiagnosisSectionTitle(title) {
+        // 移除序号和符号，保留核心内容
+        let cleanTitle = title
+            .replace(/^[一二三四五六七八九十]+[、．。]\s*/, '')
+            .replace(/^\d+[）)、．。]\s*/, '')
+            .replace(/^【([^】]+)】/, '$1')
+            .replace(/[：:]$/, '');
+
+        // 添加适当的emoji图标
+        const diagnosisIconMap = {
+            '症状': '📝',
+            '主诉': '📝',
+            '证候': '🩺',
+            '辨证': '🩺',
+            '诊断': '🩺',
+            '病机': '🧬',
+            '机理': '🧬',
+            '治法': '⚕️',
+            '治疗': '⚕️',
+            '方药': '💊',
+            '用药': '💊',
+            '建议': '💡',
+            '医嘱': '💡',
+            '需要': '💡',
+            '注意': '⚠️',
+            '禁忌': '⚠️'
+        };
+
+        for (const [key, icon] of Object.entries(diagnosisIconMap)) {
+            if (cleanTitle.includes(key)) {
+                return `${icon} ${cleanTitle}`;
+            }
+        }
+
+        return `📋 ${cleanTitle}`;
+    }
+
+    /**
+     * 渲染诊断分析章节内容
+     */
+    renderDiagnosisSections(sections) {
+        if (sections.length === 0) {
+            return '';
+        }
+
+        const sectionsHtml = sections.map(section => `
+            <div class="diagnosis-section">
+                <h4 class="diagnosis-section-title">${section.title}</h4>
+                <div class="diagnosis-section-content">
+                    ${section.content}
+                </div>
+            </div>
+        `).join('');
+
+        return `
+            <div class="diagnosis-analysis">
+                ${sectionsHtml}
+            </div>
+        `;
     }
 }
 
