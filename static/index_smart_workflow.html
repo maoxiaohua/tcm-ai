@@ -4249,7 +4249,7 @@ ${data.analysis_result}`;
                 console.log('未检测到有效登录状态，跳转到登录页面');
                 showMessage('请先登录后使用智能问诊服务', 'warning');
                 setTimeout(() => {
-                    window.location.href = '/static/login_portal.html';
+                    window.location.href = '/login';
                 }, 1500);
                 return;
             }
@@ -4417,7 +4417,7 @@ ${data.analysis_result}`;
             
             // 🔒 安全修复：退出后立即跳转到登录界面
             setTimeout(() => {
-                window.location.href = '/static/login_portal.html';
+                window.location.href = '/login';
             }, 1000); // 1秒后跳转，让用户看到退出消息
         }
 

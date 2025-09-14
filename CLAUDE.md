@@ -356,10 +356,10 @@ systemctl start tcm-ai && systemctl enable tcm-ai
 **在进行任何修改前，必须完成以下检查**：
 
 1. **页面路由检查**：
-   - ✅ 登录页面：`/static/login_portal.html` (NOT `/login`)
-   - ✅ 智能问诊：`/static/index_smart_workflow.html` 
-   - ✅ 管理后台：`/static/admin/index.html`
-   - ✅ 医生端：`/static/doctor/index.html`
+   - ✅ 登录页面：`/login` (FastAPI路由 → auth_portal.html)
+   - ✅ 智能问诊：`/smart` (FastAPI路由 → index_smart_workflow.html)
+   - ✅ 管理后台：`/admin` (FastAPI路由 → admin/index.html)
+   - ✅ 医生端：`/doctor` (FastAPI路由 → doctor/index.html)
    - ✅ nginx配置：`/etc/nginx/conf.d/tcm-ai.conf`
 
 2. **API端点检查**：
@@ -381,7 +381,7 @@ systemctl start tcm-ai && systemctl enable tcm-ai
 
 #### 🔧 常见错误防范
 1. **路径错误**：
-   - ❌ `/login` → ✅ `/static/login_portal.html`
+   - ❌ `/static/login_portal.html` → ✅ `/login` (FastAPI路由)
    - ❌ `/api/chat` → ✅ `/api/consultation/chat`
    
 2. **变量名混淆**：
