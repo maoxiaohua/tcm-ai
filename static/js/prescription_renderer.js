@@ -27,26 +27,42 @@ class PrescriptionRenderer {
             '桔梗', '杏仁', '枇杷叶', '川贝母', '百合', '知母', '石膏', '栀子'
         ];
 
-        // 临时建议关键词
+        // 临时建议关键词（扩展版）
         this.temporaryKeywords = [
             '初步处方建议', '待确认', '若您能提供', '请补充', 
             '需要了解', '建议进一步', '完善信息后', '详细描述',
             '暂拟方药', '初步考虑', '待详诊后', '待补充',
-            '补充舌象', '舌象信息后', '脉象信息后', '上传舌象'
+            '补充舌象', '舌象信息后', '脉象信息后', '上传舌象',
+            '提供舌象', '确认处方', '后确认', '暂拟处方',
+            '初步建议', '仅供参考', '建议面诊', '需进一步',
+            '待进一步', '如需准确', '更详细的', '需要更多',
+            '暂时建议', '初步分析', '可能需要', '建议您',
+            '若症状', '如果您', '请您补充', '需要您提供',
+            '临时方案', '初步方案', '可先试用'
         ];
     }
 
     /**
      * 检测内容是否包含处方（强化版检测）
+     * 
+     * 🔑 关键区别：
+     * - 完整处方：明确的处方关键词 + 具体剂量 + 非临时建议
+     * - 临时建议：包含"待确认"、"建议补充"等临时性表述
      */
     containsPrescription(content) {
         if (!content || typeof content !== 'string') return false;
 
+        // 🚨 首先检查是否为临时建议
+        if (this.isTemporaryAdvice(content)) {
+            console.log('🔍 检测到临时建议，不算完整处方:', content.substring(0, 100));
+            return false;
+        }
+
         // 1. 检测明确的处方关键词
         const hasExplicitKeywords = this.prescriptionKeywords.some(keyword => content.includes(keyword));
         
-        // 2. 检测药材+剂量的模式
-        const hasDosagePattern = /\d+[克g]\s*[，,，]/.test(content);
+        // 2. 检测药材+剂量的模式（更严格）
+        const hasDosagePattern = /\d+[克g]\s*[，,，。]/gi.test(content);
         
         // 3. 检测常见中药材名称
         const herbCount = this.commonHerbs.filter(herb => content.includes(herb)).length;
@@ -55,19 +71,40 @@ class PrescriptionRenderer {
         const hasFormulaPattern = /[：:]\s*\w+\s*\d+[克g]/.test(content); // 如"党参: 15克"
         const hasHerbList = /\d+\s*[味个]\s*药/.test(content); // 如"6味药"
         
-        // 综合判断 - 满足以下任一条件即为处方：
-        return (
-            // 明确的处方关键词 + 有剂量
-            (hasExplicitKeywords && hasDosagePattern) ||
-            // 包含3种以上常见药材 + 有剂量
-            (herbCount >= 3 && hasDosagePattern) ||
-            // 有典型的方剂格式
-            hasFormulaPattern ||
-            // 明确提到药味数量
-            hasHerbList ||
-            // 包含5种以上药材（即使没有剂量也可能是处方）
-            herbCount >= 5
+        // 5. 🔑 检测完整处方的特征（区别于临时建议）
+        const hasCompleteStructure = content.includes('【君药】') || 
+                                   content.includes('【臣药】') || 
+                                   content.includes('方剂组成') ||
+                                   content.includes('处方如下') ||
+                                   /方[名用][：:]/.test(content);
+        
+        // 6. 检测药材数量（完整处方通常有更多药材）
+        const hasMultipleHerbs = herbCount >= 4; // 提高阈值
+        
+        // 🔑 更严格的判断逻辑：必须是完整处方才返回true
+        const isCompletePrescription = (
+            // 必须条件：有明确处方关键词 + 有剂量
+            (hasExplicitKeywords && hasDosagePattern) &&
+            (
+                // 满足以下任一完整处方特征：
+                hasCompleteStructure ||        // 有完整结构
+                hasFormulaPattern ||          // 有标准格式
+                hasHerbList ||               // 明确药味数量
+                hasMultipleHerbs             // 多种药材
+            )
         );
+        
+        if (isCompletePrescription) {
+            console.log('✅ 检测到完整处方:', {
+                hasExplicitKeywords,
+                hasDosagePattern,
+                hasCompleteStructure,
+                herbCount,
+                content: content.substring(0, 100)
+            });
+        }
+        
+        return isCompletePrescription;
     }
 
     /**
@@ -435,15 +472,170 @@ class PrescriptionRenderer {
     }
 
     /**
-     * 格式化支付弹窗中的处方内容（问诊汇总信息）
+     * 按药物分类分组
+     */
+    groupHerbsByCategory(content, herbs) {
+        const categories = {
+            君药: [],
+            臣药: [],
+            佐药: [],
+            使药: [],
+            其他: []
+        };
+        
+        let hasCategories = false;
+        
+        // 检查是否有明确的分类标识
+        const categoryPatterns = {
+            君药: /【君药】([\s\S]*?)(?=【[臣佐使]药】|$)/,
+            臣药: /【臣药】([\s\S]*?)(?=【[佐使]药】|$)/,
+            佐药: /【佐药】([\s\S]*?)(?=【使药】|$)/,
+            使药: /【使药】([\s\S]*?)$/
+        };
+        
+        Object.keys(categoryPatterns).forEach(category => {
+            const match = content.match(categoryPatterns[category]);
+            if (match) {
+                hasCategories = true;
+                const categoryHerbs = herbs.filter(herb => 
+                    match[1].includes(herb.name)
+                );
+                categories[category] = categoryHerbs;
+            }
+        });
+        
+        // 如果没有明确分类，将所有药材放入"其他"
+        if (!hasCategories) {
+            categories.其他 = herbs;
+        }
+        
+        return { ...categories, hasCategories };
+    }
+
+    /**
+     * 渲染分类药材
+     */
+    renderCategorizedHerbs(herbsGrouped) {
+        let html = '<div class="categorized-herbs">';
+        
+        const categoryLabels = {
+            君药: '👑 君药（主药）',
+            臣药: '🤝 臣药（辅助）', 
+            佐药: '⚖️ 佐药（调和）',
+            使药: '🎯 使药（引经）'
+        };
+        
+        Object.keys(categoryLabels).forEach(category => {
+            if (herbsGrouped[category] && herbsGrouped[category].length > 0) {
+                html += `
+                    <div class="herb-category">
+                        <h5 class="category-title">${categoryLabels[category]}</h5>
+                        <div class="herbs-grid">
+                            ${herbsGrouped[category].map(herb => `
+                                <div class="herb-item">
+                                    <span class="herb-name">${herb.name}</span>
+                                    <span class="herb-dosage">${herb.dosage}${herb.unit}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        });
+        
+        html += '</div>';
+        return html;
+    }
+
+    /**
+     * 渲染简单药材列表
+     */
+    renderSimpleHerbsList(herbs) {
+        return `
+            <div class="simple-herbs-list">
+                <div class="herbs-grid">
+                    ${herbs.map(herb => `
+                        <div class="herb-item">
+                            <span class="herb-name">${herb.name}</span>
+                            <span class="herb-dosage">${herb.dosage}${herb.unit}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * 格式化支付弹窗中的处方内容（问诊汇总信息）- 增强版
      */
     formatForPaymentModal(content) {
         if (!content || typeof content !== 'string') {
             return '<p class="no-content">暂无处方内容</p>';
         }
 
+        console.log('🔍 开始格式化支付模态框内容:', content.substring(0, 200));
+
+        // 🔑 使用处方渲染器的解析能力
+        const parsedPrescription = this.parsePrescriptionContent(content);
+        const diagnosisInfo = this.extractDiagnosisInfo(content);
+        
+        // 构建结构化的显示内容
         const sections = [];
-        const lines = content.split('\n').filter(line => line.trim());
+
+        // 1. 诊断分析部分
+        if (diagnosisInfo.syndrome || diagnosisInfo.pathogenesis || diagnosisInfo.treatment || diagnosisInfo.analysis) {
+            let diagnosisContent = [];
+            if (diagnosisInfo.syndrome) diagnosisContent.push(`<div class="diagnosis-item"><strong>证候分析：</strong>${diagnosisInfo.syndrome}</div>`);
+            if (diagnosisInfo.pathogenesis) diagnosisContent.push(`<div class="diagnosis-item"><strong>病机分析：</strong>${diagnosisInfo.pathogenesis}</div>`);
+            if (diagnosisInfo.treatment) diagnosisContent.push(`<div class="diagnosis-item"><strong>治疗原则：</strong>${diagnosisInfo.treatment}</div>`);
+            if (diagnosisInfo.analysis) diagnosisContent.push(`<div class="diagnosis-item"><strong>综合分析：</strong>${diagnosisInfo.analysis}</div>`);
+            
+            sections.push({
+                title: '🩺 中医诊断分析',
+                content: diagnosisContent.join('')
+            });
+        }
+
+        // 2. 处方组成部分 - 结构化显示
+        if (parsedPrescription.herbs && parsedPrescription.herbs.length > 0) {
+            const herbsGrouped = this.groupHerbsByCategory(content, parsedPrescription.herbs);
+            let prescriptionContent = '';
+            
+            if (herbsGrouped.hasCategories) {
+                // 按君臣佐使分类显示
+                prescriptionContent = this.renderCategorizedHerbs(herbsGrouped);
+            } else {
+                // 简单列表显示
+                prescriptionContent = this.renderSimpleHerbsList(parsedPrescription.herbs);
+            }
+            
+            sections.push({
+                title: `📋 方剂组成 (共${parsedPrescription.herbs.length}味药)`,
+                content: prescriptionContent
+            });
+        }
+
+        // 3. 用法用量部分
+        const decoction = this.extractDecoctionMethod(content);
+        if (decoction) {
+            sections.push({
+                title: '🍵 煎服方法',
+                content: `<div class="decoction-method">${decoction}</div>`
+            });
+        }
+
+        // 4. 注意事项部分
+        const precautions = this.extractPrecautions(content);
+        if (precautions) {
+            sections.push({
+                title: '⚠️ 注意事项',
+                content: `<div class="precautions">${precautions}</div>`
+            });
+        }
+
+        // 如果没有找到结构化内容，解析原始内容
+        if (sections.length === 0) {
+            const lines = content.split('\n').filter(line => line.trim());
 
         // 解析内容结构
         let currentSection = null;
@@ -869,6 +1061,10 @@ function unlockPrescription(prescriptionId) {
  * 检查用户登录状态 - 兼容多种登录状态存储方式
  */
 function checkUserLoginStatus() {
+    console.log('🔍 开始登录状态检查，当前环境:');
+    console.log('  - window.currentUser:', window.currentUser);
+    console.log('  - window.userToken:', window.userToken);
+    
     // 方法1: 检查全局变量
     if (window.currentUser && window.userToken) {
         console.log('🔑 通过全局变量验证登录状态');
@@ -877,12 +1073,19 @@ function checkUserLoginStatus() {
 
     // 方法2: 检查localStorage中的currentUser
     try {
-        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        if (currentUser.id || currentUser.user_id) {
-            console.log('🔑 通过localStorage currentUser验证登录状态:', currentUser);
-            // 同步更新全局变量
-            window.currentUser = currentUser;
-            return true;
+        const currentUserStr = localStorage.getItem('currentUser');
+        console.log('  - localStorage.currentUser:', currentUserStr);
+        
+        if (currentUserStr && currentUserStr !== 'null' && currentUserStr !== 'undefined') {
+            const currentUser = JSON.parse(currentUserStr);
+            console.log('  - 解析后的currentUser:', currentUser);
+            
+            if (currentUser && (currentUser.id || currentUser.user_id)) {
+                console.log('🔑 通过localStorage currentUser验证登录状态:', currentUser);
+                // 同步更新全局变量
+                window.currentUser = currentUser;
+                return true;
+            }
         }
     } catch (error) {
         console.warn('currentUser数据解析失败:', error);
@@ -891,9 +1094,13 @@ function checkUserLoginStatus() {
     // 方法3: 检查userData
     try {
         const userData = localStorage.getItem('userData');
-        if (userData) {
+        console.log('  - localStorage.userData:', userData);
+        
+        if (userData && userData !== 'null' && userData !== 'undefined') {
             const user = JSON.parse(userData);
-            if (user.id || user.user_id) {
+            console.log('  - 解析后的userData:', user);
+            
+            if (user && (user.id || user.user_id)) {
                 console.log('🔑 通过localStorage userData验证登录状态:', user);
                 // 同步更新全局变量
                 window.currentUser = user;
@@ -912,14 +1119,39 @@ function checkUserLoginStatus() {
         localStorage.getItem('adminToken')
     ];
     
+    console.log('  - 检查tokens:', tokens);
+    
     const validToken = tokens.find(token => token && token !== 'null' && token !== 'undefined');
     if (validToken) {
-        console.log('🔑 通过token验证登录状态');
+        console.log('🔑 通过token验证登录状态:', validToken);
         window.userToken = validToken;
+        // 即使只有token也认为是登录状态
         return true;
     }
 
+    // 方法5: 检查页面特定的用户ID（智能问诊页面的临时用户）
+    const smartUserId = localStorage.getItem('currentUserId');
+    console.log('  - localStorage.currentUserId:', smartUserId);
+    
+    if (smartUserId && smartUserId !== 'null' && smartUserId !== 'undefined') {
+        // 检查是否是真实用户ID还是临时访客ID
+        if (smartUserId.startsWith('real_user_') || 
+            (!smartUserId.startsWith('smart_user_') && !smartUserId.startsWith('temp_user_'))) {
+            console.log('🔑 通过currentUserId验证登录状态（真实用户）:', smartUserId);
+            return true;
+        } else {
+            console.log('⚠️ 检测到访客模式ID，不算登录状态:', smartUserId);
+        }
+    }
+
     console.log('❌ 所有登录状态检查都失败');
+    console.log('📊 完整的localStorage内容:');
+    Object.keys(localStorage).forEach(key => {
+        if (key.includes('user') || key.includes('token') || key.includes('auth')) {
+            console.log(`  ${key}:`, localStorage.getItem(key));
+        }
+    });
+    
     return false;
 }
 
