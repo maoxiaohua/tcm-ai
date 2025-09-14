@@ -1,0 +1,458 @@
+/* TCM-AI 处方渲染器样式 */
+
+/* 临时建议样式 */
+.temporary-advice-wrapper {
+    margin: 15px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+}
+
+.advice-header {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.advice-badge {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.advice-status {
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.advice-content {
+    padding: 16px;
+    background: white;
+    line-height: 1.6;
+}
+
+.advice-footer {
+    padding: 8px 16px;
+    background: #fef3c7;
+    border-top: 1px solid #f59e0b;
+    text-align: center;
+}
+
+/* 完整处方样式 */
+.prescription-full {
+    margin: 15px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f0f9ff;
+    border: 1px solid #10b981;
+}
+
+.prescription-header {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.prescription-badge {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.paid-status {
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.prescription-content {
+    padding: 16px;
+    background: white;
+    line-height: 1.6;
+}
+
+.herb-highlight {
+    background: #dcfce7;
+    padding: 2px 4px;
+    border-radius: 4px;
+    color: #059669;
+    font-weight: bold;
+}
+
+.prescription-actions {
+    padding: 16px;
+    background: #f0f9ff;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.action-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.decoction-btn {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.download-btn {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+}
+
+.action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* 处方预览样式 */
+.prescription-preview-wrapper {
+    margin: 15px 0;
+}
+
+.diagnosis-section {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.section-title {
+    color: #374151;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.diagnosis-content p {
+    margin-bottom: 8px;
+    line-height: 1.5;
+    color: #4b5563;
+}
+
+.diagnosis-content strong {
+    color: #374151;
+}
+
+/* 处方预览区域 */
+.prescription-preview {
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+}
+
+.preview-header {
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #d1d5db;
+}
+
+.doctor-badge {
+    background: #3b82f6;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* 药材预览 */
+.herbs-preview {
+    padding: 16px;
+}
+
+.herbs-preview h5 {
+    color: #374151;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.total-count {
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: normal;
+}
+
+.herbs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.herb-card {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.herb-card.visible {
+    border-color: #10b981;
+    background: #f0fdf4;
+}
+
+.herb-card.hidden {
+    background: #fef3c7;
+    border-color: #f59e0b;
+    border-style: dashed;
+}
+
+.herb-name {
+    display: block;
+    font-weight: bold;
+    color: #374151;
+    margin-bottom: 4px;
+}
+
+.herb-dosage {
+    display: block;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.more-herbs {
+    display: block;
+    font-weight: bold;
+    color: #92400e;
+    margin-bottom: 4px;
+}
+
+.unlock-hint {
+    display: block;
+    font-size: 12px;
+    color: #92400e;
+}
+
+/* 价值亮点 */
+.value-highlights {
+    padding: 16px;
+    background: #f8fafc;
+    border-top: 1px solid #e5e7eb;
+}
+
+.value-highlights h5 {
+    color: #374151;
+    margin-bottom: 12px;
+}
+
+.highlights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+}
+
+.highlight-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+.highlight-item .icon {
+    font-size: 18px;
+}
+
+.highlight-item .text {
+    font-size: 14px;
+    color: #374151;
+}
+
+/* 价值对比 */
+.value-comparison {
+    padding: 16px;
+    background: #fafafa;
+    border-top: 1px solid #e5e7eb;
+}
+
+.comparison-item {
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+.comparison-item.traditional {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+}
+
+.comparison-item.tcm-ai {
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    border: 2px solid #3b82f6;
+    position: relative;
+}
+
+.comparison-item.highlighted::before {
+    content: "推荐";
+    position: absolute;
+    top: -8px;
+    right: 12px;
+    background: #3b82f6;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.item-header .label {
+    font-weight: bold;
+    color: #374151;
+}
+
+.item-header .price {
+    font-size: 18px;
+    font-weight: bold;
+    color: #dc2626;
+}
+
+.tcm-ai .price {
+    color: #059669;
+}
+
+.item-details {
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.savings {
+    color: #059669;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: right;
+    margin-top: 4px;
+}
+
+/* 解锁区域 */
+.unlock-section {
+    padding: 20px 16px;
+    background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+    text-align: center;
+    border-top: 1px solid #3b82f6;
+}
+
+.unlock-prescription-btn {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    border: none;
+    padding: 16px 32px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 0 auto 16px;
+    min-width: 200px;
+}
+
+.unlock-prescription-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.btn-icon {
+    font-size: 20px;
+}
+
+.btn-text {
+    flex: 1;
+}
+
+.btn-price {
+    background: rgba(255,255,255,0.2);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+}
+
+.trust-indicators {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.trust-item {
+    font-size: 12px;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .herbs-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 8px;
+    }
+
+    .highlights-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .herb-card {
+        padding: 8px;
+    }
+
+    .unlock-prescription-btn {
+        padding: 12px 24px;
+        font-size: 14px;
+        min-width: 180px;
+    }
+
+    .trust-indicators {
+        gap: 12px;
+    }
+
+    .value-comparison .comparison-item {
+        padding: 10px;
+    }
+
+    .action-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+}

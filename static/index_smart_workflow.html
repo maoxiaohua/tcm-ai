@@ -2479,76 +2479,22 @@
             const now = new Date();
             const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
             
-            // 检测是否包含处方
-            const containsPrescriptionContent = containsPrescription(content);
+            // 🆕 使用处方渲染器处理内容
+            let processedContent = content;
+            if (sender === 'ai' && window.prescriptionRenderer) {
+                processedContent = window.prescriptionRenderer.renderContent(content, isPaid, prescriptionId);
+            }
             
             // 如果有处方ID，保存到元素属性中
             if (prescriptionId) {
                 messageDiv.setAttribute('data-prescription-id', prescriptionId);
             }
-            
-            // 根据支付状态和对话状态决定显示内容
-            let prescriptionActionsHtml = '';
-            if (sender === 'ai' && containsPrescriptionContent) {
-                if (isPaid) {
-                    // 已支付，显示解锁状态
-                    prescriptionActionsHtml = `
-                        <div class="prescription-paid" style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #10b981;">
-                            <div style="font-size: 13px; color: #059669; margin-bottom: 8px;">
-                                <strong>✅ 处方已解锁</strong> - 支付成功，您可以联系代煎服务
-                            </div>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                <button onclick="showDecorationInfo('${prescriptionId}')" 
-                                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
-                                    🍵 联系代煎服务
-                                </button>
-                            </div>
-                        </div>`;
-                } else {
-                    // 🆕 改进的处方确认流程：温和的确认提示而非强制支付
-                    const isInterimAdvice = window.conversationStateManager?.detectInterimAdvice(content) || false;
-                    
-                    if (isInterimAdvice) {
-                        // 临时建议，不显示支付按钮
-                        prescriptionActionsHtml = `
-                            <div class="prescription-interim" style="margin-top: 15px; padding: 12px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
-                                <div style="font-size: 13px; color: #92400e; margin-bottom: 8px;">
-                                    <strong>💡 初步建议</strong> - 医师建议补充更多信息以给出准确诊断
-                                </div>
-                            </div>`;
-                    } else {
-                        // 完整处方，显示温和的确认选项
-                        prescriptionActionsHtml = `
-                            <div class="prescription-actions" style="margin-top: 15px; padding: 12px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                                <div style="font-size: 13px; color: #374151; margin-bottom: 8px;">
-                                    <strong>📋 处方建议</strong> - 您可以选择：
-                                </div>
-                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                    <button onclick="if(window.conversationStateManager) window.conversationStateManager.confirmPrescription()" 
-                                            style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
-                                        ✅ 确认处方
-                                    </button>
-                                    <button onclick="if(window.conversationStateManager) window.conversationStateManager.continueConsultation()" 
-                                            style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
-                                        💬 继续问诊
-                                    </button>
-                                        👨‍⚕️ 咨询专业医生
-                                    </button>
-                                </div>
-                                <div style="font-size: 11px; color: #6b7280; margin-top: 8px; font-style: italic;">
-                                    ⚠️ 此为AI建议处方，实际用药请遵医嘱
-                                </div>
-                            </div>`;
-                    }
-                }
-            }
 
             messageDiv.innerHTML = `
                 <div class="message-avatar">${sender === 'user' ? '👤' : (selectedDoctor ? doctors[selectedDoctor].avatar : '🤖')}</div>
                 <div class="message-content">
-                    <div class="message-text">${formatMessage(content)}</div>
+                    <div class="message-text">${processedContent}</div>
                     <div class="message-time">${timeStr}</div>
-                    ${prescriptionActionsHtml}
                     ${sender === 'ai' && showFeedback ? `
                         <div class="feedback-controls">
                             <div class="feedback-label">这个回答有帮助吗？</div>
@@ -6466,20 +6412,18 @@ ${data.analysis_result}`;
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
             
-            // 格式化AI回复内容，保持换行和排版
-            let formattedContent = content;
-            if (sender === 'ai') {
-                formattedContent = content
-                    // 先处理标题（在换行转换前）
+            // 🆕 使用处方渲染器处理内容（移动端）
+            let processedContent = content;
+            if (sender === 'ai' && window.prescriptionRenderer) {
+                processedContent = window.prescriptionRenderer.renderContent(content, isPaid, prescriptionId);
+            } else if (sender === 'ai') {
+                // 如果处方渲染器未加载，使用原有格式化
+                processedContent = content
                     .replace(/### (.*?)(\n|$)/g, '<h4 style="color: #2d5aa0; margin: 15px 0 8px 0; font-size: 16px; font-weight: bold;">$1</h4>\n')
                     .replace(/## (.*?)(\n|$)/g, '<h3 style="color: #2d5aa0; margin: 18px 0 10px 0; font-size: 18px; font-weight: bold;">$1</h3>\n')
-                    // 处理加粗文本
                     .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #333; font-weight: bold;">$1</strong>')
-                    // 处理分割线
                     .replace(/---/g, '<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;">')
-                    // 处理行内代码
                     .replace(/`([^`]+)`/g, '<code style="background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #374151;">$1</code>')
-                    // 最后处理换行（这样可以保留标题后的换行）
                     .replace(/\n/g, '<br>')
                     // 处理列表项（换行后处理）
                     .replace(/<br>(\d+\. )/g, '<br><span style="color: #10b981; font-weight: bold;">$1</span>')
@@ -6488,54 +6432,14 @@ ${data.analysis_result}`;
                     .replace(/^(- )/g, '<span style="color: #10b981;">• </span>');
             }
             
-            // 检测是否包含处方
-            const containsPrescriptionContent = containsPrescription(content);
-            
             // 如果有处方ID，保存到元素属性中
             if (prescriptionId) {
                 messageDiv.setAttribute('data-prescription-id', prescriptionId);
             }
-            
-            // 根据支付状态决定显示内容
-            let prescriptionActionsHtml = '';
-            if (sender === 'ai' && containsPrescriptionContent) {
-                if (isPaid) {
-                    prescriptionActionsHtml = `
-                        <div class="prescription-paid" style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #10b981;">
-                            <div style="font-size: 13px; color: #059669; margin-bottom: 8px;">
-                                <strong>✅ 处方已解锁</strong> - 支付成功，您可以联系代煎服务
-                            </div>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                <button onclick="showDecorationInfo('${prescriptionId}')" 
-                                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
-                                    🍵 联系代煎服务
-                                </button>
-                            </div>
-                        </div>`;
-                } else {
-                    prescriptionActionsHtml = `
-                        <div class="prescription-actions" style="margin-top: 15px; padding: 12px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                            <div style="font-size: 13px; color: #374151; margin-bottom: 8px;">
-                                <strong>📋 处方建议</strong> - 为确保用药安全，建议您：
-                            </div>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                <button onclick="confirmPrescription('${btoa(encodeURIComponent(content))}')" 
-                                        style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
-                                    🛒 确认处方并支付
-                                </button>
-                                <button onclick="consultDoctor()" 
-                                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
-                                    👨‍⚕️ 咨询专业医生
-                                </button>
-                            </div>
-                        </div>`;
-                }
-            }
 
             const messageContent = `
                 <div class="message-content">
-                    <div class="message-text">${formattedContent}</div>
-                    ${prescriptionActionsHtml}
+                    <div class="message-text">${processedContent}</div>
                     ${sender === 'ai' && showFeedback ? `
                         <div class="feedback-controls">
                             <div class="feedback-label">这个回答有帮助吗？</div>
@@ -7241,6 +7145,10 @@ ${data.analysis_result}`;
         </div>
     </div>
 
+    <!-- 处方渲染器样式和脚本 -->
+    <link rel="stylesheet" href="/static/css/prescription_styles.css">
+    <script src="/static/js/prescription_renderer.js"></script>
+    
     <!-- 对话状态管理器 - 在主要JavaScript代码之后加载 -->
     <script src="/static/js/conversation_state_manager.js"></script>
 </body>
