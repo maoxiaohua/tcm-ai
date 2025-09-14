@@ -352,7 +352,7 @@ class ConversationStateManager {
      * 保存状态到本地存储
      */
     saveState() {
-        const userId = getCurrentUserId();
+        const userId = this.getCurrentUserId();
         const selectedDoctor = window.selectedDoctor;
         
         if (!userId || !selectedDoctor) return;
@@ -373,7 +373,7 @@ class ConversationStateManager {
      * 从本地存储加载状态
      */
     loadState() {
-        const userId = getCurrentUserId();
+        const userId = this.getCurrentUserId();
         const selectedDoctor = window.selectedDoctor;
         
         if (!userId || !selectedDoctor) return;
@@ -459,6 +459,32 @@ class ConversationStateManager {
     }
 
     /**
+     * 获取当前用户ID - 兼容主页面的getCurrentUserId函数
+     */
+    getCurrentUserId() {
+        // 尝试使用全局函数
+        if (typeof window.getCurrentUserId === 'function') {
+            return window.getCurrentUserId();
+        }
+
+        // 备用方案：直接从localStorage获取
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        if (currentUser.id || currentUser.user_id) {
+            return currentUser.id || currentUser.user_id;
+        }
+
+        const smartUser = localStorage.getItem('currentUserId');
+        if (smartUser) {
+            return smartUser;
+        }
+
+        // 生成临时ID
+        const tempId = 'temp_user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('currentUserId', tempId);
+        return tempId;
+    }
+
+    /**
      * 获取当前状态信息
      */
     getStateInfo() {
@@ -474,10 +500,21 @@ class ConversationStateManager {
 // 创建全局实例
 window.conversationStateManager = new ConversationStateManager();
 
-// 页面加载时初始化
-document.addEventListener('DOMContentLoaded', function() {
+// 延迟初始化，确保主页面JavaScript已加载
+function initializeConversationStateManager() {
     if (window.conversationStateManager) {
         window.conversationStateManager.loadState();
         console.log('✅ 对话状态管理器已初始化');
     }
+}
+
+// 页面加载完成后延迟初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 延迟1秒确保其他JavaScript已加载
+    setTimeout(initializeConversationStateManager, 1000);
 });
+
+// 如果页面已经加载完成，立即初始化
+if (document.readyState === 'complete') {
+    setTimeout(initializeConversationStateManager, 100);
+}
