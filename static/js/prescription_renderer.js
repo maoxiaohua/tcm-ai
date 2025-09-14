@@ -837,12 +837,24 @@ class PrescriptionRenderer {
 function unlockPrescription(prescriptionId) {
     console.log('🔓 开始处方解锁流程:', prescriptionId);
     
-    // 检查登录状态
-    if (!window.currentUser || !window.userToken) {
-        showMessage('请先登录后解锁处方', 'error');
-        showLoginModal();
+    // 🔑 增强的登录状态检查逻辑
+    const isLoggedIn = checkUserLoginStatus();
+    
+    if (!isLoggedIn) {
+        console.log('❌ 用户未登录，显示登录模态框');
+        showCompatibleMessage('请先登录后解锁处方', 'error');
+        if (typeof window.showLoginModal === 'function') {
+            window.showLoginModal();
+        } else if (typeof showLoginModal === 'function') {
+            showLoginModal();
+        } else {
+            // 备用方案：跳转到登录页面
+            window.location.href = '/login';
+        }
         return;
     }
+
+    console.log('✅ 用户已登录，继续处方解锁流程');
 
     // 如果是临时ID，先创建处方记录
     if (prescriptionId === 'temp') {
@@ -853,22 +865,132 @@ function unlockPrescription(prescriptionId) {
     }
 }
 
+/**
+ * 检查用户登录状态 - 兼容多种登录状态存储方式
+ */
+function checkUserLoginStatus() {
+    // 方法1: 检查全局变量
+    if (window.currentUser && window.userToken) {
+        console.log('🔑 通过全局变量验证登录状态');
+        return true;
+    }
+
+    // 方法2: 检查localStorage中的currentUser
+    try {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        if (currentUser.id || currentUser.user_id) {
+            console.log('🔑 通过localStorage currentUser验证登录状态:', currentUser);
+            // 同步更新全局变量
+            window.currentUser = currentUser;
+            return true;
+        }
+    } catch (error) {
+        console.warn('currentUser数据解析失败:', error);
+    }
+
+    // 方法3: 检查userData
+    try {
+        const userData = localStorage.getItem('userData');
+        if (userData) {
+            const user = JSON.parse(userData);
+            if (user.id || user.user_id) {
+                console.log('🔑 通过localStorage userData验证登录状态:', user);
+                // 同步更新全局变量
+                window.currentUser = user;
+                return true;
+            }
+        }
+    } catch (error) {
+        console.warn('userData数据解析失败:', error);
+    }
+
+    // 方法4: 检查各种token
+    const tokens = [
+        localStorage.getItem('userToken'),
+        localStorage.getItem('patientToken'),
+        localStorage.getItem('doctorToken'),
+        localStorage.getItem('adminToken')
+    ];
+    
+    const validToken = tokens.find(token => token && token !== 'null' && token !== 'undefined');
+    if (validToken) {
+        console.log('🔑 通过token验证登录状态');
+        window.userToken = validToken;
+        return true;
+    }
+
+    console.log('❌ 所有登录状态检查都失败');
+    return false;
+}
+
+/**
+ * 获取兼容的认证头 - 兼容主页面的getAuthHeaders函数
+ */
+function getCompatibleAuthHeaders() {
+    // 优先使用主页面的getAuthHeaders函数
+    if (typeof window.getAuthHeaders === 'function') {
+        return window.getAuthHeaders();
+    } else if (typeof getAuthHeaders === 'function') {
+        return getAuthHeaders();
+    }
+    
+    // 备用方案：自己构建认证头
+    const headers = {
+        'Content-Type': 'application/json',
+    };
+
+    // 查找可用的token
+    const tokens = [
+        localStorage.getItem('userToken'),
+        localStorage.getItem('patientToken'),
+        localStorage.getItem('doctorToken'),
+        localStorage.getItem('adminToken')
+    ];
+    
+    const validToken = tokens.find(token => token && token !== 'null' && token !== 'undefined');
+    if (validToken) {
+        headers['Authorization'] = `Bearer ${validToken}`;
+    }
+
+    return headers;
+}
+
+/**
+ * 兼容的消息显示函数
+ */
+function showCompatibleMessage(message, type = 'info') {
+    // 优先使用主页面的showMessage函数
+    if (typeof window.showMessage === 'function') {
+        window.showMessage(message, type);
+    } else if (typeof showMessage === 'function') {
+        showMessage(message, type);
+    } else {
+        // 备用方案：使用alert
+        console.log(`[${type.toUpperCase()}] ${message}`);
+        if (type === 'error') {
+            alert(`错误: ${message}`);
+        } else if (type === 'warning') {
+            alert(`警告: ${message}`);
+        } else {
+            alert(message);
+        }
+    }
+}
+
 // 创建处方记录
 async function createPrescriptionRecord() {
     try {
         // 获取最后一条包含处方的AI消息
         const prescriptionContent = getPrescriptionContent();
         if (!prescriptionContent) {
-            showMessage('未找到处方内容', 'error');
+            showCompatibleMessage('未找到处方内容', 'error');
             return;
         }
 
+        const headers = getCompatibleAuthHeaders();
         const response = await fetch('/api/prescriptions/create', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeaders()
-            },
+            headers: headers,
             body: JSON.stringify({
                 conversation_id: window.currentConversationId,
                 doctor_name: window.selectedDoctor,
@@ -881,11 +1003,11 @@ async function createPrescriptionRecord() {
         if (result.success && result.prescription_id) {
             initiatePrescriptionPayment(result.prescription_id);
         } else {
-            showMessage('创建处方记录失败', 'error');
+            showCompatibleMessage('创建处方记录失败', 'error');
         }
     } catch (error) {
         console.error('创建处方记录失败:', error);
-        showMessage('创建处方记录失败', 'error');
+        showCompatibleMessage('创建处方记录失败', 'error');
     }
 }
 
@@ -893,11 +1015,15 @@ async function createPrescriptionRecord() {
 function initiatePrescriptionPayment(prescriptionId) {
     console.log('💰 启动支付流程:', prescriptionId);
     
-    // 调用现有的支付模态框
-    if (typeof showPaymentModal === 'function') {
+    // 调用现有的支付模态框 - 兼容多种函数名
+    if (typeof window.showPaymentModal === 'function') {
+        window.showPaymentModal(prescriptionId, 88.00);
+    } else if (typeof showPaymentModal === 'function') {
         showPaymentModal(prescriptionId, 88.00);
     } else {
-        showMessage('支付系统暂时不可用', 'error');
+        console.warn('支付模态框函数不存在，尝试备用方案');
+        // 备用方案：跳转到支付页面或显示错误
+        showCompatibleMessage('支付系统正在初始化，请稍后再试', 'warning');
     }
 }
 
@@ -927,7 +1053,7 @@ function getCurrentSymptoms() {
 // 下载处方
 function downloadPrescription(prescriptionId) {
     console.log('📄 下载处方:', prescriptionId);
-    showMessage('处方下载功能开发中', 'info');
+    showCompatibleMessage('处方下载功能开发中', 'info');
 }
 
 // 创建全局实例
