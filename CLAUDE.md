@@ -350,9 +350,58 @@ systemctl start tcm-ai && systemctl enable tcm-ai
 - **医疗边界控制**: 严格的责任范围和免责声明
 - **审计日志完整性**: 所有医疗操作的完整追溯
 
+### 🚨 重要开发检查清单 (每次开发前必读)
+
+#### 🔍 系统结构全面Review
+**在进行任何修改前，必须完成以下检查**：
+
+1. **页面路由检查**：
+   - ✅ 登录页面：`/static/login_portal.html` (NOT `/login`)
+   - ✅ 智能问诊：`/static/index_smart_workflow.html` 
+   - ✅ 管理后台：`/static/admin/index.html`
+   - ✅ 医生端：`/static/doctor/index.html`
+   - ✅ nginx配置：`/etc/nginx/conf.d/tcm-ai.conf`
+
+2. **API端点检查**：
+   - ✅ 统一问诊：`/api/consultation/chat` 
+   - ✅ 认证登录：`/api/auth/login`
+   - ✅ 症状分析：`/api/symptom/*`
+   - ✅ 处方管理：`/api/prescription/*`
+
+3. **数据库表结构**：
+   - ✅ 用户系统：`users_new`, `patients_new`, `doctors_new`
+   - ✅ 问诊系统：`consultations_new`, `prescriptions_new`
+   - ✅ 症状分析：`tcm_symptoms`, `symptom_relationships`
+
+4. **前端组件检查**：
+   - ✅ PC端 vs 移动端逻辑差异
+   - ✅ 消息显示：`addMessage()` vs `addMobileMessage()`
+   - ✅ 医生选择：五大名医人格系统
+   - ✅ 会话管理：localStorage数据结构
+
+#### 🔧 常见错误防范
+1. **路径错误**：
+   - ❌ `/login` → ✅ `/static/login_portal.html`
+   - ❌ `/api/chat` → ✅ `/api/consultation/chat`
+   
+2. **变量名混淆**：
+   - ❌ `responseData` vs `data`变量混用
+   - ❌ `currentUser` vs `userData`数据结构
+   
+3. **权限控制遗漏**：
+   - ❌ 退出不跳转 → ✅ 强制跳转登录页
+   - ❌ 数据不清除 → ✅ 完整清除用户数据
+
+#### 💡 开发流程要求
+1. **修改前**：完整阅读相关代码，了解现有逻辑
+2. **开发中**：添加充足的调试日志和错误处理  
+3. **测试后**：验证PC端、移动端、不同用户角色
+4. **提交前**：检查是否遵循项目规范和安全要求
+
 ###tips
 1. ** 每次新增功能的时候或者新增web link的时候仔细核查下目前的项目里是否已经存在了，如果存在仔细看下代码，是基于已有的代码的基础上修改还是重构，重构的时候需要提供重构思路和重构具体方案给到用户确认。
 2. **每次修改已有的代码后如果问题连续三次都没有解决，需要换种思路进行troubleshooting。
+3. **🚨 每次回答前必须先Review系统核心功能，避免基础错误**
 
 ---
 

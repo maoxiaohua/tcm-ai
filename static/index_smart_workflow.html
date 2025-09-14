@@ -2715,7 +2715,21 @@
 
         // 添加消息
         function addMessage(sender, content, showFeedback = false, isPaid = false, prescriptionId = null) {
+            console.log('🔍 addMessage被调用:', {
+                sender,
+                contentLength: content ? content.length : 0,
+                contentPreview: content ? content.substring(0, 50) + '...' : 'null',
+                showFeedback,
+                isPaid,
+                prescriptionId
+            });
+            
             const container = document.getElementById('messagesContainer');
+            if (!container) {
+                console.error('❌ 找不到messagesContainer');
+                return;
+            }
+            
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
             
@@ -3073,13 +3087,19 @@
 
                 const responseData = await response.json();
                 
+                // 🔍 调试：打印完整API响应
+                console.log('🔍 PC端API完整响应:', responseData);
+                
                 // 处理新的API响应格式
                 let aiReply;
                 if (responseData.success && responseData.data && responseData.data.reply) {
                     aiReply = responseData.data.reply;
+                    console.log('✅ PC端使用新格式，回复内容长度:', aiReply.length);
                 } else if (responseData.reply) {
                     aiReply = responseData.reply; // 兼容旧格式
+                    console.log('✅ PC端使用旧格式，回复内容长度:', aiReply.length);
                 } else {
+                    console.error('❌ PC端API响应格式错误，响应结构:', Object.keys(responseData));
                     throw new Error('API响应格式错误: 未找到reply字段');
                 }
                 
@@ -3114,6 +3134,12 @@
                     }
                 }
                 
+                console.log('🔍 PC端即将添加AI消息:', {
+                    aiReply: aiReply.substring(0, 100) + '...',
+                    shouldShowFeedback,
+                    isPaid,
+                    prescriptionId
+                });
                 addMessage('ai', aiReply, shouldShowFeedback, isPaid, prescriptionId);
                 
                 // 记录诊断阶段
@@ -4223,7 +4249,7 @@ ${data.analysis_result}`;
                 console.log('未检测到有效登录状态，跳转到登录页面');
                 showMessage('请先登录后使用智能问诊服务', 'warning');
                 setTimeout(() => {
-                    window.location.href = '/login_portal.html';
+                    window.location.href = '/static/login_portal.html';
                 }, 1500);
                 return;
             }
@@ -4391,7 +4417,7 @@ ${data.analysis_result}`;
             
             // 🔒 安全修复：退出后立即跳转到登录界面
             setTimeout(() => {
-                window.location.href = '/login_portal.html';
+                window.location.href = '/static/login_portal.html';
             }, 1000); // 1秒后跳转，让用户看到退出消息
         }
 
@@ -6897,13 +6923,19 @@ ${data.analysis_result}`;
                     loadingMsg.remove();
                 }
                 
+                // 🔍 调试：打印完整API响应
+                console.log('🔍 移动端API完整响应:', data);
+                
                 // 处理新的API响应格式 (移动端)
                 let aiReply;
                 if (data.success && data.data && data.data.reply) {
                     aiReply = data.data.reply;
+                    console.log('✅ 移动端使用新格式，回复内容长度:', aiReply.length);
                 } else if (data.reply) {
                     aiReply = data.reply; // 兼容旧格式
+                    console.log('✅ 移动端使用旧格式，回复内容长度:', aiReply.length);
                 } else {
+                    console.error('❌ 移动端API响应格式错误，响应结构:', Object.keys(data));
                     throw new Error('API响应格式错误: 未找到reply字段');
                 }
                 
@@ -6912,9 +6944,15 @@ ${data.analysis_result}`;
                     const shouldShowFeedback = containsPrescription(aiReply);
                     
                     // 🔑 关键修复：检查是否有处方ID和支付状态
-                    const prescriptionId = responseData.data?.prescription_id || null;
-                    const isPaid = responseData.data?.is_paid || false;
+                    const prescriptionId = data.data?.prescription_id || null;
+                    const isPaid = data.data?.is_paid || false;
                     
+                    console.log('🔍 移动端即将添加AI消息:', {
+                        aiReply: aiReply.substring(0, 100) + '...',
+                        shouldShowFeedback,
+                        isPaid,
+                        prescriptionId
+                    });
                     addMobileMessage('ai', aiReply, shouldShowFeedback, isPaid, prescriptionId);
                     
                     // 记录诊断阶段
