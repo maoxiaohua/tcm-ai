@@ -2184,10 +2184,28 @@
             // 🚨 重要：智能工作流页面(index_smart_workflow.html)只使用登录用户数据
             // 这确保与游客页面的数据完全隔离
             
-            // 🔑 优先使用真实登录用户信息 
-            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-            if (currentUser.id || currentUser.user_id) {
-                const userId = currentUser.id || currentUser.user_id;
+            // 🔑 优先使用真实登录用户信息 - 检查多个存储位置
+            let realUser = null;
+            
+            // 检查userData存储
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            if (userData.id || userData.user_id) {
+                realUser = userData;
+                console.log('🔑 从userData获取真实用户:', realUser);
+            }
+            
+            // 检查currentUser存储（备选）
+            if (!realUser) {
+                const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                if (currentUser.id || currentUser.user_id) {
+                    realUser = currentUser;
+                    console.log('🔑 从currentUser获取真实用户:', realUser);
+                }
+            }
+            
+            // 如果找到真实用户
+            if (realUser) {
+                const userId = realUser.id || realUser.user_id;
                 console.log('🔑 使用真实登录用户ID:', userId);
                 return `real_user_${userId}`; // 加前缀区分真实用户
             }
@@ -6341,6 +6359,36 @@ ${data.analysis_result}`;
 
         // ===================== 多设备会话同步系统结束 =====================
 
+        // 🔍 调试用户ID和历史记录
+        function debugUserIdAndHistory() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            const currentUserId = getCurrentUserId();
+            
+            console.log('=== 用户ID调试信息 ===');
+            console.log('currentUser对象:', currentUser);
+            console.log('currentUser.id:', currentUser.id);
+            console.log('currentUser.user_id:', currentUser.user_id);
+            console.log('userData对象:', userData);
+            console.log('userData.id:', userData.id);
+            console.log('userData.user_id:', userData.user_id);
+            console.log('getCurrentUserId()返回值:', currentUserId);
+            
+            const keys = Object.keys(localStorage);
+            const allHistoryKeys = keys.filter(key => key.startsWith('tcm_doctor_history_'));
+            const userHistoryKeys = keys.filter(key => key.startsWith(`tcm_doctor_history_${currentUserId}_`));
+            
+            console.log('=== 历史记录调试信息 ===');
+            console.log('所有历史记录键名:', allHistoryKeys);
+            console.log('当前用户历史记录键名:', userHistoryKeys);
+            console.log('历史记录总数:', allHistoryKeys.length);
+            console.log('当前用户历史记录数:', userHistoryKeys.length);
+            
+            // 检查是否有maoxiaohua相关的记录
+            const maoxiaohuaKeys = keys.filter(key => key.includes('maoxiaohua') || key.includes('02f16099'));
+            console.log('maoxiaohua相关键名:', maoxiaohuaKeys);
+        }
+
         // 历史记录管理系统
         function saveCurrentDoctorHistory() {
             if (!selectedDoctor) return;
@@ -7371,6 +7419,9 @@ ${data.analysis_result}`;
             const userId = getCurrentUserId();
             const historyKeys = keys.filter(key => key.startsWith(`tcm_doctor_history_${userId}_`));
             console.log('历史记录数量:', historyKeys.length);
+            
+            // 🔍 用户历史记录调试信息
+            debugUserIdAndHistory();
             
             historyKeys.forEach(key => {
                 try {
