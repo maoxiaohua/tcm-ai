@@ -213,3 +213,171 @@ async def get_service_status():
             "success": False,
             "message": str(e)
         }
+
+@router.get("/conversation/{conversation_id}/progress")
+async def get_conversation_progress(conversation_id: str):
+    """获取对话进度信息"""
+    try:
+        from core.conversation import conversation_state_manager
+        
+        progress = conversation_state_manager.get_conversation_progress(conversation_id)
+        if not progress:
+            return {
+                "success": False,
+                "message": "对话不存在"
+            }
+        
+        return {
+            "success": True,
+            "data": progress
+        }
+        
+    except Exception as e:
+        logger.error(f"获取对话进度失败: {e}")
+        return {
+            "success": False,
+            "message": str(e)
+        }
+
+@router.get("/conversation/{conversation_id}/guidance")
+async def get_stage_guidance(conversation_id: str):
+    """获取阶段引导信息"""
+    try:
+        from core.conversation import conversation_state_manager
+        
+        guidance = conversation_state_manager.get_stage_guidance(conversation_id)
+        if not guidance:
+            return {
+                "success": False,
+                "message": "对话不存在"
+            }
+        
+        return {
+            "success": True,
+            "data": guidance
+        }
+        
+    except Exception as e:
+        logger.error(f"获取阶段引导失败: {e}")
+        return {
+            "success": False,
+            "message": str(e)
+        }
+
+@router.post("/conversation/{conversation_id}/confirm-prescription")
+async def confirm_prescription(conversation_id: str):
+    """确认处方"""
+    try:
+        from core.conversation import conversation_state_manager, ConversationStage
+        
+        # 更新对话状态为处方确认
+        success = conversation_state_manager.update_stage(
+            conversation_id,
+            ConversationStage.PRESCRIPTION_CONFIRM,
+            "用户确认处方"
+        )
+        
+        if success:
+            return {
+                "success": True,
+                "message": "处方确认成功",
+                "data": {
+                    "next_step": "proceed_to_payment",
+                    "message": "请继续完成支付流程"
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "message": "处方确认失败"
+            }
+            
+    except Exception as e:
+        logger.error(f"处方确认失败: {e}")
+        return {
+            "success": False,
+            "message": str(e)
+        }
+
+@router.post("/conversation/{conversation_id}/end")
+async def end_conversation(conversation_id: str, request: Dict[str, Any]):
+    """结束对话"""
+    try:
+        from core.conversation import conversation_state_manager, ConversationEndType
+        
+        end_type = ConversationEndType.USER_TERMINATED
+        reason = request.get("reason", "用户主动结束")
+        satisfaction = request.get("satisfaction")
+        
+        success = conversation_state_manager.end_conversation(
+            conversation_id,
+            end_type,
+            reason,
+            satisfaction
+        )
+        
+        if success:
+            return {
+                "success": True,
+                "message": "对话已结束",
+                "data": {
+                    "end_type": end_type.value,
+                    "reason": reason
+                }
+            }
+        else:
+            return {
+                "success": False,
+                "message": "结束对话失败"
+            }
+            
+    except Exception as e:
+        logger.error(f"结束对话失败: {e}")
+        return {
+            "success": False,
+            "message": str(e)
+        }
+
+@router.get("/conversation/{conversation_id}/summary")
+async def get_conversation_summary(conversation_id: str):
+    """获取对话摘要"""
+    try:
+        from core.conversation import conversation_state_manager, ConversationAnalyzer
+        from datetime import datetime
+        
+        # 获取对话状态
+        state = conversation_state_manager.get_conversation_state(conversation_id)
+        if not state:
+            return {
+                "success": False,
+                "message": "对话不存在"
+            }
+        
+        # 这里可以获取完整的对话历史进行分析
+        # 暂时返回基本信息
+        analyzer = ConversationAnalyzer()
+        
+        summary = {
+            "conversation_id": conversation_id,
+            "doctor_name": state.doctor_id,
+            "start_time": state.start_time.isoformat(),
+            "duration_minutes": int((datetime.now() - state.start_time).total_seconds() / 60),
+            "turn_count": state.turn_count,
+            "current_stage": state.current_stage.value,
+            "symptoms_collected": state.symptoms_collected,
+            "has_prescription": state.has_prescription,
+            "is_active": state.is_active,
+            "end_type": state.end_type.value if state.end_type else None
+        }
+        
+        return {
+            "success": True,
+            "data": summary
+        }
+        
+    except Exception as e:
+        logger.error(f"获取对话摘要失败: {e}")
+        return {
+            "success": False,
+            "message": str(e)
+        }

@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCM-AI 对话状态管理演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr 350px;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .panel h2 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 600;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        
+        /* 对话状态面板 */
+        .state-panel {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .stage-indicator {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border-left: 4px solid #e2e8f0;
+            background: #f8fafc;
+            transition: all 0.3s ease;
+        }
+        
+        .stage-indicator.active {
+            background: #eff6ff;
+            border-left-color: #3b82f6;
+            color: #1e40af;
+            font-weight: 500;
+        }
+        
+        .stage-indicator.completed {
+            background: #f0fdf4;
+            border-left-color: #22c55e;
+            color: #166534;
+        }
+        
+        .stage-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        
+        .stage-indicator.active .stage-icon {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .stage-indicator.completed .stage-icon {
+            background: #22c55e;
+            color: white;
+        }
+        
+        /* 聊天区域 */
+        .chat-panel {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 10px;
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+        }
+        
+        .message.user {
+            justify-content: flex-end;
+        }
+        
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            position: relative;
+        }
+        
+        .message.user .message-content {
+            background: #3b82f6;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.assistant .message-content {
+            background: #f1f5f9;
+            color: #334155;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message-meta {
+            font-size: 11px;
+            opacity: 0.6;
+            margin-top: 4px;
+        }
+        
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: none;
+            min-height: 44px;
+            max-height: 120px;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
+        .send-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .send-btn:hover:not(:disabled) {
+            background: #2563eb;
+        }
+        
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 信息面板 */
+        .info-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .info-section h3 {
+            color: #1e40af;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+        
+        .info-item .label {
+            color: #64748b;
+        }
+        
+        .info-item .value {
+            color: #334155;
+            font-weight: 500;
+        }
+        
+        .symptoms-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .symptom-tag {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .guidance-card {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .guidance-title {
+            color: #ea580c;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .guidance-desc {
+            color: #9a3412;
+            font-size: 13px;
+            line-height: 1.4;
+            margin-bottom: 10px;
+        }
+        
+        .guidance-suggestions {
+            list-style: none;
+        }
+        
+        .guidance-suggestions li {
+            color: #7c2d12;
+            font-size: 12px;
+            padding: 2px 0;
+            position: relative;
+            padding-left: 12px;
+        }
+        
+        .guidance-suggestions li:before {
+            content: '•';
+            color: #ea580c;
+            position: absolute;
+            left: 0;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #475569;
+        }
+        
+        .btn-secondary:hover {
+            background: #cbd5e1;
+        }
+        
+        .btn-success {
+            background: #22c55e;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #16a34a;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 5px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏥 TCM-AI 对话状态管理演示</h1>
+        <p>体验智能中医问诊的完整对话流程管理</p>
+    </div>
+
+    <div class="container">
+        <!-- 对话状态面板 -->
+        <div class="panel state-panel">
+            <h2>📊 对话状态</h2>
+            
+            <!-- 进度条 -->
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <span style="font-size: 14px; color: #64748b;">问诊进度</span>
+                    <span id="progressText" style="font-size: 12px; color: #475569; font-weight: 500;">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+            </div>
+            
+            <!-- 阶段指示器 -->
+            <div style="margin-top: 20px;">
+                <div id="stage-inquiry" class="stage-indicator active">
+                    <div class="stage-icon">1</div>
+                    <span>初始问诊</span>
+                </div>
+                <div id="stage-detailed_inquiry" class="stage-indicator">
+                    <div class="stage-icon">2</div>
+                    <span>详细问诊</span>
+                </div>
+                <div id="stage-interim_advice" class="stage-indicator">
+                    <div class="stage-icon">3</div>
+                    <span>临时建议</span>
+                </div>
+                <div id="stage-diagnosis" class="stage-indicator">
+                    <div class="stage-icon">4</div>
+                    <span>证候分析</span>
+                </div>
+                <div id="stage-prescription" class="stage-indicator">
+                    <div class="stage-icon">5</div>
+                    <span>处方建议</span>
+                </div>
+                <div id="stage-prescription_confirm" class="stage-indicator">
+                    <div class="stage-icon">✓</div>
+                    <span>处方确认</span>
+                </div>
+            </div>
+            
+            <!-- 基本信息 -->
+            <div class="info-section">
+                <h3>📈 基本信息</h3>
+                <div class="info-item">
+                    <span class="label">对话轮数:</span>
+                    <span class="value" id="turnCount">0</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">当前医生:</span>
+                    <span class="value" id="doctorName">张仲景</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">问诊时长:</span>
+                    <span class="value" id="duration">00:00</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">对话状态:</span>
+                    <span class="value" id="conversationStatus">进行中</span>
+                </div>
+            </div>
+            
+            <!-- 症状收集 -->
+            <div class="info-section">
+                <h3>🩺 症状收集</h3>
+                <div class="info-item">
+                    <span class="label">已收集:</span>
+                    <span class="value" id="symptomCount">0</span>
+                </div>
+                <div id="symptomsList" class="symptoms-list">
+                    <!-- 症状标签将在这里显示 -->
+                </div>
+            </div>
+            
+            <!-- 操作按钮 -->
+            <div class="action-buttons">
+                <button class="btn btn-secondary" onclick="resetConversation()">重新开始</button>
+                <button class="btn btn-danger" onclick="endConversation()">结束对话</button>
+            </div>
+        </div>
+        
+        <!-- 聊天面板 -->
+        <div class="panel chat-panel">
+            <h2>💬 智能问诊对话</h2>
+            
+            <div id="chatMessages" class="chat-messages">
+                <div class="message assistant">
+                    <div class="message-content">
+                        <div>您好！我是张仲景医师，很高兴为您提供中医问诊服务。请告诉我您目前的不适症状，我会根据中医理论为您进行详细分析。</div>
+                        <div class="message-meta">系统消息 • 刚刚</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input-area">
+                <textarea 
+                    id="messageInput" 
+                    class="chat-input" 
+                    placeholder="请描述您的症状..."
+                    rows="1"
+                ></textarea>
+                <button id="sendBtn" class="send-btn" onclick="sendMessage()">发送</button>
+            </div>
+        </div>
+        
+        <!-- 信息面板 -->
+        <div class="panel">
+            <h2>🧭 阶段引导</h2>
+            
+            <div id="guidanceCard" class="guidance-card">
+                <div class="guidance-title">初始问诊阶段</div>
+                <div class="guidance-desc">请详细描述您的主要不适症状</div>
+                <ul class="guidance-suggestions">
+                    <li>症状具体表现如何？</li>
+                    <li>什么时候开始出现的？</li>
+                    <li>有什么诱发因素吗？</li>
+                </ul>
+            </div>
+            
+            <!-- 处方确认区域 -->
+            <div id="prescriptionConfirm" style="display: none;" class="info-section">
+                <h3>📋 处方确认</h3>
+                <p style="color: #475569; font-size: 13px; margin-bottom: 10px;">
+                    医生已为您开出完整的治疗方案，请仔细阅读后选择：
+                </p>
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="confirmPrescription()">
+                        ✅ 确认处方
+                    </button>
+                    <button class="btn btn-secondary" onclick="continueConsultation()">
+                        💬 继续咨询
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 快速测试按钮 -->
+            <div class="info-section">
+                <h3>🚀 快速测试</h3>
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="simulateSymptoms()">模拟症状</button>
+                    <button class="btn btn-secondary" onclick="simulateProgress()">模拟进展</button>
+                </div>
+            </div>
+            
+            <!-- 系统信息 -->
+            <div class="info-section">
+                <h3>⚙️ 系统信息</h3>
+                <div class="info-item">
+                    <span class="label">对话ID:</span>
+                    <span class="value" id="conversationId">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">API状态:</span>
+                    <span class="value" id="apiStatus">就绪</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">响应时间:</span>
+                    <span class="value" id="responseTime">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let conversationId = generateUniqueId();
+        let conversationHistory = [];
+        let isLoading = false;
+        let startTime = new Date();
+        
+        // 初始化
+        document.getElementById('conversationId').textContent = conversationId.substring(0, 8);
+        updateDuration();
+        setInterval(updateDuration, 1000); // 每秒更新时长
+        
+        // 生成唯一ID
+        function generateUniqueId() {
+            return 'demo_' + Math.random().toString(36).substring(2, 15) + 
+                   Math.random().toString(36).substring(2, 15);
+        }
+        
+        // 更新时长
+        function updateDuration() {
+            const now = new Date();
+            const diff = Math.floor((now - startTime) / 1000);
+            const minutes = Math.floor(diff / 60);
+            const seconds = diff % 60;
+            document.getElementById('duration').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // 发送消息
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || isLoading) return;
+            
+            // 显示用户消息
+            addMessage(message, 'user');
+            input.value = '';
+            
+            // 设置加载状态
+            setLoading(true);
+            
+            try {
+                // 调用API
+                const startTime = performance.now();
+                const response = await fetch('/api/consultation/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: conversationId,
+                        selected_doctor: 'zhang_zhongjing',
+                        conversation_history: conversationHistory
+                    })
+                });
+                
+                const responseTime = performance.now() - startTime;
+                document.getElementById('responseTime').textContent = `${responseTime.toFixed(0)}ms`;
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 显示AI响应
+                    addMessage(data.data.reply, 'assistant');
+                    
+                    // 更新对话历史
+                    conversationHistory.push({role: 'user', content: message});
+                    conversationHistory.push({role: 'assistant', content: data.data.reply});
+                    
+                    // 更新界面状态
+                    updateUIState(data.data);
+                    
+                    document.getElementById('apiStatus').textContent = '正常';
+                } else {
+                    addMessage(`错误: ${data.message}`, 'system');
+                    document.getElementById('apiStatus').textContent = '错误';
+                }
+                
+            } catch (error) {
+                console.error('发送消息失败:', error);
+                addMessage('网络错误，请稍后重试', 'system');
+                document.getElementById('apiStatus').textContent = '离线';
+            }
+            
+            setLoading(false);
+        }
+        
+        // 添加消息到界面
+        function addMessage(content, role) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const time = new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
+            const roleText = role === 'user' ? '我' : role === 'assistant' ? '医生' : '系统';
+            
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    <div>${content}</div>
+                    <div class="message-meta">${roleText} • ${time}</div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // 设置加载状态
+        function setLoading(loading) {
+            isLoading = loading;
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (loading) {
+                sendBtn.innerHTML = '<div class="loading"></div>处理中...';
+                sendBtn.disabled = true;
+            } else {
+                sendBtn.innerHTML = '发送';
+                sendBtn.disabled = false;
+            }
+        }
+        
+        // 更新界面状态
+        function updateUIState(data) {
+            // 更新进度
+            if (data.progress_info) {
+                const progress = data.progress_info.progress_percentage || 0;
+                document.getElementById('progressFill').style.width = `${progress}%`;
+                document.getElementById('progressText').textContent = `${progress.toFixed(1)}%`;
+                document.getElementById('turnCount').textContent = data.progress_info.turn_count || 0;
+            }
+            
+            // 更新阶段指示器
+            const currentStage = data.stage;
+            updateStageIndicators(currentStage);
+            
+            // 更新引导信息
+            if (data.stage_guidance) {
+                updateGuidance(data.stage_guidance);
+            }
+            
+            // 更新对话状态
+            if (!data.conversation_active) {
+                document.getElementById('conversationStatus').textContent = '已结束';
+                document.getElementById('conversationStatus').style.color = '#dc2626';
+            }
+            
+            // 显示处方确认
+            if (data.requires_confirmation) {
+                document.getElementById('prescriptionConfirm').style.display = 'block';
+            }
+        }
+        
+        // 更新阶段指示器
+        function updateStageIndicators(currentStage) {
+            const stages = ['inquiry', 'detailed_inquiry', 'interim_advice', 'diagnosis', 'prescription', 'prescription_confirm'];
+            const currentIndex = stages.indexOf(currentStage);
+            
+            stages.forEach((stage, index) => {
+                const element = document.getElementById(`stage-${stage}`);
+                element.classList.remove('active', 'completed');
+                
+                if (index < currentIndex) {
+                    element.classList.add('completed');
+                } else if (index === currentIndex) {
+                    element.classList.add('active');
+                }
+            });
+        }
+        
+        // 更新引导信息
+        function updateGuidance(guidance) {
+            const guidanceCard = document.getElementById('guidanceCard');
+            let suggestions = '';
+            
+            if (guidance.suggestions && guidance.suggestions.length > 0) {
+                suggestions = guidance.suggestions.map(s => `<li>${s}</li>`).join('');
+            }
+            
+            guidanceCard.innerHTML = `
+                <div class="guidance-title">${guidance.title}</div>
+                <div class="guidance-desc">${guidance.description}</div>
+                ${suggestions ? `<ul class="guidance-suggestions">${suggestions}</ul>` : ''}
+            `;
+        }
+        
+        // 确认处方
+        async function confirmPrescription() {
+            try {
+                const response = await fetch(`/api/consultation/conversation/${conversationId}/confirm-prescription`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    addMessage('✅ 处方已确认，请继续完成支付流程', 'system');
+                    document.getElementById('prescriptionConfirm').style.display = 'none';
+                } else {
+                    addMessage('❌ 处方确认失败，请重试', 'system');
+                }
+            } catch (error) {
+                console.error('确认处方失败:', error);
+                addMessage('❌ 网络错误，请重试', 'system');
+            }
+        }
+        
+        // 继续咨询
+        function continueConsultation() {
+            document.getElementById('prescriptionConfirm').style.display = 'none';
+            addMessage('如果您还有其他问题，请继续咨询...', 'system');
+        }
+        
+        // 结束对话
+        async function endConversation() {
+            if (!confirm('确定要结束当前对话吗？')) return;
+            
+            try {
+                const response = await fetch(`/api/consultation/conversation/${conversationId}/end`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        reason: '用户主动结束',
+                        satisfaction: 4
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    addMessage('感谢您的咨询，对话已结束。如有其他问题随时联系！', 'system');
+                    document.getElementById('conversationStatus').textContent = '已结束';
+                    document.getElementById('conversationStatus').style.color = '#dc2626';
+                } else {
+                    addMessage('结束对话失败，请重试', 'system');
+                }
+            } catch (error) {
+                console.error('结束对话失败:', error);
+                addMessage('网络错误，请重试', 'system');
+            }
+        }
+        
+        // 重新开始对话
+        function resetConversation() {
+            if (!confirm('确定要重新开始对话吗？当前进度将丢失。')) return;
+            
+            // 重置所有状态
+            conversationId = generateUniqueId();
+            conversationHistory = [];
+            startTime = new Date();
+            
+            // 更新界面
+            document.getElementById('conversationId').textContent = conversationId.substring(0, 8);
+            document.getElementById('progressFill').style.width = '0%';
+            document.getElementById('progressText').textContent = '0%';
+            document.getElementById('turnCount').textContent = '0';
+            document.getElementById('conversationStatus').textContent = '进行中';
+            document.getElementById('conversationStatus').style.color = '#334155';
+            document.getElementById('prescriptionConfirm').style.display = 'none';
+            
+            // 清空聊天记录
+            const messagesContainer = document.getElementById('chatMessages');
+            messagesContainer.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-content">
+                        <div>您好！我是张仲景医师，很高兴为您提供中医问诊服务。请告诉我您目前的不适症状，我会根据中医理论为您进行详细分析。</div>
+                        <div class="message-meta">系统消息 • 刚刚</div>
+                    </div>
+                </div>
+            `;
+            
+            // 重置阶段指示器
+            updateStageIndicators('inquiry');
+            
+            // 重置引导信息
+            updateGuidance({
+                title: '初始问诊阶段',
+                description: '请详细描述您的主要不适症状',
+                suggestions: [
+                    '症状具体表现如何？',
+                    '什么时候开始出现的？',
+                    '有什么诱发因素吗？'
+                ]
+            });
+        }
+        
+        // 模拟症状输入
+        function simulateSymptoms() {
+            const symptoms = [
+                '医生您好，我最近总是头痛，想咨询一下',
+                '头痛主要在太阳穴位置，持续了一周，每天下午特别严重',
+                '还有就是睡眠不好，经常失眠，胃口也不太好',
+                '舌苔有点厚腻，大便也不太正常，有时候便秘'
+            ];
+            
+            let index = 0;
+            const interval = setInterval(() => {
+                if (index < symptoms.length && !isLoading) {
+                    document.getElementById('messageInput').value = symptoms[index];
+                    sendMessage();
+                    index++;
+                } else if (index >= symptoms.length) {
+                    clearInterval(interval);
+                }
+            }, 3000);
+        }
+        
+        // 模拟对话进展
+        function simulateProgress() {
+            const stages = ['inquiry', 'detailed_inquiry', 'interim_advice', 'diagnosis', 'prescription'];
+            let currentIndex = 0;
+            
+            const interval = setInterval(() => {
+                if (currentIndex < stages.length) {
+                    updateStageIndicators(stages[currentIndex]);
+                    
+                    // 更新进度条
+                    const progress = ((currentIndex + 1) / stages.length) * 100;
+                    document.getElementById('progressFill').style.width = `${progress}%`;
+                    document.getElementById('progressText').textContent = `${progress.toFixed(1)}%`;
+                    
+                    currentIndex++;
+                } else {
+                    clearInterval(interval);
+                }
+            }, 1000);
+        }
+        
+        // 键盘事件处理
+        document.getElementById('messageInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        // 自动调整输入框高度
+        document.getElementById('messageInput').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+    </script>
+</body>
+</html>
