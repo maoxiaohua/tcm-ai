@@ -15,6 +15,65 @@ from core.security.rbac_system import session_manager, UserRole
 
 router = APIRouter(prefix="/api/auth", tags=["统一认证"])
 
+def get_patient_device_count(patient_id: str) -> int:
+    """获取患者设备登录次数"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT COUNT(DISTINCT ip_address) as device_count
+            FROM user_sessions 
+            WHERE user_id = ? AND role = 'patient' AND is_active = 1
+        """, (patient_id,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        return result['device_count'] if result else 0
+    except Exception as e:
+        print(f"获取设备数量失败: {e}")
+        return 0
+
+def log_patient_login(patient_id: str, username: str, ip_address: str, user_agent: str):
+    """记录患者登录信息"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 记录到用户会话表
+        session_token = f"patient_session_{patient_id}_{int(datetime.now().timestamp())}"
+        cursor.execute("""
+            INSERT INTO user_sessions 
+            (session_token, user_id, role, created_at, expires_at, ip_address, user_agent, last_activity, is_active)
+            VALUES (?, ?, 'patient', ?, ?, ?, ?, ?, 1)
+        """, (
+            session_token,
+            patient_id, 
+            datetime.now().isoformat(),
+            (datetime.now() + timedelta(days=30)).isoformat(),  # 30天过期
+            ip_address,
+            user_agent,
+            datetime.now().isoformat()
+        ))
+        
+        # 更新用户表的最后活跃时间
+        cursor.execute("""
+            UPDATE users 
+            SET last_active = ?
+            WHERE user_id = ?
+        """, (datetime.now().isoformat(), patient_id))
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"✅ 已记录患者登录: {username} ({patient_id}) from {ip_address}")
+        return session_token
+        
+    except Exception as e:
+        print(f"记录患者登录失败: {e}")
+        return None
+
 class LoginRequest(BaseModel):
     """统一登录请求"""
     username: str
@@ -110,21 +169,32 @@ def verify_admin_credentials(username: str, password: str) -> Optional[Dict]:
     return None
 
 def verify_patient_credentials(username: str, password: str) -> Optional[Dict]:
-    """验证患者凭据"""
+    """验证患者凭据 - 返回固定用户ID解决跨设备数据丢失问题"""
     import hashlib
     
-    # 首先检查硬编码账号
+    # 硬编码账号映射到固定ID，确保跨设备一致性
     patient_accounts = {
-        "patient": "patient123",
-        "test_patient": "test123"
+        "patient": {
+            "password": "patient123",
+            "fixed_id": "patient_001",  # 固定ID，确保跨设备一致
+            "name": "测试患者001"
+        },
+        "test_patient": {
+            "password": "test123", 
+            "fixed_id": "patient_test_001",
+            "name": "测试患者002"
+        }
     }
     
-    if username in patient_accounts and patient_accounts[username] == password:
+    if username in patient_accounts and patient_accounts[username]["password"] == password:
+        account_info = patient_accounts[username]
         return {
-            "id": f"patient_{username}",
+            "id": account_info["fixed_id"],  # 使用固定ID
             "username": username,
             "role": "patient",
-            "name": "测试患者"
+            "name": account_info["name"],
+            "login_time": datetime.now().isoformat(),
+            "device_count": get_patient_device_count(account_info["fixed_id"])
         }
     
     # 检查数据库中的患者账号
@@ -209,6 +279,20 @@ async def unified_login(request: LoginRequest, req: Request):
                 user_info = patient_info
                 user_role = UserRole.PATIENT
                 redirect_url = "/"
+                
+                # 记录患者登录信息
+                ip_address = req.client.host if req.client else "unknown"
+                user_agent = req.headers.get("User-Agent", "unknown")
+                patient_session_token = log_patient_login(
+                    patient_info["id"], 
+                    username, 
+                    ip_address, 
+                    user_agent
+                )
+                
+                # 将会话token添加到用户信息中
+                if patient_session_token:
+                    user_info["session_token"] = patient_session_token
         
         # 验证失败
         if not user_info:

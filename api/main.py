@@ -1092,6 +1092,9 @@ from api.routes.doctor_matching_routes import router as doctor_matching_router
 from api.routes.review_routes import router as review_router
 from api.routes.unified_consultation_routes import router as unified_consultation_router
 from api.routes.database_management_routes import router as database_management_router
+from api.routes.conversation_sync_routes import router as conversation_sync_router
+from api.routes.user_data_sync_routes import router as user_data_sync_router
+from api.routes.data_migration_routes import router as data_migration_router
 import faiss
 
 # 导入智能缓存系统
@@ -1943,6 +1946,9 @@ app.include_router(doctor_matching_router)
 app.include_router(review_router)
 app.include_router(unified_consultation_router)
 app.include_router(database_management_router)
+app.include_router(conversation_sync_router)
+app.include_router(user_data_sync_router)
+app.include_router(data_migration_router)
 
 # 设置全局异常处理器
 from api.middleware.exception_handler import setup_exception_handlers

@@ -1059,14 +1059,32 @@
                 if (response.ok && data.success) {
                     showSuccess('登录成功！正在跳转...');
                     
-                    // 保存token
-                    if (data.token) {
-                        const role = data.user.role;
-                        localStorage.setItem(`${role}Token`, data.token);
+                    // 保存用户信息和token
+                    if (data.user) {
+                        // 保存完整用户信息，确保跨设备一致性
+                        localStorage.setItem('currentUser', JSON.stringify(data.user));
+                        
+                        // 如果是患者，设置固定用户ID到对话状态管理器
+                        if (data.user.role === 'patient' && window.conversationStateManager) {
+                            window.conversationStateManager.setCurrentUserId(data.user.id, data.user);
+                        }
+                        
+                        // 保存token
+                        if (data.token) {
+                            const role = data.user.role;
+                            localStorage.setItem(`${role}Token`, data.token);
+                        }
+                        
+                        // 保存会话token（如果存在）
+                        if (data.user.session_token) {
+                            localStorage.setItem('sessionToken', data.user.session_token);
+                        }
                         
                         if (remember) {
                             localStorage.setItem('rememberedUser', username);
                         }
+                        
+                        console.log('✅ 用户登录成功，已保存固定ID:', data.user.id);
                     }
 
                     setTimeout(() => {
