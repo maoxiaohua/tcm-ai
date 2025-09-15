@@ -296,7 +296,7 @@ async def get_complete_user_data(user_id: str) -> Dict[str, Any]:
     
     # 获取处方记录
     cursor.execute("""
-        SELECT p.* FROM prescriptions_new p
+        SELECT p.* FROM prescriptions p
         JOIN consultations c ON p.consultation_id = c.uuid
         WHERE c.patient_id = ?
         ORDER BY p.created_at DESC LIMIT 20

@@ -240,7 +240,7 @@ async def preview_user_data(user_id: str, data_type: str = "all"):
         if data_type in ["all", "prescriptions"]:
             cursor.execute("""
                 SELECT COUNT(*) as count, MIN(p.created_at) as earliest, MAX(p.created_at) as latest
-                FROM prescriptions_new p
+                FROM prescriptions p
                 JOIN consultations c ON p.consultation_id = c.uuid
                 WHERE c.patient_id = ?
             """, (user_id,))
@@ -340,7 +340,7 @@ async def get_exportable_user_data(user_id: str, include_data: List[str], date_r
     
     if "all" in include_data or "prescriptions" in include_data:
         query = f"""
-            SELECT p.* FROM prescriptions_new p
+            SELECT p.* FROM prescriptions p
             JOIN consultations c ON p.consultation_id = c.uuid
             WHERE c.patient_id = ?{date_filter.replace('created_at', 'p.created_at')}
         """
