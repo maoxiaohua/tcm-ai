@@ -6509,10 +6509,8 @@ ${data.analysis_result}`;
             }
         }
         
-        function loadDoctorHistory(doctorKey) {
+        async function loadDoctorHistory(doctorKey) {
             const userId = getCurrentUserId();
-            const historyKey = `tcm_doctor_history_${userId}_${doctorKey}`;
-            const storedHistory = localStorage.getItem(historyKey);
             
             // 检测当前是移动端还是PC端
             const isMobile = window.innerWidth <= 768;
@@ -6530,57 +6528,160 @@ ${data.analysis_result}`;
                 messagesContainer.style.alignItems = 'flex-start';
                 messagesContainer.style.justifyContent = 'flex-start';
             }
+
+            // 🚀 集成服务器同步：优先从服务器加载，然后fallback到localStorage
+            let messages = [];
+            let loadedFromServer = false;
             
-            if (storedHistory) {
+            // 1. 尝试从服务器加载对话历史
+            if (!userId.startsWith('temp_user_') && !userId.startsWith('device_')) {
                 try {
-                    let historyData = JSON.parse(storedHistory);
-                    let messages = [];
-                    
-                    // 兼容旧格式和新格式
-                    if (Array.isArray(historyData)) {
-                        // 旧格式：直接是消息数组
-                        messages = historyData;
-                        console.log(`加载${doctorKey}医生的${messages.length}条历史记录（旧格式）`);
-                    } else if (historyData.messages && Array.isArray(historyData.messages)) {
-                        // 新格式：包含元数据的对象
-                        messages = historyData.messages;
-                        console.log(`加载${doctorKey}医生的${messages.length}条历史记录（${historyData.version || '1.0'}版本，最后更新：${historyData.lastUpdated}）`);
-                    } else {
-                        throw new Error('未知的历史记录格式');
-                    }
-                    
-                    // 恢复历史消息
-                    messages.forEach(msg => {
-                        // 对于AI消息，检测是否包含处方以决定是否显示评价系统
-                        const shouldShowFeedback = msg.type === 'ai' && containsPrescription(msg.content);
-                        
-                        // 检查是否有处方数据
-                        const prescriptionData = msg.prescriptionData;
-                        const isPaid = prescriptionData ? prescriptionData.isPaid : false;
-                        const prescriptionId = prescriptionData ? prescriptionData.prescriptionId : null;
-                        
-                        if (isMobile) {
-                            addMobileMessage(msg.type, msg.content, shouldShowFeedback, isPaid, prescriptionId);
-                        } else {
-                            addMessageWithTime(msg.type, msg.content, msg.time, shouldShowFeedback, isPaid, prescriptionId);
+                    console.log(`🌐 从服务器加载${doctorKey}医生的对话历史...`);
+                    const response = await fetch(`/api/conversation/history/${userId}?doctor_id=${doctorKey}`);
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success && result.data && result.data.messages) {
+                            messages = result.data.messages;
+                            loadedFromServer = true;
+                            console.log(`✅ 从服务器加载${doctorKey}医生的${messages.length}条对话历史`);
+                            showSyncNotification('已从云端恢复对话历史', 'server_restored');
                         }
-                    });
-                    
-                    // 如果有历史记录，在控制台显示更多信息
-                    if (messages.length > 0) {
-                        console.log(`历史记录详情: 第一条消息时间=${messages[0].time}, 最后一条消息时间=${messages[messages.length-1].time}`);
                     }
-                    
                 } catch (error) {
-                    console.error('加载历史记录失败:', error);
-                    console.log('原始数据:', storedHistory.substring(0, 200) + '...');
-                    addWelcomeMessage(doctorKey);
+                    console.warn('服务器加载对话历史失败，使用本地缓存:', error);
+                }
+            }
+            
+            // 2. 如果服务器加载失败，从localStorage加载
+            if (!loadedFromServer) {
+                const historyKey = `tcm_doctor_history_${userId}_${doctorKey}`;
+                const storedHistory = localStorage.getItem(historyKey);
+                
+                if (storedHistory) {
+                    try {
+                        let historyData = JSON.parse(storedHistory);
+                        
+                        // 兼容旧格式和新格式
+                        if (Array.isArray(historyData)) {
+                            messages = historyData;
+                            console.log(`📱 从本地加载${doctorKey}医生的${messages.length}条历史记录（旧格式）`);
+                        } else if (historyData.messages && Array.isArray(historyData.messages)) {
+                            messages = historyData.messages;
+                            console.log(`📱 从本地加载${doctorKey}医生的${messages.length}条历史记录（${historyData.version || '1.0'}版本）`);
+                        }
+                        
+                        if (messages.length > 0) {
+                            showSyncNotification('已从本地恢复对话历史', 'local_restored');
+                        }
+                    } catch (error) {
+                        console.error('本地历史记录解析失败:', error);
+                    }
+                }
+            }
+            
+            // 3. 渲染加载的对话历史
+            if (messages.length > 0) {
+                // 恢复历史消息
+                messages.forEach(msg => {
+                    // 对于AI消息，检测是否包含处方以决定是否显示评价系统
+                    const shouldShowFeedback = msg.type === 'ai' && containsPrescription(msg.content);
+                    
+                    // 检查是否有处方数据
+                    const prescriptionData = msg.prescriptionData;
+                    const isPaid = prescriptionData ? prescriptionData.isPaid : false;
+                    const prescriptionId = prescriptionData ? prescriptionData.prescriptionId : null;
+                    
+                    if (isMobile) {
+                        addMobileMessage(msg.type, msg.content, shouldShowFeedback, isPaid, prescriptionId);
+                    } else {
+                        addMessageWithTime(msg.type, msg.content, msg.time, shouldShowFeedback, isPaid, prescriptionId);
+                    }
+                });
+                
+                // 如果有历史记录，显示详细信息
+                console.log(`历史记录详情: 共${messages.length}条消息，第一条=${messages[0].time || '未知时间'}, 最后一条=${messages[messages.length-1].time || '未知时间'}`);
+                
+                // 🔄 如果从本地加载成功，异步同步到服务器
+                if (!loadedFromServer && !userId.startsWith('temp_user_') && !userId.startsWith('device_')) {
+                    setTimeout(() => {
+                        syncLocalHistoryToServer(userId, doctorKey, messages);
+                    }, 1000);
                 }
             } else {
                 // 没有历史记录，显示欢迎消息
                 console.log(`${doctorKey}医生没有历史记录，显示欢迎消息`);
                 addWelcomeMessage(doctorKey);
             }
+        }
+
+        // 🌐 同步本地历史记录到服务器
+        async function syncLocalHistoryToServer(userId, doctorKey, messages) {
+            try {
+                console.log(`🔄 将${doctorKey}医生的${messages.length}条本地消息同步到服务器...`);
+                
+                const response = await fetch('/api/conversation/sync', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        doctor_id: doctorKey,
+                        messages: messages,
+                        sync_type: 'history_upload'
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log(`✅ ${doctorKey}医生的对话历史已同步到服务器`);
+                    }
+                }
+            } catch (error) {
+                console.warn('同步历史记录到服务器失败:', error);
+            }
+        }
+
+        // 🔔 显示同步状态通知
+        function showSyncNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                background: ${type === 'server_restored' ? '#e3f2fd' : type === 'local_restored' ? '#fff3e0' : '#f3e5f5'};
+                color: ${type === 'server_restored' ? '#1565c0' : type === 'local_restored' ? '#ef6c00' : '#7b1fa2'};
+                padding: 12px 16px;
+                border-radius: 8px;
+                border-left: 4px solid ${type === 'server_restored' ? '#2196f3' : type === 'local_restored' ? '#ff9800' : '#9c27b0'};
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 1002;
+                font-size: 14px;
+                max-width: 250px;
+                animation: slideInRight 0.3s ease;
+            `;
+            
+            const icons = {
+                'server_restored': '☁️',
+                'local_restored': '📱',
+                'sync_success': '✅'
+            };
+            
+            notification.innerHTML = `${icons[type] || '🔄'} ${message}`;
+            document.body.appendChild(notification);
+            
+            // 3秒后自动消失
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.style.animation = 'slideOutRight 0.3s ease';
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.parentNode.removeChild(notification);
+                        }
+                    }, 300);
+                }
+            }, 3000);
         }
         
         function addWelcomeMessage(doctorKey) {

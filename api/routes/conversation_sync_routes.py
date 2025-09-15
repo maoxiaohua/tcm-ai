@@ -187,16 +187,19 @@ async def get_conversation_history(user_id: str, doctor_id: Optional[str] = None
         consultation_records = cursor.fetchall()
         
         # 获取最近的消息记录（如果有会话元数据表）
-        cursor.execute("""
-            SELECT conversation_id, message_count, diagnosis_summary, 
-                   prescription_given, created_at
-            FROM conversation_metadata cm
-            JOIN doctor_sessions ds ON cm.session_id = ds.session_id
-            WHERE ds.patient_id = ?
-            ORDER BY cm.created_at DESC LIMIT 5
-        """, (user_id,))
-        
-        recent_messages = cursor.fetchall()
+        try:
+            cursor.execute("""
+                SELECT cm.conversation_id, cm.message_count, cm.diagnosis_summary, 
+                       cm.prescription_given, cm.created_at
+                FROM conversation_metadata cm
+                JOIN doctor_sessions ds ON cm.session_id = ds.session_id
+                WHERE ds.patient_id = ?
+                ORDER BY cm.created_at DESC LIMIT 5
+            """, (user_id,))
+            recent_messages = cursor.fetchall()
+        except Exception:
+            # 如果表不存在，使用空数组
+            recent_messages = []
         
         conn.close()
         
