@@ -439,12 +439,35 @@ class PrescriptionRenderer {
     }
 
     /**
-     * 格式化内容
+     * 格式化内容（增强版）
      */
     formatContent(content) {
+        if (!content || typeof content !== 'string') return '';
+        
         return content
-            .replace(/\n/g, '<br>')
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            // 处理【处方】标签 - 特殊高亮样式
+            .replace(/\*\*【处方】\*\*/g, '<div style="background: linear-gradient(135deg, #2d5aa0, #4a7bc8); color: white; padding: 10px 15px; border-radius: 8px; margin: 15px 0; font-weight: bold; font-size: 16px; text-align: center;">📋 中药处方</div>')
+            // 处理【用法】【注意】等标签
+            .replace(/\*\*【(用法|注意|禁忌|功效)】\*\*/g, '<div style="background: #f3f4f6; color: #374151; padding: 8px 12px; border-radius: 6px; margin: 10px 0; font-weight: bold; border-left: 4px solid #6b7280;">$1</div>')
+            // 处理其他粗体标签【xxx】
+            .replace(/\*\*【(.*?)】\*\*/g, '<strong style="color: #2d5aa0; font-size: 15px; background: #e0f2fe; padding: 2px 6px; border-radius: 4px;">【$1】</strong>')
+            // 处理其他粗体文本
+            .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #1f2937; font-weight: bold;">$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em style="color: #6b7280;">$1</em>')
+            // 处理#####标记 - 转换为分割线
+            .replace(/#{5,}/g, '<hr style="margin: 20px 0; border: none; border-top: 2px solid #e5e7eb; background: linear-gradient(to right, #e5e7eb, transparent);">')
+            // 处理###标记 - 转换为明显的小标题
+            .replace(/###\s*(.*?)(?=\n|$)/g, '<h4 style="margin: 20px 0 12px 0; color: #2d5aa0; font-size: 17px; font-weight: bold; padding-left: 8px; border-left: 4px solid #2d5aa0; background: #f8fafc;">$1</h4>')
+            // 处理##标记 - 转换为更大的中标题  
+            .replace(/##\s*(.*?)(?=\n|$)/g, '<h3 style="margin: 25px 0 15px 0; color: #1f2937; font-size: 19px; font-weight: bold; padding: 8px 12px; background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border-radius: 6px;">$1</h3>')
+            // 处理#标记 - 转换为大标题
+            .replace(/^#\s*(.*?)(?=\n|$)/gm, '<h2 style="margin: 30px 0 20px 0; color: #111827; font-size: 22px; font-weight: bold; text-align: center; padding: 12px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); border-radius: 8px;">$1</h2>')
+            // 处理药材列表 - 特殊样式
+            .replace(/([一-龟\u4e00-\u9fff]+)\s+(\d+)g/g, '<span style="display: inline-block; background: #ecfdf5; color: #065f46; padding: 2px 6px; margin: 1px 3px; border-radius: 4px; font-weight: 500; border: 1px solid #d1fae5;">$1 <strong>$2g</strong></span>')
+            .replace(/\n\n/g, '<br><br>')  // 段落间距
+            .replace(/\n/g, '<br>')        // 普通换行
+            .replace(/(\d+\.\s)/g, '<br><span style="color: #2d5aa0; font-weight: bold;">$1</span>') // 数字列表样式
+            .replace(/^<br>/, '');         // 移除开头的换行
     }
 
     /**

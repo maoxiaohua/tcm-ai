@@ -2756,8 +2756,14 @@
             
             // 🆕 使用处方渲染器处理内容
             let processedContent = content;
-            if (sender === 'ai' && window.prescriptionRenderer) {
-                processedContent = window.prescriptionRenderer.renderContent(content, isPaid, prescriptionId);
+            if (sender === 'ai') {
+                if (window.prescriptionRenderer) {
+                    // 使用智能处方渲染器处理所有AI内容
+                    processedContent = window.prescriptionRenderer.renderContent(content, isPaid, prescriptionId);
+                } else {
+                    // 备用方案：使用格式化函数处理普通内容
+                    processedContent = formatMessage(content);
+                }
             }
             
             // 如果有处方ID，保存到元素属性中
@@ -6936,22 +6942,14 @@ ${data.analysis_result}`;
             
             // 🆕 使用处方渲染器处理内容（移动端）
             let processedContent = content;
-            if (sender === 'ai' && window.prescriptionRenderer) {
-                processedContent = window.prescriptionRenderer.renderContent(content, isPaid, prescriptionId);
-            } else if (sender === 'ai') {
-                // 如果处方渲染器未加载，使用原有格式化
-                processedContent = content
-                    .replace(/### (.*?)(\n|$)/g, '<h4 style="color: #2d5aa0; margin: 15px 0 8px 0; font-size: 16px; font-weight: bold;">$1</h4>\n')
-                    .replace(/## (.*?)(\n|$)/g, '<h3 style="color: #2d5aa0; margin: 18px 0 10px 0; font-size: 18px; font-weight: bold;">$1</h3>\n')
-                    .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #333; font-weight: bold;">$1</strong>')
-                    .replace(/---/g, '<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;">')
-                    .replace(/`([^`]+)`/g, '<code style="background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #374151;">$1</code>')
-                    .replace(/\n/g, '<br>')
-                    // 处理列表项（换行后处理）
-                    .replace(/<br>(\d+\. )/g, '<br><span style="color: #10b981; font-weight: bold;">$1</span>')
-                    .replace(/^(\d+\. )/g, '<span style="color: #10b981; font-weight: bold;">$1</span>')
-                    .replace(/<br>(- )/g, '<br><span style="color: #10b981;">• </span>')
-                    .replace(/^(- )/g, '<span style="color: #10b981;">• </span>');
+            if (sender === 'ai') {
+                if (window.prescriptionRenderer) {
+                    // 使用智能处方渲染器处理所有AI内容
+                    processedContent = window.prescriptionRenderer.renderContent(content, isPaid, prescriptionId);
+                } else {
+                    // 备用方案：使用格式化函数处理普通内容
+                    processedContent = formatMessage(content);
+                }
             }
             
             // 如果有处方ID，保存到元素属性中
