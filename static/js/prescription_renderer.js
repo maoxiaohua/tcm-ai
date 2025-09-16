@@ -12,10 +12,8 @@ class PrescriptionRenderer {
         // 🔍 调试信息：版本验证
         console.log('🔧 PrescriptionRenderer v2.6.3 初始化 - 沙盒支付测试版');
         
-        // 🧪 沙盒模式状态提示
-        if (localStorage.getItem('tcm_sandbox_mode') === 'true') {
-            console.log('🧪 沙盒模式已启用 - 支付将自动成功');
-        }
+        // 🔒 正式支付模式
+        console.log('🔒 正式支付模式 - 使用真实支付流程');
         
         // 处方关键词检测（强化版）
         this.prescriptionKeywords = [
@@ -199,51 +197,8 @@ class PrescriptionRenderer {
             return this.renderDiagnosisAnalysis(content);
         }
 
-        // 🧪 检查本地支付状态 (沙盒模式) - 改进版
-        if (!isPaid) {
-            // 如果没有提供 prescriptionId，尝试从内容中提取或使用临时ID
-            let targetPrescriptionId = prescriptionId;
-            
-            if (!targetPrescriptionId) {
-                // 尝试从 localStorage 获取最近的处方ID
-                const userId = this.getCurrentUserId();
-                if (userId) {
-                    // 查找所有支付状态的处方
-                    const allKeys = Object.keys(localStorage);
-                    const paidPrescriptions = allKeys.filter(key => 
-                        key.startsWith('prescription_paid_') && 
-                        localStorage.getItem(key) === 'true'
-                    );
-                    
-                    if (paidPrescriptions.length > 0) {
-                        // 使用最近的已支付处方ID
-                        const latestKey = paidPrescriptions[paidPrescriptions.length - 1];
-                        targetPrescriptionId = latestKey.replace('prescription_paid_', '');
-                        console.log('🔍 从localStorage找到已支付处方:', targetPrescriptionId);
-                    }
-                }
-            }
-            
-            if (targetPrescriptionId) {
-                const paymentKey = `prescription_paid_${targetPrescriptionId}`;
-                const localPaymentStatus = localStorage.getItem(paymentKey);
-                console.log('🔍 检查本地支付状态:', {
-                    prescriptionId: targetPrescriptionId,
-                    paymentKey,
-                    localPaymentStatus,
-                    currentIsPaid: isPaid,
-                    source: prescriptionId ? 'parameter' : 'localStorage'
-                });
-                
-                if (localPaymentStatus === 'true') {
-                    isPaid = true;
-                    this.paymentStatus = true;
-                    console.log('🧪 发现本地支付状态，处方已解锁:', targetPrescriptionId);
-                }
-            } else {
-                console.log('🔍 无法获取处方ID，无法检查本地支付状态');
-            }
-        }
+        // 🔒 正式模式：仅依赖API返回的支付状态
+        console.log(`📋 处方支付状态检查 - isPaid: ${isPaid}, prescriptionId: ${prescriptionId}`);
 
         // 🚨 检测到处方内容 - 根据支付状态决定显示方式
         console.log('🔒 检测到处方内容，支付状态:', isPaid, '处方ID:', prescriptionId);
@@ -1321,11 +1276,7 @@ function initiatePrescriptionPayment(prescriptionId) {
     console.log('💰 启动支付流程:', prescriptionId);
     
     // 🧪 沙盒测试模式：检查是否启用测试支付
-    if (localStorage.getItem('tcm_sandbox_mode') === 'true') {
-        console.log('🧪 沙盒模式：模拟支付成功');
-        simulatePaymentSuccess(prescriptionId);
-        return;
-    }
+    console.log('🔒 正式支付模式：启动真实支付流程');
     
     // 🔍 调试：检查支付函数是否存在
     console.log('🔍 检查支付函数:', {
@@ -1333,9 +1284,9 @@ function initiatePrescriptionPayment(prescriptionId) {
         'showPaymentModal': typeof showPaymentModal
     });
     
-    // 🧪 新策略：优先显示测试选项，让用户选择
-    console.log('🧪 显示测试支付选项 (优先模式)');
-    showTestPaymentOptions(prescriptionId);
+    // 🔒 启动真实支付流程
+    console.log('🔒 启动真实支付流程');
+    useRealPayment(prescriptionId);
 }
 
 /**
@@ -1371,19 +1322,9 @@ function showTestPaymentOptions(prescriptionId) {
                 <p style="color: #666; margin-bottom: 20px;">请选择支付方式</p>
                 
                 <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <button onclick="simulatePaymentSuccess('${prescriptionId}'); this.closest('div').remove();" 
-                            style="background: #10b981; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold;">
-                        🧪 模拟支付成功 (测试模式)
-                    </button>
-                    
-                    <button onclick="enableSandboxMode(); simulatePaymentSuccess('${prescriptionId}'); this.closest('div').remove();" 
-                            style="background: #3b82f6; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
-                        🔄 启用沙盒模式并支付
-                    </button>
-                    
                     <button onclick="useRealPayment('${prescriptionId}'); this.closest('div').remove();" 
-                            style="background: #f59e0b; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
-                        💰 使用真实支付
+                            style="background: #3b82f6; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                        💳 确认处方并支付
                     </button>
                     
                     <button onclick="this.closest('div').remove();" 
@@ -1403,12 +1344,11 @@ function showTestPaymentOptions(prescriptionId) {
 }
 
 /**
- * 🧪 启用沙盒模式
+ * 🔒 处理真实支付流程
  */
-function enableSandboxMode() {
-    localStorage.setItem('tcm_sandbox_mode', 'true');
-    console.log('🧪 沙盒模式已启用');
-    showCompatibleMessage('沙盒模式已启用，后续支付将自动成功', 'success');
+function processRealPayment() {
+    console.log('🔒 启动真实支付流程');
+    showCompatibleMessage('正在启动支付流程...', 'info');
 }
 
 /**
