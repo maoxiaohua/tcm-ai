@@ -10,7 +10,12 @@ class PrescriptionRenderer {
         this.prescriptionId = null;
         
         // 🔍 调试信息：版本验证
-        console.log('🔧 PrescriptionRenderer v2.6.2 初始化 - 临时建议检测修复版');
+        console.log('🔧 PrescriptionRenderer v2.6.3 初始化 - 沙盒支付测试版');
+        
+        // 🧪 沙盒模式状态提示
+        if (localStorage.getItem('tcm_sandbox_mode') === 'true') {
+            console.log('🧪 沙盒模式已启用 - 支付将自动成功');
+        }
         
         // 处方关键词检测（强化版）
         this.prescriptionKeywords = [
@@ -166,6 +171,16 @@ class PrescriptionRenderer {
         if (!containsActualPrescription) {
             // 普通对话内容，进行基础格式化
             return this.renderDiagnosisAnalysis(content);
+        }
+
+        // 🧪 检查本地支付状态 (沙盒模式)
+        if (!isPaid && prescriptionId) {
+            const localPaymentStatus = localStorage.getItem(`prescription_paid_${prescriptionId}`);
+            if (localPaymentStatus === 'true') {
+                isPaid = true;
+                this.paymentStatus = true;
+                console.log('🧪 发现本地支付状态，处方已解锁:', prescriptionId);
+            }
         }
 
         // 🚨 检测到处方内容 - 根据支付状态决定显示方式
@@ -1241,6 +1256,13 @@ async function createPrescriptionRecord() {
 function initiatePrescriptionPayment(prescriptionId) {
     console.log('💰 启动支付流程:', prescriptionId);
     
+    // 🧪 沙盒测试模式：检查是否启用测试支付
+    if (localStorage.getItem('tcm_sandbox_mode') === 'true') {
+        console.log('🧪 沙盒模式：模拟支付成功');
+        simulatePaymentSuccess(prescriptionId);
+        return;
+    }
+    
     // 调用现有的支付模态框 - 兼容多种函数名
     if (typeof window.showPaymentModal === 'function') {
         window.showPaymentModal(prescriptionId, 88.00);
@@ -1248,8 +1270,91 @@ function initiatePrescriptionPayment(prescriptionId) {
         showPaymentModal(prescriptionId, 88.00);
     } else {
         console.warn('支付模态框函数不存在，尝试备用方案');
-        // 备用方案：跳转到支付页面或显示错误
-        showCompatibleMessage('支付系统正在初始化，请稍后再试', 'warning');
+        // 备用方案：显示测试支付选项
+        showTestPaymentOptions(prescriptionId);
+    }
+}
+
+/**
+ * 🧪 模拟支付成功 - 沙盒测试模式
+ */
+function simulatePaymentSuccess(prescriptionId) {
+    console.log('🧪 开始模拟支付流程...');
+    
+    // 显示支付进度
+    showCompatibleMessage('正在处理支付...', 'info');
+    
+    setTimeout(() => {
+        showCompatibleMessage('支付成功！处方已解锁', 'success');
+        
+        // 模拟支付成功，更新处方状态
+        handlePaymentSuccess(prescriptionId);
+        
+        // 刷新页面显示已支付状态
+        setTimeout(() => {
+            location.reload();
+        }, 2000);
+    }, 2000);
+}
+
+/**
+ * 🧪 显示测试支付选项
+ */
+function showTestPaymentOptions(prescriptionId) {
+    const testHtml = `
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center;" onclick="this.remove()">
+            <div style="background: white; padding: 30px; border-radius: 15px; max-width: 400px; text-align: center;" onclick="event.stopPropagation()">
+                <h3 style="color: #333; margin-bottom: 20px;">🧪 测试支付模式</h3>
+                <p style="color: #666; margin-bottom: 20px;">选择支付方式或启用沙盒模式</p>
+                
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button onclick="enableSandboxMode(); this.closest('div').remove();" 
+                            style="background: #10b981; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                        🧪 启用沙盒模式 (自动模拟支付成功)
+                    </button>
+                    
+                    <button onclick="simulatePaymentSuccess('${prescriptionId}'); this.closest('div').remove();" 
+                            style="background: #3b82f6; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                        💰 模拟支付成功 (一次性)
+                    </button>
+                    
+                    <button onclick="this.closest('div').remove();" 
+                            style="background: #6b7280; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                        取消
+                    </button>
+                </div>
+                
+                <p style="font-size: 11px; color: #9ca3af; margin-top: 15px;">
+                    沙盒模式启用后，所有支付都会自动成功
+                </p>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', testHtml);
+}
+
+/**
+ * 🧪 启用沙盒模式
+ */
+function enableSandboxMode() {
+    localStorage.setItem('tcm_sandbox_mode', 'true');
+    console.log('🧪 沙盒模式已启用');
+    showCompatibleMessage('沙盒模式已启用，后续支付将自动成功', 'success');
+}
+
+/**
+ * 处理支付成功后的逻辑
+ */
+function handlePaymentSuccess(prescriptionId) {
+    console.log('✅ 支付成功，处方ID:', prescriptionId);
+    
+    // 更新本地存储的支付状态
+    const userId = getCurrentUserId();
+    if (userId) {
+        const paymentKey = `prescription_paid_${prescriptionId}`;
+        localStorage.setItem(paymentKey, 'true');
+        console.log('💾 已保存支付状态到本地存储');
     }
 }
 
