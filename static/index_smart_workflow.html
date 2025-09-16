@@ -7708,6 +7708,24 @@ ${data.analysis_result}`;
     <!-- 处方渲染器样式和脚本 -->
     <link rel="stylesheet" href="/static/css/prescription_styles.css">
     <script src="/static/js/prescription_renderer.js?v=20250916-010"></script>
+    <script>
+        // 🔧 调试：检查处方渲染器加载状态
+        setTimeout(() => {
+            console.log('🔍 处方渲染器加载检查:', {
+                prescriptionRenderer: !!window.prescriptionRenderer,
+                PrescriptionRenderer: typeof PrescriptionRenderer,
+                windowKeys: Object.keys(window).filter(k => k.includes('prescription'))
+            });
+            
+            if (!window.prescriptionRenderer) {
+                console.error('❌ 处方渲染器未加载，尝试手动初始化...');
+                if (typeof PrescriptionRenderer !== 'undefined') {
+                    window.prescriptionRenderer = new PrescriptionRenderer();
+                    console.log('✅ 手动初始化处方渲染器成功');
+                }
+            }
+        }, 1000);
+    </script>
     
     <!-- 对话状态管理器 - 在主要JavaScript代码之后加载 -->
     <script src="/static/js/conversation_state_manager.js"></script>
