@@ -81,17 +81,13 @@ class PrescriptionRenderer {
         // 6. 检测药材数量（完整处方通常有更多药材）
         const hasMultipleHerbs = herbCount >= 4; // 提高阈值
         
-        // 🔑 更严格的判断逻辑：必须是完整处方才返回true
+        // 🔑 修复：简化判断逻辑，更容易检测到实际处方
         const isCompletePrescription = (
-            // 必须条件：有明确处方关键词 + 有剂量
-            (hasExplicitKeywords && hasDosagePattern) &&
-            (
-                // 满足以下任一完整处方特征：
-                hasCompleteStructure ||        // 有完整结构
-                hasFormulaPattern ||          // 有标准格式
-                hasHerbList ||               // 明确药味数量
-                hasMultipleHerbs             // 多种药材
-            )
+            // 基本条件：有处方关键词 OR (有剂量 + 有中药材)
+            hasExplicitKeywords || 
+            (hasDosagePattern && herbCount >= 2) ||
+            hasFormulaPattern ||
+            hasCompleteStructure
         );
         
         if (isCompletePrescription) {
@@ -1313,5 +1309,12 @@ function downloadPrescription(prescriptionId) {
 
 // 创建全局实例
 window.prescriptionRenderer = new PrescriptionRenderer();
+
+// 🔑 修复：将关键函数绑定到全局作用域
+window.getPrescriptionContent = getPrescriptionContent;
+window.getCurrentSymptoms = getCurrentSymptoms;
+window.unlockPrescription = unlockPrescription;
+window.downloadPrescription = downloadPrescription;
+window.showDecorationInfo = showDecorationInfo;
 
 console.log('✅ 处方渲染器已加载');
