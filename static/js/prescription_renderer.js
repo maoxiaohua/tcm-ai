@@ -1166,10 +1166,35 @@ async function createPrescriptionRecord() {
         }
         
         // 🔍 获取对话ID的多种方式
-        let conversationId = window.currentConversationId || 
-                            (window.parent && window.parent.currentConversationId) ||
-                            localStorage.getItem(`conversationId_${patientId}`) ||
-                            this.generateConversationId();
+        let conversationId = null;
+        
+        // 1. 尝试从 window 对象获取
+        if (window.currentConversationId && window.currentConversationId !== 'undefined' && window.currentConversationId !== 'null') {
+            conversationId = window.currentConversationId;
+            console.log('🔧 从window获取到对话ID:', conversationId);
+        }
+        // 2. 尝试从全局作用域获取 (尝试访问页面级变量)
+        else if (typeof currentConversationId !== 'undefined' && currentConversationId && currentConversationId !== 'null') {
+            conversationId = currentConversationId;
+            console.log('🔧 从全局变量获取到对话ID:', conversationId);
+        }
+        // 3. 尝试从父窗口获取 (iframe情况)
+        else if (window.parent && window.parent.currentConversationId && window.parent.currentConversationId !== 'undefined') {
+            conversationId = window.parent.currentConversationId;
+            console.log('🔧 从父窗口获取到对话ID:', conversationId);
+        }
+        // 4. 尝试从localStorage获取
+        else if (localStorage.getItem(`conversationId_${patientId}`)) {
+            conversationId = localStorage.getItem(`conversationId_${patientId}`);
+            console.log('🔧 从localStorage获取到对话ID:', conversationId);
+        }
+        // 5. 生成新的对话ID
+        else {
+            conversationId = this.generateConversationId();
+            console.log('🔧 生成新的对话ID:', conversationId);
+            // 保存到localStorage以便后续使用
+            localStorage.setItem(`conversationId_${patientId}`, conversationId);
+        }
         
         console.log('🔍 准备创建处方记录:', {
             patient_id: patientId,
