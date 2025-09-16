@@ -594,154 +594,25 @@ class PrescriptionRenderer {
 
         console.log('🔍 开始格式化支付模态框内容:', content.substring(0, 200));
 
-        // 🔑 使用处方渲染器的解析能力
-        const parsedPrescription = this.parsePrescriptionContent(content);
-        const diagnosisInfo = this.extractDiagnosisInfo(content);
+        // 🔑 简化处理：直接格式化内容，保持结构清晰
+        const formattedContent = this.formatContent(content);
         
-        // 构建结构化的显示内容
-        const sections = [];
-
-        // 1. 诊断分析部分
-        if (diagnosisInfo.syndrome || diagnosisInfo.pathogenesis || diagnosisInfo.treatment || diagnosisInfo.analysis) {
-            let diagnosisContent = [];
-            if (diagnosisInfo.syndrome) diagnosisContent.push(`<div class="diagnosis-item"><strong>证候分析：</strong>${diagnosisInfo.syndrome}</div>`);
-            if (diagnosisInfo.pathogenesis) diagnosisContent.push(`<div class="diagnosis-item"><strong>病机分析：</strong>${diagnosisInfo.pathogenesis}</div>`);
-            if (diagnosisInfo.treatment) diagnosisContent.push(`<div class="diagnosis-item"><strong>治疗原则：</strong>${diagnosisInfo.treatment}</div>`);
-            if (diagnosisInfo.analysis) diagnosisContent.push(`<div class="diagnosis-item"><strong>综合分析：</strong>${diagnosisInfo.analysis}</div>`);
-            
-            sections.push({
-                title: '🩺 中医诊断分析',
-                content: diagnosisContent.join('')
-            });
-        }
-
-        // 2. 处方组成部分 - 结构化显示
-        if (parsedPrescription.herbs && parsedPrescription.herbs.length > 0) {
-            const herbsGrouped = this.groupHerbsByCategory(content, parsedPrescription.herbs);
-            let prescriptionContent = '';
-            
-            if (herbsGrouped.hasCategories) {
-                // 按君臣佐使分类显示
-                prescriptionContent = this.renderCategorizedHerbs(herbsGrouped);
-            } else {
-                // 简单列表显示
-                prescriptionContent = this.renderSimpleHerbsList(parsedPrescription.herbs);
-            }
-            
-            sections.push({
-                title: `📋 方剂组成 (共${parsedPrescription.herbs.length}味药)`,
-                content: prescriptionContent
-            });
-        }
-
-        // 3. 用法用量部分
-        const decoction = this.extractDecoctionMethod(content);
-        if (decoction) {
-            sections.push({
-                title: '🍵 煎服方法',
-                content: `<div class="decoction-method">${decoction}</div>`
-            });
-        }
-
-        // 4. 注意事项部分
-        const precautions = this.extractPrecautions(content);
-        if (precautions) {
-            sections.push({
-                title: '⚠️ 注意事项',
-                content: `<div class="precautions">${precautions}</div>`
-            });
-        }
-
-        // 如果没有找到结构化内容，解析原始内容
-        if (sections.length === 0) {
-            const lines = content.split('\n').filter(line => line.trim());
-
-        // 解析内容结构
-        let currentSection = null;
-        let currentContent = [];
-
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            
-            // 检测章节标题
-            if (this.isSectionTitle(trimmedLine)) {
-                // 保存上一个章节
-                if (currentSection && currentContent.length > 0) {
-                    sections.push({
-                        title: currentSection,
-                        content: currentContent.join('<br>')
-                    });
-                }
-                
-                // 开始新章节
-                currentSection = this.formatSectionTitle(trimmedLine);
-                currentContent = [];
-            } else if (trimmedLine) {
-                // 添加到当前章节内容
-                currentContent.push(this.formatLineContent(trimmedLine));
-            }
-        }
-
-        // 保存最后一个章节
-        if (currentSection && currentContent.length > 0) {
-            sections.push({
-                title: currentSection,
-                content: currentContent.join('<br>')
-            });
-        }
-        }
-
-        // 如果没有找到章节结构，创建默认结构
-        if (sections.length === 0) {
-            const parsedPrescription = this.parsePrescriptionContent(content);
-            const diagnosisInfo = this.extractDiagnosisInfo(content);
-            
-            // 添加诊断分析
-            if (diagnosisInfo.syndrome || diagnosisInfo.pathogenesis || diagnosisInfo.treatment) {
-                let diagnosisContent = [];
-                if (diagnosisInfo.syndrome) diagnosisContent.push(`<strong>证候：</strong>${diagnosisInfo.syndrome}`);
-                if (diagnosisInfo.pathogenesis) diagnosisContent.push(`<strong>病机：</strong>${diagnosisInfo.pathogenesis}`);
-                if (diagnosisInfo.treatment) diagnosisContent.push(`<strong>治法：</strong>${diagnosisInfo.treatment}`);
-                
-                sections.push({
-                    title: '🩺 诊断分析',
-                    content: diagnosisContent.join('<br>')
-                });
-            }
-
-            // 添加处方内容
-            if (parsedPrescription.herbs && parsedPrescription.herbs.length > 0) {
-                const herbsList = parsedPrescription.herbs.map(herb => 
-                    `<span class="herb-item">${herb.name} <strong>${herb.dosage}${herb.unit}</strong></span>`
-                ).join('、');
-                
-                sections.push({
-                    title: '📋 处方组成',
-                    content: `<div class="herbs-list">${herbsList}</div>`
-                });
-            }
-
-            // 添加煎服方法（如果有）
-            const decoction = this.extractDecoctionMethod(content);
-            if (decoction) {
-                sections.push({
-                    title: '🍵 煎服方法',
-                    content: decoction
-                });
-            }
-
-            // 添加注意事项（如果有）
-            const precautions = this.extractPrecautions(content);
-            if (precautions) {
-                sections.push({
-                    title: '⚠️ 注意事项',
-                    content: precautions
-                });
-            }
-        }
-
-        // 生成最终HTML
-        return this.renderPaymentModalSections(sections);
+        return `
+            <div class="payment-modal-content">
+                <div class="modal-section">
+                    <h4 class="section-title">📋 ${this.getDoctorName()}专业问诊汇总</h4>
+                    <div class="section-content" style="max-height: 400px; overflow-y: auto; line-height: 1.6;">
+                        ${formattedContent}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <p class="consultation-summary-note">
+                        <span class="note-icon">💰</span>
+                        <span>支付后可获得完整处方详情及用药指导</span>
+                    </p>
+                </div>
+            </div>
+        `;
     }
 
     /**
@@ -1324,4 +1195,4 @@ window.unlockPrescription = unlockPrescription;
 window.downloadPrescription = downloadPrescription;
 window.showDecorationInfo = showDecorationInfo;
 
-console.log('✅ 处方渲染器已加载 - 版本 v2.6.1 (修复处方隐藏bug)');
+console.log('✅ 处方渲染器已加载 - 版本 v2.6.2 (修复支付界面格式+添加调试)');

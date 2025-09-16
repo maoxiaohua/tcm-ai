@@ -2757,11 +2757,20 @@
             // 🆕 使用处方渲染器处理内容
             let processedContent = content;
             if (sender === 'ai') {
+                console.log('🔍 处方渲染检查:', {
+                    prescriptionRenderer存在: !!window.prescriptionRenderer,
+                    isPaid: isPaid,
+                    prescriptionId: prescriptionId,
+                    内容长度: content.length
+                });
+                
                 if (window.prescriptionRenderer) {
                     // 使用智能处方渲染器处理所有AI内容
+                    console.log('✅ 使用prescription_renderer处理内容');
                     processedContent = window.prescriptionRenderer.renderContent(content, isPaid, prescriptionId);
                 } else {
                     // 备用方案：使用格式化函数处理普通内容
+                    console.log('⚠️ prescription_renderer不存在，使用备用方案');
                     processedContent = formatMessage(content);
                 }
             }
@@ -3151,6 +3160,14 @@
                 // 处方相关状态管理
                 const prescriptionId = responseData.data?.prescription_id || null;
                 const isPaid = responseData.data?.is_paid || false;
+                
+                console.log('🔍 前端处方状态分析:', {
+                    containsActualPrescription: containsActualPrescription,
+                    isTemporaryAdvice: isTemporaryAdvice,
+                    prescriptionId: prescriptionId,
+                    isPaid: isPaid,
+                    backendContainsPrescription: responseData.data?.contains_prescription
+                });
                 
                 // 🚨 关键逻辑：完整处方且未付费时需要支付
                 const needsPayment = containsActualPrescription && !isTemporaryAdvice && !isPaid;
