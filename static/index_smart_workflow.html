@@ -6745,40 +6745,22 @@ ${data.analysis_result}`;
                 messageDiv.setAttribute('data-prescription-id', prescriptionId);
             }
             
-            // 根据支付状态决定显示内容
+            // 🔧 修复重复支付按钮：主页面逻辑只处理已支付状态，未支付状态由prescription_renderer处理
             let prescriptionActionsHtml = '';
-            if (sender === 'ai' && containsPrescriptionContent) {
-                if (isPaid) {
-                    prescriptionActionsHtml = `
-                        <div class="prescription-paid" style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #10b981;">
-                            <div style="font-size: 13px; color: #059669; margin-bottom: 8px;">
-                                <strong>✅ 处方已解锁</strong> - 支付成功，您可以联系代煎服务
-                            </div>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                <button onclick="showDecorationInfo('${prescriptionId}')" 
-                                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
-                                    🍵 联系代煎服务
-                                </button>
-                            </div>
-                        </div>`;
-                } else {
-                    prescriptionActionsHtml = `
-                        <div class="prescription-actions" style="margin-top: 15px; padding: 12px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                            <div style="font-size: 13px; color: #374151; margin-bottom: 8px;">
-                                <strong>📋 处方建议</strong> - 为确保用药安全，建议您：
-                            </div>
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                <button onclick="confirmPrescription('${btoa(encodeURIComponent(content))}')" 
-                                        style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
-                                    🛒 确认处方并支付
-                                </button>
-                                <button onclick="consultDoctor()" 
-                                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
-                                    👨‍⚕️ 咨询专业医生
-                                </button>
-                            </div>
-                        </div>`;
-                }
+            if (sender === 'ai' && containsPrescriptionContent && isPaid) {
+                // 只在已支付时显示代煎服务按钮
+                prescriptionActionsHtml = `
+                    <div class="prescription-paid" style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #10b981;">
+                        <div style="font-size: 13px; color: #059669; margin-bottom: 8px;">
+                            <strong>✅ 处方已解锁</strong> - 支付成功，您可以联系代煎服务
+                        </div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button onclick="showDecorationInfo('${prescriptionId}')" 
+                                    style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                🍵 联系代煎服务
+                            </button>
+                        </div>
+                    </div>`;
             }
             
             messageDiv.innerHTML = `
@@ -7725,7 +7707,7 @@ ${data.analysis_result}`;
 
     <!-- 处方渲染器样式和脚本 -->
     <link rel="stylesheet" href="/static/css/prescription_styles.css">
-    <script src="/static/js/prescription_renderer.js?v=20250916-001"></script>
+    <script src="/static/js/prescription_renderer.js?v=20250916-002"></script>
     
     <!-- 对话状态管理器 - 在主要JavaScript代码之后加载 -->
     <script src="/static/js/conversation_state_manager.js"></script>
