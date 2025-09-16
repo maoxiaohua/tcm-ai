@@ -595,7 +595,9 @@ class PrescriptionRenderer {
         
         // 高亮药材名称
         parsedPrescription.herbs.forEach(herb => {
-            const regex = new RegExp(`(${herb.name})\\s*(\\d+[克g])`, 'g');
+            // 🔧 转义药材名称中的正则表达式特殊字符
+            const escapedHerbName = herb.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${escapedHerbName})\\s*(\\d+[克g])`, 'g');
             formatted = formatted.replace(regex, '<span class="herb-highlight">$1 $2</span>');
         });
 
