@@ -1269,18 +1269,9 @@ function initiatePrescriptionPayment(prescriptionId) {
         'showPaymentModal': typeof showPaymentModal
     });
     
-    // 调用现有的支付模态框 - 兼容多种函数名
-    if (typeof window.showPaymentModal === 'function') {
-        console.log('📞 调用 window.showPaymentModal');
-        window.showPaymentModal(prescriptionId, 88.00);
-    } else if (typeof showPaymentModal === 'function') {
-        console.log('📞 调用全局 showPaymentModal');
-        showPaymentModal(prescriptionId, 88.00);
-    } else {
-        console.log('⚠️ 支付模态框函数不存在，显示测试支付选项');
-        // 备用方案：显示测试支付选项
-        showTestPaymentOptions(prescriptionId);
-    }
+    // 🧪 新策略：优先显示测试选项，让用户选择
+    console.log('🧪 显示测试支付选项 (优先模式)');
+    showTestPaymentOptions(prescriptionId);
 }
 
 /**
@@ -1312,18 +1303,23 @@ function showTestPaymentOptions(prescriptionId) {
     const testHtml = `
         <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center;" onclick="this.remove()">
             <div style="background: white; padding: 30px; border-radius: 15px; max-width: 400px; text-align: center;" onclick="event.stopPropagation()">
-                <h3 style="color: #333; margin-bottom: 20px;">🧪 测试支付模式</h3>
-                <p style="color: #666; margin-bottom: 20px;">选择支付方式或启用沙盒模式</p>
+                <h3 style="color: #333; margin-bottom: 20px;">💳 支付方式选择</h3>
+                <p style="color: #666; margin-bottom: 20px;">请选择支付方式</p>
                 
                 <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <button onclick="enableSandboxMode(); this.closest('div').remove();" 
-                            style="background: #10b981; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
-                        🧪 启用沙盒模式 (自动模拟支付成功)
+                    <button onclick="simulatePaymentSuccess('${prescriptionId}'); this.closest('div').remove();" 
+                            style="background: #10b981; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold;">
+                        🧪 模拟支付成功 (测试模式)
                     </button>
                     
-                    <button onclick="simulatePaymentSuccess('${prescriptionId}'); this.closest('div').remove();" 
+                    <button onclick="enableSandboxMode(); simulatePaymentSuccess('${prescriptionId}'); this.closest('div').remove();" 
                             style="background: #3b82f6; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
-                        💰 模拟支付成功 (一次性)
+                        🔄 启用沙盒模式并支付
+                    </button>
+                    
+                    <button onclick="useRealPayment('${prescriptionId}'); this.closest('div').remove();" 
+                            style="background: #f59e0b; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                        💰 使用真实支付
                     </button>
                     
                     <button onclick="this.closest('div').remove();" 
@@ -1333,7 +1329,7 @@ function showTestPaymentOptions(prescriptionId) {
                 </div>
                 
                 <p style="font-size: 11px; color: #9ca3af; margin-top: 15px;">
-                    沙盒模式启用后，所有支付都会自动成功
+                    测试模式可以模拟支付成功，查看完整处方效果
                 </p>
             </div>
         </div>
@@ -1351,9 +1347,29 @@ function enableSandboxMode() {
     showCompatibleMessage('沙盒模式已启用，后续支付将自动成功', 'success');
 }
 
+/**
+ * 💰 使用真实支付系统
+ */
+function useRealPayment(prescriptionId) {
+    console.log('💰 使用真实支付系统:', prescriptionId);
+    
+    // 调用现有的支付模态框
+    if (typeof window.showPaymentModal === 'function') {
+        console.log('📞 调用真实支付 window.showPaymentModal');
+        window.showPaymentModal(prescriptionId, 88.00);
+    } else if (typeof showPaymentModal === 'function') {
+        console.log('📞 调用真实支付 showPaymentModal');
+        showPaymentModal(prescriptionId, 88.00);
+    } else {
+        console.warn('⚠️ 真实支付系统不可用');
+        showCompatibleMessage('支付系统暂时不可用，请稍后再试', 'warning');
+    }
+}
+
 // 🔍 将函数绑定到全局作用域，确保HTML中的onclick能访问到
 window.enableSandboxMode = enableSandboxMode;
 window.simulatePaymentSuccess = simulatePaymentSuccess;
+window.useRealPayment = useRealPayment;
 
 /**
  * 处理支付成功后的逻辑
