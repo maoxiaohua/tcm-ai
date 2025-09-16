@@ -55,6 +55,13 @@ class PrescriptionRenderer {
     }
 
     /**
+     * 生成对话ID
+     */
+    generateConversationId() {
+        return 'conv-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    }
+
+    /**
      * 检测内容是否包含处方（强化版检测）
      * 
      * 🔑 关键区别：
@@ -1158,10 +1165,17 @@ async function createPrescriptionRecord() {
             return;
         }
         
+        // 🔍 获取对话ID的多种方式
+        let conversationId = window.currentConversationId || 
+                            (window.parent && window.parent.currentConversationId) ||
+                            localStorage.getItem(`conversationId_${patientId}`) ||
+                            this.generateConversationId();
+        
         console.log('🔍 准备创建处方记录:', {
             patient_id: patientId,
-            conversation_id: window.currentConversationId,
-            prescription_length: prescriptionContent.length
+            conversation_id: conversationId,
+            prescription_length: prescriptionContent.length,
+            source: window.currentConversationId ? 'window' : 'generated'
         });
         
         const response = await fetch('/api/prescription/create', {
@@ -1169,7 +1183,7 @@ async function createPrescriptionRecord() {
             headers: headers,
             body: JSON.stringify({
                 patient_id: patientId,
-                conversation_id: window.currentConversationId,
+                conversation_id: conversationId,
                 ai_prescription: prescriptionContent,
                 symptoms: getCurrentSymptoms()
             })
