@@ -1263,13 +1263,21 @@ function initiatePrescriptionPayment(prescriptionId) {
         return;
     }
     
+    // 🔍 调试：检查支付函数是否存在
+    console.log('🔍 检查支付函数:', {
+        'window.showPaymentModal': typeof window.showPaymentModal,
+        'showPaymentModal': typeof showPaymentModal
+    });
+    
     // 调用现有的支付模态框 - 兼容多种函数名
     if (typeof window.showPaymentModal === 'function') {
+        console.log('📞 调用 window.showPaymentModal');
         window.showPaymentModal(prescriptionId, 88.00);
     } else if (typeof showPaymentModal === 'function') {
+        console.log('📞 调用全局 showPaymentModal');
         showPaymentModal(prescriptionId, 88.00);
     } else {
-        console.warn('支付模态框函数不存在，尝试备用方案');
+        console.log('⚠️ 支付模态框函数不存在，显示测试支付选项');
         // 备用方案：显示测试支付选项
         showTestPaymentOptions(prescriptionId);
     }
@@ -1342,6 +1350,10 @@ function enableSandboxMode() {
     console.log('🧪 沙盒模式已启用');
     showCompatibleMessage('沙盒模式已启用，后续支付将自动成功', 'success');
 }
+
+// 🔍 将函数绑定到全局作用域，确保HTML中的onclick能访问到
+window.enableSandboxMode = enableSandboxMode;
+window.simulatePaymentSuccess = simulatePaymentSuccess;
 
 /**
  * 处理支付成功后的逻辑
