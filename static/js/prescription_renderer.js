@@ -122,13 +122,17 @@ class PrescriptionRenderer {
         // 6. 检测药材数量（完整处方通常有更多药材）
         const hasMultipleHerbs = herbCount >= 4; // 提高阈值
         
-        // 🔑 修复：简化判断逻辑，更容易检测到实际处方
+        // 🔑 修复：进一步降低检测阈值，确保更多处方被识别
         const isCompletePrescription = (
-            // 基本条件：有处方关键词 OR (有剂量 + 有中药材)
+            // 基本条件：有处方关键词 OR (有剂量 + 有中药材) OR 有完整结构
             hasExplicitKeywords || 
-            (hasDosagePattern && herbCount >= 2) ||
+            (hasDosagePattern && herbCount >= 2) ||  // 只要有2种药材+剂量即可
             hasFormulaPattern ||
-            hasCompleteStructure
+            hasCompleteStructure ||
+            // 增加额外检测：多种药材（即使没有明确剂量）
+            (herbCount >= 5) ||  // 5种以上药材很可能是处方
+            // 检测典型处方句式
+            /[配伍|治疗|方用|方取]/.test(content) && herbCount >= 3
         );
         
         if (isCompletePrescription) {
@@ -148,31 +152,51 @@ class PrescriptionRenderer {
      * 检测是否为临时建议 - 使用精确匹配避免误判
      */
     isTemporaryAdvice(content) {
-        // 🔑 修复：使用更精确的匹配逻辑
-        let matchedKeywords = [];
+        // 🔑 修复：优先检查完整处方特征，降低误判率
         
-        for (const keyword of this.temporaryKeywords) {
-            // 对于短词（<=2字），使用精确匹配
-            if (keyword.length <= 2) {
-                // 确保不是更长词语的一部分
-                const regex = new RegExp(`(?<![\\u4e00-\\u9fff])${keyword}(?![\\u4e00-\\u9fff])`, 'g');
-                if (regex.test(content)) {
-                    matchedKeywords.push(keyword);
-                }
-            } else {
-                // 对于长词（>2字），使用包含匹配
-                if (content.includes(keyword)) {
-                    matchedKeywords.push(keyword);
-                }
+        // 1. 先检查是否有明确的完整处方特征
+        const hasCompleteStructure = content.includes('【君药】') || 
+                                   content.includes('【臣药】') || 
+                                   content.includes('【佐药】') || 
+                                   content.includes('【使药】') ||
+                                   content.includes('方剂组成') ||
+                                   content.includes('处方如下');
+        
+        // 2. 检查药材数量和剂量
+        const herbCount = this.commonHerbs.filter(herb => content.includes(herb)).length;
+        const hasDosagePattern = /\d+[克g]\s*[，,，。]/gi.test(content);
+        
+        // 3. 如果有完整结构特征 + 多种药材 + 剂量，优先认为是完整处方
+        if (hasCompleteStructure && herbCount >= 3 && hasDosagePattern) {
+            console.log('✅ 检测到完整处方特征，不视为临时建议');
+            return false;
+        }
+        
+        // 4. 检查临时建议关键词（提高阈值）
+        let matchedKeywords = [];
+        const strongTemporaryKeywords = [
+            '初步处方建议', '待确认处方', '若您能提供更多信息', 
+            '请补充具体症状', '需要了解更多病史', '完善信息后开方',
+            '暂拟方药', '待详诊后开方', '补充舌象后开方',
+            '建议面诊确认', '需要更多信息才能'
+        ];
+        
+        for (const keyword of strongTemporaryKeywords) {
+            if (content.includes(keyword)) {
+                matchedKeywords.push(keyword);
             }
         }
         
-        if (matchedKeywords.length > 0) {
-            console.log('🔍 检测到临时建议关键词:', matchedKeywords);
-            console.log('🔍 内容片段:', content.substring(0, 200));
+        // 5. 🔑 关键修复：只有匹配到强临时关键词且没有完整结构时才认为是临时建议
+        const isTemporary = matchedKeywords.length > 0 && !hasCompleteStructure;
+        
+        if (isTemporary) {
+            console.log('🔍 检测到临时建议关键词:', matchedKeywords, '内容预览:', content.substring(0, 150));
+        } else if (matchedKeywords.length > 0) {
+            console.log('⚠️ 虽有临时关键词但有完整结构，视为完整处方:', matchedKeywords);
         }
         
-        return matchedKeywords.length > 0;
+        return isTemporary;
     }
 
     /**
