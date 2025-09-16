@@ -67,6 +67,25 @@ class PrescriptionRenderer {
     }
 
     /**
+     * 获取当前用户ID
+     */
+    getCurrentUserId() {
+        // 尝试多种方式获取用户ID
+        if (window.getCurrentUserId && typeof window.getCurrentUserId === 'function') {
+            return window.getCurrentUserId();
+        }
+        
+        // 从localStorage获取
+        try {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            return currentUser.user_id || null;
+        } catch (error) {
+            console.warn('获取用户ID失败:', error);
+            return null;
+        }
+    }
+
+    /**
      * 检测内容是否包含处方（强化版检测）
      * 
      * 🔑 关键区别：
@@ -162,6 +181,13 @@ class PrescriptionRenderer {
      * 主渲染函数
      */
     renderContent(content, isPaid = false, prescriptionId = null) {
+        console.log('📋 renderContent 被调用:', {
+            contentLength: content.length,
+            isPaid,
+            prescriptionId,
+            contentPreview: content.substring(0, 100)
+        });
+        
         this.paymentStatus = isPaid;
         this.prescriptionId = prescriptionId;
 
@@ -173,21 +199,49 @@ class PrescriptionRenderer {
             return this.renderDiagnosisAnalysis(content);
         }
 
-        // 🧪 检查本地支付状态 (沙盒模式)
-        if (!isPaid && prescriptionId) {
-            const paymentKey = `prescription_paid_${prescriptionId}`;
-            const localPaymentStatus = localStorage.getItem(paymentKey);
-            console.log('🔍 检查本地支付状态:', {
-                prescriptionId,
-                paymentKey,
-                localPaymentStatus,
-                currentIsPaid: isPaid
-            });
+        // 🧪 检查本地支付状态 (沙盒模式) - 改进版
+        if (!isPaid) {
+            // 如果没有提供 prescriptionId，尝试从内容中提取或使用临时ID
+            let targetPrescriptionId = prescriptionId;
             
-            if (localPaymentStatus === 'true') {
-                isPaid = true;
-                this.paymentStatus = true;
-                console.log('🧪 发现本地支付状态，处方已解锁:', prescriptionId);
+            if (!targetPrescriptionId) {
+                // 尝试从 localStorage 获取最近的处方ID
+                const userId = this.getCurrentUserId();
+                if (userId) {
+                    // 查找所有支付状态的处方
+                    const allKeys = Object.keys(localStorage);
+                    const paidPrescriptions = allKeys.filter(key => 
+                        key.startsWith('prescription_paid_') && 
+                        localStorage.getItem(key) === 'true'
+                    );
+                    
+                    if (paidPrescriptions.length > 0) {
+                        // 使用最近的已支付处方ID
+                        const latestKey = paidPrescriptions[paidPrescriptions.length - 1];
+                        targetPrescriptionId = latestKey.replace('prescription_paid_', '');
+                        console.log('🔍 从localStorage找到已支付处方:', targetPrescriptionId);
+                    }
+                }
+            }
+            
+            if (targetPrescriptionId) {
+                const paymentKey = `prescription_paid_${targetPrescriptionId}`;
+                const localPaymentStatus = localStorage.getItem(paymentKey);
+                console.log('🔍 检查本地支付状态:', {
+                    prescriptionId: targetPrescriptionId,
+                    paymentKey,
+                    localPaymentStatus,
+                    currentIsPaid: isPaid,
+                    source: prescriptionId ? 'parameter' : 'localStorage'
+                });
+                
+                if (localPaymentStatus === 'true') {
+                    isPaid = true;
+                    this.paymentStatus = true;
+                    console.log('🧪 发现本地支付状态，处方已解锁:', targetPrescriptionId);
+                }
+            } else {
+                console.log('🔍 无法获取处方ID，无法检查本地支付状态');
             }
         }
 
