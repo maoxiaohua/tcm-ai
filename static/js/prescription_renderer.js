@@ -1112,22 +1112,49 @@ async function createPrescriptionRecord() {
         }
 
         const headers = getCompatibleAuthHeaders();
+        
+        // 获取当前用户ID作为patient_id
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const patientId = currentUser.user_id || window.currentUser?.user_id || localStorage.getItem('currentUserId');
+        
+        if (!patientId) {
+            showCompatibleMessage('用户信息缺失，无法创建处方记录', 'error');
+            return;
+        }
+        
+        console.log('🔍 准备创建处方记录:', {
+            patient_id: patientId,
+            conversation_id: window.currentConversationId,
+            prescription_length: prescriptionContent.length
+        });
+        
         const response = await fetch('/api/prescription/create', {
             method: 'POST',
             headers: headers,
             body: JSON.stringify({
+                patient_id: patientId,
                 conversation_id: window.currentConversationId,
-                doctor_name: window.selectedDoctor,
-                prescription_content: prescriptionContent,
-                patient_symptoms: getCurrentSymptoms()
+                ai_prescription: prescriptionContent,
+                symptoms: getCurrentSymptoms()
             })
         });
 
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ API请求失败:', response.status, errorText);
+            showCompatibleMessage(`创建处方记录失败: ${response.status} ${errorText}`, 'error');
+            return;
+        }
+        
         const result = await response.json();
+        console.log('✅ 处方创建API响应:', result);
+        
         if (result.success && result.prescription_id) {
+            console.log('✅ 处方记录创建成功, ID:', result.prescription_id);
             initiatePrescriptionPayment(result.prescription_id);
         } else {
-            showCompatibleMessage('创建处方记录失败', 'error');
+            console.error('❌ 处方创建失败:', result);
+            showCompatibleMessage('创建处方记录失败: ' + (result.error || '未知错误'), 'error');
         }
     } catch (error) {
         console.error('创建处方记录失败:', error);
@@ -1153,14 +1180,44 @@ function initiatePrescriptionPayment(prescriptionId) {
 
 // 获取处方内容
 function getPrescriptionContent() {
+    console.log('🔍 开始获取处方内容...');
+    
+    // 方法1: 尝试从最近的对话历史中获取原始内容
+    if (window.currentConversationId) {
+        const conversationKey = `conversation_${window.selectedDoctor}_${window.currentConversationId}`;
+        const conversationData = localStorage.getItem(conversationKey);
+        if (conversationData) {
+            try {
+                const history = JSON.parse(conversationData);
+                // 从最后的AI消息中查找处方
+                for (let i = history.length - 1; i >= 0; i--) {
+                    const message = history[i];
+                    if (message.type === 'ai' && message.content) {
+                        const renderer = new PrescriptionRenderer();
+                        if (renderer.containsPrescription(message.content) && !renderer.isTemporaryAdvice(message.content)) {
+                            console.log('✅ 从对话历史获取到处方内容，长度:', message.content.length);
+                            return message.content;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('解析对话历史失败:', e);
+            }
+        }
+    }
+    
+    // 方法2: 备用方案，从DOM获取
     const messages = document.querySelectorAll('.message.ai .message-text');
     for (let i = messages.length - 1; i >= 0; i--) {
         const content = messages[i].textContent;
         const renderer = new PrescriptionRenderer();
         if (renderer.containsPrescription(content) && !renderer.isTemporaryAdvice(content)) {
+            console.log('✅ 从DOM获取到处方内容，长度:', content.length);
             return content;
         }
     }
+    
+    console.warn('❌ 未找到有效的处方内容');
     return null;
 }
 
@@ -1196,4 +1253,4 @@ window.unlockPrescription = unlockPrescription;
 window.downloadPrescription = downloadPrescription;
 window.showDecorationInfo = showDecorationInfo;
 
-console.log('✅ 处方渲染器已加载 - 版本 v2.6.3 (修复诊断内容截断+API路径)');
+console.log('✅ 处方渲染器已加载 - 版本 v2.6.4 (修复API数据格式+改进内容获取)');
