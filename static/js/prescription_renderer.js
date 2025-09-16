@@ -1308,6 +1308,12 @@ function downloadPrescription(prescriptionId) {
     showCompatibleMessage('处方下载功能开发中', 'info');
 }
 
+// 显示代煎服务信息
+function showDecorationInfo(prescriptionId) {
+    console.log('🍵 显示代煎服务信息:', prescriptionId);
+    showCompatibleMessage('代煎服务功能开发中', 'info');
+}
+
 // 创建全局实例
 window.prescriptionRenderer = new PrescriptionRenderer();
 
@@ -1318,4 +1324,4 @@ window.unlockPrescription = unlockPrescription;
 window.downloadPrescription = downloadPrescription;
 window.showDecorationInfo = showDecorationInfo;
 
-console.log('✅ 处方渲染器已加载');
+console.log('✅ 处方渲染器已加载 - 版本 v2.6.1 (修复处方隐藏bug)');
