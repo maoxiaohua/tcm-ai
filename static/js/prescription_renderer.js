@@ -175,7 +175,15 @@ class PrescriptionRenderer {
 
         // 🧪 检查本地支付状态 (沙盒模式)
         if (!isPaid && prescriptionId) {
-            const localPaymentStatus = localStorage.getItem(`prescription_paid_${prescriptionId}`);
+            const paymentKey = `prescription_paid_${prescriptionId}`;
+            const localPaymentStatus = localStorage.getItem(paymentKey);
+            console.log('🔍 检查本地支付状态:', {
+                prescriptionId,
+                paymentKey,
+                localPaymentStatus,
+                currentIsPaid: isPaid
+            });
+            
             if (localPaymentStatus === 'true') {
                 isPaid = true;
                 this.paymentStatus = true;
@@ -1379,10 +1387,24 @@ function handlePaymentSuccess(prescriptionId) {
     
     // 更新本地存储的支付状态
     const userId = getCurrentUserId();
-    if (userId) {
-        const paymentKey = `prescription_paid_${prescriptionId}`;
-        localStorage.setItem(paymentKey, 'true');
-        console.log('💾 已保存支付状态到本地存储');
+    const paymentKey = `prescription_paid_${prescriptionId}`;
+    
+    console.log('💾 保存支付状态:', {
+        prescriptionId,
+        userId,
+        paymentKey
+    });
+    
+    localStorage.setItem(paymentKey, 'true');
+    
+    // 验证保存结果
+    const savedStatus = localStorage.getItem(paymentKey);
+    console.log('💾 支付状态保存结果:', savedStatus);
+    
+    if (savedStatus === 'true') {
+        console.log('✅ 支付状态保存成功');
+    } else {
+        console.error('❌ 支付状态保存失败');
     }
 }
 
