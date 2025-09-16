@@ -689,6 +689,7 @@ class PrescriptionRenderer {
                 content: currentContent.join('<br>')
             });
         }
+        }
 
         // 如果没有找到章节结构，创建默认结构
         if (sections.length === 0) {
@@ -753,7 +754,7 @@ class PrescriptionRenderer {
             /^[证病机治方药煎服注意][候机法剂物服意][：:]/,  // 中医术语开头
             /^【[^】]+】/,                        // 【标题】格式
             /^[▪•·]/,                          // 项目符号
-            /^处方[如下建议方案]/                    // 处方相关
+            /^处方[如下建议方案]/,                   // 处方相关
         ];
         
         return sectionPatterns.some(pattern => pattern.test(line));
