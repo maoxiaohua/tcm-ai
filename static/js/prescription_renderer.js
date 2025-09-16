@@ -355,13 +355,14 @@ class PrescriptionRenderer {
             analysis: null
         };
 
-        // 匹配辨证分析（多种模式）
+        // 匹配辨证分析（多种模式）- 修复：允许逗号，提取更完整的内容
         const analysisPatterns = [
-            /辨证为[：:]?([^。，\n]+)/,
-            /初步辨证[：:]?([^。，\n]+)/,
+            /辨证分析[：:]?\s*([^。\n]+)/,
+            /辨证为[：:]?\s*([^。\n]+)/,
+            /初步辨证[：:]?\s*([^。\n]+)/,
             /证候[：:]\s*([^。\n]+)/,
-            /【([^】]*合病[^】]*)】/,
-            /\*\*([^*]*合病[^*]*)\*\*/
+            /【([^】]*病机[^】]*)】/,
+            /\*\*([^*]*病机[^*]*)\*\*/
         ];
         
         for (const pattern of analysisPatterns) {
@@ -387,10 +388,10 @@ class PrescriptionRenderer {
             }
         }
 
-        // 匹配治法原则
+        // 匹配治法原则 - 修复：提取更完整的治疗原则
         const treatmentPatterns = [
-            /治法[：:]\s*([^。\n]+)/,
             /治疗原则[：:]\s*([^。\n]+)/,
+            /治法[：:]\s*([^。\n]+)/,
             /治宜[：:]?\s*([^。\n]+)/,
             /方法[：:]\s*([^。\n]+)/
         ];
@@ -1111,7 +1112,7 @@ async function createPrescriptionRecord() {
         }
 
         const headers = getCompatibleAuthHeaders();
-        const response = await fetch('/api/prescriptions/create', {
+        const response = await fetch('/api/prescription/create', {
             method: 'POST',
             headers: headers,
             body: JSON.stringify({
@@ -1195,4 +1196,4 @@ window.unlockPrescription = unlockPrescription;
 window.downloadPrescription = downloadPrescription;
 window.showDecorationInfo = showDecorationInfo;
 
-console.log('✅ 处方渲染器已加载 - 版本 v2.6.2 (修复支付界面格式+添加调试)');
+console.log('✅ 处方渲染器已加载 - 版本 v2.6.3 (修复诊断内容截断+API路径)');
