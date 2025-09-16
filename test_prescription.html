@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>处方支付测试</title>
+</head>
+<body>
+    <div id="test-area">
+        <h2>处方支付功能测试</h2>
+        <div id="messages"></div>
+        <button onclick="testPrescriptionFlow()">测试处方流程</button>
+    </div>
+
+    <script src="/static/js/prescription_renderer.js?v=20250916-009"></script>
+    
+    <script>
+        function addMessage(message, sender = 'ai') {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.innerHTML = `<div class="${sender}">${message}</div>`;
+            messagesDiv.appendChild(messageDiv);
+        }
+
+        async function testPrescriptionFlow() {
+            console.log('🧪 开始测试处方支付流程...');
+            
+            // 测试数据 - 模拟包含处方的AI回复
+            const testResponse = {
+                reply: "【辨证分析】患者失眠严重，属阴虚火旺证。【处方如下】知柏地黄汤加减：熟地黄30g，知母15g，黄柏12g，山药20g，茯苓15g，泽泻12g，丹皮10g，酸枣仁15g，龙骨20g，牡蛎20g，合欢皮15g，夜交藤20g。水煎服，每日一剂，分早晚温服，连服14剂。",
+                contains_prescription: true,
+                prescription_id: "test-prescription-123",
+                is_paid: false
+            };
+            
+            // 创建处方渲染器实例
+            const renderer = new PrescriptionRenderer();
+            
+            // 渲染消息
+            const renderedContent = renderer.renderMessage(
+                testResponse.reply,
+                testResponse.is_paid,
+                testResponse.prescription_id
+            );
+            
+            addMessage(renderedContent, 'ai');
+            
+            console.log('✅ 处方渲染完成，检查是否出现支付按钮');
+        }
+
+        // 全局支付函数模拟
+        function showPaymentModal(prescriptionId, amount) {
+            console.log('💳 调用支付模态框:', { prescriptionId, amount });
+            alert(`支付模态框启动成功！\n处方ID: ${prescriptionId}\n金额: ¥${amount}`);
+        }
+    </script>
+</body>
+</html>

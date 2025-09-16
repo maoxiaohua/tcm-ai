@@ -189,8 +189,18 @@ class PrescriptionRenderer {
         this.paymentStatus = isPaid;
         this.prescriptionId = prescriptionId;
 
-        // 🔒 安全检查：强制检测处方内容
-        const containsActualPrescription = this.containsPrescription(content);
+        // 🔒 信任后端的处方检测结果，同时进行前端验证
+        const backendDetectedPrescription = prescriptionId !== null && prescriptionId !== undefined;
+        const frontendDetectedPrescription = this.containsPrescription(content);
+        
+        console.log('🔍 处方检测结果对比:', {
+            backendDetected: backendDetectedPrescription,
+            frontendDetected: frontendDetectedPrescription,
+            prescriptionId: prescriptionId
+        });
+        
+        // 优先信任后端检测结果
+        const containsActualPrescription = backendDetectedPrescription || frontendDetectedPrescription;
         
         if (!containsActualPrescription) {
             // 普通对话内容，进行基础格式化
