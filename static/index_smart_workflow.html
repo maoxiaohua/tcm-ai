@@ -2109,7 +2109,8 @@
             loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
             
             // 设置默认医生 - 张仲景（最全面的医师）
-            setDefaultDoctor('zhang_zhongjing');
+            // 🔧 修复重复欢迎消息：跳过历史记录加载，因为loadConversationHistory已经处理了
+            setDefaultDoctor('zhang_zhongjing', true);
             
             // 🧹 暴露全局清理函数（供外部调用）
             window.clearCurrentUserData = clearCurrentUserData;
@@ -2142,7 +2143,7 @@
         }
         
         // 设置默认医生（不会有确认提示）
-        function setDefaultDoctor(doctorKey) {
+        function setDefaultDoctor(doctorKey, skipHistoryLoad = false) {
             const doctor = doctors[doctorKey];
             if (!doctor) return;
             
@@ -2161,8 +2162,10 @@
             document.getElementById('currentDoctorName').textContent = `${doctor.name} - ${doctor.school}`;
             document.getElementById('currentDoctorDesc').textContent = `擅长：${doctor.specialty}`;
             
-            // 加载该医生的历史记录
-            loadDoctorHistory(doctorKey);
+            // 🔧 修复重复加载问题：只在非跳过模式下加载历史记录
+            if (!skipHistoryLoad) {
+                loadDoctorHistory(doctorKey);
+            }
         }
 
         // 生成对话ID - 基于用户ID隔离
@@ -6738,7 +6741,17 @@ ${data.analysis_result}`;
         function addWelcomeMessage(doctorKey) {
             const doctor = doctors[doctorKey];
             const isMobile = window.innerWidth <= 768;
+            const containerSelector = isMobile ? 'mobileMessagesContainer' : 'messagesContainer';
+            const messagesContainer = document.getElementById(containerSelector);
+            
+            // 🔧 修复重复欢迎消息问题：检查是否已经有消息存在
+            if (messagesContainer && messagesContainer.children.length > 0) {
+                console.log(`${doctor.name}医生的欢迎消息已存在，跳过重复添加`);
+                return;
+            }
+            
             const welcomeMessage = `您好！我是${doctor.name}，${doctor.school}传人。请详细描述您的症状，我将为您进行专业的中医分析。`;
+            console.log(`添加${doctor.name}医生的欢迎消息`);
             
             if (isMobile) {
                 addMobileMessage('ai', welcomeMessage);
