@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>处方渲染器调试</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>处方渲染器调试</h1>
+    
+    <div id="debug-results"></div>
+    
+    <script>
+        console.log('=== 开始调试处方渲染器 ===');
+        
+        // 检查是否已经加载
+        if (window.prescriptionRenderer) {
+            console.log('✅ prescriptionRenderer已存在');
+        } else {
+            console.log('❌ prescriptionRenderer未加载');
+        }
+        
+        // 尝试加载prescription_renderer.js
+        const script = document.createElement('script');
+        script.src = '/static/js/prescription_renderer.js';
+        script.onload = function() {
+            console.log('✅ prescription_renderer.js加载成功');
+            
+            // 再次检查
+            if (window.prescriptionRenderer) {
+                console.log('✅ prescriptionRenderer现在可用');
+                
+                // 测试处方检测
+                const testContent = `【扶阳派处方方案】
+                
+                ### 【君药】
+                - **附子 15g** (回阳救逆，温肾助阳)
+                - **干姜 10g** (温中散寒，助阳化气)
+                
+                ### 【臣药】
+                - **茯苓 20g** (利水渗湿，健脾安神)`;
+                
+                const containsPrescription = window.prescriptionRenderer.containsPrescription(testContent);
+                const renderedContent = window.prescriptionRenderer.renderContent(testContent, false, 'test-123');
+                
+                console.log('处方检测结果:', containsPrescription);
+                console.log('渲染结果长度:', renderedContent.length);
+                
+                document.getElementById('debug-results').innerHTML = `
+                    <h3>调试结果</h3>
+                    <p><strong>处方检测:</strong> ${containsPrescription ? '✅ 成功' : '❌ 失败'}</p>
+                    <p><strong>渲染器版本:</strong> v2.6.1</p>
+                    <div style="border: 1px solid #ccc; padding: 10px; margin: 10px 0;">
+                        <h4>渲染结果:</h4>
+                        ${renderedContent}
+                    </div>
+                `;
+            } else {
+                console.log('❌ prescriptionRenderer仍然不可用');
+                document.getElementById('debug-results').innerHTML = '<p style="color: red;">❌ prescription_renderer.js加载失败</p>';
+            }
+        };
+        
+        script.onerror = function() {
+            console.log('❌ prescription_renderer.js加载失败');
+            document.getElementById('debug-results').innerHTML = '<p style="color: red;">❌ prescription_renderer.js文件加载失败</p>';
+        };
+        
+        document.head.appendChild(script);
+    </script>
+</body>
+</html>

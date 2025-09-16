@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>处方渲染测试</title>
+    <meta charset="UTF-8">
+    <script src="/static/js/prescription_renderer.js"></script>
+</head>
+<body>
+    <h1>处方渲染测试</h1>
+    
+    <div id="test-results"></div>
+    
+    <script>
+        // 模拟张仲景医生的处方内容
+        const testPrescriptionContent = `
+【辨证分析】
+根据患者症状，属肝阳上亢、阴虚内热证。
+
+【处方如下】
+天麻钩藤饮加减：
+天麻 12克
+钩藤 15克  
+石决明 30克
+栀子 10克
+黄芩 10克
+川牛膝 12克
+杜仲 15克
+益母草 15克
+茯神 12克
+夜交藤 30克
+
+【用法用量】
+水煎服，日一剂，早晚分服。
+`;
+
+        const testResults = document.getElementById('test-results');
+        
+        function runTest(testName, content, isPaid, prescriptionId) {
+            console.log(`\n=== 测试: ${testName} ===`);
+            
+            const renderer = window.prescriptionRenderer;
+            const result = renderer.renderContent(content, isPaid, prescriptionId);
+            
+            const testDiv = document.createElement('div');
+            testDiv.style.cssText = 'border: 1px solid #ccc; margin: 20px; padding: 15px;';
+            testDiv.innerHTML = `
+                <h3>${testName}</h3>
+                <p><strong>isPaid:</strong> ${isPaid}, <strong>prescriptionId:</strong> ${prescriptionId}</p>
+                <div style="border: 1px solid #eee; padding: 10px; background: #f9f9f9;">
+                    ${result}
+                </div>
+            `;
+            
+            testResults.appendChild(testDiv);
+        }
+        
+        // 等待渲染器加载
+        setTimeout(() => {
+            console.log('开始处方渲染测试...');
+            
+            // 测试1: 未付费用户看到处方 - 应该隐藏
+            runTest('测试1: 未付费用户 (应该显示预览)', testPrescriptionContent, false, null);
+            
+            // 测试2: 已付费用户看到处方 - 应该显示完整内容
+            runTest('测试2: 已付费用户 (应该显示完整)', testPrescriptionContent, true, 'paid-123');
+            
+            // 测试3: 普通对话内容 - 应该正常显示
+            runTest('测试3: 普通对话 (应该正常显示)', '医生您好，我头痛一周了...', false, null);
+            
+        }, 1000);
+    </script>
+</body>
+</html>

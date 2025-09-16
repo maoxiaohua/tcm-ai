@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>处方逻辑测试</title>
+    <meta charset="UTF-8">
+    <script src="/static/js/prescription_renderer.js"></script>
+</head>
+<body>
+    <h1>处方逻辑测试</h1>
+    
+    <div id="test-results"></div>
+    
+    <script>
+        // 获取真实的处方内容（从之前的API调用）
+        const realPrescriptionContent = `【辨证分析】
+根据患者主诉"头痛头晕3天，位于前额，胀痛"，结合"失眠多梦，入睡困难，口干口苦，小便短黄，大便干燥，舌红苔黄腻，脉弦数"等症，符合《伤寒论》中"阳明病"与"少阳病"的临床特点。前额属阳明经所主，胀痛为阳明热盛之象；失眠多梦、口干口苦提示少阳枢机不利；舌红苔黄腻、脉弦数均为里热郁结之征。
+
+本病属阳明热盛、少阳郁火、肝胆火旺之证，治宜清热泻火、疏肝解郁、安神定志。参考《伤寒论》"阳明病，脉数而滑者，必有胃热，白虎汤主之"及"少阳病，胁下硬，干呕不能食，往来寒热，脉弦者，小柴胡汤主之"之法，当以清肝胆之火、泻阳明之热为法。
+
+【治疗原则】
+清热泻火，疏肝解郁，安神定志
+
+【处方如下】
+龙胆泻肝汤合白虎汤加减：
+
+【君药】
+龙胆草 12克  苦寒泻肝胆实火
+黄芩 10克   清热燥湿，泻上焦之火
+栀子 10克   清热除烦，泻三焦之火
+
+【臣药】
+石膏 30克   清热生津，泻阳明胃火
+知母 12克   滋阴清热，润燥生津
+柴胡 10克   疏肝解郁，引火下行
+
+【佐药】
+车前子 12克 利水通淋，清下焦湿热
+木通 6克    清心火，利小便
+当归 10克   养血柔肝，调和营血
+生地黄 15克 清热凉血，养阴生津
+
+【使药】
+甘草 6克    调和诸药，缓急止痛
+
+【煎服方法】
+水煎服，日一剂，分早晚两次温服。先武火煮沸，后文火煎煮20分钟。
+
+【注意事项】
+1. 服药期间忌食辛辣、油腻、煎炸食物
+2. 保持心情舒畅，避免情志过激
+3. 规律作息，避免熬夜
+4. 如症状加重或出现其他不适，请及时复诊
+
+【医嘱】
+本方清热泻火力强，适用于肝胆火旺、阳明热盛之证。服药3-5日后症状应有明显改善，若无好转请及时复诊调方。`;
+
+        const testResults = document.getElementById('test-results');
+        
+        function runPrescriptionTest(testName, content, isPaid, prescriptionId) {
+            console.log(`\\n=== ${testName} ===`);
+            
+            const renderer = window.prescriptionRenderer;
+            const containsPrescription = renderer.containsPrescription(content);
+            const renderedContent = renderer.renderContent(content, isPaid, prescriptionId);
+            
+            const testDiv = document.createElement('div');
+            testDiv.style.cssText = 'border: 2px solid #ccc; margin: 20px; padding: 15px; border-radius: 8px;';
+            testDiv.innerHTML = `
+                <h3 style="color: #2d5aa0;">${testName}</h3>
+                <div style="margin: 10px 0;">
+                    <strong>检测结果:</strong> 
+                    <span style="color: ${containsPrescription ? 'green' : 'red'};">
+                        ${containsPrescription ? '✅ 检测到处方' : '❌ 未检测到处方'}
+                    </span>
+                </div>
+                <div style="margin: 10px 0;">
+                    <strong>参数:</strong> isPaid=${isPaid}, prescriptionId=${prescriptionId}
+                </div>
+                <div style="border: 1px solid #eee; padding: 10px; background: #f9f9f9; max-height: 400px; overflow-y: auto;">
+                    ${renderedContent}
+                </div>
+            `;
+            
+            testResults.appendChild(testDiv);
+        }
+        
+        // 等待渲染器加载
+        setTimeout(() => {
+            console.log('开始处方渲染测试...');
+            
+            // 测试1: 未付费用户看真实处方 - 应该隐藏内容
+            runPrescriptionTest('测试1: 真实处方 + 未付费 (应该隐藏)', realPrescriptionContent, false, 'test-123');
+            
+            // 测试2: 已付费用户看真实处方 - 应该显示完整内容
+            runPrescriptionTest('测试2: 真实处方 + 已付费 (应该显示)', realPrescriptionContent, true, 'test-123');
+            
+            // 测试3: 普通对话内容 - 应该正常显示
+            runPrescriptionTest('测试3: 普通对话 (应该正常显示)', '根据您的症状，建议您注意休息，多喝水...', false, null);
+            
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>临时建议检测修复测试</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>临时建议检测修复测试</h1>
+    
+    <div id="test-results"></div>
+    
+    <script>
+        // 加载prescription_renderer.js
+        const script = document.createElement('script');
+        script.src = '/static/js/prescription_renderer.js';
+        
+        script.onload = function() {
+            console.log('✅ prescription_renderer.js加载成功');
+            
+            if (window.prescriptionRenderer) {
+                console.log('✅ prescriptionRenderer可用');
+                
+                // 使用用户实际测试案例中的内容
+                const testContent = `📝 **症状整合分析**
+
+根据您提供的症状信息，我为您进行以下中医辨证分析：
+
+**主要症状归纳：**
+- 慢性胃炎反复发作
+- 胃部隐痛、胀闷不适  
+- 食欲不振，饮食减少
+- 大便偏干，排便不畅
+- 情绪焦虑，睡眠质量差
+
+**中医证候分析：**
+
+从您的症状表现来看，符合中医"胃痛"、"痞满"范畴。主要病机为：
+
+1. **脾胃气虚**：慢性胃炎迁延不愈，久病伤正，脾胃功能减退
+2. **肝郁气滞**：情绪焦虑导致肝气郁结，横逆犯胃
+3. **胃阴不足**：长期炎症耗伤胃阴，失于濡润
+
+**证型诊断：脾胃气虚兼肝郁气滞证**
+
+---
+
+### 🌿 **李东垣健脾理气方案**
+
+**治法：** 健脾益气，疏肝理气，和胃降逆
+
+**方药组成：**
+
+**【君药】**
+- **党参 15g** （补中益气，健脾养胃）
+- **白术 12g** （健脾燥湿，固表止汗）
+
+**【臣药】**  
+- **茯苓 15g** （健脾利湿，宁心安神）
+- **陈皮 10g** （理气健脾，燥湿化痰）
+- **柴胡 8g** （疏肝解郁，升阳举陷）
+
+**【佐药】**
+- **白芍 12g** （养血敛阴，柔肝止痛）
+- **炙甘草 6g** （补脾益气，调和诸药）
+- **生姜 3片** （温胃散寒，调和营卫）
+- **大枣 5枚** （补中益气，养血安神）
+
+**【使药】**
+- **木香 6g** （行气止痛，健脾消食）
+
+**煎服方法：**
+- 水煎服，每日1剂，分2次温服
+- 饭前30分钟服用，连服2周为一疗程
+
+**服药期间注意事项：**
+- 饮食宜清淡易消化，避免辛辣刺激
+- 保持情绪舒畅，避免过度焦虑
+- 规律作息，适当运动
+
+**预期效果：**
+连续服用1-2周后，胃痛胀闷应有明显缓解，食欲逐渐改善，大便趋于正常。
+
+---
+
+**重要提醒：**
+此处方仅根据您描述的症状进行的中医理论分析，建议您携带此方案就近咨询执业中医师，结合舌象、脉象等体征进行最终确认后用药。如症状加重或出现新的不适，请及时就医。`;
+                
+                // 测试处方检测
+                const containsPrescription = window.prescriptionRenderer.containsPrescription(testContent);
+                console.log('📋 处方检测结果:', containsPrescription);
+                
+                // 测试临时建议检测  
+                const isTemporaryAdvice = window.prescriptionRenderer.isTemporaryAdvice(testContent);
+                console.log('🔍 临时建议检测:', isTemporaryAdvice);
+                
+                // 测试渲染结果
+                const renderedContent = window.prescriptionRenderer.renderContent(testContent, false, 'test-123');
+                console.log('🎨 渲染内容长度:', renderedContent.length);
+                console.log('🎨 原始内容长度:', testContent.length);
+                
+                // 显示结果
+                document.getElementById('test-results').innerHTML = `
+                    <h3>🧪 测试结果</h3>
+                    <div style="background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px;">
+                        <p><strong>📋 处方检测:</strong> <span style="color: ${containsPrescription ? 'green' : 'red'};">${containsPrescription ? '✅ 检测到处方' : '❌ 未检测到处方'}</span></p>
+                        <p><strong>🔍 临时建议检测:</strong> <span style="color: ${isTemporaryAdvice ? 'orange' : 'green'};">${isTemporaryAdvice ? '⚠️ 误判为临时建议' : '✅ 正确识别为完整处方'}</span></p>
+                        <p><strong>🎨 渲染结果:</strong> ${renderedContent.length < testContent.length ? '✅ 内容被正确隐藏' : '❌ 内容未被隐藏'}</p>
+                        <p><strong>📊 内容对比:</strong> 原始${testContent.length}字 → 渲染${renderedContent.length}字</p>
+                    </div>
+                    
+                    <h4>🖼️ 渲染预览</h4>
+                    <div style="border: 2px solid #ddd; padding: 15px; max-height: 300px; overflow-y: auto;">
+                        ${renderedContent}
+                    </div>
+                `;
+                
+                // 期望结果检查
+                const expectedResult = containsPrescription && !isTemporaryAdvice && renderedContent.length < testContent.length;
+                console.log('🎯 总体测试结果:', expectedResult ? '✅ 修复成功' : '❌ 仍有问题');
+                
+            } else {
+                console.log('❌ prescriptionRenderer加载失败');
+                document.getElementById('test-results').innerHTML = '<p style="color: red;">❌ prescription_renderer.js加载失败</p>';
+            }
+        };
+        
+        script.onerror = function() {
+            console.log('❌ 脚本加载失败');
+            document.getElementById('test-results').innerHTML = '<p style="color: red;">❌ 脚本文件加载失败</p>';
+        };
+        
+        document.head.appendChild(script);
+    </script>
+</body>
+</html>
