@@ -72,7 +72,10 @@ async def unified_chat_endpoint(request: ChatMessage):
             "prescription_data": response.prescription_data,
             "confidence_score": response.confidence_score,
             "processing_time": response.processing_time,
-            "stage": response.stage
+            "stage": response.stage,
+            # 🔑 关键修复：添加处方支付相关字段
+            "prescription_id": response.prescription_data.get("prescription_id") if response.prescription_data else None,
+            "is_paid": response.prescription_data.get("is_paid", False) if response.prescription_data else False
         }
         
         logger.info(f"统一问诊响应: 包含处方={response.contains_prescription}, 阶段={response.stage}")
