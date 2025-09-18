@@ -702,6 +702,40 @@
 
         <!-- 右侧分析结果面板 -->
         <div class="right-panel">
+            <!-- 中医辨证思维指导 -->
+            <div class="section-title">🎯 中医辨证思维指导</div>
+            <div class="tcm-guide-panel" style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                <h4 style="color: #0284c7; margin-bottom: 10px;">标准诊疗流程</h4>
+                <ol style="font-size: 12px; color: #374151; line-height: 1.6; margin: 0; padding-left: 20px;">
+                    <li><strong>病种识别</strong>: 确定疾病的中医病名</li>
+                    <li><strong>四诊收集</strong>: 望闻问切，收集全面信息</li>
+                    <li><strong>主要症状</strong>: 主症、兼症的归纳分析</li>
+                    <li><strong>病因病机</strong>: 分析发病原因和病理机制</li>
+                    <li><strong>证候判断</strong>: 辨证分型（支持多种证型）</li>
+                    <li><strong>治则治法</strong>: 确定治疗原则和方法</li>
+                    <li><strong>方剂处方</strong>: 选方用药，君臣佐使</li>
+                    <li><strong>随症加减</strong>: 根据具体症状调整用药</li>
+                    <li><strong>预后调理</strong>: 养生建议和注意事项</li>
+                </ol>
+                
+                <div style="margin-top: 15px; padding: 10px; background: #fef3c7; border-radius: 6px;">
+                    <h5 style="color: #f59e0b; margin-bottom: 5px;">💡 构建技巧</h5>
+                    <ul style="font-size: 11px; color: #78716c; margin: 0; padding-left: 20px;">
+                        <li>右键点击节点可添加分支或编辑</li>
+                        <li>双击节点内容可直接编辑</li>
+                        <li>证候判断支持多分支（不同证型）</li>
+                        <li>使用AI功能可快速生成框架</li>
+                        <li>点击"自动排列"优化布局</li>
+                    </ul>
+                </div>
+                
+                <div style="margin-top: 10px; text-align: center;">
+                    <button onclick="showTCMExample()" style="background: #0ea5e9; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                        查看示例决策树
+                    </button>
+                </div>
+            </div>
+            
             <div class="section-title">📊 分析结果</div>
             <div id="analysisResults"></div>
         </div>
@@ -1171,45 +1205,157 @@
             }
         }
 
-        // 从AI路径数据生成节点
+        // 从AI路径数据生成节点（优化版：支持中医诊疗流程）
         function generateNodesFromPaths(paths) {
             clearCanvas();
             
-            let x = 50, y = 50;
-            const stepWidth = 200;
-            const pathHeight = 120;
+            // 重新组织路径数据以符合中医诊疗流程
+            const tcmFlowPaths = organizeTCMFlow(paths);
             
-            paths.forEach((path, pathIndex) => {
-                let previousNode = null;
+            let baseX = 50, baseY = 100;
+            const stepWidth = 250;
+            const branchHeight = 150;
+            
+            // 生成主诊疗流程
+            let previousMainNode = null;
+            tcmFlowPaths.mainFlow.forEach((step, index) => {
+                const node = {
+                    id: `main_${index}`,
+                    type: step.type,
+                    name: step.name,
+                    description: step.description || step.content,
+                    x: baseX + (index * stepWidth),
+                    y: baseY
+                };
                 
-                path.steps.forEach((step, stepIndex) => {
-                    const nodeId = `node_${pathIndex}_${stepIndex}`;
-                    const node = {
-                        id: nodeId,
-                        type: step.type,
-                        name: step.content,
-                        description: step.content,
-                        x: x + (stepIndex * stepWidth),
-                        y: y + (pathIndex * pathHeight)
-                    };
-                    
-                    nodes.push(node);
-                    renderNode(node);
-                    
-                    // 创建连接
-                    if (previousNode) {
+                nodes.push(node);
+                renderNode(node);
+                
+                if (previousMainNode) {
+                    connections.push({
+                        from: previousMainNode.id,
+                        to: node.id
+                    });
+                }
+                
+                previousMainNode = node;
+                
+                // 处理分支（如证候分型）
+                if (step.branches && step.branches.length > 0) {
+                    step.branches.forEach((branch, branchIndex) => {
+                        const branchNode = {
+                            id: `branch_${index}_${branchIndex}`,
+                            type: branch.type,
+                            name: branch.name,
+                            description: branch.description,
+                            x: node.x + stepWidth,
+                            y: baseY + (branchIndex - (step.branches.length - 1) / 2) * branchHeight
+                        };
+                        
+                        nodes.push(branchNode);
+                        renderNode(branchNode);
+                        
                         connections.push({
-                            from: previousNode.id,
-                            to: nodeId
+                            from: node.id,
+                            to: branchNode.id
                         });
-                    }
-                    
-                    previousNode = node;
-                });
+                        
+                        // 为每个分支添加后续节点
+                        if (branch.followUp) {
+                            branch.followUp.forEach((followStep, followIndex) => {
+                                const followNode = {
+                                    id: `follow_${index}_${branchIndex}_${followIndex}`,
+                                    type: followStep.type,
+                                    name: followStep.name,
+                                    description: followStep.description,
+                                    x: branchNode.x + (followIndex + 1) * stepWidth,
+                                    y: branchNode.y
+                                };
+                                
+                                nodes.push(followNode);
+                                renderNode(followNode);
+                                
+                                const prevNode = followIndex === 0 ? branchNode : 
+                                    nodes.find(n => n.id === `follow_${index}_${branchIndex}_${followIndex-1}`);
+                                
+                                connections.push({
+                                    from: prevNode.id,
+                                    to: followNode.id
+                                });
+                            });
+                        }
+                    });
+                }
             });
             
             updateCanvas();
             drawConnections();
+            
+            // 自动排列优化
+            setTimeout(() => autoArrangeNodes(), 100);
+        }
+        
+        // 组织中医诊疗流程
+        function organizeTCMFlow(paths) {
+            // 定义中医诊疗标准流程
+            const tcmStages = [
+                'disease',        // 病种
+                'four_diagnosis', // 四诊
+                'symptom',        // 症状
+                'pathogenesis',   // 病因病机
+                'syndrome',       // 证候
+                'principle',      // 治则
+                'prescription',   // 处方
+                'modification',   // 加减
+                'prognosis'       // 预后
+            ];
+            
+            const mainFlow = [];
+            const diseaseInfo = getCurrentDiseaseName();
+            
+            // 构建主流程
+            if (diseaseInfo) {
+                mainFlow.push({
+                    type: 'disease',
+                    name: diseaseInfo,
+                    description: '病种识别和确认'
+                });
+            }
+            
+            // 从原始路径中提取和组织信息
+            paths.forEach(path => {
+                path.steps.forEach(step => {
+                    const stageIndex = tcmStages.indexOf(step.type);
+                    if (stageIndex !== -1) {
+                        // 将步骤按照中医流程顺序组织
+                        const existingStage = mainFlow.find(s => s.type === step.type);
+                        if (!existingStage) {
+                            mainFlow.push({
+                                type: step.type,
+                                name: step.content || getDefaultNodeName(step.type),
+                                description: step.description || '',
+                                branches: []
+                            });
+                        } else if (step.type === 'syndrome' || step.type === 'prescription') {
+                            // 对于证候和处方，支持多分支
+                            existingStage.branches.push({
+                                type: step.type,
+                                name: step.content,
+                                description: step.description || ''
+                            });
+                        }
+                    }
+                });
+            });
+            
+            // 按照中医流程顺序排序
+            mainFlow.sort((a, b) => {
+                const aIndex = tcmStages.indexOf(a.type);
+                const bIndex = tcmStages.indexOf(b.type);
+                return aIndex - bIndex;
+            });
+            
+            return { mainFlow };
         }
 
         // 分析当前决策树
@@ -1338,12 +1484,15 @@
                     previousNode = node;
                 });
             } else {
-                // 传统模式 - 创建标准路径节点
+                // 传统模式 - 创建符合中医诊疗流程的标准路径节点
                 const standardNodes = [
-                    { type: 'symptom', name: `${getCurrentDiseaseName()}`, description: '主要症状', x: 50, y: 100 },
-                    { type: 'condition', name: '症状判断', description: '评估症状严重程度', x: 300, y: 100 },
-                    { type: 'diagnosis', name: '中医诊断', description: '辨证分型', x: 550, y: 100 },
-                    { type: 'treatment', name: '治疗方法', description: '治则治法', x: 800, y: 100 },
+                    { type: 'disease', name: `${getCurrentDiseaseName()}`, description: '病种识别', x: 50, y: 100 },
+                    { type: 'four_diagnosis', name: '四诊收集', description: '望闻问切', x: 250, y: 100 },
+                    { type: 'symptom', name: '主要症状', description: '症状分析', x: 450, y: 100 },
+                    { type: 'pathogenesis', name: '病因病机', description: '病理分析', x: 650, y: 100 },
+                    { type: 'syndrome', name: '证候判断', description: '辨证分型', x: 850, y: 100 },
+                    { type: 'principle', name: '治则治法', description: '确定治疗原则', x: 1050, y: 100 },
+                    { type: 'prescription', name: '方剂处方', description: '选方用药', x: 1250, y: 100 },
                     { type: 'formula', name: '方剂选择', description: '具体方药', x: 1050, y: 100 }
                 ];
                 
@@ -1401,31 +1550,85 @@
                 showResult('提示', '没有节点需要排列', 'info');
                 return;
             }
-
-            // 简单的网格排列
-            const cols = 4;
-            const startX = 50;
-            const startY = 50;
-            const stepX = 250;
-            const stepY = 120;
-
-            nodes.forEach((node, index) => {
-                const row = Math.floor(index / cols);
-                const col = index % cols;
+            
+            // 基于中医诊疗流程的智能排列
+            const nodeHierarchy = buildNodeHierarchy();
+            
+            // 计算布局
+            const baseX = 50;
+            const baseY = 300;
+            const horizontalGap = 280;
+            const verticalGap = 150;
+            
+            // 按层级排列
+            Object.keys(nodeHierarchy).forEach((level, levelIndex) => {
+                const levelNodes = nodeHierarchy[level];
+                const levelX = baseX + levelIndex * horizontalGap;
                 
-                node.x = startX + (col * stepX);
-                node.y = startY + (row * stepY);
-                
-                const element = document.getElementById(node.id);
-                if (element) {
-                    element.style.left = `${node.x}px`;
-                    element.style.top = `${node.y}px`;
-                }
+                levelNodes.forEach((node, nodeIndex) => {
+                    // 计算垂直位置，使同层节点居中分布
+                    const totalHeight = (levelNodes.length - 1) * verticalGap;
+                    const startY = baseY - (totalHeight / 2);
+                    node.x = levelX;
+                    node.y = startY + (nodeIndex * verticalGap);
+                    
+                    updateNodePosition(node);
+                });
             });
             
             // 重绘连接线
-            drawConnections();
-            showResult('成功', `✅ 已自动排列${nodes.length}个节点`, 'success');
+            setTimeout(() => {
+                drawConnections();
+                showResult('成功', `✅ 已按中医诊疗流程智能排列${nodes.length}个节点`, 'success');
+            }, 50);
+        }
+        
+        // 构建节点层级关系
+        function buildNodeHierarchy() {
+            const hierarchy = {};
+            const visited = new Set();
+            
+            // 查找根节点（没有入边的节点）
+            const rootNodes = nodes.filter(node => {
+                return !connections.some(conn => conn.to === node.id);
+            });
+            
+            // 如果没有明确的根节点，选择病种类型的节点作为根
+            if (rootNodes.length === 0) {
+                const diseaseNodes = nodes.filter(n => n.type === 'disease');
+                if (diseaseNodes.length > 0) {
+                    rootNodes.push(...diseaseNodes);
+                } else if (nodes.length > 0) {
+                    rootNodes.push(nodes[0]);
+                }
+            }
+            
+            // 广度优先遍历构建层级
+            let currentLevel = 0;
+            let currentLevelNodes = rootNodes;
+            
+            while (currentLevelNodes.length > 0 && currentLevel < 10) {
+                hierarchy[currentLevel] = [...currentLevelNodes];
+                currentLevelNodes.forEach(n => visited.add(n.id));
+                
+                // 获取下一层节点
+                const nextLevelNodes = [];
+                currentLevelNodes.forEach(node => {
+                    const childConnections = connections.filter(conn => conn.from === node.id);
+                    childConnections.forEach(conn => {
+                        const childNode = nodes.find(n => n.id === conn.to);
+                        if (childNode && !visited.has(childNode.id)) {
+                            nextLevelNodes.push(childNode);
+                            visited.add(childNode.id);
+                        }
+                    });
+                });
+                
+                currentLevelNodes = nextLevelNodes;
+                currentLevel++;
+            }
+            
+            return hierarchy;
         }
 
         // 清空画布
@@ -1858,8 +2061,8 @@
             const svg = document.getElementById('branchSvg');
             
             // 清除现有连接线
-            const existingLines = svg.querySelectorAll('.branch-line');
-            existingLines.forEach(line => line.remove());
+            const existingPaths = svg.querySelectorAll('.branch-line, .branch-path');
+            existingPaths.forEach(path => path.remove());
             
             connections.forEach(conn => {
                 const fromNode = nodes.find(n => n.id === conn.from);
@@ -1874,19 +2077,39 @@
                         const toRect = toElement.getBoundingClientRect();
                         const canvasRect = document.getElementById('canvas').getBoundingClientRect();
                         
+                        // 计算连接点位置
                         const x1 = fromRect.left - canvasRect.left + fromRect.width;
                         const y1 = fromRect.top - canvasRect.top + fromRect.height / 2;
                         const x2 = toRect.left - canvasRect.left;
                         const y2 = toRect.top - canvasRect.top + toRect.height / 2;
                         
-                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                        line.setAttribute('x1', x1);
-                        line.setAttribute('y1', y1);
-                        line.setAttribute('x2', x2);
-                        line.setAttribute('y2', y2);
-                        line.setAttribute('class', 'branch-line');
+                        // 使用贝塞尔曲线创建平滑连接
+                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        const midX = (x1 + x2) / 2;
                         
-                        svg.appendChild(line);
+                        // 创建平滑的曲线路径
+                        const d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+                        
+                        path.setAttribute('d', d);
+                        path.setAttribute('class', 'branch-path');
+                        path.setAttribute('fill', 'none');
+                        path.setAttribute('stroke', '#3b82f6');
+                        path.setAttribute('stroke-width', '2');
+                        path.setAttribute('marker-end', 'url(#arrowhead)');
+                        
+                        // 添加连接标签（如果需要）
+                        if (conn.label) {
+                            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            text.setAttribute('x', midX);
+                            text.setAttribute('y', (y1 + y2) / 2 - 10);
+                            text.setAttribute('text-anchor', 'middle');
+                            text.setAttribute('font-size', '12');
+                            text.setAttribute('fill', '#6b7280');
+                            text.textContent = conn.label;
+                            svg.appendChild(text);
+                        }
+                        
+                        svg.appendChild(path);
                     }
                 }
             });
@@ -2227,6 +2450,191 @@
                 showResult('成功', '✅ 节点已删除', 'success');
             }
         }
+        
+        // 添加分支节点（支持多分支诊断）
+        function addBranchNode(parentNode) {
+            const nodeType = getNextNodeType(parentNode.type);
+            const newNode = {
+                id: `branch_${nodeCounter++}`,
+                type: nodeType,
+                name: getDefaultNodeName(nodeType),
+                description: '',
+                x: parentNode.x + 200,
+                y: parentNode.y + 150
+            };
+            
+            nodes.push(newNode);
+            renderNode(newNode);
+            
+            // 创建连接
+            connections.push({
+                from: parentNode.id,
+                to: newNode.id
+            });
+            
+            drawConnections();
+            updateCanvas();
+            
+            // 自动选中新节点以便编辑
+            selectNode(newNode);
+            editNodeContent(newNode);
+        }
+        
+        // 添加子节点（顺序流程）
+        function addChildNode(parentNode) {
+            const nodeType = getNextNodeType(parentNode.type);
+            const newNode = {
+                id: `child_${nodeCounter++}`,
+                type: nodeType,
+                name: getDefaultNodeName(nodeType),
+                description: '',
+                x: parentNode.x + 250,
+                y: parentNode.y
+            };
+            
+            nodes.push(newNode);
+            renderNode(newNode);
+            
+            // 创建连接
+            connections.push({
+                from: parentNode.id,
+                to: newNode.id
+            });
+            
+            drawConnections();
+            updateCanvas();
+            
+            // 自动选中新节点以便编辑
+            selectNode(newNode);
+            editNodeContent(newNode);
+        }
+        
+        // 添加证候分型（支持多种证型）
+        function addSyndromeTypes(syndromeNode) {
+            const syndromeTypes = [
+                { name: '证型1', desc: '请编辑证型名称和描述' },
+                { name: '证型2', desc: '请编辑证型名称和描述' }
+            ];
+            
+            syndromeTypes.forEach((type, index) => {
+                const newNode = {
+                    id: `syndrome_type_${nodeCounter++}`,
+                    type: 'syndrome',
+                    name: type.name,
+                    description: type.desc,
+                    x: syndromeNode.x + 200,
+                    y: syndromeNode.y + (index - 0.5) * 120
+                };
+                
+                nodes.push(newNode);
+                renderNode(newNode);
+                
+                connections.push({
+                    from: syndromeNode.id,
+                    to: newNode.id
+                });
+            });
+            
+            drawConnections();
+            updateCanvas();
+            showResult('成功', '✅ 已添加证候分型模板，请编辑具体内容', 'success');
+        }
+        
+        // 编辑节点（增强版）
+        function editNode(node) {
+            // 创建编辑对话框
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+                z-index: 10000;
+                width: 400px;
+            `;
+            
+            dialog.innerHTML = `
+                <h3 style="margin-bottom: 15px;">编辑节点</h3>
+                <div style="margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 5px;">节点名称:</label>
+                    <input type="text" id="editNodeName" value="${node.name}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 5px;">节点类型:</label>
+                    <select id="editNodeType" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="disease" ${node.type === 'disease' ? 'selected' : ''}>病种</option>
+                        <option value="four_diagnosis" ${node.type === 'four_diagnosis' ? 'selected' : ''}>四诊信息</option>
+                        <option value="symptom" ${node.type === 'symptom' ? 'selected' : ''}>主要症状</option>
+                        <option value="pathogenesis" ${node.type === 'pathogenesis' ? 'selected' : ''}>病因病机</option>
+                        <option value="syndrome" ${node.type === 'syndrome' ? 'selected' : ''}>证候判断</option>
+                        <option value="principle" ${node.type === 'principle' ? 'selected' : ''}>治则治法</option>
+                        <option value="prescription" ${node.type === 'prescription' ? 'selected' : ''}>方剂处方</option>
+                        <option value="modification" ${node.type === 'modification' ? 'selected' : ''}>随症加减</option>
+                        <option value="prognosis" ${node.type === 'prognosis' ? 'selected' : ''}>预后调理</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px;">详细描述:</label>
+                    <textarea id="editNodeDesc" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px;">${node.description || ''}</textarea>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button onclick="this.parentElement.parentElement.remove()" style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">取消</button>
+                    <button id="saveNodeEdit" style="padding: 8px 16px; border: none; background: #3b82f6; color: white; border-radius: 4px; cursor: pointer;">保存</button>
+                </div>
+            `;
+            
+            document.body.appendChild(dialog);
+            
+            // 保存编辑
+            document.getElementById('saveNodeEdit').onclick = function() {
+                node.name = document.getElementById('editNodeName').value;
+                node.type = document.getElementById('editNodeType').value;
+                node.description = document.getElementById('editNodeDesc').value;
+                
+                // 更新显示
+                const nodeElement = document.getElementById(node.id);
+                nodeElement.className = `node ${node.type}`;
+                updateNodeDisplay(node);
+                
+                dialog.remove();
+                showResult('成功', '✅ 节点已更新', 'success');
+            };
+        }
+        
+        // 获取下一个节点的默认类型
+        function getNextNodeType(currentType) {
+            const typeFlow = {
+                'disease': 'four_diagnosis',
+                'four_diagnosis': 'symptom',
+                'symptom': 'pathogenesis',
+                'pathogenesis': 'syndrome',
+                'syndrome': 'principle',
+                'principle': 'prescription',
+                'prescription': 'modification',
+                'modification': 'prognosis'
+            };
+            return typeFlow[currentType] || 'symptom';
+        }
+        
+        // 获取节点默认名称
+        function getDefaultNodeName(nodeType) {
+            const defaultNames = {
+                'disease': '病种名称',
+                'four_diagnosis': '四诊信息',
+                'symptom': '主要症状',
+                'pathogenesis': '病因病机',
+                'syndrome': '证候类型',
+                'principle': '治则治法',
+                'prescription': '方剂名称',
+                'modification': '加减方案',
+                'prognosis': '预后建议'
+            };
+            return defaultNames[nodeType] || '新节点';
+        }
 
         // 显示右键菜单
         function showContextMenu(e, node) {
@@ -2241,11 +2649,16 @@
             const menuItems = [
                 { text: '🔍 分析此节点', action: () => analyzeSelectedNode(node) },
                 { text: '📝 编辑节点', action: () => editNode(node) },
-                { text: '➕ 添加子节点', action: () => addChildNode(node) }
+                { text: '➕ 添加子节点', action: () => addChildNode(node) },
+                { text: '🌿 添加分支', action: () => addBranchNode(node) }
             ];
             
-            if (node.type === 'formula') {
+            if (node.type === 'prescription') {
                 menuItems.push({ text: '💊 AI方剂分析', action: () => analyzeFormulaNode(node) });
+            }
+            
+            if (node.type === 'syndrome') {
+                menuItems.push({ text: '📋 添加证候分型', action: () => addSyndromeTypes(node) });
             }
             
             menuItems.push({ text: '🗑️ 删除节点', action: () => deleteNodeById(node.id), danger: true });
@@ -3486,6 +3899,66 @@
                 console.error('❌ 找不到aiModeToggle元素');
             }
         }, 1500);
+        
+        // 展示中医决策树示例
+        function showTCMExample() {
+            // 清空当前画布
+            clearCanvas();
+            
+            // 设置疾病名称
+            document.getElementById('diseaseName').value = '失眠症';
+            
+            // 创建示例决策树
+            const exampleNodes = [
+                // 主流程
+                { id: 'ex1', type: 'disease', name: '失眠症', description: '不寐病，睡眠障碍', x: 50, y: 300 },
+                { id: 'ex2', type: 'four_diagnosis', name: '四诊信息收集', description: '望：面色晦暗、舌红苔薄\n闻：语声低微\n问：入睡困难、多梦易醒\n切：脉细数', x: 300, y: 300 },
+                { id: 'ex3', type: 'symptom', name: '主症分析', description: '主症：入睡困难、易醒\n兼症：心烦、口干、头晕', x: 550, y: 300 },
+                { id: 'ex4', type: 'pathogenesis', name: '病因病机', description: '思虑过度，暗耗阴血\n心肾不交，虚火上炎', x: 800, y: 300 },
+                { id: 'ex5', type: 'syndrome', name: '证候判断', description: '综合四诊，辨证分型', x: 1050, y: 300 },
+                
+                // 证型分支
+                { id: 'ex5a', type: 'syndrome', name: '心肾不交证', description: '心烦不寐，心悸健忘\n头晕耳鸣，腰膝酸软', x: 1300, y: 200 },
+                { id: 'ex5b', type: 'syndrome', name: '阴虚火旺证', description: '虚烦不眠，五心烦热\n口干咽燥，舌红少苔', x: 1300, y: 400 },
+                
+                // 心肾不交证的治疗
+                { id: 'ex6a', type: 'principle', name: '滋阴降火', description: '交通心肾，宁心安神', x: 1550, y: 200 },
+                { id: 'ex7a', type: 'prescription', name: '交泰丸加减', description: '黄连6g 肉桂3g\n酸枣仁15g 龙骨30g', x: 1800, y: 200 },
+                
+                // 阴虚火旺证的治疗
+                { id: 'ex6b', type: 'principle', name: '滋阴清热', description: '养阴清热，宁心安神', x: 1550, y: 400 },
+                { id: 'ex7b', type: 'prescription', name: '黄连阿胶汤', description: '黄连9g 阿胶9g\n黄芩6g 白芍12g\n鸡子黄2枚', x: 1800, y: 400 }
+            ];
+            
+            // 创建连接关系
+            const exampleConnections = [
+                { from: 'ex1', to: 'ex2' },
+                { from: 'ex2', to: 'ex3' },
+                { from: 'ex3', to: 'ex4' },
+                { from: 'ex4', to: 'ex5' },
+                { from: 'ex5', to: 'ex5a' },
+                { from: 'ex5', to: 'ex5b' },
+                { from: 'ex5a', to: 'ex6a' },
+                { from: 'ex6a', to: 'ex7a' },
+                { from: 'ex5b', to: 'ex6b' },
+                { from: 'ex6b', to: 'ex7b' }
+            ];
+            
+            // 添加节点
+            exampleNodes.forEach(node => {
+                nodes.push(node);
+                renderNode(node);
+            });
+            
+            // 添加连接
+            connections = exampleConnections;
+            
+            // 绘制连接线
+            setTimeout(() => {
+                drawConnections();
+                showResult('成功', '✅ 已加载失眠症的中医诊疗决策树示例', 'success');
+            }, 100);
+        }
     </script>
 </body>
 </html>
