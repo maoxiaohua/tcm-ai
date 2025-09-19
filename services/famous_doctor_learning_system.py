@@ -1767,59 +1767,49 @@ class FamousDoctorLearningSystem:
         if not DASHSCOPE_AVAILABLE or not self.ai_enabled:
             raise Exception("AI服务不可用")
         
-        # 构建AI提示词
+        # 构建AI提示词 - 纯信息提取版
         prompt = f"""
-作为中医诊疗助手，帮助医生梳理和优化诊疗思路。
+请从以下中医医生的诊疗思路中，提取具体的诊疗信息，构建结构化的决策路径。
 
-**医生信息**：
-疾病名称：{disease_name}
-医生诊疗思路：{thinking_process}
+疾病：{disease_name}
+医生思路：{thinking_process}
 
-**任务说明**：
-你不是在问诊患者，而是作为医生的助手，基于医生已有的诊疗思路，构建结构化的**诊疗决策辅助树**，帮助医生：
-1. 梳理诊疗流程的关键环节
-2. 检查可能遗漏的诊断要点  
-3. 优化辨证论治的逻辑性
-4. 完善处方配伍的合理性
+提取规则：
+1. 只提取医生思路中明确提到的信息
+2. 使用肯定的陈述句，绝不能有问号或询问语气
+3. 不要添加任何验证性、询问性内容
 
-**核心要求**：
-- **严格基于医生的思路**：不得添加医生未提及的症状、证型或处方
-- **辅助而非替代**：每个环节都是为了帮助医生验证和完善自己的判断
-- **体现个性化**：保持医生的诊疗风格和用药特色
-- **实用性导向**：每个决策点都应该有明确的临床操作指导
-
-请根据医生的诊疗思路，构建**诊疗验证决策树**：
-
-**决策树结构**：
-1. **症状核验** - 核实主要症状和伴随症状
-2. **四诊确认** - 舌象、脉象等关键体征验证  
-3. **证型验证** - 确认医生判断的证型是否准确
-4. **治法确认** - 验证治疗原则的适宜性
-5. **方药审核** - 检查方剂配伍和剂量的合理性
-6. **遗漏提醒** - 可能需要考虑的其他要点
-
-返回JSON格式：
+输出JSON格式：
 {{
     "paths": [
         {{
-            "id": "doctor_workflow_verification",
-            "title": "基于医生思路的{disease_name}诊疗验证流程",
+            "id": "medical_path",
+            "title": "{disease_name}诊疗路径",
             "steps": [
-                {{"type": "symptom_verify", "content": "✓ 核实症状：[基于医生描述的核心症状]"}},
-                {{"type": "examination_check", "content": "✓ 四诊确认：[医生需要验证的关键体征和检查要点]", "options": ["已确认", "需补充"]}},
-                {{"type": "syndrome_confirm", "content": "✓ 证型验证：[基于医生判断的证型] - 是否准确？", "options": ["准确", "需调整"]}},
-                {{"type": "treatment_review", "content": "✓ 治法审核：[基于医生思路的治法] - 是否适宜？", "options": ["适宜", "可优化"]}},
-                {{"type": "prescription_audit", "content": "✓ 方药配伍：[医生的具体方剂] - 组方合理性检查"}},
-                {{"type": "missing_check", "content": "⚠️  遗漏提醒：需要考虑的补充要素或注意事项"}}
+                {{"type": "disease", "content": "{disease_name}"}},
+                {{"type": "symptom", "content": "从医生思路提取的症状描述"}},
+                {{"type": "four_diagnosis", "content": "从医生思路提取的舌脉象信息"}},
+                {{"type": "syndrome", "content": "从医生思路提取的中医证型"}},
+                {{"type": "principle", "content": "从医生思路提取的治疗方法"}},
+                {{"type": "prescription", "content": "从医生思路提取的方剂名称"}}
             ],
-            "keywords": [提取医生思路中的核心关键词],
-            "doctor_insights": "医生诊疗思路的核心见解和个性化特色",
-            "improvement_suggestions": "基于此次诊疗的优化建议和学习要点",
-            "confidence": 0.9
+            "keywords": ["{disease_name}"],
+            "tcm_theory": "中医理论基础"
         }}
     ]
 }}
+
+重要：每个content字段必须是简洁明了的陈述句，直接从医生思路中提取信息。
 """
+        
+        # 智能分析诊疗流程完整性并增强提示词
+        try:
+            completeness_analysis = await self._analyze_diagnostic_completeness(disease_name, thinking_process)
+            if completeness_analysis.get("missing_items"):
+                prompt = self._enhance_prompt_with_missing_items(prompt, completeness_analysis, disease_name)
+                print(f"🔍 诊疗流程分析：发现{len(completeness_analysis['missing_items'])}项缺失，已智能补充")
+        except Exception as e:
+            print(f"⚠️ 诊疗流程分析失败: {e}")
         
         try:
             response = await asyncio.to_thread(
@@ -1831,53 +1821,65 @@ class FamousDoctorLearningSystem:
             
             if response.status_code == 200:
                 content = response.output.choices[0]['message']['content']
+                print(f"🔍 AI原始响应内容: {content}")
                 
-                # 解析JSON响应
+                # 解析JSON响应 - 增强版
                 try:
+                    # 首先尝试直接解析
                     ai_result = json.loads(content)
                     paths = ai_result.get("paths", [])
-                    
-                    # 验证和清理AI返回的数据
-                    cleaned_paths = []
-                    for path in paths:
-                        if self._validate_ai_path(path, disease_name):
-                            cleaned_paths.append(path)
-                    
-                    if cleaned_paths:
-                        print(f"✅ AI成功生成 {len(cleaned_paths)} 条决策路径")
-                        return cleaned_paths
-                    else:
-                        raise Exception("AI生成的路径格式验证失败")
-                        
+                    print(f"🔍 JSON解析成功，得到{len(paths)}条路径")
                 except json.JSONDecodeError:
-                    # 尝试提取markdown代码块中的JSON
-                    print("⚠️ 尝试从markdown格式中提取JSON")
-                    try:
-                        import re
-                        # 查找```json ... ```代码块
-                        json_matches = re.findall(r'```json\s*(.*?)\s*```', content, re.DOTALL | re.IGNORECASE)
-                        
-                        if json_matches:
-                            json_content = json_matches[0].strip()
+                    # 如果失败，尝试提取JSON部分 - 支持markdown代码块
+                    import re
+                    
+                    # 尝试多种JSON提取模式
+                    json_patterns = [
+                        r'```json\s*(\{[\s\S]*?\})\s*```',  # markdown代码块
+                        r'```\s*(\{[\s\S]*?\})\s*```',      # 无语言标识的代码块
+                        r'\{[\s\S]*?\}(?=\s*建议补充|$)',    # 原有模式
+                        r'(\{[\s\S]*?\})'                    # 最宽泛的JSON匹配
+                    ]
+                    
+                    json_content = None
+                    for pattern in json_patterns:
+                        json_match = re.search(pattern, content)
+                        if json_match:
+                            json_content = json_match.group(1) if '(' in pattern else json_match.group(0)
+                            print(f"🔍 使用模式 {pattern} 提取到JSON内容")
+                            break
+                    
+                    if json_content:
+                        try:
                             ai_result = json.loads(json_content)
                             paths = ai_result.get("paths", [])
-                            
-                            cleaned_paths = []
-                            for path in paths:
-                                if self._validate_ai_path(path, disease_name):
-                                    cleaned_paths.append(path)
-                            
-                            if cleaned_paths:
-                                print(f"✅ 从markdown提取成功，生成 {len(cleaned_paths)} 条决策路径")
-                                return cleaned_paths
-                        
-                        # 最后备选：使用原始内容
-                        print("⚠️ 无法提取JSON，使用原始AI内容")
-                        return self._parse_ai_text_response(content, disease_name)
-                        
-                    except Exception as e:
-                        print(f"⚠️ JSON提取失败: {e}，使用原始AI内容")
-                        return self._parse_ai_text_response(content, disease_name)
+                            print(f"🔍 从混合内容中提取JSON成功，得到{len(paths)}条路径")
+                        except json.JSONDecodeError as e:
+                            print(f"⚠️ JSON提取也失败: {e}")
+                            print(f"提取的内容: {json_content}")
+                            raise
+                    else:
+                        print(f"⚠️ 无法找到JSON内容")
+                        print(f"原始响应: {content}")
+                        raise
+                
+                # 验证和清理AI返回的数据
+                cleaned_paths = []
+                for path in paths:
+                    # 修复AI返回的步骤类型
+                    fixed_path = self._fix_ai_path_types(path, disease_name)
+                    
+                    # 清理验证性语言 - 加强版
+                    cleaned_path = self._clean_verification_language(fixed_path)
+                    
+                    if self._validate_ai_path(cleaned_path, disease_name):
+                        cleaned_paths.append(cleaned_path)
+                
+                if cleaned_paths:
+                    print(f"✅ AI成功生成 {len(cleaned_paths)} 条决策路径")
+                    return cleaned_paths
+                else:
+                    raise Exception("AI生成的路径格式验证失败")
                     
             else:
                 raise Exception(f"AI调用失败: {response.message}")
@@ -1885,6 +1887,147 @@ class FamousDoctorLearningSystem:
         except Exception as e:
             print(f"❌ AI生成失败: {e}")
             raise e
+
+    def _fix_ai_path_types(self, path: Dict[str, Any], disease_name: str) -> Dict[str, Any]:
+        """修复AI返回的步骤类型，映射到前端期望的类型"""
+        # 类型映射表：AI可能返回的类型 -> 前端期望的类型
+        type_mapping = {
+            'symptom_verify': 'symptom',
+            'examination_check': 'four_diagnosis', 
+            'syndrome_confirm': 'syndrome',
+            'treatment_review': 'principle',
+            'prescription_audit': 'prescription',
+            'missing_check': 'modification',
+            'pathogenesis_analysis': 'pathogenesis',
+            'diagnosis': 'syndrome',
+            'treatment': 'principle',
+            'formula': 'prescription',
+            'herbs': 'modification'
+        }
+        
+        # 复制路径对象以避免修改原始数据
+        fixed_path = path.copy()
+        fixed_steps = []
+        
+        for step in path.get("steps", []):
+            fixed_step = step.copy()
+            original_type = step.get("type", "")
+            
+            # 如果类型需要映射，则进行映射
+            if original_type in type_mapping:
+                fixed_step["type"] = type_mapping[original_type]
+                print(f"🔧 类型映射: {original_type} -> {fixed_step['type']}")
+            elif original_type not in ['disease', 'four_diagnosis', 'symptom', 'pathogenesis', 'syndrome', 'principle', 'prescription', 'modification']:
+                # 如果是完全未知的类型，根据内容猜测
+                content = step.get("content", "").lower()
+                if "症状" in content or "symptom" in content:
+                    fixed_step["type"] = "symptom"
+                elif "舌" in content or "脉" in content or "四诊" in content:
+                    fixed_step["type"] = "four_diagnosis"
+                elif "证" in content or "syndrome" in content:
+                    fixed_step["type"] = "syndrome"
+                elif "治" in content or "principle" in content:
+                    fixed_step["type"] = "principle"
+                elif "方" in content or "prescription" in content:
+                    fixed_step["type"] = "prescription"
+                else:
+                    fixed_step["type"] = "modification"
+                print(f"🔧 智能推断类型: {original_type} -> {fixed_step['type']}")
+            
+            fixed_steps.append(fixed_step)
+        
+        fixed_path["steps"] = fixed_steps
+        return fixed_path
+
+    def _clean_verification_language(self, path: Dict[str, Any]) -> Dict[str, Any]:
+        """清理AI返回内容中的验证性语言"""
+        cleaned_path = path.copy()
+        cleaned_steps = []
+        
+        for step in path.get("steps", []):
+            cleaned_step = step.copy()
+            content = step.get("content", "")
+            
+            # 清理验证性语言的模式
+            content = self._remove_verification_patterns(content)
+            
+            # 如果清理后内容为空或太短，跳过这个步骤
+            if len(content.strip()) < 3:
+                continue
+                
+            cleaned_step["content"] = content
+            cleaned_steps.append(cleaned_step)
+        
+        cleaned_path["steps"] = cleaned_steps
+        return cleaned_path
+
+    def _remove_verification_patterns(self, content: str) -> str:
+        """移除验证性语言模式 - 超强版"""
+        import re
+        
+        # 第一步：移除所有符号开头的前缀
+        prefix_patterns = [
+            r'^✓\s*.*?：',  # 所有✓开头的内容
+            r'^⚠️\s*.*?：',  # 所有⚠️开头的内容
+            r'^☑\s*.*?：',   # 复选框开头
+            r'^▪\s*.*?：',   # 项目符号开头
+            r'^•\s*.*?：',   # 圆点开头
+            r'^-\s*.*?：',   # 破折号开头
+        ]
+        
+        for pattern in prefix_patterns:
+            content = re.sub(pattern, '', content, flags=re.IGNORECASE)
+        
+        # 第二步：移除包含特定关键词的句子段落
+        keyword_patterns = [
+            r'[^。]*?验证[^。]*?[。？]',
+            r'[^。]*?确认[^。]*?[。？]',
+            r'[^。]*?检查[^。]*?[。？]',
+            r'[^。]*?核实[^。]*?[。？]',
+            r'[^。]*?审核[^。]*?[。？]',
+            r'[^。]*?是否[^。]*?[。？]',
+            r'[^。]*?\？[^。]*?',  # 包含问号的内容
+        ]
+        
+        for pattern in keyword_patterns:
+            content = re.sub(pattern, '', content, flags=re.IGNORECASE)
+        
+        # 第三步：移除末尾的验证性内容
+        tail_patterns = [
+            r'\s*-\s*.*?\？.*$',  # 破折号后的问题
+            r'\s*，.*?\？.*$',    # 逗号后的问题  
+            r'\s*。.*?\？.*$',    # 句号后的问题
+            r'\s*[\-－—]\s*[^。]*$',  # 破折号后的内容
+        ]
+        
+        for pattern in tail_patterns:
+            content = re.sub(pattern, '', content)
+        
+        # 第四步：移除明确的验证性短语
+        verification_phrases = [
+            '是否准确', '是否适宜', '是否合理', '是否正确',
+            '组方合理性检查', '请确保', '需要确认', '需要检查', 
+            '需要验证', '需要核实', '请注意', '请考虑',
+            '建议', '评估', '分析', '判断', '检验'
+        ]
+        
+        for phrase in verification_phrases:
+            # 移除包含这些短语的整个句段
+            pattern = f'[^。]*?{phrase}[^。]*?[。？]?'
+            content = re.sub(pattern, '', content, flags=re.IGNORECASE)
+        
+        # 第五步：清理残留的符号和格式
+        content = re.sub(r'[。]+', '。', content)  # 合并多个句号
+        content = re.sub(r'\s*。\s*$', '', content)  # 移除末尾句号
+        content = re.sub(r'^\s*[，。、]\s*', '', content)  # 移除开头的标点
+        content = re.sub(r'\s+', ' ', content)  # 合并多个空格
+        content = content.strip()
+        
+        # 第六步：如果内容太短或只剩标点，返回空字符串
+        if len(content) < 5 or content in ['。', '，', '、', '：', '；']:
+            return ""
+        
+        return content
 
     def _validate_ai_path(self, path: Dict[str, Any], disease_name: str) -> bool:
         """验证AI生成的路径格式"""
@@ -1899,27 +2042,139 @@ class FamousDoctorLearningSystem:
         return True
 
     def _parse_ai_text_response(self, content: str, disease_name: str) -> List[Dict[str, Any]]:
-        """解析AI文本响应，提取路径信息"""
-        # 简单的文本解析逻辑，实际可以更复杂
+        """解析AI文本响应，当JSON解析失败时的备用方案"""
+        print("🔄 使用备用文本解析方案")
+        
+        # 尝试从AI内容中提取有用信息
         paths = []
         
-        # 基于AI内容创建一个基础路径
+        # 简单的关键词提取
+        import re
+        
+        # 首先过滤掉JSON代码块
+        content = re.sub(r'\{[^}]*"paths"[^}]*\}.*', '', content, flags=re.DOTALL)
+        content = re.sub(r'```json.*?```', '', content, flags=re.DOTALL | re.IGNORECASE)
+        
+        # 改进的信息提取 - 更精准的模式匹配
+        # 提取症状信息
+        symptoms = []
+        symptom_patterns = [
+            r'患者([^。，]*(?:恶寒|发热|头痛|身痛|咳嗽|鼻塞|流涕|胸闷|胃痛|失眠|痰白|痰黄)[^。，]*)',
+            r'(恶寒发热[^。，]*)',
+            r'(头痛身痛[^。，]*)',
+            r'(鼻塞流涕[^。，]*)',
+            r'(咳嗽[^。，]*)',
+            r'(胸闷[^。，]*)',
+            r'(胃痛[^。，]*)'
+        ]
+        
+        for pattern in symptom_patterns:
+            matches = re.findall(pattern, content)
+            symptoms.extend([m for m in matches if m.strip()])
+        
+        # 提取四诊信息 
+        four_diagnosis = []
+        four_diag_patterns = [
+            r'(舌[^。，]*)',
+            r'(脉[^。，]*)',
+            r'(面色[^。，]*)',
+            r'(声音[^。，]*)'
+        ]
+        
+        for pattern in four_diag_patterns:
+            matches = re.findall(pattern, content)
+            four_diagnosis.extend([m for m in matches if m.strip()])
+        
+        # 提取方剂信息  
+        prescriptions = []
+        prescription_patterns = [
+            r'用([^。，]*(?:汤|散|丸|膏)[^。，]*)',
+            r'方用([^。，]*(?:汤|散|丸|膏)[^。，]*)',
+            r'选用([^。，]*(?:汤|散|丸|膏)[^。，]*)',
+            r'([一-龟][^。，]*(?:汤|散|丸|膏)(?:加减)?)'
+        ]
+        
+        for pattern in prescription_patterns:
+            matches = re.findall(pattern, content)
+            prescriptions.extend([m.strip() for m in matches if m.strip()])
+        
+        # 提取证型信息
+        syndromes = []
+        syndrome_patterns = [
+            r'辨证为([^。，]*)',
+            r'([^。，]*(?:风寒|风热|气虚|血瘀|痰湿|肝郁)[^。，]*(?:证|型))',
+            r'诊断为([^。，]*)',
+            r'考虑([^。，]*(?:证|型))'
+        ]
+        
+        for pattern in syndrome_patterns:
+            matches = re.findall(pattern, content)
+            syndromes.extend([m.strip() for m in matches if m.strip()])
+        
+        # 提取治疗原则
+        principles = []
+        principle_patterns = [
+            r'治宜([^。，]*)',
+            r'治以([^。，]*)',
+            r'治法([^。，]*)',
+            r'(辛温解表[^。，]*)',
+            r'(疏风散寒[^。，]*)',
+            r'(清热解毒[^。，]*)'
+        ]
+        
+        for pattern in principle_patterns:
+            matches = re.findall(pattern, content)
+            principles.extend([m.strip() for m in matches if m.strip()])
+        
+        # 构建步骤 - 按中医诊疗流程顺序
+        steps = [{"type": "disease", "content": disease_name}]
+        
+        # 添加症状信息
+        if symptoms:
+            symptom_content = "，".join(symptoms[:2])  # 取前2个最相关症状
+            steps.append({"type": "symptom", "content": symptom_content})
+        
+        # 添加四诊信息
+        if four_diagnosis:
+            four_diag_content = "，".join(four_diagnosis[:2])  # 取前2个四诊信息
+            steps.append({"type": "four_diagnosis", "content": four_diag_content})
+        
+        # 添加证型信息
+        if syndromes:
+            syndrome_content = syndromes[0].strip()
+            steps.append({"type": "syndrome", "content": syndrome_content})
+        
+        # 添加治疗原则
+        if principles:
+            principle_content = principles[0].strip()
+            steps.append({"type": "principle", "content": principle_content})
+        
+        # 添加处方信息
+        if prescriptions:
+            prescription_content = prescriptions[0].strip()
+            steps.append({"type": "prescription", "content": prescription_content})
+        
+        # 确保至少有基本的治疗原则
+        if len(steps) == 1:  # 只有疾病名称
+            steps.append({"type": "principle", "content": f"{disease_name}的基本治疗原则"})
+        
         path = {
-            "id": f"{disease_name}_ai_generated",
-            "title": f"AI生成的{disease_name}诊疗路径",
-            "steps": [
-                {"type": "symptom", "content": f"{disease_name}相关症状"},
-                {"type": "condition", "content": "具体诊断条件", "options": ["是", "否"]},
-                {"type": "diagnosis", "content": "AI推荐诊断"},
-                {"type": "treatment", "content": "治疗建议"},
-                {"type": "formula", "content": "AI推荐处方"}
-            ],
-            "keywords": [disease_name, "AI生成"],
-            "tcm_theory": content,  # 保存完整内容，不截断
-            "confidence": 0.7
+            "id": "medical_path",
+            "title": f"{disease_name}诊疗路径",
+            "steps": steps,
+            "keywords": [disease_name],
+            "tcm_theory": "基于AI分析的中医理论",
+            "confidence": 0.6
         }
         
         paths.append(path)
+        print(f"📝 备用解析完成，提取到{len(steps)}个步骤")
+        print(f"🔍 提取详情: 症状{len(symptoms)}个, 四诊{len(four_diagnosis)}个, 证型{len(syndromes)}个, 治法{len(principles)}个, 方剂{len(prescriptions)}个")
+        if symptoms: print(f"  症状: {symptoms}")
+        if four_diagnosis: print(f"  四诊: {four_diagnosis}")
+        if syndromes: print(f"  证型: {syndromes}")
+        if principles: print(f"  治法: {principles}")
+        if prescriptions: print(f"  方剂: {prescriptions}")
         return paths
 
     async def _record_ai_learning(self, disease_name: str, thinking_process: str, ai_paths: List[Dict[str, Any]]):
@@ -1929,6 +2184,129 @@ class FamousDoctorLearningSystem:
             print(f"📚 记录AI学习数据: {disease_name}, 路径数量: {len(ai_paths)}")
         except Exception as e:
             print(f"⚠️ 记录学习数据失败: {e}")
+
+    async def _analyze_diagnostic_completeness(self, disease_name: str, thinking_process: str) -> Dict[str, Any]:
+        """
+        分析诊疗流程完整性，识别缺失项目
+        
+        Args:
+            disease_name: 疾病名称
+            thinking_process: 医生诊疗思路
+            
+        Returns:
+            完整性分析结果
+        """
+        # 标准中医诊疗流程清单
+        standard_items = {
+            "disease_identification": "病种识别：确定疾病的中医病名",
+            "four_diagnosis": "四诊收集：望闻问切，收集全面信息", 
+            "main_symptoms": "主要症状：主症、兼症的归纳分析",
+            "pathogenesis": "病因病机：分析发病原因和病理机制",
+            "syndrome_differentiation": "证候判断：辨证分型（支持多种证型）",
+            "treatment_principles": "治则治法：确定治疗原则和方法",
+            "prescription": "方剂处方：选方用药，君臣佐使",
+            "modifications": "随症加减：根据具体症状调整用药",
+            "prognosis_care": "预后调理：养生建议和注意事项"
+        }
+        
+        # 分析医生思路中已包含的项目
+        present_items = []
+        missing_items = []
+        
+        thinking_lower = thinking_process.lower()
+        
+        # 关键词匹配规则
+        keyword_patterns = {
+            "disease_identification": [disease_name, "病名", "诊断"],
+            "four_diagnosis": ["舌", "脉", "望", "闻", "问", "切", "四诊"],
+            "main_symptoms": ["症状", "主症", "兼症", "表现"],
+            "pathogenesis": ["病因", "病机", "发病", "原因", "机制"],
+            "syndrome_differentiation": ["证", "型", "辨证", "分型", "证候"],
+            "treatment_principles": ["治法", "治则", "原则", "方法"],
+            "prescription": ["方", "药", "处方", "方剂", "君臣佐使"],
+            "modifications": ["加减", "调整", "变化", "加味"],
+            "prognosis_care": ["调理", "养生", "注意", "预后", "护理"]
+        }
+        
+        # 检查每个项目是否存在
+        for item_key, item_desc in standard_items.items():
+            keywords = keyword_patterns.get(item_key, [])
+            found = any(keyword in thinking_lower for keyword in keywords)
+            
+            if found:
+                present_items.append({"key": item_key, "description": item_desc})
+            else:
+                missing_items.append({"key": item_key, "description": item_desc})
+        
+        return {
+            "present_items": present_items,
+            "missing_items": missing_items,
+            "completeness_rate": len(present_items) / len(standard_items),
+            "recommendations": self._generate_completion_recommendations(missing_items, disease_name)
+        }
+
+    def _enhance_prompt_with_missing_items(self, original_prompt: str, completeness_analysis: Dict[str, Any], disease_name: str) -> str:
+        """
+        基于缺失项目增强AI提示词
+        
+        Args:
+            original_prompt: 原始提示词
+            completeness_analysis: 完整性分析结果
+            disease_name: 疾病名称
+            
+        Returns:
+            增强后的提示词
+        """
+        missing_items = completeness_analysis.get("missing_items", [])
+        if not missing_items:
+            return original_prompt
+        
+        # 构建补充指导
+        missing_guidance = f"\n🔍 请特别关注以下缺失的诊疗要素，并尝试基于常见的{disease_name}诊疗规律进行合理补充：\n"
+        
+        for item in missing_items:
+            missing_guidance += f"- {item['description']}\n"
+        
+        missing_guidance += "\n💡 补充原则：\n"
+        missing_guidance += f"- 基于{disease_name}的中医诊疗常规\n"
+        missing_guidance += "- 考虑患者可能的年龄、性别特征\n"
+        missing_guidance += "- 提供合理的临床推测，但要标注为'建议补充'\n"
+        missing_guidance += "- 如果信息确实无法推测，可以省略该步骤\n"
+        
+        # 在原始提示词中插入补充指导
+        enhanced_prompt = original_prompt.replace(
+            "提取规则：",
+            f"提取规则：\n{missing_guidance}\n原始提取规则："
+        )
+        
+        return enhanced_prompt
+
+    def _generate_completion_recommendations(self, missing_items: List[Dict[str, Any]], disease_name: str) -> List[str]:
+        """
+        生成诊疗流程完善建议
+        
+        Args:
+            missing_items: 缺失项目列表
+            disease_name: 疾病名称
+            
+        Returns:
+            建议列表
+        """
+        recommendations = []
+        
+        if any(item["key"] == "four_diagnosis" for item in missing_items):
+            recommendations.append(f"建议补充{disease_name}的典型舌脉象表现")
+        
+        if any(item["key"] == "pathogenesis" for item in missing_items):
+            recommendations.append(f"建议分析{disease_name}的病因病机")
+        
+        if any(item["key"] == "modifications" for item in missing_items):
+            recommendations.append("建议考虑随症加减的具体方案")
+        
+        if any(item["key"] == "prognosis_care" for item in missing_items):
+            recommendations.append("建议添加预后调理和生活指导")
+        
+        return recommendations
 
 
 # 测试和演示功能
@@ -2026,165 +2404,6 @@ def test_famous_doctor_system():
             return False
             
         return True
-
-    def _parse_ai_text_response(self, content: str, disease_name: str) -> List[Dict[str, Any]]:
-        """解析AI文本响应，提取路径信息"""
-        # 简单的文本解析逻辑，实际可以更复杂
-        paths = []
-        
-        # 基于AI内容创建一个基础路径
-        path = {
-            "id": f"{disease_name}_ai_generated",
-            "title": f"AI生成的{disease_name}诊疗路径",
-            "steps": [
-                {"type": "symptom", "content": f"{disease_name}相关症状"},
-                {"type": "condition", "content": "具体诊断条件", "options": ["是", "否"]},
-                {"type": "diagnosis", "content": "AI推荐诊断"},
-                {"type": "treatment", "content": "治疗建议"},
-                {"type": "formula", "content": "AI推荐处方"}
-            ],
-            "keywords": [disease_name, "AI生成"],
-            "tcm_theory": content,  # 保存完整内容，不截断
-            "confidence": 0.7
-        }
-        
-        paths.append(path)
-        return paths
-
-    async def _generate_ai_decision_paths(self, disease_name: str, thinking_process: str, complexity_level: str) -> List[Dict[str, Any]]:
-        """
-        使用Dashscope AI真实生成决策路径
-        """
-        if not DASHSCOPE_AVAILABLE or not self.ai_enabled:
-            raise Exception("AI服务不可用")
-        
-        # 构建AI提示词
-        prompt = f"""
-作为中医诊疗助手，帮助医生梳理和优化诊疗思路。
-
-**医生信息**：
-疾病名称：{disease_name}
-医生诊疗思路：{thinking_process}
-
-**任务说明**：
-你不是在问诊患者，而是作为医生的助手，基于医生已有的诊疗思路，构建结构化的**诊疗决策辅助树**，帮助医生：
-1. 梳理诊疗流程的关键环节
-2. 检查可能遗漏的诊断要点  
-3. 优化辨证论治的逻辑性
-4. 完善处方配伍的合理性
-
-**核心要求**：
-- **严格基于医生的思路**：不得添加医生未提及的症状、证型或处方
-- **辅助而非替代**：每个环节都是为了帮助医生验证和完善自己的判断
-- **体现个性化**：保持医生的诊疗风格和用药特色
-- **实用性导向**：每个决策点都应该有明确的临床操作指导
-
-请根据医生的诊疗思路，构建**诊疗验证决策树**：
-
-**决策树结构**：
-1. **症状核验** - 核实主要症状和伴随症状
-2. **四诊确认** - 舌象、脉象等关键体征验证  
-3. **证型验证** - 确认医生判断的证型是否准确
-4. **治法确认** - 验证治疗原则的适宜性
-5. **方药审核** - 检查方剂配伍和剂量的合理性
-6. **遗漏提醒** - 可能需要考虑的其他要点
-
-返回JSON格式：
-{{
-    "paths": [
-        {{
-            "id": "doctor_workflow_verification",
-            "title": "基于医生思路的{disease_name}诊疗验证流程",
-            "steps": [
-                {{"type": "symptom_verify", "content": "✓ 核实症状：[基于医生描述的核心症状]"}},
-                {{"type": "examination_check", "content": "✓ 四诊确认：[医生需要验证的关键体征和检查要点]", "options": ["已确认", "需补充"]}},
-                {{"type": "syndrome_confirm", "content": "✓ 证型验证：[基于医生判断的证型] - 是否准确？", "options": ["准确", "需调整"]}},
-                {{"type": "treatment_review", "content": "✓ 治法审核：[基于医生思路的治法] - 是否适宜？", "options": ["适宜", "可优化"]}},
-                {{"type": "prescription_audit", "content": "✓ 方药配伍：[医生的具体方剂] - 组方合理性检查"}},
-                {{"type": "missing_check", "content": "⚠️  遗漏提醒：需要考虑的补充要素或注意事项"}}
-            ],
-            "keywords": [提取医生思路中的核心关键词],
-            "doctor_insights": "医生诊疗思路的核心见解和个性化特色",
-            "improvement_suggestions": "基于此次诊疗的优化建议和学习要点",
-            "confidence": 0.9
-        }}
-    ]
-}}
-"""
-        
-        try:
-            response = await asyncio.to_thread(
-                dashscope.Generation.call,
-                model=self.ai_model,
-                prompt=prompt,
-                result_format='message'
-            )
-            
-            if response.status_code == 200:
-                content = response.output.choices[0]['message']['content']
-                
-                # 解析JSON响应
-                try:
-                    ai_result = json.loads(content)
-                    paths = ai_result.get("paths", [])
-                    
-                    # 验证和清理AI返回的数据
-                    cleaned_paths = []
-                    for path in paths:
-                        if self._validate_ai_path(path, disease_name):
-                            cleaned_paths.append(path)
-                    
-                    if cleaned_paths:
-                        print(f"✅ AI成功生成 {len(cleaned_paths)} 条决策路径")
-                        return cleaned_paths
-                    else:
-                        raise Exception("AI生成的路径格式验证失败")
-                        
-                except json.JSONDecodeError:
-                    # 尝试提取markdown代码块中的JSON
-                    print("⚠️ 尝试从markdown格式中提取JSON")
-                    try:
-                        import re
-                        # 查找```json ... ```代码块
-                        json_matches = re.findall(r'```json\s*(.*?)\s*```', content, re.DOTALL | re.IGNORECASE)
-                        
-                        if json_matches:
-                            json_content = json_matches[0].strip()
-                            ai_result = json.loads(json_content)
-                            paths = ai_result.get("paths", [])
-                            
-                            cleaned_paths = []
-                            for path in paths:
-                                if self._validate_ai_path(path, disease_name):
-                                    cleaned_paths.append(path)
-                            
-                            if cleaned_paths:
-                                print(f"✅ 从markdown提取成功，生成 {len(cleaned_paths)} 条决策路径")
-                                return cleaned_paths
-                        
-                        # 最后备选：使用原始内容
-                        print("⚠️ 无法提取JSON，使用原始AI内容")
-                        return self._parse_ai_text_response(content, disease_name)
-                        
-                    except Exception as e:
-                        print(f"⚠️ JSON提取失败: {e}，使用原始AI内容")
-                        return self._parse_ai_text_response(content, disease_name)
-                    
-            else:
-                raise Exception(f"AI调用失败: {response.message}")
-                
-        except Exception as e:
-            print(f"❌ AI生成失败: {e}")
-            raise e
-
-    async def _record_ai_learning(self, disease_name: str, thinking_process: str, ai_paths: List[Dict[str, Any]]):
-        """记录AI生成的学习数据"""
-        try:
-            # 这里可以记录AI生成的数据用于后续学习
-            print(f"📚 记录AI学习数据: {disease_name}, 路径数量: {len(ai_paths)}")
-        except Exception as e:
-            print(f"⚠️ 记录学习数据失败: {e}")
-
 
 if __name__ == "__main__":
     test_famous_doctor_system()

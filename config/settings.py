@@ -51,7 +51,9 @@ AI_CONFIG = {
     "synthesis_timeout": int(os.getenv("SYNTHESIS_TIMEOUT", 45)),
     # 多模态模型配置
     "multimodal_model": os.getenv("MULTIMODAL_MODEL", "qwen-vl-max"),
-    "multimodal_timeout": int(os.getenv("MULTIMODAL_TIMEOUT", 80))
+    "multimodal_timeout": int(os.getenv("MULTIMODAL_TIMEOUT", 80)),
+    # 决策树生成专用模型
+    "decision_tree_model": os.getenv("DECISION_TREE_MODEL", "qwen-max")
 }
 
 # 域名和CORS配置

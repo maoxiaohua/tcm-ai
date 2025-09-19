@@ -12,12 +12,14 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 import json
 import logging
+import asyncio
 
 # 导入必要的服务
 from services.famous_doctor_learning_system import FamousDoctorLearningSystem
 from api.security_integration import get_current_user
 from core.security.rbac_system import UserSession
 from core.prescription.tcm_formula_analyzer import TCMFormulaAnalyzer
+from config.settings import AI_CONFIG
 
 # 检查Dashscope可用性
 try:
@@ -614,6 +616,11 @@ class UserPreferencesRequest(BaseModel):
     ai_mode_preferred: bool = True
     complexity_level: str = "standard"
     favorite_schools: List[str] = []
+
+class DiagnosticCompletenessRequest(BaseModel):
+    disease_name: str
+    thinking_process: str
+    patient_info: Optional[Dict[str, Any]] = None  # 患者信息：年龄、性别等
     custom_templates: Dict[str, Any] = {}
 
 @router.post("/generate_visual_decision_tree")
@@ -1245,6 +1252,365 @@ async def submit_decision_tree_feedback(
     except Exception as e:
         logger.error(f"提交决策树反馈失败: {e}")
         raise HTTPException(status_code=500, detail=f"提交失败: {str(e)}")
+
+@router.post("/analyze_diagnostic_completeness")
+async def analyze_diagnostic_completeness(
+    request: DiagnosticCompletenessRequest,
+    current_user: UserSession = Depends(get_current_user)
+):
+    """
+    智能分析诊疗流程完整性
+    
+    分析医生输入的诊疗思路，识别缺失的标准诊疗要素，
+    并提供智能补充建议
+    """
+    try:
+        logger.info(f"诊疗流程完整性分析 - 疾病: {request.disease_name}, 用户: {current_user.user_id}")
+        
+        # 调用名医学习系统进行完整性分析
+        completeness_result = await doctor_learning_system._analyze_diagnostic_completeness(
+            request.disease_name, 
+            request.thinking_process
+        )
+        
+        # 添加患者信息考虑（如果提供）
+        if request.patient_info:
+            age = request.patient_info.get("age")
+            gender = request.patient_info.get("gender")
+            
+            # 基于年龄和性别调整建议
+            if age:
+                if age < 18:
+                    completeness_result["recommendations"].append("儿童患者需特别注意药物剂量调整")
+                elif age > 65:
+                    completeness_result["recommendations"].append("老年患者需考虑脏腑功能衰退，用药宜温和")
+            
+            if gender:
+                if gender == "女":
+                    completeness_result["recommendations"].append("女性患者需考虑月经、妊娠等生理特点")
+        
+        # 生成详细的改进建议
+        improvement_suggestions = []
+        for missing_item in completeness_result["missing_items"]:
+            suggestion = await _generate_item_specific_suggestion(
+                missing_item, request.disease_name, request.thinking_process
+            )
+            improvement_suggestions.append(suggestion)
+        
+        return {
+            "success": True,
+            "message": f"诊疗流程完整性分析完成",
+            "data": {
+                "completeness_rate": completeness_result["completeness_rate"],
+                "present_items": completeness_result["present_items"],
+                "missing_items": completeness_result["missing_items"],
+                "recommendations": completeness_result["recommendations"],
+                "improvement_suggestions": improvement_suggestions,
+                "patient_considerations": request.patient_info or {},
+                "analysis_summary": {
+                    "total_items": 9,
+                    "present_count": len(completeness_result["present_items"]),
+                    "missing_count": len(completeness_result["missing_items"]),
+                    "completeness_level": _get_completeness_level(completeness_result["completeness_rate"])
+                }
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"诊疗流程完整性分析失败: {e}")
+        raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
+
+async def _generate_item_specific_suggestion(missing_item: Dict[str, Any], disease_name: str, thinking_process: str) -> Dict[str, Any]:
+    """为特定缺失项目生成具体建议"""
+    item_key = missing_item["key"]
+    
+    # 基于不同项目类型生成针对性建议
+    suggestions_map = {
+        "four_diagnosis": {
+            "suggestion": f"建议补充{disease_name}的典型舌脉象",
+            "examples": ["舌质红苔黄厚", "脉象弦数", "面色萎黄", "声音低微"],
+            "importance": "high"
+        },
+        "pathogenesis": {
+            "suggestion": f"建议分析{disease_name}的病因病机",
+            "examples": ["外感风邪", "脾胃虚弱", "肝气郁结", "肾阳不足"],
+            "importance": "high"
+        },
+        "modifications": {
+            "suggestion": "建议添加随症加减方案",
+            "examples": ["伴发热加银花、连翘", "便秘加大黄、芒硝", "失眠加酸枣仁、龙骨"],
+            "importance": "medium"
+        },
+        "prognosis_care": {
+            "suggestion": "建议添加预后调理指导",
+            "examples": ["饮食调养", "情志调摄", "起居有常", "适度运动"],
+            "importance": "medium"
+        }
+    }
+    
+    return suggestions_map.get(item_key, {
+        "suggestion": f"建议补充{missing_item['description']}",
+        "examples": [],
+        "importance": "low"
+    })
+
+def _get_completeness_level(rate: float) -> str:
+    """获取完整度等级"""
+    if rate >= 0.9:
+        return "优秀"
+    elif rate >= 0.7:
+        return "良好"
+    elif rate >= 0.5:
+        return "一般"
+    else:
+        return "需改进"
+
+# ======================== 新增：诊疗信息提取和处方生成 ========================
+
+class PrescriptionExtractionRequest(BaseModel):
+    """处方提取请求"""
+    thinking_process: str
+    patient_age: Optional[int] = None  # 患者年龄
+    patient_gender: Optional[str] = None  # 患者性别 male/female
+    patient_weight: Optional[float] = None  # 患者体重(kg)
+    special_conditions: List[str] = []  # 特殊情况：pregnancy, lactation, elderly等
+
+@router.post("/extract_prescription_info")
+async def extract_prescription_info(
+    request: PrescriptionExtractionRequest
+):
+    """
+    从诊疗思路中提取病种、病情、处方信息，并生成个性化用量
+    
+    Args:
+        request: 包含诊疗思路和患者信息的请求
+        
+    Returns:
+        提取的诊疗信息和个性化处方
+    """
+    try:
+        logger.info(f"开始提取诊疗信息，思路长度: {len(request.thinking_process)}")
+        
+        # 调用AI提取结构化信息
+        extraction_result = await _extract_clinical_info_with_ai(
+            request.thinking_process,
+            request.patient_age,
+            request.patient_gender,
+            request.patient_weight,
+            request.special_conditions
+        )
+        
+        return {
+            "success": True,
+            "message": "诊疗信息提取成功",
+            "data": extraction_result
+        }
+        
+    except Exception as e:
+        logger.error(f"诊疗信息提取失败: {e}")
+        return {
+            "success": False,
+            "message": f"提取失败: {str(e)}",
+            "data": None
+        }
+
+async def _extract_clinical_info_with_ai(
+    thinking_process: str,
+    patient_age: Optional[int],
+    patient_gender: Optional[str],
+    patient_weight: Optional[float],
+    special_conditions: List[str]
+) -> Dict[str, Any]:
+    """使用AI提取临床信息并生成个性化处方"""
+    
+    # 构建患者信息描述
+    patient_info = _build_patient_info_description(
+        patient_age, patient_gender, patient_weight, special_conditions
+    )
+    
+    # 构建AI提示词
+    prompt = f"""
+请从以下中医诊疗思路中提取结构化信息，并根据患者特征生成个性化处方：
+
+诊疗思路：{thinking_process}
+
+患者信息：{patient_info}
+
+请提取以下信息并以JSON格式返回：
+{{
+    "disease_name": "病种名称（从思路中提取）",
+    "symptom_description": "主要症状描述（详细列出所有症状）",
+    "tongue_pulse": "舌脉象描述",
+    "syndrome_differentiation": "中医证型诊断",
+    "treatment_principle": "治疗方法",
+    "base_prescription": {{
+        "name": "方剂名称",
+        "composition": [
+            {{
+                "herb_name": "药材名称",
+                "standard_dose": "成人标准剂量（克）",
+                "current_dose": "当前患者推荐剂量（克）",
+                "function": "功效作用"
+            }}
+        ]
+    }},
+    "dosage_adjustments": {{
+        "age_factor": "年龄调整说明",
+        "gender_factor": "性别考虑事项",
+        "weight_factor": "体重调整说明",
+        "special_notes": "特殊注意事项"
+    }},
+    "administration": {{
+        "preparation": "煎煮方法",
+        "dosage": "服用剂量和频次",
+        "course": "疗程建议",
+        "precautions": "注意事项"
+    }}
+}}
+
+剂量调整原则：
+1. 儿童（<18岁）：成人剂量的50-70%
+2. 老年人（>65岁）：成人剂量的70-80%
+3. 体重过轻（<50kg）：适当减量10-20%
+4. 体重过重（>80kg）：可适当增量10-15%
+5. 孕妇：避免活血化瘀、破气药物
+6. 哺乳期：注意药物对婴儿的影响
+
+请确保所有剂量都是实用的临床剂量，并提供详细的用药指导。
+"""
+
+    try:
+        # 调用AI生成
+        response = await asyncio.to_thread(
+            dashscope.Generation.call,
+            model=AI_CONFIG.get('decision_tree_model', 'qwen-max'),
+            prompt=prompt,
+            result_format='message'
+        )
+        
+        if response.status_code == 200:
+            content = response.output.choices[0]['message']['content']
+            
+            # 解析JSON响应
+            ai_result = _parse_prescription_json(content)
+            
+            return ai_result
+        else:
+            raise Exception(f"AI调用失败: {response.message}")
+            
+    except Exception as e:
+        logger.error(f"AI提取失败: {e}")
+        # 返回基础解析结果
+        return _basic_prescription_extraction(thinking_process, patient_age, patient_gender)
+
+def _build_patient_info_description(
+    age: Optional[int],
+    gender: Optional[str],
+    weight: Optional[float],
+    special_conditions: List[str]
+) -> str:
+    """构建患者信息描述"""
+    info_parts = []
+    
+    if age is not None:
+        if age < 18:
+            info_parts.append(f"儿童患者，{age}岁")
+        elif age > 65:
+            info_parts.append(f"老年患者，{age}岁")
+        else:
+            info_parts.append(f"成年患者，{age}岁")
+    
+    if gender:
+        gender_map = {"male": "男性", "female": "女性"}
+        info_parts.append(gender_map.get(gender, gender))
+    
+    if weight is not None:
+        if weight < 50:
+            info_parts.append(f"体重{weight}kg（偏轻）")
+        elif weight > 80:
+            info_parts.append(f"体重{weight}kg（偏重）")
+        else:
+            info_parts.append(f"体重{weight}kg")
+    
+    if special_conditions:
+        condition_map = {
+            "pregnancy": "妊娠期",
+            "lactation": "哺乳期",
+            "elderly": "高龄",
+            "diabetes": "糖尿病",
+            "hypertension": "高血压",
+            "liver_disease": "肝病",
+            "kidney_disease": "肾病"
+        }
+        special_desc = [condition_map.get(c, c) for c in special_conditions]
+        info_parts.append(f"特殊情况：{', '.join(special_desc)}")
+    
+    return "；".join(info_parts) if info_parts else "无特殊情况"
+
+def _parse_prescription_json(content: str) -> Dict[str, Any]:
+    """解析AI返回的处方JSON"""
+    import re
+    import json
+    
+    # 尝试多种JSON提取模式
+    json_patterns = [
+        r'```json\s*(\{[\s\S]*?\})\s*```',
+        r'```\s*(\{[\s\S]*?\})\s*```',
+        r'(\{[\s\S]*?\})'
+    ]
+    
+    for pattern in json_patterns:
+        json_match = re.search(pattern, content)
+        if json_match:
+            json_content = json_match.group(1)
+            try:
+                return json.loads(json_content)
+            except json.JSONDecodeError:
+                continue
+    
+    # 如果JSON解析失败，返回基础结构
+    return {
+        "disease_name": "信息提取失败",
+        "symptom_description": content[:200] + "..." if len(content) > 200 else content,
+        "error": "JSON解析失败，请检查AI响应格式"
+    }
+
+def _basic_prescription_extraction(
+    thinking_process: str,
+    age: Optional[int],
+    gender: Optional[str]
+) -> Dict[str, Any]:
+    """基础的处方信息提取（当AI失败时的备用方案）"""
+    import re
+    
+    # 基础信息提取
+    disease_match = re.search(r'(\w+不\w+|\w+病|\w+症)', thinking_process)
+    disease_name = disease_match.group(1) if disease_match else "未明确病名"
+    
+    # 症状提取
+    symptom_patterns = [
+        r'症见[:：]([^。]+)',
+        r'表现为([^。]+)',
+        r'症状([^。]+)'
+    ]
+    symptoms = []
+    for pattern in symptom_patterns:
+        matches = re.findall(pattern, thinking_process)
+        symptoms.extend(matches)
+    
+    # 方剂提取
+    prescription_match = re.search(r'方药[:：]([^。]+)', thinking_process)
+    prescription_name = prescription_match.group(1).strip() if prescription_match else "未明确方剂"
+    
+    return {
+        "disease_name": disease_name,
+        "symptom_description": "，".join(symptoms) if symptoms else "症状信息提取失败",
+        "base_prescription": {
+            "name": prescription_name,
+            "composition": []
+        },
+        "note": "基础提取结果，建议手动补充"
+    }
 
 # 导出路由器
 __all__ = ["router"]
