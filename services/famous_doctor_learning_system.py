@@ -1012,7 +1012,7 @@ class FamousDoctorLearningSystem:
 
     async def generate_decision_paths(self, disease_name: str, thinking_process: str = "", 
                                     use_ai: bool = None, include_tcm_analysis: bool = True, 
-                                    complexity_level: str = "standard") -> Dict[str, Any]:
+                                    complexity_level: str = "standard", enable_smart_branching: bool = False) -> Dict[str, Any]:
         """
         智能生成决策路径（混合模式：AI + 模板）
         
@@ -1079,6 +1079,14 @@ class FamousDoctorLearningSystem:
                 for path in result["paths"]:
                     if "tcm_theory" not in path:
                         path["tcm_theory"] = self._get_tcm_theory_for_path(path, disease_name)
+            
+            # 🎯 智能年龄分支生成
+            if enable_smart_branching and result["paths"]:
+                print(f"🎯 启用智能年龄分支生成: {disease_name}")
+                result["paths"] = self._add_age_branches_to_paths(result["paths"], disease_name)
+                result["smart_branching_enabled"] = True
+            else:
+                result["smart_branching_enabled"] = False
             
             return result
             
@@ -2404,6 +2412,154 @@ def test_famous_doctor_system():
             return False
             
         return True
+
+    def _add_age_branches_to_paths(self, original_paths: List[Dict[str, Any]], disease_name: str) -> List[Dict[str, Any]]:
+        """
+        为决策路径添加智能年龄分支
+        
+        Args:
+            original_paths: 原始决策路径
+            disease_name: 疾病名称
+            
+        Returns:
+            添加年龄分支后的决策路径
+        """
+        enhanced_paths = []
+        
+        for path in original_paths:
+            # 如果路径包含处方步骤，创建年龄分支
+            prescription_steps = [step for step in path.get("steps", []) 
+                                if step.get("type") == "prescription"]
+            
+            if prescription_steps:
+                # 为每个处方步骤创建成人/儿童分支
+                adult_path, child_path = self._create_age_specific_paths(path, disease_name)
+                enhanced_paths.extend([adult_path, child_path])
+            else:
+                # 无处方步骤，保持原路径
+                enhanced_paths.append(path)
+        
+        print(f"🎯 智能分支完成: 原始{len(original_paths)}条路径 → 增强后{len(enhanced_paths)}条路径")
+        return enhanced_paths
+
+    def _create_age_specific_paths(self, original_path: Dict[str, Any], disease_name: str) -> tuple:
+        """
+        创建成人和儿童特定的路径分支
+        
+        Args:
+            original_path: 原始路径
+            disease_name: 疾病名称
+            
+        Returns:
+            (成人路径, 儿童路径)元组
+        """
+        # 复制原始路径作为基础
+        adult_path = original_path.copy()
+        child_path = original_path.copy()
+        
+        # 成人路径 (18岁以上)
+        adult_path.update({
+            "id": f"{original_path['id']}_adult",
+            "title": f"{original_path['title']} - 成人用药",
+            "age_group": "adult",
+            "age_range": "18岁以上",
+            "dosage_ratio": 1.0,
+            "steps": self._adjust_steps_for_age_group(original_path.get("steps", []), "adult"),
+            "keywords": original_path.get("keywords", []) + ["成人", "标准剂量"],
+            "dosage_note": "成人标准剂量，根据体重和病情适当调整"
+        })
+        
+        # 儿童路径 (3-17岁, 65%剂量)
+        child_path.update({
+            "id": f"{original_path['id']}_child",
+            "title": f"{original_path['title']} - 儿童用药",
+            "age_group": "child", 
+            "age_range": "3-17岁",
+            "dosage_ratio": 0.65,
+            "steps": self._adjust_steps_for_age_group(original_path.get("steps", []), "child"),
+            "keywords": original_path.get("keywords", []) + ["儿童", "减量65%"],
+            "dosage_note": "儿童减量用药(65%)，注意观察反应，必要时调整剂量"
+        })
+        
+        return adult_path, child_path
+
+    def _adjust_steps_for_age_group(self, original_steps: List[Dict[str, Any]], age_group: str) -> List[Dict[str, Any]]:
+        """
+        根据年龄组调整决策步骤中的处方剂量
+        
+        Args:
+            original_steps: 原始步骤
+            age_group: 年龄组 ("adult" 或 "child")
+            
+        Returns:
+            调整后的步骤
+        """
+        adjusted_steps = []
+        
+        for step in original_steps:
+            new_step = step.copy()
+            
+            if step.get("type") == "prescription":
+                # 调整处方剂量
+                new_step["content"] = self._adjust_prescription_dosage(
+                    step.get("content", ""), age_group
+                )
+                
+                # 添加年龄特定的用药说明
+                if age_group == "child":
+                    new_step["age_specific_notes"] = [
+                        "儿童用药需密切观察反应",
+                        "如有不适请及时就医",
+                        "剂量已按儿童标准调整(65%)"
+                    ]
+                else:
+                    new_step["age_specific_notes"] = [
+                        "成人标准剂量",
+                        "可根据体重适当调整",
+                        "注意药物相互作用"
+                    ]
+            
+            adjusted_steps.append(new_step)
+        
+        return adjusted_steps
+
+    def _adjust_prescription_dosage(self, prescription_content: str, age_group: str) -> str:
+        """
+        调整处方内容中的药物剂量
+        
+        Args:
+            prescription_content: 原始处方内容
+            age_group: 年龄组
+            
+        Returns:
+            调整后的处方内容
+        """
+        if age_group == "adult":
+            # 成人保持标准剂量
+            return prescription_content
+        
+        # 儿童减量65%
+        import re
+        
+        def replace_dosage(match):
+            try:
+                original_dose = float(match.group(1))
+                adjusted_dose = round(original_dose * 0.65, 1)
+                # 确保最小剂量不少于1g (除非原始剂量就很小)
+                if adjusted_dose < 1 and original_dose >= 3:
+                    adjusted_dose = 1
+                return f"{adjusted_dose}g"
+            except:
+                return match.group(0)
+        
+        # 匹配剂量模式：数字+g
+        adjusted_content = re.sub(r'(\d+(?:\.\d+)?)g', replace_dosage, prescription_content)
+        
+        # 添加儿童用药提示
+        if "儿童剂量" not in adjusted_content:
+            adjusted_content += " (已调整为儿童安全剂量)"
+        
+        return adjusted_content
 
 if __name__ == "__main__":
     test_famous_doctor_system()

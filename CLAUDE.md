@@ -99,9 +99,11 @@ AI生成处方 → 安全校验 → 医生审查 → 患者确认 → 支付订�
 # 开发环境
 python api/main.py
 
-# 生产环境 (systemd)
-systemctl start tcm-ai
-systemctl enable tcm-ai
+# 生产环境 (systemd) ⚠️ 重要：代码修改后必须重启服务
+sudo systemctl restart tcm-ai  # 重启服务 (代码更新后必须)
+sudo systemctl status tcm-ai   # 检查状态
+sudo systemctl start tcm-ai    # 启动服务
+sudo systemctl enable tcm-ai   # 开机自启
 
 # 测试环境
 python api/main_test_8002.py

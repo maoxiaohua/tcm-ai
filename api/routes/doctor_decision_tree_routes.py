@@ -602,6 +602,7 @@ class VisualDecisionTreeRequest(BaseModel):
     include_tcm_analysis: bool = True
     complexity_level: str = "standard"  # simple, standard, complex
     use_ai: Optional[bool] = None  # 新增：手动指定AI模式
+    enable_smart_branching: bool = False  # 新增：智能年龄分支功能
 
 class TCMTheoryAnalysisRequest(BaseModel):
     tree_data: Dict[str, Any]
@@ -653,7 +654,8 @@ async def generate_visual_decision_tree(
                 thinking_process=request.thinking_process,
                 use_ai=request.use_ai,  # 使用前端传递的参数
                 include_tcm_analysis=request.include_tcm_analysis,
-                complexity_level=request.complexity_level
+                complexity_level=request.complexity_level,
+                enable_smart_branching=request.enable_smart_branching  # 新增智能分支参数
             )
             
             print(f"📡 API路由返回结果:")

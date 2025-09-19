@@ -221,6 +221,35 @@
         .node.diagnosis { border-left: 4px solid #22c55e; }
         .node.treatment { border-left: 4px solid #ec4899; }
         .node.formula { border-left: 4px solid #a855f7; }
+        
+        /* 🎯 智能年龄分支样式 */
+        .node.adult-branch { 
+            border-left: 4px solid #0369a1; 
+            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+        }
+        .node.child-branch { 
+            border-left: 4px solid #dc2626; 
+            background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+        }
+        
+        .age-group-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .age-group-badge.adult {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .age-group-badge.child {
+            background: #fee2e2;
+            color: #dc2626;
+        }
 
         .node-title {
             font-weight: 600;
@@ -594,6 +623,44 @@
                 <textarea class="form-input form-textarea" id="doctorThought" placeholder="简述您的诊疗思路..."></textarea>
             </div>
 
+            <!-- 🆕 智能分支生成 -->
+            <div class="section-title">🤖 智能分支生成</div>
+            <div class="ai-info-panel" style="background: #ecfdf5; padding: 12px; border-radius: 8px; border: 1px solid #10b981; margin-bottom: 15px;">
+                <div style="font-size: 11px; color: #065f46; margin-bottom: 10px; line-height: 1.4;">
+                    ✨ <strong>AI智能分支</strong>：自动为处方生成成人/儿童双分支决策树<br>
+                    🎯 <strong>剂量智能</strong>：儿童剂量采用65%安全减量，符合中医儿科用药规范
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                    <input type="checkbox" id="enableSmartBranching" checked style="margin: 0;">
+                    <label for="enableSmartBranching" style="font-size: 12px; font-weight: bold; color: #065f46;">启用智能年龄分支生成</label>
+                </div>
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label class="form-label" style="font-size: 12px; margin-bottom: 8px;">🎯 智能分支设置</label>
+                    <div style="background: #f0fdf4; padding: 8px; border-radius: 6px; border: 1px solid #bbf7d0;">
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 11px; color: #059669; font-weight: bold;">成人年龄范围</label>
+                                <input type="text" value="18岁以上" readonly style="height: 25px; font-size: 11px; background: #f9fafb; border: 1px solid #d1d5db; border-radius: 4px; padding: 0 8px; width: 100%;">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="font-size: 11px; color: #059669; font-weight: bold;">儿童年龄范围</label>
+                                <input type="text" value="3-17岁" readonly style="height: 25px; font-size: 11px; background: #f9fafb; border: 1px solid #d1d5db; border-radius: 4px; padding: 0 8px; width: 100%;">
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 11px; color: #059669; font-weight: bold;">成人剂量</label>
+                                <input type="text" value="标准剂量 (100%)" readonly style="height: 25px; font-size: 11px; background: #f9fafb; border: 1px solid #d1d5db; border-radius: 4px; padding: 0 8px; width: 100%;">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="font-size: 11px; color: #059669; font-weight: bold;">儿童剂量</label>
+                                <input type="text" value="减量剂量 (65%)" readonly style="height: 25px; font-size: 11px; background: #f9fafb; border: 1px solid #d1d5db; border-radius: 4px; padding: 0 8px; width: 100%;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- AI功能 -->
             <div class="section-title">🤖 智能功能</div>
             
@@ -619,16 +686,16 @@
                     <span id="generateBtnIcon">🤖</span> 
                     <span id="generateBtnText">智能生成决策树</span>
                 </button>
-                <button class="btn btn-warning" id="analyzeBtn">🧠 理论分析</button>
-                <button class="btn btn-success" id="suggestBtn">💡 遗漏检测</button>
+                <button class="btn btn-success" id="extractPrescriptionBtn" style="background: #10b981;">
+                    💊 智能处方提取
+                </button>
             </div>
+            <!-- ✨ 高级分析功能 -->
             <div class="btn-group">
-                <button class="btn btn-warning" id="symptomDetectBtn" style="background: #f59e0b;">🔍 症状遗漏检测</button>
                 <button class="btn btn-primary" id="formulaAnalyzeBtn" style="background: #a855f7;">💊 方剂AI分析</button>
             </div>
             <div class="btn-group">
-                <button class="btn btn-success" id="autoPathwayBtn" style="background: #059669;">🤖 智能诊疗路径</button>
-                <button class="btn btn-warning" id="syndromeAnalyzeBtn" style="background: #d97706;">🎯 证型智能识别</button>
+                <button class="btn btn-primary" id="saveToLibraryBtn" style="background: #7c3aed;">💾 保存到思维库</button>
             </div>
 
             <!-- 快速操作 -->
@@ -910,20 +977,16 @@
         function initializeEventListeners() {
             try {
                 // AI功能按钮
+                // 🎯 核心功能按钮
                 document.getElementById('generateBtn').addEventListener('click', generateAITree);
-                document.getElementById('analyzeBtn').addEventListener('click', analyzeCurrentTree);
-                document.getElementById('suggestBtn').addEventListener('click', suggestMissingLogic);
+                document.getElementById('extractPrescriptionBtn').addEventListener('click', extractPrescriptionInfo);
                 
-                // 专业功能按钮
-                document.getElementById('symptomDetectBtn').addEventListener('click', detectMissingSymptoms);
+                // 🔬 高级分析功能  
                 document.getElementById('formulaAnalyzeBtn').addEventListener('click', analyzeFormula);
                 
-                // 快速操作按钮
-                const autoPathwayBtn = document.getElementById('autoPathwayBtn');
-                if (autoPathwayBtn) autoPathwayBtn.addEventListener('click', generateAutoPathway);
-                
-                const syndromeAnalyzeBtn = document.getElementById('syndromeAnalyzeBtn');
-                if (syndromeAnalyzeBtn) syndromeAnalyzeBtn.addEventListener('click', analyzeSyndrome);
+                // 💾 思维库功能
+                const saveToLibraryBtn = document.getElementById('saveToLibraryBtn');
+                if (saveToLibraryBtn) saveToLibraryBtn.addEventListener('click', saveDecisionTreeToLibrary);
                 
                 // 快速操作按钮
                 const addPathBtn = document.getElementById('addPathBtn');
@@ -1167,7 +1230,8 @@
                         thinking_process: doctorThought,
                         use_ai: useAI,
                         include_tcm_analysis: true,
-                        complexity_level: userPreferences.complexityLevel
+                        complexity_level: userPreferences.complexityLevel,
+                        enable_smart_branching: document.getElementById('enableSmartBranching') ? document.getElementById('enableSmartBranching').checked : false
                     })
                 });
 
@@ -1205,157 +1269,223 @@
             }
         }
 
-        // 从AI路径数据生成节点（优化版：支持中医诊疗流程）
-        function generateNodesFromPaths(paths) {
-            clearCanvas();
-            
-            // 重新组织路径数据以符合中医诊疗流程
-            const tcmFlowPaths = organizeTCMFlow(paths);
-            
-            let baseX = 50, baseY = 100;
-            const stepWidth = 250;
-            const branchHeight = 150;
-            
-            // 生成主诊疗流程
-            let previousMainNode = null;
-            tcmFlowPaths.mainFlow.forEach((step, index) => {
-                const node = {
-                    id: `main_${index}`,
-                    type: step.type,
-                    name: step.name,
-                    description: step.description || step.content,
-                    x: baseX + (index * stepWidth),
-                    y: baseY
-                };
-                
-                nodes.push(node);
-                renderNode(node);
-                
-                if (previousMainNode) {
-                    connections.push({
-                        from: previousMainNode.id,
-                        to: node.id
-                    });
-                }
-                
-                previousMainNode = node;
-                
-                // 处理分支（如证候分型）
-                if (step.branches && step.branches.length > 0) {
-                    step.branches.forEach((branch, branchIndex) => {
-                        const branchNode = {
-                            id: `branch_${index}_${branchIndex}`,
-                            type: branch.type,
-                            name: branch.name,
-                            description: branch.description,
-                            x: node.x + stepWidth,
-                            y: baseY + (branchIndex - (step.branches.length - 1) / 2) * branchHeight
-                        };
-                        
-                        nodes.push(branchNode);
-                        renderNode(branchNode);
-                        
-                        connections.push({
-                            from: node.id,
-                            to: branchNode.id
-                        });
-                        
-                        // 为每个分支添加后续节点
-                        if (branch.followUp) {
-                            branch.followUp.forEach((followStep, followIndex) => {
-                                const followNode = {
-                                    id: `follow_${index}_${branchIndex}_${followIndex}`,
-                                    type: followStep.type,
-                                    name: followStep.name,
-                                    description: followStep.description,
-                                    x: branchNode.x + (followIndex + 1) * stepWidth,
-                                    y: branchNode.y
-                                };
-                                
-                                nodes.push(followNode);
-                                renderNode(followNode);
-                                
-                                const prevNode = followIndex === 0 ? branchNode : 
-                                    nodes.find(n => n.id === `follow_${index}_${branchIndex}_${followIndex-1}`);
-                                
-                                connections.push({
-                                    from: prevNode.id,
-                                    to: followNode.id
-                                });
-                            });
-                        }
-                    });
-                }
-            });
-            
-            updateCanvas();
-            drawConnections();
-            
-            // 自动排列优化
-            setTimeout(() => autoArrangeNodes(), 100);
-        }
+        // ======================== 💊 智能处方提取功能 ========================
         
-        // 组织中医诊疗流程
-        function organizeTCMFlow(paths) {
-            // 定义中医诊疗标准流程
-            const tcmStages = [
-                'disease',        // 病种
-                'four_diagnosis', // 四诊
-                'symptom',        // 症状
-                'pathogenesis',   // 病因病机
-                'syndrome',       // 证候
-                'principle',      // 治则
-                'prescription',   // 处方
-                'modification',   // 加减
-                'prognosis'       // 预后
-            ];
+        async function extractPrescriptionInfo() {
+            const thinkingProcess = document.getElementById('doctorThought').value.trim();
             
-            const mainFlow = [];
-            const diseaseInfo = getCurrentDiseaseName();
-            
-            // 构建主流程
-            if (diseaseInfo) {
-                mainFlow.push({
-                    type: 'disease',
-                    name: diseaseInfo,
-                    description: '病种识别和确认'
-                });
+            if (!thinkingProcess) {
+                showResult('提示', '⚠️ 请先填写诊疗思路', 'warning');
+                return;
             }
             
-            // 从原始路径中提取和组织信息
-            paths.forEach(path => {
-                path.steps.forEach(step => {
-                    const stageIndex = tcmStages.indexOf(step.type);
-                    if (stageIndex !== -1) {
-                        // 将步骤按照中医流程顺序组织
-                        const existingStage = mainFlow.find(s => s.type === step.type);
-                        if (!existingStage) {
-                            mainFlow.push({
-                                type: step.type,
-                                name: step.content || getDefaultNodeName(step.type),
-                                description: step.description || '',
-                                branches: []
-                            });
-                        } else if (step.type === 'syndrome' || step.type === 'prescription') {
-                            // 对于证候和处方，支持多分支
-                            existingStage.branches.push({
-                                type: step.type,
-                                name: step.content,
-                                description: step.description || ''
+            // 获取患者信息（如果存在智能分支面板）
+            const patientAge = document.getElementById('patientAge') ? document.getElementById('patientAge').value : null;
+            const patientGender = document.getElementById('patientGender') ? document.getElementById('patientGender').value : null;
+            const patientWeight = document.getElementById('patientWeight') ? document.getElementById('patientWeight').value : null;
+            const specialConditions = document.querySelectorAll('.special-condition:checked') ? 
+                Array.from(document.querySelectorAll('.special-condition:checked')).map(cb => cb.value) : [];
+            
+            // 显示加载状态
+            const btn = document.getElementById('extractPrescriptionBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ 提取中...';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/extract_prescription_info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        thinking_process: thinkingProcess,
+                        patient_age: patientAge ? parseInt(patientAge) : null,
+                        patient_gender: patientGender || null,
+                        patient_weight: patientWeight ? parseFloat(patientWeight) : null,
+                        special_conditions: specialConditions
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    showPrescriptionExtractionResult(result.data);
+                } else {
+                    throw new Error(result.message || '处方提取失败');
+                }
+                
+            } catch (error) {
+                console.error('处方提取失败:', error);
+                showResult('错误', `❌ 提取失败: ${error.message}`, 'error');
+            } finally {
+                // 恢复按钮状态
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+        
+        // 显示处方提取结果
+        function showPrescriptionExtractionResult(data) {
+            // 清除之前的结果
+            clearResults();
+            
+            const resultsDiv = document.getElementById('analysisResults');
+            
+            let html = '<div class="result-title">💊 智能处方提取结果</div>';
+            
+            // 基本信息
+            if (data.disease_name) {
+                html += `<div class="result-section">
+                    <h4>🏥 疾病诊断</h4>
+                    <p><strong>${data.disease_name}</strong></p>
+                </div>`;
+            }
+            
+            if (data.condition_description) {
+                html += `<div class="result-section">
+                    <h4>📋 病情描述</h4>
+                    <p>${data.condition_description}</p>
+                </div>`;
+            }
+            
+            // 处方信息 - 核心部分
+            if (data.prescription_info && data.prescription_info.prescription) {
+                const prescription = data.prescription_info.prescription;
+                
+                html += `<div class="result-section" style="background: #f0fdf4; border-left: 4px solid #10b981;">
+                    <h4>💊 处方内容</h4>
+                    <div style="font-weight: bold; margin-bottom: 8px;">${prescription.formula_name || '处方'}</div>
+                    <div style="font-size: 14px; line-height: 1.6;">${prescription.herbs || prescription.content || '处方内容'}</div>
+                </div>`;
+                
+                // 剂量调整信息
+                if (data.dosage_adjustments && data.dosage_adjustments.length > 0) {
+                    html += `<div class="result-section">
+                        <h4>⚖️ 剂量调整说明</h4>`;
+                    
+                    data.dosage_adjustments.forEach(adjustment => {
+                        html += `<div style="margin-bottom: 8px; padding: 8px; background: #fef3c7; border-radius: 4px;">
+                            <strong>调整原因：</strong>${adjustment.reason}<br>
+                            <strong>调整建议：</strong>${adjustment.adjustment}
+                        </div>`;
+                    });
+                    
+                    html += `</div>`;
+                }
+                
+                // 用药说明
+                if (prescription.instructions) {
+                    html += `<div class="result-section">
+                        <h4>📝 用药说明</h4>
+                        <p>${prescription.instructions}</p>
+                    </div>`;
+                }
+            }
+            
+            // 患者特定信息
+            if (data.patient_specific_notes) {
+                html += `<div class="result-section">
+                    <h4>👤 患者特定说明</h4>
+                    <ul>`;
+                data.patient_specific_notes.forEach(note => {
+                    html += `<li>${note}</li>`;
+                });
+                html += `</ul></div>`;
+            }
+            
+            const resultElement = document.createElement('div');
+            resultElement.className = 'result-panel';
+            resultElement.innerHTML = html;
+            
+            resultsDiv.appendChild(resultElement);
+            
+            // 滚动到结果区域
+            resultsDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 从AI路径数据生成节点（简化版：直接使用路径数据）
+        function generateNodesFromPaths(paths) {
+            console.log('🔄 开始生成节点，路径数据:', paths);
+            clearCanvas();
+            
+            if (!paths || paths.length === 0) {
+                console.warn('⚠️ 没有路径数据可生成');
+                return;
+            }
+            
+            let baseX = 50, baseY = 80;
+            const pathWidth = 300;
+            const stepHeight = 120;
+            
+            // 为每条路径生成节点
+            paths.forEach((path, pathIndex) => {
+                console.log(`📍 处理路径 ${pathIndex + 1}: ${path.title || path.id}`);
+                
+                if (path.steps && path.steps.length > 0) {
+                    path.steps.forEach((step, stepIndex) => {
+                        const node = {
+                            id: `${path.id}_step_${stepIndex}`,
+                            name: step.title || step.content || step.name || '诊疗步骤',
+                            description: step.content || step.description || '',
+                            type: step.type || 'condition',
+                            x: baseX + (pathIndex * pathWidth),
+                            y: baseY + (stepIndex * stepHeight),
+                            // 🎯 智能分支属性支持
+                            age_group: path.age_group,
+                            age_range: path.age_range,
+                            dosage_ratio: path.dosage_ratio,
+                            dosage_note: path.dosage_note
+                        };
+                        
+                        // 添加年龄特定的用药说明
+                        if (step.age_specific_notes && step.age_specific_notes.length > 0) {
+                            node.description += '\n\n📋 用药说明:\n' + step.age_specific_notes.join('\n');
+                        }
+                        
+                        // 如果是处方步骤，添加剂量信息
+                        if (step.type === 'prescription' && path.dosage_note) {
+                            node.description += '\n\n⚖️ ' + path.dosage_note;
+                        }
+                        
+                        nodes.push(node);
+                        renderNode(node);
+                        console.log(`  ✅ 添加节点: ${node.name} (${node.type})`);
+                        
+                        // 连接同一路径内的连续步骤
+                        if (stepIndex > 0) {
+                            const prevNodeId = `${path.id}_step_${stepIndex - 1}`;
+                            connections.push({
+                                from: prevNodeId,
+                                to: node.id
                             });
                         }
-                    }
-                });
+                    });
+                } else {
+                    console.warn(`⚠️ 路径 ${path.title || path.id} 没有步骤数据`);
+                    // 如果没有steps，创建一个基本节点
+                    const node = {
+                        id: `${path.id}_basic`,
+                        name: path.title || path.id || '诊疗路径',
+                        description: path.description || '基本诊疗信息',
+                        type: 'condition',
+                        x: baseX + (pathIndex * pathWidth),
+                        y: baseY,
+                        age_group: path.age_group,
+                        age_range: path.age_range
+                    };
+                    
+                    nodes.push(node);
+                    renderNode(node);
+                }
             });
             
-            // 按照中医流程顺序排序
-            mainFlow.sort((a, b) => {
-                const aIndex = tcmStages.indexOf(a.type);
-                const bIndex = tcmStages.indexOf(b.type);
-                return aIndex - bIndex;
-            });
+            // 自动排列节点
+            setTimeout(() => {
+                autoArrangeNodes();
+            }, 100);
             
-            return { mainFlow };
+            console.log(`✅ 节点生成完成，共 ${nodes.length} 个节点`);
         }
 
         // 分析当前决策树
@@ -1749,7 +1879,14 @@
             }
 
             const nodeElement = document.createElement('div');
-            nodeElement.className = `node ${node.type}`;
+            
+            // 🎯 智能年龄分支样式支持
+            let nodeClass = `node ${node.type}`;
+            if (node.age_group) {
+                nodeClass += ` ${node.age_group}-branch`;
+            }
+            
+            nodeElement.className = nodeClass;
             nodeElement.id = node.id;
             nodeElement.style.left = `${node.x}px`;
             nodeElement.style.top = `${node.y}px`;
@@ -1764,8 +1901,18 @@
                     </div>`;
             }
             
+            // 🎯 年龄分支信息显示
+            let ageBadge = '';
+            if (node.age_group) {
+                const badgeText = node.age_group === 'adult' ? 
+                    `👨 ${node.age_range || '成人'}` : 
+                    `👶 ${node.age_range || '儿童'}`;
+                ageBadge = `<div class="age-group-badge ${node.age_group}">${badgeText}</div>`;
+            }
+            
             nodeElement.innerHTML = `
                 <button class="delete-btn" onclick="deleteNodeById('${node.id}')">×</button>
+                ${ageBadge}
                 <div class="node-title">${node.name}</div>
                 <div class="node-content">${nodeContent}</div>
             `;
