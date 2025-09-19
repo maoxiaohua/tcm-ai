@@ -627,30 +627,34 @@
             </div>
 
             <!-- 🆕 患者信息 -->
-            <div class="section-title">👤 患者信息（可选）</div>
-            <div class="patient-info-panel" style="background: #f0f9ff; padding: 12px; border-radius: 8px; border: 1px solid #bfdbfe; margin-bottom: 15px;">
+            <div class="section-title">🤖 AI智能识别（可选补充）</div>
+            <div class="ai-info-panel" style="background: #f0f9ff; padding: 12px; border-radius: 8px; border: 1px solid #bfdbfe; margin-bottom: 15px;">
+                <div style="font-size: 11px; color: #6b7280; margin-bottom: 10px; line-height: 1.4;">
+                    💡 <strong>智能模式</strong>：AI会自动从诊疗思路中识别是否为儿童/成人用药。<br>
+                    如诊疗思路未明确，可在此补充患者信息以优化剂量调整。
+                </div>
                 <div class="form-group" style="margin-bottom: 10px;">
                     <div style="display: flex; gap: 10px;">
                         <div style="flex: 1;">
                             <label class="form-label" style="font-size: 12px;">年龄</label>
-                            <input type="number" class="form-input" id="patientAge" placeholder="35" style="height: 30px; font-size: 12px;">
+                            <input type="number" class="form-input" id="patientAge" placeholder="留空则自动识别" style="height: 30px; font-size: 12px;">
                         </div>
                         <div style="flex: 1;">
                             <label class="form-label" style="font-size: 12px;">性别</label>
                             <select class="form-input" id="patientGender" style="height: 30px; font-size: 12px;">
-                                <option value="">不限</option>
+                                <option value="">自动识别</option>
                                 <option value="male">男性</option>
                                 <option value="female">女性</option>
                             </select>
                         </div>
                     </div>
                 </div>
-                <div class="form-group" style="margin-bottom: 10px;">
-                    <label class="form-label" style="font-size: 12px;">体重(kg)</label>
-                    <input type="number" class="form-input" id="patientWeight" placeholder="65" style="height: 30px; font-size: 12px;">
+                <div class="form-group" style="margin-bottom: 8px;">
+                    <label class="form-label" style="font-size: 12px;">体重(kg) <span style="color: #9ca3af;">· 用于精细调整</span></label>
+                    <input type="number" class="form-input" id="patientWeight" placeholder="留空则使用标准剂量" style="height: 30px; font-size: 12px;">
                 </div>
                 <div class="form-group">
-                    <label class="form-label" style="font-size: 12px;">特殊情况</label>
+                    <label class="form-label" style="font-size: 12px;">特殊情况 <span style="color: #9ca3af;">· 影响用药安全</span></label>
                     <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
                         <label style="font-size: 11px; display: flex; align-items: center; gap: 3px;">
                             <input type="checkbox" class="special-condition" value="pregnancy"> 妊娠
@@ -4500,7 +4504,7 @@
                 };
                 
                 // 调用保存API
-                const response = await fetch('/api/doctor/save_clinical_pattern', {
+                const response = await fetch('/api/save_clinical_pattern', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

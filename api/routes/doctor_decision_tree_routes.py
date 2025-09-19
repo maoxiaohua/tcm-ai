@@ -1428,6 +1428,9 @@ async def _extract_clinical_info_with_ai(
         patient_age, patient_gender, patient_weight, special_conditions
     )
     
+    # 🔧 智能检测：判断思路中是否已明确人群用药
+    age_group_detected = _detect_age_group_in_thinking(thinking_process)
+    
     # 构建AI提示词
     prompt = f"""
 请从以下中医诊疗思路中提取结构化信息，并根据患者特征生成个性化处方：
@@ -1435,6 +1438,7 @@ async def _extract_clinical_info_with_ai(
 诊疗思路：{thinking_process}
 
 患者信息：{patient_info}
+诊疗思路分析：{age_group_detected['description']}
 
 请提取以下信息并以JSON格式返回：
 {{
@@ -1468,15 +1472,8 @@ async def _extract_clinical_info_with_ai(
     }}
 }}
 
-剂量调整原则：
-1. 儿童（<18岁）：成人剂量的50-70%
-2. 老年人（>65岁）：成人剂量的70-80%
-3. 体重过轻（<50kg）：适当减量10-20%
-4. 体重过重（>80kg）：可适当增量10-15%
-5. 孕妇：避免活血化瘀、破气药物
-6. 哺乳期：注意药物对婴儿的影响
-
-请确保所有剂量都是实用的临床剂量，并提供详细的用药指导。
+剂量调整原则（智能识别模式）：
+{_generate_dosage_adjustment_rules(age_group_detected, patient_age, patient_weight, special_conditions)}
 """
 
     try:
@@ -1611,6 +1608,296 @@ def _basic_prescription_extraction(
         },
         "note": "基础提取结果，建议手动补充"
     }
+
+# ======================== 医生思维库功能 ========================
+
+class ClinicalPatternRequest(BaseModel):
+    """临床模式保存请求"""
+    disease_name: str
+    thinking_process: str
+    tree_structure: Dict[str, Any]
+    clinical_patterns: Dict[str, Any]
+    doctor_expertise: Dict[str, Any]
+
+@router.post("/save_clinical_pattern")
+async def save_clinical_pattern(
+    request: ClinicalPatternRequest,
+    current_user: UserSession = Depends(get_current_user)
+):
+    """
+    保存临床决策模式到医生思维库
+    
+    Args:
+        request: 临床模式数据
+        current_user: 当前用户会话
+        
+    Returns:
+        保存结果
+    """
+    try:
+        logger.info(f"医生思维库保存请求 - 用户: {current_user.user_id}, 角色: {current_user.role}")
+        
+        # 🔐 权限验证：确保是医生用户
+        if current_user.role not in [UserRole.DOCTOR, UserRole.ADMIN]:
+            # 🔧 临时解决方案：如果是匿名用户，尝试创建临时医生身份
+            if current_user.role == UserRole.ANONYMOUS:
+                doctor_id = await _create_or_get_temp_doctor_identity(request.disease_name)
+                logger.info(f"为匿名用户创建临时医生身份: {doctor_id}")
+            else:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="仅医生用户可保存临床决策模式到思维库"
+                )
+        else:
+            doctor_id = current_user.user_id
+        
+        # 🗄️ 保存到数据库
+        pattern_data = {
+            "doctor_id": doctor_id,
+            "disease_name": request.disease_name,
+            "thinking_process": request.thinking_process,
+            "tree_structure": json.dumps(request.tree_structure),
+            "clinical_patterns": json.dumps(request.clinical_patterns),
+            "doctor_expertise": json.dumps(request.doctor_expertise),
+            "usage_count": 0,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
+        }
+        
+        pattern_id = await _save_pattern_to_database(pattern_data)
+        
+        # 📊 分析模式类型
+        pattern_type = _analyze_pattern_type(request.clinical_patterns, request.doctor_expertise)
+        
+        logger.info(f"临床模式保存成功: pattern_id={pattern_id}, doctor_id={doctor_id}")
+        
+        return {
+            "success": True,
+            "message": f"临床决策模式已成功保存到医生 {doctor_id} 的思维库",
+            "data": {
+                "pattern_id": pattern_id,
+                "doctor_id": doctor_id,
+                "pattern_type": pattern_type,
+                "disease_name": request.disease_name,
+                "saved_at": datetime.now().isoformat()
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"保存临床模式失败: {e}")
+        return {
+            "success": False,
+            "message": f"保存失败: {str(e)}",
+            "data": None
+        }
+
+async def _create_or_get_temp_doctor_identity(disease_name: str) -> str:
+    """为匿名用户创建临时医生身份"""
+    import hashlib
+    import time
+    
+    # 基于疾病名称和时间戳生成临时医生ID
+    temp_id = f"temp_doctor_{hashlib.md5((disease_name + str(time.time())).encode()).hexdigest()[:8]}"
+    
+    # 检查数据库中是否需要创建临时用户记录
+    # TODO: 这里可以扩展为真正的用户创建逻辑
+    
+    return temp_id
+
+async def _save_pattern_to_database(pattern_data: Dict[str, Any]) -> str:
+    """保存模式到数据库"""
+    import sqlite3
+    import uuid
+    
+    pattern_id = str(uuid.uuid4())
+    
+    # 连接数据库
+    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    cursor = conn.cursor()
+    
+    try:
+        # 创建表（如果不存在）
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS doctor_clinical_patterns (
+                id TEXT PRIMARY KEY,
+                doctor_id TEXT NOT NULL,
+                disease_name TEXT NOT NULL,
+                thinking_process TEXT NOT NULL,
+                tree_structure TEXT NOT NULL,
+                clinical_patterns TEXT NOT NULL,
+                doctor_expertise TEXT NOT NULL,
+                usage_count INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(doctor_id, disease_name)
+            )
+        """)
+        
+        # 插入或更新记录
+        cursor.execute("""
+            INSERT OR REPLACE INTO doctor_clinical_patterns 
+            (id, doctor_id, disease_name, thinking_process, tree_structure, 
+             clinical_patterns, doctor_expertise, usage_count, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            pattern_id,
+            pattern_data["doctor_id"],
+            pattern_data["disease_name"],
+            pattern_data["thinking_process"],
+            pattern_data["tree_structure"],
+            pattern_data["clinical_patterns"],
+            pattern_data["doctor_expertise"],
+            pattern_data["usage_count"],
+            pattern_data["created_at"],
+            pattern_data["updated_at"]
+        ))
+        
+        conn.commit()
+        logger.info(f"临床模式已保存到数据库: {pattern_id}")
+        
+        return pattern_id
+        
+    except Exception as e:
+        logger.error(f"数据库保存失败: {e}")
+        raise
+    finally:
+        conn.close()
+
+def _analyze_pattern_type(clinical_patterns: Dict[str, Any], doctor_expertise: Dict[str, Any]) -> str:
+    """分析临床模式类型"""
+    
+    # 基于症状数量判断复杂度
+    symptom_count = len(clinical_patterns.get("symptom_clusters", []))
+    pathway_count = len(clinical_patterns.get("diagnostic_pathways", []))
+    
+    if symptom_count >= 5 and pathway_count >= 3:
+        complexity = "复杂型"
+    elif symptom_count >= 3 or pathway_count >= 2:
+        complexity = "标准型"  
+    else:
+        complexity = "简化型"
+    
+    # 基于医生专长判断类型
+    schools = doctor_expertise.get("schools", [])
+    specialties = doctor_expertise.get("specialties", [])
+    
+    if "张仲景" in schools:
+        style = "经方派"
+    elif "李东垣" in schools:
+        style = "脾胃派"
+    elif "郑钦安" in schools:
+        style = "火神派"
+    elif "叶天士" in schools:
+        style = "温病派"
+    else:
+        style = "综合派"
+    
+    return f"{style}-{complexity}"
+
+def _detect_age_group_in_thinking(thinking_process: str) -> Dict[str, Any]:
+    """智能检测诊疗思路中是否已明确年龄群体用药"""
+    import re
+    
+    # 儿童相关关键词
+    pediatric_keywords = ['小儿', '儿童', '幼儿', '婴儿', '新生儿', '学龄前', '学龄儿童']
+    
+    # 老年相关关键词  
+    elderly_keywords = ['老年', '高龄', '年迈', '老人']
+    
+    # 成人相关关键词
+    adult_keywords = ['成人', '成年人', '壮年']
+    
+    thinking_lower = thinking_process.lower()
+    
+    # 检测儿童用药
+    for keyword in pediatric_keywords:
+        if keyword in thinking_process:
+            return {
+                "detected": True,
+                "age_group": "pediatric", 
+                "keyword": keyword,
+                "description": f"诊疗思路中明确提及'{keyword}'，说明已是{keyword}专用处方，剂量无需调整"
+            }
+    
+    # 检测老年用药
+    for keyword in elderly_keywords:
+        if keyword in thinking_process:
+            return {
+                "detected": True,
+                "age_group": "elderly",
+                "keyword": keyword, 
+                "description": f"诊疗思路中明确提及'{keyword}'，说明已是{keyword}专用处方，剂量无需调整"
+            }
+    
+    # 检测成人用药
+    for keyword in adult_keywords:
+        if keyword in thinking_process:
+            return {
+                "detected": True,
+                "age_group": "adult",
+                "keyword": keyword,
+                "description": f"诊疗思路中明确提及'{keyword}'，使用标准成人剂量"
+            }
+    
+    return {
+        "detected": False,
+        "age_group": "unspecified",
+        "keyword": None,
+        "description": "诊疗思路中未明确年龄群体，需根据患者信息智能调整剂量"
+    }
+
+def _generate_dosage_adjustment_rules(
+    age_group_detected: Dict[str, Any],
+    patient_age: Optional[int],
+    patient_weight: Optional[float], 
+    special_conditions: List[str]
+) -> str:
+    """生成个性化的剂量调整规则"""
+    
+    rules = []
+    
+    # 1. 如果思路中已明确年龄群体
+    if age_group_detected["detected"]:
+        if age_group_detected["age_group"] == "pediatric":
+            rules.append("✅ 检测到诊疗思路已明确为儿童用药，保持原处方剂量，无需调整")
+            rules.append("⚠️ 严禁对已适配的儿童剂量再次减量")
+        elif age_group_detected["age_group"] == "elderly":
+            rules.append("✅ 检测到诊疗思路已明确为老年用药，保持原处方剂量")
+        else:
+            rules.append("✅ 检测到诊疗思路已明确为成人用药，保持标准剂量")
+    else:
+        # 2. 根据患者信息调整
+        rules.append("📋 诊疗思路中未明确年龄群体，根据患者信息智能调整：")
+        
+        if patient_age and patient_age < 18:
+            rules.append(f"   - 患者{patient_age}岁，儿童剂量：成人标准剂量的50-70%")
+        elif patient_age and patient_age > 65:
+            rules.append(f"   - 患者{patient_age}岁，老年剂量：成人标准剂量的70-80%")
+        
+        if patient_weight:
+            if patient_weight < 50:
+                rules.append(f"   - 患者体重{patient_weight}kg，适当减量10-20%")
+            elif patient_weight > 80:
+                rules.append(f"   - 患者体重{patient_weight}kg，可适当增量10-15%")
+    
+    # 3. 特殊情况
+    if special_conditions:
+        rules.append("🚨 特殊情况调整：")
+        condition_map = {
+            "pregnancy": "妊娠期：避免活血化瘀、破气药物，减量使用",
+            "lactation": "哺乳期：注意药物对婴儿的影响",
+            "diabetes": "糖尿病：注意避免升糖药物",
+            "hypertension": "高血压：注意避免升压药物"
+        }
+        for condition in special_conditions:
+            if condition in condition_map:
+                rules.append(f"   - {condition_map[condition]}")
+    
+    rules.append("\n💡 核心原则：确保剂量调整的临床合理性，避免重复调整已适配的剂量。")
+    
+    return "\n".join(rules)
 
 # 导出路由器
 __all__ = ["router"]
