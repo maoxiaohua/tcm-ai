@@ -305,8 +305,12 @@ async def generate_decision_tree(
                 try:
                     tree_data = json.loads(tree_result)
                 except json.JSONDecodeError:
-                    # 解析失败时使用默认结构
-                    tree_data = create_default_tree_structure(request.disease_name, selected_school_names)
+                    # 解析失败时返回错误
+                    return DecisionTreeResponse(
+                        success=False,
+                        message="AI响应格式错误，JSON解析失败",
+                        data=None
+                    )
             else:
                 tree_data = tree_result
 
@@ -318,12 +322,11 @@ async def generate_decision_tree(
             
         except Exception as ai_error:
             logger.error(f"AI生成决策树失败: {ai_error}")
-            # 返回默认决策树结构
-            default_tree = create_default_tree_structure(request.disease_name, selected_school_names)
+            # AI失败时直接返回错误
             return DecisionTreeResponse(
-                success=True,
-                message="决策树生成完成（使用模板）",
-                data=default_tree
+                success=False,
+                message=f"AI生成失败: {str(ai_error)}",
+                data=None
             )
         
     except Exception as e:
@@ -676,26 +679,14 @@ async def generate_visual_decision_tree(
             
         except Exception as ai_error:
             logger.error(f"智能生成决策树失败: {ai_error}")
-            # 失败时使用模板备用
-            fallback_result = {
-                "source": "template_fallback",
-                "ai_generated": False,
-                "user_thinking_used": False,
-                "paths": create_default_visual_tree(request.disease_name)["paths"],
-                "suggested_layout": {
-                    "auto_arrange": True,
-                    "spacing": {"horizontal": 300, "vertical": 150}
-                },
-                "error_message": str(ai_error)
-            }
-            
+            # AI失败时直接返回错误，不使用硬编码模板
             return {
-                "success": True,
-                "message": "使用模板备用方案",
-                "data": fallback_result,
+                "success": False,
+                "message": f"AI生成失败: {str(ai_error)}",
+                "data": None,
                 "ai_status": {
-                    "enabled": False,
-                    "source": "template_fallback",
+                    "enabled": doctor_learning_system.ai_enabled,
+                    "source": "ai_failed",
                     "error": str(ai_error)
                 }
             }

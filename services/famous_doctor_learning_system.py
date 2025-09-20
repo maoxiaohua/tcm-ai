@@ -1068,11 +1068,9 @@ class FamousDoctorLearningSystem:
                 await self._record_ai_learning(disease_name, thinking_process, ai_paths)
                 
             else:
-                # 使用模板模式
-                print(f"📋 使用标准模板: {disease_name}")
-                template_paths = self._generate_default_paths_for_disease(disease_name, complexity_level)
-                result["paths"] = template_paths
-                result["generation_time"] = "即时"
+                # 🚨 不使用硬编码模板，直接返回错误
+                print(f"❌ 无诊疗思路或AI未启用，不生成硬编码模板: {disease_name}")
+                raise ValueError("需要提供诊疗思路且启用AI功能才能生成决策树")
             
             # 添加中医理论分析
             if include_tcm_analysis:
@@ -1083,8 +1081,12 @@ class FamousDoctorLearningSystem:
             # 🎯 智能年龄分支生成
             if enable_smart_branching and result["paths"]:
                 print(f"🎯 启用智能年龄分支生成: {disease_name}")
-                result["paths"] = self._add_age_branches_to_paths(result["paths"], disease_name)
-                result["smart_branching_enabled"] = True
+                try:
+                    result["paths"] = self._add_age_branches_to_paths(result["paths"], disease_name)
+                    result["smart_branching_enabled"] = True
+                except Exception as e:
+                    print(f"⚠️ 智能分支生成失败，跳过: {e}")
+                    result["smart_branching_enabled"] = False
             else:
                 result["smart_branching_enabled"] = False
             
@@ -1092,13 +1094,8 @@ class FamousDoctorLearningSystem:
             
         except Exception as e:
             print(f"❌ 决策路径生成失败: {e}")
-            # 失败时使用模板备用
-            fallback_paths = self._generate_default_paths_for_disease(disease_name, complexity_level)
-            result["paths"] = fallback_paths
-            result["source"] = "template_fallback"
-            result["error_message"] = str(e)
-            
-            return result
+            # 🚨 不使用硬编码模板备用，直接抛出错误
+            raise e
 
     async def analyze_tcm_theory(self, tree_data: Dict[str, Any], disease_name: str, analysis_prompt: str) -> Dict[str, Any]:
         """
@@ -1775,40 +1772,32 @@ class FamousDoctorLearningSystem:
         if not DASHSCOPE_AVAILABLE or not self.ai_enabled:
             raise Exception("AI服务不可用")
         
-        # 构建AI提示词 - 纯信息提取版
+        # 构建简化的AI提示词 - 专注于核心信息
         prompt = f"""
-请从以下中医医生的诊疗思路中，提取具体的诊疗信息，构建结构化的决策路径。
+从以下中医诊疗思路中提取关键信息，按照：病种→病情描述→具体处方的流程。
 
 疾病：{disease_name}
 医生思路：{thinking_process}
 
-提取规则：
-1. 只提取医生思路中明确提到的信息
-2. 使用肯定的陈述句，绝不能有问号或询问语气
-3. 不要添加任何验证性、询问性内容
+要求：
+1. 只提取医生明确提到的信息，不添加任何额外内容
+2. 处方必须包含具体药材和克数
+3. 考虑成人和儿童用药差异
 
-输出JSON格式：
+返回JSON（不要任何其他文字）：
 {{
     "paths": [
         {{
-            "id": "medical_path",
+            "id": "path1",
             "title": "{disease_name}诊疗路径",
             "steps": [
                 {{"type": "disease", "content": "{disease_name}"}},
-                {{"type": "symptom", "content": "从医生思路提取的症状描述"}},
-                {{"type": "four_diagnosis", "content": "从医生思路提取的舌脉象信息"}},
-                {{"type": "syndrome", "content": "从医生思路提取的中医证型"}},
-                {{"type": "principle", "content": "从医生思路提取的治疗方法"}},
-                {{"type": "prescription", "content": "从医生思路提取的方剂名称"}}
-            ],
-            "keywords": ["{disease_name}"],
-            "tcm_theory": "中医理论基础"
+                {{"type": "symptom", "content": "医生描述的病情症状"}},
+                {{"type": "prescription", "content": "方剂名称：药材1 Xg，药材2 Yg，药材3 Zg"}}
+            ]
         }}
     ]
-}}
-
-重要：每个content字段必须是简洁明了的陈述句，直接从医生思路中提取信息。
-"""
+}}"""
         
         # 智能分析诊疗流程完整性并增强提示词
         try:
@@ -1837,25 +1826,35 @@ class FamousDoctorLearningSystem:
                     ai_result = json.loads(content)
                     paths = ai_result.get("paths", [])
                     print(f"🔍 JSON解析成功，得到{len(paths)}条路径")
-                except json.JSONDecodeError:
+                except json.JSONDecodeError as e:
+                    print(f"❌ 直接JSON解析失败: {e}")
+                    print(f"🔍 错误位置: 行{e.lineno}, 列{e.colno}, 字符{e.pos}")
+                    print(f"🔍 错误附近内容: ...{content[max(0, e.pos-20):e.pos+20]}...")
                     # 如果失败，尝试提取JSON部分 - 支持markdown代码块
                     import re
                     
-                    # 尝试多种JSON提取模式
+                    # 更精准的JSON提取模式
                     json_patterns = [
                         r'```json\s*(\{[\s\S]*?\})\s*```',  # markdown代码块
                         r'```\s*(\{[\s\S]*?\})\s*```',      # 无语言标识的代码块
-                        r'\{[\s\S]*?\}(?=\s*建议补充|$)',    # 原有模式
-                        r'(\{[\s\S]*?\})'                    # 最宽泛的JSON匹配
+                        r'(\{[\s\S]*?\})(?=\s*###|补充|建议|注意|$)',    # JSON后跟其他内容
+                        r'(\{(?:[^{}]|\{[^}]*\})*\})'       # 平衡括号匹配，避免贪婪匹配
                     ]
                     
                     json_content = None
                     for pattern in json_patterns:
                         json_match = re.search(pattern, content)
                         if json_match:
-                            json_content = json_match.group(1) if '(' in pattern else json_match.group(0)
-                            print(f"🔍 使用模式 {pattern} 提取到JSON内容")
-                            break
+                            # 🔧 修复：安全地访问捕获组
+                            try:
+                                json_content = json_match.group(1)
+                                print(f"🔍 使用模式 {pattern} 提取到JSON内容")
+                                break
+                            except IndexError:
+                                # 如果没有捕获组，使用整个匹配
+                                json_content = json_match.group(0)
+                                print(f"🔍 使用模式 {pattern} 提取到JSON内容（fallback）")
+                                break
                     
                     if json_content:
                         try:
@@ -1879,6 +1878,10 @@ class FamousDoctorLearningSystem:
                     
                     # 清理验证性语言 - 加强版
                     cleaned_path = self._clean_verification_language(fixed_path)
+                    
+                    # 自动补充缺失的字段
+                    if "keywords" not in cleaned_path:
+                        cleaned_path["keywords"] = [disease_name]
                     
                     if self._validate_ai_path(cleaned_path, disease_name):
                         cleaned_paths.append(cleaned_path)
@@ -1957,10 +1960,11 @@ class FamousDoctorLearningSystem:
             content = step.get("content", "")
             
             # 清理验证性语言的模式
-            content = self._remove_verification_patterns(content)
+            content = self._remove_verification_patterns(content, step.get("type", ""))
             
-            # 如果清理后内容为空或太短，跳过这个步骤
-            if len(content.strip()) < 3:
+            # 如果清理后内容为空或太短，跳过这个步骤（但疾病名称可以很短）
+            step_type = step.get("type", "")
+            if len(content.strip()) < 3 and step_type != "disease":
                 continue
                 
             cleaned_step["content"] = content
@@ -1969,7 +1973,7 @@ class FamousDoctorLearningSystem:
         cleaned_path["steps"] = cleaned_steps
         return cleaned_path
 
-    def _remove_verification_patterns(self, content: str) -> str:
+    def _remove_verification_patterns(self, content: str, step_type: str = "") -> str:
         """移除验证性语言模式 - 超强版"""
         import re
         
@@ -2031,22 +2035,41 @@ class FamousDoctorLearningSystem:
         content = re.sub(r'\s+', ' ', content)  # 合并多个空格
         content = content.strip()
         
-        # 第六步：如果内容太短或只剩标点，返回空字符串
-        if len(content) < 5 or content in ['。', '，', '、', '：', '；']:
-            return ""
+        # 第六步：如果内容太短或只剩标点，返回空字符串（但疾病名称可以很短）
+        if step_type == "disease":
+            # 疾病名称允许很短，只检查是否为纯标点
+            if content in ['。', '，', '、', '：', '；'] or len(content.strip()) == 0:
+                return ""
+        else:
+            # 其他类型需要较长的内容
+            if len(content) < 5 or content in ['。', '，', '、', '：', '；']:
+                return ""
         
         return content
 
     def _validate_ai_path(self, path: Dict[str, Any], disease_name: str) -> bool:
         """验证AI生成的路径格式"""
         required_fields = ["id", "title", "steps", "keywords"]
-        if not all(field in path for field in required_fields):
-            return False
+        
+        # 详细调试信息
+        print(f"🔍 验证路径: {path.keys()}")
+        for field in required_fields:
+            if field not in path:
+                print(f"❌ 缺失字段: {field}")
+                return False
+            else:
+                print(f"✅ 存在字段: {field}")
         
         steps = path.get("steps", [])
+        print(f"🔍 步骤数量: {len(steps)}")
+        for i, step in enumerate(steps):
+            print(f"🔍 步骤{i+1}: type={step.get('type')}, content={step.get('content', '')[:50]}...")
+        
         if len(steps) < 3:  # 至少要有症状、诊断、治疗
+            print(f"❌ 步骤不足: 需要至少3步，实际{len(steps)}步")
             return False
             
+        print("✅ 路径验证通过")
         return True
 
     def _parse_ai_text_response(self, content: str, disease_name: str) -> List[Dict[str, Any]]:
@@ -2400,18 +2423,6 @@ def test_famous_doctor_system():
         print(f"专长: {profile.get('specialty', [])}")
         print(f"代表方剂: {profile.get('famous_formulas', [])}")
         print(f"治疗理念: {profile.get('treatment_philosophy', '')}")
-
-    def _validate_ai_path(self, path: Dict[str, Any], disease_name: str) -> bool:
-        """验证AI生成的路径格式"""
-        required_fields = ["id", "title", "steps", "keywords"]
-        if not all(field in path for field in required_fields):
-            return False
-        
-        steps = path.get("steps", [])
-        if len(steps) < 3:  # 至少要有症状、诊断、治疗
-            return False
-            
-        return True
 
     def _add_age_branches_to_paths(self, original_paths: List[Dict[str, Any]], disease_name: str) -> List[Dict[str, Any]]:
         """

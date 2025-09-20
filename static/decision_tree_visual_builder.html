@@ -3028,93 +3028,34 @@
             resultsDiv.appendChild(resultElement);
         }
 
-        // 完整的方剂数据库，包含具体药材信息
+        // 动态方剂分析 - 不使用硬编码数据库
         function analyzeFormulaLocally(formulaName, diseaseName) {
-            const formulaDatabase = {
-                '逍遥散': {
-                    herbs: [
-                        { name: '柴胡', dosage: '10g' },
-                        { name: '当归', dosage: '10g' },
-                        { name: '白芍', dosage: '10g' },
-                        { name: '白术', dosage: '10g' },
-                        { name: '茯苓', dosage: '15g' },
-                        { name: '炙甘草', dosage: '6g' },
-                        { name: '薄荷', dosage: '6g' },
-                        { name: '生姜', dosage: '3片' }
-                    ],
-                    effects: '疏肝解郁，健脾养血',
-                    modifications: '肝郁重者加香附12g，郁金10g；脾虚重者加党参12g'
-                },
-                '甘麦大枣汤': {
-                    herbs: [
-                        { name: '淮小麦', dosage: '30g' },
-                        { name: '炙甘草', dosage: '10g' },
-                        { name: '大枣', dosage: '10枚' }
-                    ],
-                    effects: '养心安神，缓急止痛',
-                    modifications: '心神不安重者加酸枣仁15g，远志10g'
-                },
-                '逍遥散合甘麦大枣汤': {
-                    herbs: [
-                        { name: '柴胡', dosage: '10g' },
-                        { name: '当归', dosage: '10g' },
-                        { name: '白芍', dosage: '10g' },
-                        { name: '白术', dosage: '10g' },
-                        { name: '茯苓', dosage: '15g' },
-                        { name: '炙甘草', dosage: '10g' },
-                        { name: '薄荷', dosage: '6g' },
-                        { name: '生姜', dosage: '3片' },
-                        { name: '淮小麦', dosage: '30g' },
-                        { name: '大枣', dosage: '10枚' }
-                    ],
-                    effects: '疏肝解郁，健脾养血，养心安神',
-                    modifications: '情志抑郁重者加合欢皮12g；心神不安重者加酸枣仁15g，龙骨20g'
-                },
-                '黄连阿胶汤': {
-                    herbs: [
-                        { name: '黄连', dosage: '6g' },
-                        { name: '阿胶', dosage: '9g' },
-                        { name: '黄芩', dosage: '6g' },
-                        { name: '白芍', dosage: '9g' },
-                        { name: '鸡子黄', dosage: '2枚' }
-                    ],
-                    effects: '清心火，养心阴，安神志',
-                    modifications: '心火偏盛加栀子6g；阴虚明显加麦冬12g'
-                },
-                '归脾汤': {
-                    herbs: [
-                        { name: '党参', dosage: '12g' },
-                        { name: '白术', dosage: '10g' },
-                        { name: '茯苓', dosage: '12g' },
-                        { name: '当归', dosage: '9g' },
-                        { name: '龙眼肉', dosage: '12g' },
-                        { name: '酸枣仁', dosage: '15g' },
-                        { name: '木香', dosage: '6g' },
-                        { name: '炙甘草', dosage: '6g' }
-                    ],
-                    effects: '补益心脾，养血安神',
-                    modifications: '气虚明显加黄芪15g；血虚甚者加熟地12g'
-                },
-                '理中汤': {
-                    herbs: [
-                        { name: '人参', dosage: '9g' },
-                        { name: '白术', dosage: '9g' },
-                        { name: '干姜', dosage: '9g' },
-                        { name: '炙甘草', dosage: '6g' }
-                    ],
-                    effects: '温中散寒，补气健脾',
-                    modifications: '寒盛加附子6g；气虚甚加黄芪15g'
-                }
-            };
+            // 🚨 移除硬编码方剂数据库，改为动态分析
+            console.log(`📋 动态分析方剂: ${formulaName} (疾病: ${diseaseName})`);
             
-            return formulaDatabase[formulaName] || {
+            // 检查是否是从用户诊疗思路中提取的方剂
+            const thinkingProcess = document.getElementById('doctorThought')?.value || '';
+            
+            if (!thinkingProcess.includes(formulaName)) {
+                // 如果诊疗思路中没有这个方剂，说明是系统错误生成的
+                console.warn(`⚠️ 方剂"${formulaName}"未在用户诊疗思路中找到，可能是硬编码生成`);
+                return {
+                    herbs: [],
+                    effects: `⚠️ 方剂"${formulaName}"不在用户提供的诊疗思路中`,
+                    modifications: '请重新生成或手动输入正确的处方',
+                    error: 'NOT_FROM_USER_INPUT'
+                };
+            }
+            
+            // 如果是用户输入的方剂，返回基本分析框架
+            return {
                 herbs: [
-                    { name: '主药', dosage: '10-15g' },
-                    { name: '辅药', dosage: '6-12g' },
-                    { name: '佐药', dosage: '3-9g' }
+                    { name: '需要AI分析', dosage: '-' },
+                    { name: '具体药材组成', dosage: '-' },
+                    { name: '请查看诊疗思路', dosage: '-' }
                 ],
-                effects: `治疗${getCurrentDiseaseName()}的有效方剂`,
-                modifications: '请根据具体症状进行加减'
+                effects: `根据用户诊疗思路中的${formulaName}方剂治疗${diseaseName}`,
+                modifications: '请参考用户诊疗思路中的具体用药说明'
             };
         }
 
@@ -3316,36 +3257,35 @@
             }
         }
 
-        // 增强的证型分析数据库
+        // 动态证型分析 - 移除硬编码方剂
         function analyzeSyndromeLocally(diseaseName, symptoms) {
+            // 🚨 移除硬编码方剂，改为动态分析
+            console.log(`📋 动态证型分析: ${diseaseName}, 症状: ${symptoms}`);
+            
             const syndromeDatabase = {
                 '失眠': {
                     '心火旺盛证': {
                         keywords: ['心烦', '多梦', '口干', '舌红', '苔黄', '失眠', '难以入睡'],
                         description: '心火亢盛，扰乱神明',
                         treatment: '清心火，安神志',
-                        formula: '黄连阿胶汤',
                         weight: 0.8
                     },
                     '心脾两虚证': {
                         keywords: ['健忘', '心悸', '面色萎黄', '舌淡', '脉弱', '失眠', '疲乏', '食欲不振'],
                         description: '心脾气血不足，神失所养',
                         treatment: '补益心脾，养血安神',
-                        formula: '归脾汤',
                         weight: 0.7
                     },
                     '肝郁化火证': {
                         keywords: ['易怒', '胸胁胀满', '口苦', '脉弦', '失眠', '烦躁', '头痛'],
                         description: '肝郁化火，上扰神明',
                         treatment: '疏肝解郁，清热安神',
-                        formula: '逍遥散合甘麦大枣汤',
                         weight: 0.8
                     },
                     '阴虚火旺证': {
                         keywords: ['失眠', '早醒', '五心烦热', '盗汗', '口干', '舌红少苔'],
                         description: '肾阴不足，虚火上炎',
                         treatment: '滋阴降火，养心安神',
-                        formula: '黄连阿胶汤',
                         weight: 0.7
                     }
                 },
@@ -3354,14 +3294,12 @@
                         keywords: ['喜温喜按', '面色萎白', '舌淡苔白', '脉细弱', '胃痛', '胃胀'],
                         description: '脾胃阳气不足，失于温煦',
                         treatment: '温中散寒，补气健脾',
-                        formula: '理中汤',
                         weight: 0.8
                     },
                     '肝气犯胃证': {
                         keywords: ['胀痛拒按', '嗳气', '情志不遂', '脉弦', '胃痛', '反酸'],
                         description: '肝气郁结，横逆犯胃',
                         treatment: '疏肝理气，和胃止痛',
-                        formula: '柴胡疏肝散',
                         weight: 0.7
                     }
                 },
@@ -3371,14 +3309,12 @@
                         keywords: ['疲乏', '乏力', '面色萎黄', '头晕', '心悸'],
                         description: '气血亏虚，脏腑失养',
                         treatment: '益气养血',
-                        formula: '八珍汤',
                         weight: 0.4
                     },
                     '痰湿内阻证': {
                         keywords: ['胸闷', '恶心', '食欲不振', '舌苔厚腻', '头重'],
                         description: '痰湿内生，阻滞气机',
                         treatment: '化痰除湿，理气和中',
-                        formula: '二陈汤',
                         weight: 0.4
                     }
                 }
@@ -3399,11 +3335,15 @@
                 
                 // 降低匹配阈值到15%，让更多证型能被识别
                 if (weightedMatchRate > 0.15) {
+                    // 🚨 移除硬编码方剂字段
+                    const { formula, ...syndromeWithoutFormula } = syndrome;
                     matchedSyndromes.push({
                         name: syndromeName,
                         matchRate: weightedMatchRate,
                         confidence: Math.min(weightedMatchRate * 1.5, 1.0),
-                        ...syndrome
+                        ...syndromeWithoutFormula,
+                        // 🔄 从用户诊疗思路中提取实际方剂
+                        recommendedFormula: extractFormulaFromThinking(syndromeName)
                     });
                 }
             });
@@ -3419,12 +3359,16 @@
                     const matchRate = matchCount / syndrome.keywords.length;
                     
                     if (matchRate > 0.2) { // 通用证型阈值稍高
+                        // 🚨 移除硬编码方剂字段
+                        const { formula, ...syndromeWithoutFormula } = syndrome;
                         matchedSyndromes.push({
                             name: syndromeName,
                             matchRate: matchRate,
                             confidence: matchRate * 0.8, // 通用证型置信度稍低
                             isGeneric: true,
-                            ...syndrome
+                            ...syndromeWithoutFormula,
+                            // 🔄 从用户诊疗思路中提取实际方剂
+                            recommendedFormula: extractFormulaFromThinking(syndromeName)
                         });
                     }
                 });
@@ -3437,6 +3381,39 @@
                 matchedSyndromes,
                 recommendation: matchedSyndromes.length > 0 ? matchedSyndromes[0] : null
             };
+        }
+
+        // 🔄 从用户诊疗思路中提取方剂的辅助函数
+        function extractFormulaFromThinking(syndromeName) {
+            const thinkingProcess = document.getElementById('doctorThought')?.value || '';
+            
+            if (!thinkingProcess) {
+                return '请在诊疗思路中明确方剂选择';
+            }
+            
+            // 简单的方剂提取模式
+            const formulaPatterns = [
+                /方[药剂]?[:：]\s*([^。,，\n]+)/g,
+                /选[用药方]?[:：]\s*([^。,，\n]+)/g,
+                /治疗?[:：]\s*([^。,，\n]*[汤散丸方][^。,，\n]*)/g,
+                /([^。,，\s]*[汤散丸方][^。,，\s]*)/g
+            ];
+            
+            const extractedFormulas = [];
+            for (const pattern of formulaPatterns) {
+                const matches = thinkingProcess.matchAll(pattern);
+                for (const match of matches) {
+                    if (match[1] && match[1].trim()) {
+                        extractedFormulas.push(match[1].trim());
+                    }
+                }
+            }
+            
+            if (extractedFormulas.length > 0) {
+                return extractedFormulas[0]; // 返回第一个找到的方剂
+            }
+            
+            return `需要根据${syndromeName}选择相应方剂`;
         }
 
         // 显示证型分析结果
