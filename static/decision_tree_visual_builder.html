@@ -1070,10 +1070,7 @@
                 // 💾 思维库功能
                 const saveToLibraryBtn = document.getElementById('saveToLibraryBtn');
                 if (saveToLibraryBtn) {
-                    saveToLibraryBtn.addEventListener('click', function() {
-                        console.log('保存到思维库功能尚未实现');
-                        showResult('提示', '保存到思维库功能开发中...', 'info');
-                    });
+                    saveToLibraryBtn.addEventListener('click', saveToThinkingLibrary);
                 }
                 
                 // 快速操作按钮
@@ -1959,6 +1956,321 @@
                 hideLoading();
                 showResult('错误', `❌ 保存失败: ${error.message}`, 'error');
             }
+        }
+        
+        // 保存到思维库（临床决策模式）
+        async function saveToThinkingLibrary() {
+            console.log('保存到思维库被调用');
+            
+            // 验证必要条件
+            if (!getCurrentDiseaseName()) {
+                showResult('提示', '请先输入疾病名称', 'warning');
+                return;
+            }
+            if (nodes.length === 0) {
+                showResult('提示', '请先构建决策树', 'warning');
+                return;
+            }
+            
+            // 显示保存对话框
+            showThinkingLibraryDialog();
+        }
+        
+        // 显示思维库保存对话框
+        function showThinkingLibraryDialog() {
+            // 创建遮罩层
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 9999;
+                backdrop-filter: blur(2px);
+                animation: fadeIn 0.2s ease-out;
+            `;
+            
+            // 创建对话框
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 0;
+                border-radius: 12px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+                z-index: 10000;
+                width: 520px;
+                max-width: 90vw;
+                max-height: 80vh;
+                overflow: hidden;
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            const diseaseName = getCurrentDiseaseName();
+            const nodeCount = nodes.length;
+            const connectionCount = connections.length;
+            
+            dialog.innerHTML = `
+                <div style="background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%); color: white; padding: 24px; text-align: center;">
+                    <div style="font-size: 36px; margin-bottom: 12px;">🧠</div>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 600;">保存到医生思维库</h3>
+                    <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">将您的临床决策经验保存为可复用的思维模式</p>
+                </div>
+                
+                <div style="padding: 28px;">
+                    <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #7c3aed;">
+                        <h4 style="margin: 0 0 12px; color: #374151; font-size: 16px;">📊 决策树信息</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+                            <div><strong>疾病名称:</strong> ${diseaseName}</div>
+                            <div><strong>节点数量:</strong> ${nodeCount} 个</div>
+                            <div><strong>连接数量:</strong> ${connectionCount} 个</div>
+                            <div><strong>创建时间:</strong> ${new Date().toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            🏷️ 思维模式名称
+                        </label>
+                        <input type="text" id="thinkingPatternName" 
+                               value="${diseaseName}临床决策模式" 
+                               style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; transition: all 0.2s ease;"
+                               placeholder="请输入思维模式名称">
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            🎯 应用场景
+                        </label>
+                        <select id="applicationScenario" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; background: white;">
+                            <option value="clinical_diagnosis">临床诊断决策</option>
+                            <option value="treatment_planning">治疗方案规划</option>
+                            <option value="symptom_analysis">症状分析流程</option>
+                            <option value="formula_selection">方剂选择指导</option>
+                            <option value="teaching_case">教学案例模板</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 24px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            📝 临床思维描述
+                        </label>
+                        <textarea id="clinicalThinking" 
+                                  style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; min-height: 120px; font-size: 14px; line-height: 1.5; resize: vertical; font-family: inherit;"
+                                  placeholder="请描述您在构建此决策树时的临床思维过程、核心要点、注意事项等...&#10;例如：此决策树基于张仲景六经辨证理论，重点突出..."></textarea>
+                    </div>
+                    
+                    <div style="background: #fffbeb; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #f59e0b;">
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 16px; margin-right: 8px;">💡</span>
+                            <strong style="color: #92400e;">思维库价值</strong>
+                        </div>
+                        <ul style="margin: 0; padding-left: 16px; font-size: 13px; color: #92400e; line-height: 1.6;">
+                            <li>积累临床决策经验，形成个人知识库</li>
+                            <li>快速复用成功的诊疗思路和流程</li>
+                            <li>为教学和培训提供标准化模板</li>
+                            <li>促进临床经验的传承和分享</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button id="cancelLibrarySave" 
+                                style="padding: 12px 24px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: #6b7280; transition: all 0.2s ease;">
+                            ✖️ 取消
+                        </button>
+                        <button id="confirmLibrarySave" 
+                                style="padding: 12px 24px; border: none; background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%); color: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; box-shadow: 0 2px 4px rgba(124, 58, 237, 0.2); transition: all 0.2s ease;">
+                            🧠 保存到思维库
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // 关闭对话框函数
+            function closeDialog() {
+                dialog.style.animation = 'slideOut 0.2s ease-in forwards';
+                overlay.style.animation = 'fadeOut 0.2s ease-in forwards';
+                setTimeout(() => {
+                    if (overlay.parentNode) overlay.remove();
+                    if (dialog.parentNode) dialog.remove();
+                }, 200);
+            }
+            
+            // 添加到页面
+            document.body.appendChild(overlay);
+            document.body.appendChild(dialog);
+            
+            // 事件绑定
+            document.getElementById('cancelLibrarySave').onclick = closeDialog;
+            overlay.onclick = closeDialog;
+            
+            // ESC键关闭
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    closeDialog();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+            
+            // 保存到思维库
+            document.getElementById('confirmLibrarySave').onclick = async function() {
+                const patternName = document.getElementById('thinkingPatternName').value.trim();
+                const scenario = document.getElementById('applicationScenario').value;
+                const thinking = document.getElementById('clinicalThinking').value.trim();
+                
+                if (!patternName) {
+                    document.getElementById('thinkingPatternName').focus();
+                    showResult('提示', '请输入思维模式名称', 'warning');
+                    return;
+                }
+                
+                if (!thinking) {
+                    document.getElementById('clinicalThinking').focus();
+                    showResult('提示', '请描述您的临床思维过程', 'warning');
+                    return;
+                }
+                
+                closeDialog();
+                document.removeEventListener('keydown', escHandler);
+                
+                // 执行保存
+                await performLibrarySave(patternName, scenario, thinking);
+            };
+            
+            // 自动聚焦
+            setTimeout(() => {
+                document.getElementById('thinkingPatternName').focus();
+                document.getElementById('thinkingPatternName').select();
+            }, 100);
+        }
+        
+        // 执行思维库保存
+        async function performLibrarySave(patternName, scenario, thinking) {
+            showLoading('正在保存到思维库...');
+            
+            try {
+                const saveData = {
+                    disease_name: getCurrentDiseaseName(),
+                    thinking_process: thinking,
+                    tree_structure: {
+                        nodes: nodes,
+                        connections: connections,
+                        metadata: {
+                            pattern_name: patternName,
+                            scenario: scenario,
+                            created_at: new Date().toISOString(),
+                            node_count: nodes.length,
+                            connection_count: connections.length
+                        }
+                    },
+                    clinical_patterns: {
+                        scenario_type: scenario,
+                        key_decision_points: extractKeyDecisionPoints(),
+                        diagnostic_flow: extractDiagnosticFlow(),
+                        treatment_principles: extractTreatmentPrinciples()
+                    },
+                    doctor_expertise: {
+                        specialization: "中医内科", // 可以后续从用户信息获取
+                        experience_level: "主治医师", // 可以后续从用户信息获取
+                        theoretical_basis: extractTheoreticalBasis()
+                    }
+                };
+                
+                const response = await fetch('/api/save_clinical_pattern', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                    },
+                    body: JSON.stringify(saveData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    hideLoading();
+                    showResult('成功', `🧠 临床决策模式已保存到思维库！模式ID: ${result.data.pattern_id}`, 'success');
+                } else {
+                    throw new Error(result.message || '保存到思维库失败');
+                }
+                
+            } catch (error) {
+                console.error('保存到思维库失败:', error);
+                hideLoading();
+                showResult('错误', `❌ 保存到思维库失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 提取关键决策点
+        function extractKeyDecisionPoints() {
+            const decisionPoints = [];
+            nodes.forEach(node => {
+                if (['condition', 'diagnosis', 'syndrome'].includes(node.type)) {
+                    decisionPoints.push({
+                        node_id: node.id,
+                        node_type: node.type,
+                        decision_name: node.name,
+                        decision_criteria: node.description || ''
+                    });
+                }
+            });
+            return decisionPoints;
+        }
+        
+        // 提取诊断流程
+        function extractDiagnosticFlow() {
+            const flow = [];
+            connections.forEach(conn => {
+                const fromNode = nodes.find(n => n.id === conn.from);
+                const toNode = nodes.find(n => n.id === conn.to);
+                if (fromNode && toNode) {
+                    flow.push({
+                        from: fromNode.name,
+                        to: toNode.name,
+                        from_type: fromNode.type,
+                        to_type: toNode.type
+                    });
+                }
+            });
+            return flow;
+        }
+        
+        // 提取治疗原则
+        function extractTreatmentPrinciples() {
+            const principles = [];
+            nodes.forEach(node => {
+                if (['principle', 'treatment', 'prescription'].includes(node.type)) {
+                    principles.push({
+                        principle_name: node.name,
+                        principle_type: node.type,
+                        description: node.description || ''
+                    });
+                }
+            });
+            return principles;
+        }
+        
+        // 提取理论基础
+        function extractTheoreticalBasis() {
+            const basis = [];
+            nodes.forEach(node => {
+                if (node.description && node.description.includes('理论')) {
+                    basis.push({
+                        node_name: node.name,
+                        theoretical_content: node.description
+                    });
+                }
+            });
+            return basis.length > 0 ? basis : [{ 
+                node_name: "整体决策树", 
+                theoretical_content: "基于中医传统理论的诊疗决策过程" 
+            }];
         }
 
         // 导出JSON

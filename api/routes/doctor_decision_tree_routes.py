@@ -1682,6 +1682,87 @@ async def save_clinical_pattern(
         logger.error(f"保存临床模式失败: {e}")
         return {
             "success": False,
+            "message": f"保存失败: {str(e)}"
+        }
+
+# ======================== 思维库查询功能 ========================
+
+@router.get("/get_doctor_patterns/{doctor_id}")
+async def get_doctor_clinical_patterns(
+    doctor_id: str,
+    disease_name: Optional[str] = None,
+    current_user: UserSession = Depends(get_current_user)
+):
+    """
+    获取医生的临床决策模式
+    
+    Args:
+        doctor_id: 医生ID
+        disease_name: 疾病名称（可选，用于精确匹配）
+        current_user: 当前用户会话
+        
+    Returns:
+        医生的临床决策模式列表
+    """
+    try:
+        logger.info(f"获取医生 {doctor_id} 的临床模式")
+        
+        # 🗄️ 从数据库查询临床模式
+        db_path = "/opt/tcm-ai/data/user_history.sqlite"
+        
+        with sqlite3.connect(db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            
+            if disease_name:
+                # 精确匹配疾病名称
+                query = """
+                    SELECT * FROM doctor_clinical_patterns 
+                    WHERE doctor_id = ? AND disease_name = ?
+                    ORDER BY created_at DESC
+                """
+                params = (doctor_id, disease_name)
+            else:
+                # 获取所有模式
+                query = """
+                    SELECT * FROM doctor_clinical_patterns 
+                    WHERE doctor_id = ?
+                    ORDER BY created_at DESC
+                """
+                params = (doctor_id,)
+            
+            patterns = conn.execute(query, params).fetchall()
+            
+            patterns_data = []
+            for pattern in patterns:
+                pattern_data = {
+                    "pattern_id": pattern["pattern_id"],
+                    "doctor_id": pattern["doctor_id"],
+                    "disease_name": pattern["disease_name"],
+                    "thinking_process": pattern["thinking_process"],
+                    "tree_structure": json.loads(pattern["tree_structure"]) if pattern["tree_structure"] else {},
+                    "clinical_patterns": json.loads(pattern["clinical_patterns"]) if pattern["clinical_patterns"] else {},
+                    "doctor_expertise": json.loads(pattern["doctor_expertise"]) if pattern["doctor_expertise"] else {},
+                    "usage_count": pattern["usage_count"],
+                    "created_at": pattern["created_at"],
+                    "updated_at": pattern["updated_at"]
+                }
+                patterns_data.append(pattern_data)
+        
+        return {
+            "success": True,
+            "message": f"找到 {len(patterns_data)} 个临床决策模式",
+            "data": {
+                "doctor_id": doctor_id,
+                "disease_name": disease_name,
+                "patterns": patterns_data,
+                "total_count": len(patterns_data)
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"获取临床模式失败: {e}")
+        return {
+            "success": False,
             "message": f"保存失败: {str(e)}",
             "data": None
         }

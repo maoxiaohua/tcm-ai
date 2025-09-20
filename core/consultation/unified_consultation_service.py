@@ -78,6 +78,12 @@ class UnifiedConsultationService:
             self.safety_checker = PrescriptionSafetyChecker()
             
             # 对话状态管理器
+            self.conversation_state = conversation_state_manager
+            
+            # 思维库集成（新增）
+            self.thinking_library_enabled = True
+            
+            logger.info("✅ 统一问诊服务初始化完成（含思维库集成）")
             self.state_manager = conversation_state_manager
             
             # 对话分析器
@@ -166,10 +172,13 @@ class UnifiedConsultationService:
             # 7. 生成医生人格提示词（暂时使用原有系统）
             persona_prompt = self._generate_doctor_persona_prompt(request, conversation_state)
             
-            # 8. 构建完整的消息上下文
-            messages = self._build_message_context(request, persona_prompt)
+            # 8. 🧠 查询思维库（新增）
+            thinking_context = await self._get_thinking_library_context(request, conversation_state)
             
-            # 9. 调用AI生成响应
+            # 9. 构建完整的消息上下文（增强版）
+            messages = self._build_message_context(request, persona_prompt, thinking_context)
+            
+            # 10. 调用AI生成响应
             ai_response = await self._call_ai_model(messages)
             
             # 10. 分析AI响应
@@ -866,6 +875,154 @@ class UnifiedConsultationService:
                 "stage": "inquiry",
                 "confidence": 0.5
             }
+
+    async def _get_thinking_library_context(self, request: ConsultationRequest, conversation_state) -> Optional[Dict]:
+        """获取思维库上下文（新增）"""
+        if not self.thinking_library_enabled:
+            return None
+            
+        try:
+            # 从对话中识别疾病名称
+            disease_name = self._extract_disease_from_conversation(request)
+            if not disease_name:
+                return None
+                
+            # 获取医生ID（从selected_doctor映射）
+            doctor_id = self._map_doctor_name_to_id(request.selected_doctor)
+            
+            # 调用思维库API查询临床模式
+            import aiohttp
+            import json
+            
+            api_url = f"http://localhost:8000/api/get_doctor_patterns/{doctor_id}"
+            params = {"disease_name": disease_name} if disease_name else {}
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(api_url, params=params, timeout=3) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if result.get("success") and result.get("data", {}).get("patterns"):
+                            patterns = result["data"]["patterns"]
+                            if patterns:
+                                # 使用最新的模式
+                                latest_pattern = patterns[0]
+                                logger.info(f"✅ 从思维库获取临床模式: {latest_pattern['pattern_id']}")
+                                return {
+                                    "enabled": True,
+                                    "pattern_id": latest_pattern["pattern_id"],
+                                    "thinking_process": latest_pattern["thinking_process"],
+                                    "clinical_patterns": latest_pattern["clinical_patterns"],
+                                    "doctor_expertise": latest_pattern["doctor_expertise"],
+                                    "disease_name": latest_pattern["disease_name"]
+                                }
+            
+            logger.info(f"📚 未找到匹配的思维库模式: 医生={doctor_id}, 疾病={disease_name}")
+            return None
+            
+        except Exception as e:
+            logger.warning(f"思维库查询失败: {e}")
+            return None
+    
+    def _extract_disease_from_conversation(self, request: ConsultationRequest) -> Optional[str]:
+        """从对话中提取疾病名称"""
+        # 简单实现：检查常见疾病关键词
+        common_diseases = ["头痛", "失眠", "胃痛", "咳嗽", "便秘", "腹泻", "眩晕", "头晕"]
+        
+        # 检查当前消息
+        for disease in common_diseases:
+            if disease in request.message:
+                return disease
+                
+        # 检查历史对话
+        if request.conversation_history:
+            for turn in request.conversation_history:
+                if turn.get("role") == "user":
+                    for disease in common_diseases:
+                        if disease in turn.get("content", ""):
+                            return disease
+        
+        return None
+    
+    def _map_doctor_name_to_id(self, doctor_name: str) -> str:
+        """将医生名称映射为ID"""
+        mapping = {
+            "zhang_zhongjing": "zhang_zhongjing",
+            "ye_tianshi": "ye_tianshi", 
+            "li_dongyuan": "li_dongyuan",
+            "zheng_qinan": "zheng_qinan",
+            "liu_duzhou": "liu_duzhou"
+        }
+        return mapping.get(doctor_name, doctor_name)
+    
+    def _build_message_context(self, request: ConsultationRequest, persona_prompt: str, thinking_context: Optional[Dict] = None) -> List[Dict[str, str]]:
+        """构建消息上下文（增强版，集成思维库）"""
+        messages = []
+        
+        # 系统消息：医生人格 + 思维库上下文
+        system_content = persona_prompt
+        
+        # 🧠 集成思维库内容
+        if thinking_context and thinking_context.get("enabled"):
+            thinking_prompt = f"""
+
+📚 **临床经验参考**（来自您的思维库）:
+疾病: {thinking_context.get('disease_name', '未知')}
+临床思维: {thinking_context.get('thinking_process', '未提供')}
+
+**您的诊疗要点**:
+{self._format_clinical_patterns(thinking_context.get('clinical_patterns', {}))}
+
+**专业背景**:
+{self._format_doctor_expertise(thinking_context.get('doctor_expertise', {}))}
+
+请基于上述您已有的临床经验和思维模式，结合当前患者的症状，提供符合您诊疗风格的专业建议。"""
+            
+            system_content += thinking_prompt
+            logger.info("🧠 思维库内容已集成到AI提示词中")
+        
+        messages.append({"role": "system", "content": system_content})
+        
+        # 对话历史
+        if request.conversation_history:
+            for turn in request.conversation_history[-10:]:  # 只保留最近10轮
+                if turn.get("role") in ["user", "assistant"]:
+                    messages.append({
+                        "role": turn["role"], 
+                        "content": turn["content"]
+                    })
+        
+        # 当前用户消息
+        messages.append({"role": "user", "content": request.message})
+        
+        return messages
+    
+    def _format_clinical_patterns(self, patterns: Dict) -> str:
+        """格式化临床模式"""
+        if not patterns:
+            return "暂无特定临床模式"
+            
+        formatted = []
+        if patterns.get("key_decision_points"):
+            formatted.append("关键决策点:")
+            for point in patterns["key_decision_points"][:3]:  # 只显示前3个
+                formatted.append(f"- {point.get('decision_name', '')}: {point.get('decision_criteria', '')}")
+        
+        if patterns.get("treatment_principles"):
+            formatted.append("\n治疗原则:")
+            for principle in patterns["treatment_principles"][:3]:
+                formatted.append(f"- {principle.get('principle_name', '')}")
+                
+        return "\n".join(formatted) if formatted else "暂无具体模式"
+    
+    def _format_doctor_expertise(self, expertise: Dict) -> str:
+        """格式化医生专业背景"""
+        if not expertise:
+            return "专科: 中医内科"
+            
+        specialization = expertise.get("specialization", "中医内科")
+        experience = expertise.get("experience_level", "主治医师")
+        
+        return f"专科: {specialization}, 经验: {experience}"
 
 # 全局服务实例
 _consultation_service = None
