@@ -195,16 +195,19 @@
 
         .node {
             position: absolute;
-            min-width: 120px;
-            min-height: 60px;
+            width: 220px;
+            min-height: 80px;
             background: white;
             border: 2px solid #e2e8f0;
             border-radius: 8px;
-            padding: 10px;
+            padding: 12px;
             cursor: move;
             user-select: none;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             z-index: 10;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
         }
 
         .node:hover {
@@ -216,11 +219,42 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
-        .node.symptom { border-left: 4px solid #f59e0b; }
-        .node.condition { border-left: 4px solid #0ea5e9; }
-        .node.diagnosis { border-left: 4px solid #22c55e; }
-        .node.treatment { border-left: 4px solid #ec4899; }
-        .node.formula { border-left: 4px solid #a855f7; }
+        .node.condition { 
+            border-left: 4px solid #0ea5e9; 
+            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+        }
+        .node.diagnosis { 
+            border-left: 4px solid #22c55e; 
+            background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+        }
+        .node.treatment { 
+            border-left: 4px solid #ec4899; 
+            background: linear-gradient(135deg, #ffffff 0%, #fdf2f8 100%);
+        }
+        .node.formula { 
+            border-left: 4px solid #a855f7; 
+            background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%);
+        }
+        .node.symptom { 
+            border-left: 4px solid #f59e0b; 
+            background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+        }
+        .node.pathogenesis { 
+            border-left: 4px solid #dc2626; 
+            background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+        }
+        .node.syndrome { 
+            border-left: 4px solid #059669; 
+            background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%);
+        }
+        .node.principle { 
+            border-left: 4px solid #7c3aed; 
+            background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%);
+        }
+        .node.prescription { 
+            border-left: 4px solid #be185d; 
+            background: linear-gradient(135deg, #ffffff 0%, #fdf2f8 100%);
+        }
         
         /* 🎯 智能年龄分支样式 */
         .node.adult-branch { 
@@ -253,14 +287,59 @@
 
         .node-title {
             font-weight: 600;
-            margin-bottom: 5px;
-            font-size: 12px;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #1f2937;
+            text-align: center;
+            line-height: 1.3;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .node-content {
-            font-size: 11px;
+            font-size: 12px;
             color: #6b7280;
-            word-break: break-word;
+            line-height: 1.4;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+        }
+        .node-content.truncated {
+            max-height: 72px;
+            overflow: hidden;
+            position: relative;
+        }
+        .node-content.truncated::after {
+            content: '...';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: white;
+            padding-left: 10px;
+            color: #9ca3af;
+        }
+        .expand-btn {
+            color: #3b82f6;
+            cursor: pointer;
+            font-size: 11px;
+            margin-top: 4px;
+            text-decoration: underline;
+            display: block;
+            text-align: center;
+            padding: 2px 0;
+            border-top: 1px solid #f3f4f6;
+        }
+        .expand-btn:hover {
+            color: #1d4ed8;
+            background: #f8fafc;
+        }
+        
+        /* 节点类型图标 */
+        .node-type-icon {
+            display: inline-block;
+            margin-right: 4px;
+            font-size: 16px;
+            vertical-align: middle;
         }
 
         /* 相关症状样式 */
@@ -978,15 +1057,24 @@
             try {
                 // AI功能按钮
                 // 🎯 核心功能按钮
-                document.getElementById('generateBtn').addEventListener('click', generateAITree);
-                document.getElementById('extractPrescriptionBtn').addEventListener('click', extractPrescriptionInfo);
+                const generateBtn = document.getElementById('generateBtn');
+                if (generateBtn) generateBtn.addEventListener('click', generateAITree);
+                
+                const extractPrescriptionBtn = document.getElementById('extractPrescriptionBtn');
+                if (extractPrescriptionBtn) extractPrescriptionBtn.addEventListener('click', extractPrescriptionInfo);
                 
                 // 🔬 高级分析功能  
-                document.getElementById('formulaAnalyzeBtn').addEventListener('click', analyzeFormula);
+                const formulaAnalyzeBtn = document.getElementById('formulaAnalyzeBtn');
+                if (formulaAnalyzeBtn) formulaAnalyzeBtn.addEventListener('click', analyzeFormula);
                 
                 // 💾 思维库功能
                 const saveToLibraryBtn = document.getElementById('saveToLibraryBtn');
-                if (saveToLibraryBtn) saveToLibraryBtn.addEventListener('click', saveDecisionTreeToLibrary);
+                if (saveToLibraryBtn) {
+                    saveToLibraryBtn.addEventListener('click', function() {
+                        console.log('保存到思维库功能尚未实现');
+                        showResult('提示', '保存到思维库功能开发中...', 'info');
+                    });
+                }
                 
                 // 快速操作按钮
                 const addPathBtn = document.getElementById('addPathBtn');
@@ -1020,8 +1108,37 @@
                 if (exportBtn) exportBtn.addEventListener('click', exportJSON);
 
                 // 全局事件
-                document.addEventListener('contextmenu', hideContextMenu);
-                document.addEventListener('click', hideContextMenu);
+                document.addEventListener('contextmenu', function(e) {
+                    // 如果不是节点的右键菜单，则隐藏现有菜单
+                    if (!e.target.closest('.node')) {
+                        hideContextMenu();
+                    }
+                });
+                document.addEventListener('click', function(e) {
+                    console.log('Global click detected, target:', e.target);
+                    
+                    // 检查点击目标
+                    const isContextMenuClick = e.target.closest('.context-menu');
+                    const isNodeClick = e.target.closest('.node');
+                    const canvas = document.getElementById('canvas');
+                    const isCanvasClick = canvas && (e.target === canvas || canvas.contains(e.target));
+                    
+                    // 隐藏右键菜单（除非点击菜单本身）
+                    if (!isContextMenuClick) {
+                        console.log('Hiding context menu due to click outside menu');
+                        hideContextMenu();
+                    }
+                    
+                    // 清除节点选择（如果点击画布空白区域）
+                    if (isCanvasClick && !isNodeClick && !isContextMenuClick) {
+                        console.log('Clearing node selection due to canvas click');
+                        document.querySelectorAll('.node').forEach(el => {
+                            el.classList.remove('selected');
+                        });
+                        selectedNode = null;
+                        hideSelectedNodeInfo();
+                    }
+                });
                 
                 console.log('事件监听器初始化完成');
             } catch (error) {
@@ -1910,12 +2027,42 @@
                 ageBadge = `<div class="age-group-badge ${node.age_group}">${badgeText}</div>`;
             }
             
+            // 智能文本处理 - 检查内容长度
+            const isLongContent = nodeContent.length > 120;
+            const contentId = `content_${node.id}`;
+            
+            // 为不同类型节点添加图标
+            const typeIcons = {
+                'condition': '🏥',
+                'diagnosis': '🔍', 
+                'treatment': '💊',
+                'formula': '🌿',
+                'symptom': '📋',
+                'pathogenesis': '⚡',
+                'syndrome': '🎯',
+                'principle': '📏',
+                'prescription': '📝',
+                'four_diagnosis': '👁',
+                'disease': '🔬'
+            };
+            const nodeIcon = typeIcons[node.type] || '📄';
+            
             nodeElement.innerHTML = `
                 <button class="delete-btn" onclick="deleteNodeById('${node.id}')">×</button>
                 ${ageBadge}
-                <div class="node-title">${node.name}</div>
-                <div class="node-content">${nodeContent}</div>
+                <div class="node-title">
+                    <span class="node-type-icon">${nodeIcon}</span>
+                    ${node.name}
+                </div>
+                <div class="node-content" id="${contentId}">${nodeContent}</div>
+                ${isLongContent ? `<div class="expand-btn" onclick="toggleNodeContent('${node.id}')">展开详情 ▼</div>` : ''}
             `;
+            
+            // 如果内容过长，默认截断显示
+            if (isLongContent) {
+                const contentDiv = nodeElement.querySelector('.node-content');
+                contentDiv.classList.add('truncated');
+            }
             
             // 添加点击事件
             nodeElement.addEventListener('click', function(e) {
@@ -1939,65 +2086,6 @@
             canvas.appendChild(nodeElement);
         }
 
-        // 编辑节点内容
-        function editNodeContent(node) {
-            const nodeElement = document.getElementById(node.id);
-            const contentDiv = nodeElement.querySelector('.node-content');
-            const originalContent = node.description || '';
-            
-            // 创建编辑输入框
-            const textarea = document.createElement('textarea');
-            textarea.className = 'node-edit-input';
-            textarea.value = originalContent;
-            textarea.style.cssText = `
-                width: 100%;
-                height: 60px;
-                border: 2px solid #007bff;
-                border-radius: 4px;
-                padding: 5px;
-                font-size: 12px;
-                font-family: inherit;
-                resize: vertical;
-                background: #fff;
-                z-index: 1000;
-            `;
-            
-            // 替换内容
-            contentDiv.innerHTML = '';
-            contentDiv.appendChild(textarea);
-            textarea.focus();
-            textarea.select();
-            
-            // 保存编辑
-            function saveEdit() {
-                const newContent = textarea.value.trim();
-                if (newContent !== originalContent) {
-                    node.description = newContent;
-                    updateNodeDisplay(node);
-                    // 如果当前节点被选中，更新侧边栏信息
-                    if (selectedNode && selectedNode.id === node.id) {
-                        showSelectedNodeInfo(node);
-                    }
-                }
-                restoreContent();
-            }
-            
-            // 恢复内容显示
-            function restoreContent() {
-                updateNodeDisplay(node);
-            }
-            
-            // 监听事件
-            textarea.addEventListener('blur', saveEdit);
-            textarea.addEventListener('keydown', function(e) {
-                e.stopPropagation();
-                if (e.key === 'Enter' && e.ctrlKey) {
-                    saveEdit();
-                } else if (e.key === 'Escape') {
-                    restoreContent();
-                }
-            });
-        }
         
 
         // 选择节点
@@ -2192,16 +2280,6 @@
             resultsDiv.innerHTML = '';
         }
 
-        // 画布点击事件
-        document.addEventListener('click', function(e) {
-            if (e.target.id === 'canvas') {
-                // 清除选择
-                document.querySelectorAll('.node').forEach(el => {
-                    el.classList.remove('selected');
-                });
-                selectedNode = null;
-            }
-        });
 
         // 绘制连接线
         function drawConnections() {
@@ -2506,8 +2584,13 @@
             const contentDiv = nodeElement.querySelector('.node-content');
             if (!contentDiv) return;
             
-            // 使用与renderNode相同的逻辑
-            let nodeContent = node.description || '';
+            // 清理描述内容，移除已有的相关症状HTML
+            let cleanDescription = node.description || '';
+            // 移除之前添加的相关症状HTML，防止重复
+            cleanDescription = cleanDescription.replace(/<div class="related-symptoms">[\s\S]*?<\/div>/g, '');
+            
+            // 重新构建内容
+            let nodeContent = cleanDescription;
             if (node.relatedSymptoms && node.relatedSymptoms.length > 0) {
                 nodeContent = `${nodeContent}
                     <div class="related-symptoms">
@@ -2536,13 +2619,13 @@
                 nodeElement.removeEventListener('dblclick', existingHandler);
             }
             
-            // 创建新的事件处理函数
+            // 创建新的事件处理函数 - 统一使用对话框编辑
             const newHandler = function(e) {
                 e.stopPropagation();
                 e.preventDefault();
                 // 直接查找最新的节点数据
                 const currentNode = nodes.find(n => n.id === node.id) || node;
-                editNodeContent(currentNode);
+                editNode(currentNode); // 使用统一的对话框编辑
             };
             
             // 保存事件处理器引用以便后续移除
@@ -2567,6 +2650,22 @@
             }
         }
 
+        // 切换节点内容显示状态
+        function toggleNodeContent(nodeId) {
+            const contentDiv = document.getElementById(`content_${nodeId}`);
+            const expandBtn = contentDiv.nextElementSibling;
+            
+            if (contentDiv.classList.contains('truncated')) {
+                // 展开内容
+                contentDiv.classList.remove('truncated');
+                if (expandBtn) expandBtn.innerHTML = '收起详情 ▲';
+            } else {
+                // 收起内容
+                contentDiv.classList.add('truncated');
+                if (expandBtn) expandBtn.innerHTML = '展开详情 ▼';
+            }
+        }
+        
         // 删除节点
         function deleteNodeById(nodeId) {
             if (confirm('确定要删除这个节点吗？')) {
@@ -2624,7 +2723,7 @@
             
             // 自动选中新节点以便编辑
             selectNode(newNode);
-            editNodeContent(newNode);
+            editNode(newNode);
         }
         
         // 添加子节点（顺序流程）
@@ -2653,7 +2752,7 @@
             
             // 自动选中新节点以便编辑
             selectNode(newNode);
-            editNodeContent(newNode);
+            editNode(newNode);
         }
         
         // 添加证候分型（支持多种证型）
@@ -2687,8 +2786,22 @@
             showResult('成功', '✅ 已添加证候分型模板，请编辑具体内容', 'success');
         }
         
-        // 编辑节点（增强版）
+        // 编辑节点（美观增强版）
         function editNode(node) {
+            // 创建遮罩层
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 9999;
+                backdrop-filter: blur(2px);
+                animation: fadeIn 0.2s ease-out;
+            `;
+            
             // 创建编辑对话框
             const dialog = document.createElement('div');
             dialog.style.cssText = `
@@ -2697,59 +2810,212 @@
                 left: 50%;
                 transform: translate(-50%, -50%);
                 background: white;
-                padding: 20px;
-                border-radius: 8px;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+                padding: 0;
+                border-radius: 12px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.15);
                 z-index: 10000;
-                width: 400px;
+                width: 480px;
+                max-width: 90vw;
+                max-height: 80vh;
+                overflow: hidden;
+                animation: slideIn 0.3s ease-out;
             `;
+            
+            // 添加动画样式
+            if (!document.querySelector('#edit-dialog-styles')) {
+                const style = document.createElement('style');
+                style.id = 'edit-dialog-styles';
+                style.textContent = `
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes slideIn {
+                        from { 
+                            opacity: 0;
+                            transform: translate(-50%, -60%);
+                            scale: 0.95;
+                        }
+                        to { 
+                            opacity: 1;
+                            transform: translate(-50%, -50%);
+                            scale: 1;
+                        }
+                    }
+                    .edit-input:focus {
+                        outline: none;
+                        border-color: #3b82f6;
+                        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+                    }
+                    .edit-btn {
+                        transition: all 0.2s ease;
+                    }
+                    .edit-btn:hover {
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            // 获取节点类型图标
+            const typeIcons = {
+                'disease': '🔬',
+                'four_diagnosis': '👁',
+                'symptom': '📋',
+                'pathogenesis': '⚡',
+                'syndrome': '🎯',
+                'principle': '📏',
+                'prescription': '📝',
+                'modification': '🔄',
+                'prognosis': '💚'
+            };
             
             dialog.innerHTML = `
-                <h3 style="margin-bottom: 15px;">编辑节点</h3>
-                <div style="margin-bottom: 10px;">
-                    <label style="display: block; margin-bottom: 5px;">节点名称:</label>
-                    <input type="text" id="editNodeName" value="${node.name}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">
+                        ${typeIcons[node.type] || '📄'}
+                    </div>
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 600;">编辑节点信息</h3>
+                    <p style="margin: 5px 0 0; opacity: 0.9; font-size: 14px;">双击或右键编辑节点内容</p>
                 </div>
-                <div style="margin-bottom: 10px;">
-                    <label style="display: block; margin-bottom: 5px;">节点类型:</label>
-                    <select id="editNodeType" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="disease" ${node.type === 'disease' ? 'selected' : ''}>病种</option>
-                        <option value="four_diagnosis" ${node.type === 'four_diagnosis' ? 'selected' : ''}>四诊信息</option>
-                        <option value="symptom" ${node.type === 'symptom' ? 'selected' : ''}>主要症状</option>
-                        <option value="pathogenesis" ${node.type === 'pathogenesis' ? 'selected' : ''}>病因病机</option>
-                        <option value="syndrome" ${node.type === 'syndrome' ? 'selected' : ''}>证候判断</option>
-                        <option value="principle" ${node.type === 'principle' ? 'selected' : ''}>治则治法</option>
-                        <option value="prescription" ${node.type === 'prescription' ? 'selected' : ''}>方剂处方</option>
-                        <option value="modification" ${node.type === 'modification' ? 'selected' : ''}>随症加减</option>
-                        <option value="prognosis" ${node.type === 'prognosis' ? 'selected' : ''}>预后调理</option>
-                    </select>
-                </div>
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px;">详细描述:</label>
-                    <textarea id="editNodeDesc" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-height: 80px;">${node.description || ''}</textarea>
-                </div>
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button onclick="this.parentElement.parentElement.remove()" style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">取消</button>
-                    <button id="saveNodeEdit" style="padding: 8px 16px; border: none; background: #3b82f6; color: white; border-radius: 4px; cursor: pointer;">保存</button>
+                
+                <div style="padding: 24px;">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            🏷️ 节点名称
+                        </label>
+                        <input type="text" id="editNodeName" value="${node.name}" 
+                               class="edit-input"
+                               style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; transition: all 0.2s ease;"
+                               placeholder="请输入节点名称">
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            🎯 节点类型
+                        </label>
+                        <select id="editNodeType" 
+                                class="edit-input"
+                                style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; background: white; transition: all 0.2s ease;">
+                            <option value="disease" ${node.type === 'disease' ? 'selected' : ''}>🔬 病种识别</option>
+                            <option value="four_diagnosis" ${node.type === 'four_diagnosis' ? 'selected' : ''}>👁 四诊信息</option>
+                            <option value="symptom" ${node.type === 'symptom' ? 'selected' : ''}>📋 主要症状</option>
+                            <option value="pathogenesis" ${node.type === 'pathogenesis' ? 'selected' : ''}>⚡ 病因病机</option>
+                            <option value="syndrome" ${node.type === 'syndrome' ? 'selected' : ''}>🎯 证候判断</option>
+                            <option value="principle" ${node.type === 'principle' ? 'selected' : ''}>📏 治则治法</option>
+                            <option value="prescription" ${node.type === 'prescription' ? 'selected' : ''}>📝 方剂处方</option>
+                            <option value="modification" ${node.type === 'modification' ? 'selected' : ''}>🔄 随症加减</option>
+                            <option value="prognosis" ${node.type === 'prognosis' ? 'selected' : ''}>💚 预后调理</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 24px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            📝 详细描述
+                        </label>
+                        <textarea id="editNodeDesc" 
+                                  class="edit-input"
+                                  style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; min-height: 100px; font-size: 14px; line-height: 1.5; resize: vertical; transition: all 0.2s ease; font-family: inherit;"
+                                  placeholder="请输入详细的节点描述信息...">${node.description || ''}</textarea>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button id="cancelEdit" 
+                                class="edit-btn"
+                                style="padding: 12px 24px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: #6b7280;">
+                            ✖️ 取消
+                        </button>
+                        <button id="saveNodeEdit" 
+                                class="edit-btn"
+                                style="padding: 12px 24px; border: none; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);">
+                            ✅ 保存更改
+                        </button>
+                    </div>
                 </div>
             `;
             
+            // 添加遮罩层和对话框到页面
+            document.body.appendChild(overlay);
             document.body.appendChild(dialog);
+            
+            // 关闭对话框的函数
+            function closeDialog() {
+                dialog.style.animation = 'slideOut 0.2s ease-in forwards';
+                overlay.style.animation = 'fadeOut 0.2s ease-in forwards';
+                
+                setTimeout(() => {
+                    if (overlay.parentNode) overlay.remove();
+                    if (dialog.parentNode) dialog.remove();
+                }, 200);
+            }
+            
+            // 添加关闭动画样式
+            const exitAnimations = `
+                @keyframes slideOut {
+                    to { 
+                        opacity: 0;
+                        transform: translate(-50%, -60%);
+                        scale: 0.95;
+                    }
+                }
+                @keyframes fadeOut {
+                    to { opacity: 0; }
+                }
+            `;
+            document.querySelector('#edit-dialog-styles').textContent += exitAnimations;
+            
+            // 取消编辑
+            document.getElementById('cancelEdit').onclick = closeDialog;
+            
+            // 点击遮罩层关闭
+            overlay.onclick = closeDialog;
+            
+            // ESC键关闭
+            const escapeHandler = function(e) {
+                if (e.key === 'Escape') {
+                    closeDialog();
+                    document.removeEventListener('keydown', escapeHandler);
+                }
+            };
+            document.addEventListener('keydown', escapeHandler);
             
             // 保存编辑
             document.getElementById('saveNodeEdit').onclick = function() {
-                node.name = document.getElementById('editNodeName').value;
-                node.type = document.getElementById('editNodeType').value;
-                node.description = document.getElementById('editNodeDesc').value;
+                const nameInput = document.getElementById('editNodeName');
+                const typeSelect = document.getElementById('editNodeType');
+                const descTextarea = document.getElementById('editNodeDesc');
+                
+                // 验证输入
+                if (!nameInput.value.trim()) {
+                    nameInput.focus();
+                    nameInput.style.borderColor = '#ef4444';
+                    setTimeout(() => nameInput.style.borderColor = '#e5e7eb', 2000);
+                    return;
+                }
+                
+                // 更新节点数据
+                node.name = nameInput.value.trim();
+                node.type = typeSelect.value;
+                node.description = descTextarea.value.trim();
                 
                 // 更新显示
                 const nodeElement = document.getElementById(node.id);
                 nodeElement.className = `node ${node.type}`;
                 updateNodeDisplay(node);
                 
-                dialog.remove();
-                showResult('成功', '✅ 节点已更新', 'success');
+                closeDialog();
+                showResult('成功', '✅ 节点信息已更新', 'success');
+                
+                // 移除ESC监听器
+                document.removeEventListener('keydown', escapeHandler);
             };
+            
+            // 自动聚焦到名称输入框
+            setTimeout(() => {
+                document.getElementById('editNodeName').focus();
+                document.getElementById('editNodeName').select();
+            }, 100);
         }
         
         // 获取下一个节点的默认类型
@@ -2828,7 +3094,10 @@
         function hideContextMenu() {
             const menu = document.getElementById('contextMenu');
             if (menu) {
+                console.log('Removing context menu');
                 menu.remove();
+            } else {
+                console.log('No context menu to remove');
             }
         }
 
@@ -3116,21 +3385,6 @@
             resultsDiv.appendChild(resultElement);
         }
 
-        // 编辑节点
-        function editNode(node) {
-            const newName = prompt('请输入新的节点名称:', node.name);
-            if (newName && newName.trim() && newName !== node.name) {
-                node.name = newName.trim();
-                
-                const element = document.getElementById(node.id);
-                const titleElement = element.querySelector('.node-title');
-                if (titleElement) {
-                    titleElement.textContent = node.name;
-                }
-                
-                showResult('成功', '✅ 节点已更新', 'success');
-            }
-        }
 
         // 添加子节点
         function addChildNode(parentNode) {
@@ -4019,6 +4273,24 @@
                 aiModeToggle.dispatchEvent(event);
                 
                 console.log('✅ AI模式切换强制绑定完成');
+            
+            // 🔧 强制绑定右键菜单隐藏事件（最高优先级）
+            console.log('🔧 强制绑定右键菜单隐藏事件...');
+            document.addEventListener('click', function(e) {
+                console.log('🖱️ Force-bound click detected, target:', e.target.tagName, e.target.className);
+                
+                const isContextMenuClick = e.target.closest('.context-menu');
+                if (!isContextMenuClick) {
+                    console.log('🗑️ Force hiding context menu');
+                    const menu = document.getElementById('contextMenu');
+                    if (menu) {
+                        menu.remove();
+                        console.log('✅ Context menu removed by force binding');
+                    }
+                }
+            }, true); // 使用捕获阶段确保优先执行
+            
+            console.log('✅ 右键菜单隐藏事件强制绑定完成');
             } else {
                 console.error('❌ 找不到aiModeToggle元素');
             }
