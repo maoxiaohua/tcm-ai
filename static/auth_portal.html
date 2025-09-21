@@ -1048,10 +1048,10 @@
             showLoading();
 
             try {
-                const response = await fetch('/api/auth/login', {
+                const response = await fetch('/api/v2/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password, remember })
+                    body: JSON.stringify({ username, password, remember_me: remember })
                 });
 
                 const data = await response.json();
@@ -1065,19 +1065,21 @@
                         localStorage.setItem('currentUser', JSON.stringify(data.user));
                         
                         // 如果是患者，设置固定用户ID到对话状态管理器
-                        if (data.user.role === 'patient' && window.conversationStateManager) {
+                        if (data.user.primary_role === 'patient' && window.conversationStateManager) {
                             window.conversationStateManager.setCurrentUserId(data.user.id, data.user);
                         }
                         
-                        // 保存token
-                        if (data.token) {
-                            const role = data.user.role;
-                            localStorage.setItem(`${role}Token`, data.token);
+                        // 保存token (统一认证系统)
+                        if (data.session && data.session.session_id) {
+                            localStorage.setItem('session_token', data.session.session_id);
+                            // 向后兼容
+                            const role = data.user.primary_role;
+                            localStorage.setItem(`${role}Token`, data.session.session_id);
                         }
                         
-                        // 保存会话token（如果存在）
-                        if (data.user.session_token) {
-                            localStorage.setItem('sessionToken', data.user.session_token);
+                        // 保存用户信息
+                        if (data.user) {
+                            localStorage.setItem('currentUser', JSON.stringify(data.user));
                         }
                         
                         if (remember) {
@@ -1088,7 +1090,7 @@
                     }
 
                     setTimeout(() => {
-                        window.location.href = data.redirect_url || getDefaultRedirectUrl(data.user.role);
+                        window.location.href = data.redirect_url || getDefaultRedirectUrl(data.user.primary_role);
                     }, 1000);
                 } else {
                     showError(data.detail || data.message || '登录失败');
@@ -1262,7 +1264,7 @@
             showLoading();
 
             try {
-                const response = await fetch('/api/auth/login', {
+                const response = await fetch('/api/v2/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
@@ -1272,21 +1274,29 @@
 
                 if (response.ok && data.success) {
                     // 验证角色匹配
-                    if (data.user.role !== selectedRole && 
-                        !(selectedRole === 'admin' && data.user.role === 'superadmin')) {
-                        showError(`账户角色不匹配，请选择正确的${getRoleDisplayName(data.user.role)}角色`);
+                    if (data.user.primary_role !== selectedRole && 
+                        !(selectedRole === 'admin' && data.user.primary_role === 'superadmin')) {
+                        showError(`账户角色不匹配，请选择正确的${getRoleDisplayName(data.user.primary_role)}角色`);
                         return;
                     }
 
                     showSuccess(`${getRoleDisplayName(selectedRole)}登录成功！正在跳转...`);
                     
-                    // 保存token
-                    if (data.token) {
-                        localStorage.setItem(`${data.user.role}Token`, data.token);
+                    // 保存token (统一认证系统)
+                    if (data.session && data.session.session_id) {
+                        localStorage.setItem('session_token', data.session.session_id);
+                        // 向后兼容
+                        const role = data.user.primary_role;
+                        localStorage.setItem(`${role}Token`, data.session.session_id);
+                    }
+                    
+                    // 保存用户信息
+                    if (data.user) {
+                        localStorage.setItem('currentUser', JSON.stringify(data.user));
                     }
 
                     setTimeout(() => {
-                        window.location.href = data.redirect_url || getRoleDefaultUrl(data.user.role);
+                        window.location.href = data.redirect_url || getRoleDefaultUrl(data.user.primary_role);
                     }, 1000);
                 } else {
                     showError(data.detail || data.message || '登录失败');

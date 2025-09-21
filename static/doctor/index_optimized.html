@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中医AI智能诊疗系统 - 医生工作台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* 顶部导航栏 */
+        .top-navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 20px;
+            height: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .navbar-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .navbar-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .navbar-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e40af;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #3b82f6;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .user-name {
+            font-weight: 500;
+            color: #374151;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 250px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding-top: 80px;
+            border-right: 1px solid #e5e7eb;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            transition: transform 0.3s ease;
+            z-index: 999;
+        }
+
+        .nav-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-item:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-left-color: #3b82f6;
+        }
+
+        .nav-item.active {
+            background: rgba(59, 130, 246, 0.15);
+            border-left-color: #3b82f6;
+            color: #1e40af;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+            width: 24px;
+            text-align: center;
+        }
+
+        /* 主内容区 */
+        .main-content {
+            flex: 1;
+            margin-left: 250px;
+            padding: 80px 30px 30px;
+            overflow-y: auto;
+        }
+
+        .content-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1e40af;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* 统计卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        /* 按钮样式 */
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn-success {
+            background: #10b981;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        /* 处方列表 */
+        .prescription-item {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #f59e0b;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .prescription-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .prescription-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+
+        .prescription-id {
+            font-weight: 600;
+            color: #1e40af;
+            font-size: 16px;
+        }
+
+        .prescription-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .prescription-content {
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .prescription-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1e40af;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 5px;
+        }
+
+        .close-btn:hover {
+            color: #374151;
+        }
+
+        /* 表单样式 */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .navbar-title {
+                font-size: 16px;
+            }
+
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 80px 15px 20px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                margin: 20px;
+                width: calc(100% - 40px);
+            }
+
+            .prescription-actions {
+                justify-content: center;
+            }
+        }
+
+        /* 移动端遮罩 */
+        .mobile-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-overlay.active {
+                display: block;
+            }
+        }
+
+        /* 加载状态 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f4f6;
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-message {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .empty-description {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        /* AI诊疗辅助卡片 */
+        .ai-assist-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .ai-assist-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .ai-assist-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.4);
+        }
+
+        .ai-assist-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .ai-assist-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .ai-assist-description {
+            font-size: 14px;
+            opacity: 0.9;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <!-- 移动端遮罩 -->
+    <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileMenu()"></div>
+
+    <!-- 顶部导航栏 -->
+    <div class="top-navbar">
+        <div class="navbar-left">
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+            <div class="navbar-title">🏥 中医AI智能诊疗系统 - 医生工作台</div>
+        </div>
+        <div class="navbar-right">
+            <div class="user-info">
+                <div class="user-avatar" id="doctorAvatar">医</div>
+                <div class="user-name" id="doctorName">加载中...</div>
+            </div>
+            <button class="btn btn-secondary" onclick="logout()">退出登录</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 侧边栏 -->
+        <div class="sidebar" id="sidebar">
+            <div class="nav-item active" onclick="showSection('dashboard')">
+                <div class="nav-icon">📊</div>
+                <span>工作台概览</span>
+            </div>
+            <div class="nav-item" onclick="showSection('prescriptions')">
+                <div class="nav-icon">📋</div>
+                <span>处方审查</span>
+            </div>
+            <div class="nav-item" onclick="showSection('ai-assist')">
+                <div class="nav-icon">🤖</div>
+                <span>AI诊疗辅助</span>
+            </div>
+            <div class="nav-item" onclick="showSection('profile')">
+                <div class="nav-icon">👤</div>
+                <span>个人设置</span>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <!-- 工作台概览 -->
+            <div id="dashboard" class="content-section active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="pendingCount">0</div>
+                        <div class="stat-label">待审查处方</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="todayCount">0</div>
+                        <div class="stat-label">今日已审查</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalCount">0</div>
+                        <div class="stat-label">总审查数量</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="approvedRate">0%</div>
+                        <div class="stat-label">通过率</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">
+                        🚀 快速操作
+                    </div>
+                    <div class="ai-assist-grid">
+                        <div class="ai-assist-card" onclick="showSection('prescriptions')">
+                            <div class="ai-assist-icon">📋</div>
+                            <div class="ai-assist-title">处方审查</div>
+                            <div class="ai-assist-description">查看和审查待处理的处方单</div>
+                        </div>
+                        <div class="ai-assist-card" onclick="showSection('ai-assist')">
+                            <div class="ai-assist-icon">🤖</div>
+                            <div class="ai-assist-title">AI诊疗辅助</div>
+                            <div class="ai-assist-description">使用AI决策树辅助诊疗决策</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 处方审查 -->
+            <div id="prescriptions" class="content-section">
+                <div class="card">
+                    <div class="card-title">
+                        📋 处方审查中心
+                        <button class="btn btn-success" onclick="refreshPrescriptionList()" style="margin-left: auto;">
+                            🔄 刷新列表
+                        </button>
+                    </div>
+                    
+                    <div class="stats-grid" style="margin-bottom: 25px;">
+                        <div class="stat-card" style="background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);">
+                            <div class="stat-number" id="pendingReviewCount">0</div>
+                            <div class="stat-label">待审查</div>
+                        </div>
+                        <div class="stat-card" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                            <div class="stat-number" id="todayReviewedCount">0</div>
+                            <div class="stat-label">今日已审查</div>
+                        </div>
+                    </div>
+
+                    <div id="prescriptionListContainer">
+                        <div class="loading">
+                            <div class="loading-spinner"></div>
+                            <div>正在加载处方列表...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI诊疗辅助 -->
+            <div id="ai-assist" class="content-section">
+                <div class="card">
+                    <div class="card-title">
+                        🤖 AI诊疗辅助工具
+                    </div>
+                    <div class="ai-assist-grid">
+                        <div class="ai-assist-card" onclick="openDecisionTreeBuilder()">
+                            <div class="ai-assist-icon">🌳</div>
+                            <div class="ai-assist-title">决策树构建器</div>
+                            <div class="ai-assist-description">可视化构建诊疗决策树，辅助临床决策制定</div>
+                        </div>
+                        <div class="ai-assist-card" onclick="openUnifiedConsultation()">
+                            <div class="ai-assist-icon">💬</div>
+                            <div class="ai-assist-title">智能问诊系统</div>
+                            <div class="ai-assist-description">访问统一智能问诊系统，体验五大名医诊疗思维</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 个人设置 -->
+            <div id="profile" class="content-section">
+                <div class="card">
+                    <div class="card-title">
+                        👤 个人信息设置
+                    </div>
+                    <div id="profileContent">
+                        <div class="loading">
+                            <div class="loading-spinner"></div>
+                            <div>正在加载个人信息...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 处方详情模态框 -->
+    <div id="prescriptionDetailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">处方详情与审查</h3>
+                <button class="close-btn" onclick="closePrescriptionModal()">&times;</button>
+            </div>
+            <div id="prescriptionDetailContent">
+                <!-- 动态内容 -->
+            </div>
+            <div style="margin-top: 25px;">
+                <div id="rejectForm" style="display: none; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label class="form-label">拒绝原因：</label>
+                        <textarea id="rejectReason" class="form-textarea" placeholder="请详细说明拒绝原因..."></textarea>
+                    </div>
+                    <div style="text-align: right;">
+                        <button class="btn btn-secondary" onclick="hideRejectForm()" style="margin-right: 10px;">取消</button>
+                        <button class="btn btn-danger" onclick="rejectPrescription()">确认拒绝</button>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <button class="btn btn-secondary" onclick="closePrescriptionModal()" style="margin-right: 10px;">关闭</button>
+                    <button class="btn btn-success" onclick="approvePrescription()" style="margin-right: 10px;">✅ 通过</button>
+                    <button class="btn btn-danger" onclick="showRejectForm()">❌ 拒绝</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentUser = null;
+        let currentPrescriptionId = null;
+
+        // 页面加载时的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuth();
+            loadDashboardStats();
+        });
+
+        // 检查用户认证 - 使用统一认证系统
+        async function checkAuth() {
+            const token = localStorage.getItem('session_token') || localStorage.getItem('doctorToken');
+            
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+
+            try {
+                // 使用新的统一认证API
+                const response = await fetch('/api/v2/auth/profile', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.user) {
+                        currentUser = data.user;
+                        updateUserInfo();
+                        
+                        // 检查是否为医生权限
+                        if (data.user.primary_role !== 'doctor' && data.user.primary_role !== 'admin' && data.user.primary_role !== 'superadmin') {
+                            alert('您没有访问医生工作台的权限');
+                            window.location.href = '/login';
+                            return;
+                        }
+                        
+                        // 更新token格式（向统一认证系统迁移）
+                        if (!localStorage.getItem('session_token') && localStorage.getItem('doctorToken')) {
+                            localStorage.setItem('session_token', token);
+                        }
+                    } else {
+                        throw new Error('用户信息无效');
+                    }
+                } else {
+                    throw new Error('认证失败');
+                }
+            } catch (error) {
+                console.error('认证检查失败:', error);
+                localStorage.removeItem('doctorToken');
+                localStorage.removeItem('session_token');
+                window.location.href = '/login';
+            }
+        }
+
+        // 更新用户信息显示
+        function updateUserInfo() {
+            if (currentUser) {
+                document.getElementById('doctorName').textContent = currentUser.display_name;
+                document.getElementById('doctorAvatar').textContent = currentUser.display_name.charAt(0);
+            }
+        }
+
+        // 加载工作台统计数据
+        async function loadDashboardStats() {
+            const token = localStorage.getItem('session_token') || localStorage.getItem('doctorToken');
+            if (!token) return;
+
+            try {
+                const [pendingResponse, statsResponse] = await Promise.all([
+                    fetch('/api/prescription/pending', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    fetch('/api/prescription/doctor/stats', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ]);
+
+                if (pendingResponse.ok && statsResponse.ok) {
+                    const pendingData = await pendingResponse.json();
+                    const statsData = await statsResponse.json();
+                    
+                    document.getElementById('pendingCount').textContent = pendingData.total || 0;
+                    document.getElementById('todayCount').textContent = statsData.statistics?.today_reviewed || 0;
+                    document.getElementById('totalCount').textContent = statsData.statistics?.total_reviewed || 0;
+                    
+                    const approvedRate = statsData.statistics?.total_reviewed > 0 
+                        ? Math.round((statsData.statistics.total_approved / statsData.statistics.total_reviewed) * 100)
+                        : 0;
+                    document.getElementById('approvedRate').textContent = approvedRate + '%';
+                }
+            } catch (error) {
+                console.error('加载统计数据失败:', error);
+            }
+        }
+
+        // 切换内容区域
+        function showSection(sectionId) {
+            // 隐藏所有内容区域
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // 显示选中的内容区域
+            document.getElementById(sectionId).classList.add('active');
+
+            // 更新导航状态
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.closest('.nav-item').classList.add('active');
+
+            // 加载对应数据
+            switch(sectionId) {
+                case 'prescriptions':
+                    loadPrescriptionReviewData();
+                    break;
+                case 'profile':
+                    loadProfile();
+                    break;
+            }
+
+            // 移动端自动关闭菜单
+            if (window.innerWidth <= 768) {
+                closeMobileMenu();
+            }
+        }
+
+        // 移动端菜单控制
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            sidebar.classList.toggle('mobile-open');
+            overlay.classList.toggle('active');
+        }
+
+        function closeMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('active');
+        }
+
+        // 窗口大小改变时的处理
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                closeMobileMenu();
+            }
+        });
+
+        // 加载处方审查数据
+        async function loadPrescriptionReviewData() {
+            await Promise.all([
+                loadPrescriptionReviewStats(),
+                loadPendingPrescriptionsList()
+            ]);
+        }
+
+        // 加载处方审查统计数据
+        async function loadPrescriptionReviewStats() {
+            const token = localStorage.getItem('session_token') || localStorage.getItem('doctorToken');
+            if (!token) return;
+
+            try {
+                const response = await fetch('/api/prescription/doctor/stats', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const stats = data.statistics || {};
+                    
+                    document.getElementById('pendingReviewCount').textContent = stats.pending_review || 0;
+                    document.getElementById('todayReviewedCount').textContent = stats.today_reviewed || 0;
+                }
+            } catch (error) {
+                console.error('加载审查统计失败:', error);
+            }
+        }
+
+        // 加载待审查处方列表
+        async function loadPendingPrescriptionsList() {
+            const token = localStorage.getItem('session_token') || localStorage.getItem('doctorToken');
+            if (!token) return;
+
+            try {
+                const response = await fetch('/api/prescription/pending', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayPrescriptionsList(data.prescriptions || []);
+                } else {
+                    throw new Error('加载失败');
+                }
+            } catch (error) {
+                console.error('加载处方列表失败:', error);
+                document.getElementById('prescriptionListContainer').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-message">加载处方列表失败</div>
+                        <div class="empty-description">${error.message}</div>
+                        <button class="btn" onclick="loadPendingPrescriptionsList()" style="margin-top: 15px;">重新加载</button>
+                    </div>
+                `;
+            }
+        }
+
+        // 显示处方列表
+        function displayPrescriptionsList(prescriptions) {
+            const container = document.getElementById('prescriptionListContainer');
+            
+            if (prescriptions.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <div class="empty-message">暂无待审查处方</div>
+                        <div class="empty-description">所有处方都已审查完毕</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const prescriptionsHtml = prescriptions.map(prescription => {
+                const createdDate = new Date(prescription.created_at).toLocaleString('zh-CN');
+                const previewText = prescription.prescription_content ? 
+                    prescription.prescription_content.substring(0, 100) + '...' : 
+                    '暂无处方内容';
+
+                return `
+                    <div class="prescription-item" onclick="viewPrescriptionDetail('${prescription.id}')">
+                        <div class="prescription-header">
+                            <div>
+                                <div class="prescription-id">处方 #${prescription.id}</div>
+                                <div style="color: #6b7280; font-size: 14px; margin-top: 4px;">
+                                    患者: ${prescription.patient_name || '未知'} | ${createdDate}
+                                </div>
+                            </div>
+                            <div class="prescription-status">
+                                ${getStatusText(prescription.status)}
+                            </div>
+                        </div>
+                        <div class="prescription-content">
+                            ${previewText}
+                        </div>
+                        <div class="prescription-actions">
+                            <button class="btn btn-success" style="padding: 8px 15px; font-size: 12px;" onclick="event.stopPropagation(); quickApprove('${prescription.id}')">
+                                ✅ 快速通过
+                            </button>
+                            <button class="btn btn-danger" style="padding: 8px 15px; font-size: 12px;" onclick="event.stopPropagation(); quickReject('${prescription.id}')">
+                                ❌ 快速拒绝
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = prescriptionsHtml;
+        }
+
+        // 查看处方详情
+        async function viewPrescriptionDetail(prescriptionId) {
+            const token = localStorage.getItem('session_token') || localStorage.getItem('doctorToken');
+            if (!token) return;
+
+            currentPrescriptionId = prescriptionId;
+
+            try {
+                const response = await fetch(`/api/prescription/${prescriptionId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showPrescriptionDetailModal(data.prescription);
+                } else {
+                    throw new Error('加载处方详情失败');
+                }
+            } catch (error) {
+                console.error('加载处方详情失败:', error);
+                alert('加载处方详情失败: ' + error.message);
+            }
+        }
+
+        // 显示处方详情模态框
+        function showPrescriptionDetailModal(prescription) {
+            const content = document.getElementById('prescriptionDetailContent');
+            const createdDate = new Date(prescription.created_at).toLocaleString('zh-CN');
+            
+            content.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #1e40af; margin-bottom: 10px;">基本信息</h4>
+                    <p><strong>处方编号:</strong> ${prescription.id}</p>
+                    <p><strong>患者姓名:</strong> ${prescription.patient_name || '未知'}</p>
+                    <p><strong>创建时间:</strong> ${createdDate}</p>
+                    <p><strong>当前状态:</strong> ${getStatusText(prescription.status)}</p>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #1e40af; margin-bottom: 10px;">处方内容</h4>
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                        ${prescription.prescription_content || '暂无处方内容'}
+                    </div>
+                </div>
+
+                ${prescription.consultation_summary ? `
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #1e40af; margin-bottom: 10px;">问诊摘要</h4>
+                    <div style="background: #f0f9ff; padding: 15px; border-radius: 8px;">
+                        ${prescription.consultation_summary}
+                    </div>
+                </div>
+                ` : ''}
+            `;
+
+            // 显示模态框
+            document.getElementById('prescriptionDetailModal').style.display = 'flex';
+        }
+
+        // 关闭处方详情模态框
+        function closePrescriptionModal() {
+            document.getElementById('prescriptionDetailModal').style.display = 'none';
+            hideRejectForm();
+            currentPrescriptionId = null;
+        }
+
+        // 通过处方
+        async function approvePrescription() {
+            if (!currentPrescriptionId) return;
+            
+            await reviewPrescription('approved', '审查通过');
+            closePrescriptionModal();
+            refreshPrescriptionList();
+        }
+
+        // 显示拒绝表单
+        function showRejectForm() {
+            document.getElementById('rejectForm').style.display = 'block';
+            document.getElementById('rejectReason').focus();
+        }
+
+        // 隐藏拒绝表单
+        function hideRejectForm() {
+            document.getElementById('rejectForm').style.display = 'none';
+            document.getElementById('rejectReason').value = '';
+        }
+
+        // 拒绝处方
+        async function rejectPrescription() {
+            if (!currentPrescriptionId) return;
+            
+            const reason = document.getElementById('rejectReason').value.trim();
+            if (!reason) {
+                alert('请填写拒绝原因');
+                return;
+            }
+
+            await reviewPrescription('rejected', reason);
+            closePrescriptionModal();
+            refreshPrescriptionList();
+        }
+
+        // 审查处方
+        async function reviewPrescription(action, notes) {
+            const token = localStorage.getItem('session_token') || localStorage.getItem('doctorToken');
+            if (!token || !currentPrescriptionId) return;
+
+            try {
+                const response = await fetch(`/api/prescription/${currentPrescriptionId}/review`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: action,
+                        notes: notes
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(data.message || '审查完成');
+                } else {
+                    throw new Error('审查失败');
+                }
+            } catch (error) {
+                console.error('审查处方失败:', error);
+                alert('审查失败: ' + error.message);
+            }
+        }
+
+        // 快速通过
+        async function quickApprove(prescriptionId) {
+            if (confirm('确认快速通过此处方吗？')) {
+                currentPrescriptionId = prescriptionId;
+                await reviewPrescription('approved', '快速审查通过');
+                refreshPrescriptionList();
+            }
+        }
+
+        // 快速拒绝
+        async function quickReject(prescriptionId) {
+            const reason = prompt('请输入拒绝原因：');
+            if (!reason) return;
+
+            currentPrescriptionId = prescriptionId;
+            await reviewPrescription('rejected', reason);
+            refreshPrescriptionList();
+        }
+
+        // 刷新处方列表
+        async function refreshPrescriptionList() {
+            await loadPrescriptionReviewData();
+            await loadDashboardStats(); // 同时更新概览统计
+        }
+
+        // 获取状态文本
+        function getStatusText(status) {
+            const statusMap = {
+                'pending': '待审查',
+                'approved': '已通过',
+                'rejected': '已拒绝',
+                'paid': '已支付'
+            };
+            return statusMap[status] || status;
+        }
+
+        // 加载个人档案
+        async function loadProfile() {
+            if (currentUser) {
+                document.getElementById('profileContent').innerHTML = `
+                    <div style="max-width: 600px; margin: 0 auto;">
+                        <div style="background: #f8fafc; padding: 30px; border-radius: 15px; margin-bottom: 25px;">
+                            <div style="text-align: center; margin-bottom: 25px;">
+                                <div style="width: 80px; height: 80px; border-radius: 50%; background: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 600; margin: 0 auto 15px;">
+                                    ${currentUser.display_name.charAt(0)}
+                                </div>
+                                <h3 style="color: #1e40af; margin-bottom: 5px;">${currentUser.display_name}</h3>
+                                <p style="color: #6b7280;">${currentUser.primary_role}</p>
+                            </div>
+                            
+                            <div style="display: grid; gap: 15px;">
+                                <div>
+                                    <strong style="color: #374151;">用户名:</strong>
+                                    <span style="color: #6b7280; margin-left: 10px;">${currentUser.username}</span>
+                                </div>
+                                <div>
+                                    <strong style="color: #374151;">邮箱:</strong>
+                                    <span style="color: #6b7280; margin-left: 10px;">${currentUser.email || '未设置'}</span>
+                                </div>
+                                <div>
+                                    <strong style="color: #374151;">手机:</strong>
+                                    <span style="color: #6b7280; margin-left: 10px;">${currentUser.phone_number || '未设置'}</span>
+                                </div>
+                                <div>
+                                    <strong style="color: #374151;">账户状态:</strong>
+                                    <span style="color: #10b981; margin-left: 10px;">${currentUser.account_status}</span>
+                                </div>
+                                <div>
+                                    <strong style="color: #374151;">注册时间:</strong>
+                                    <span style="color: #6b7280; margin-left: 10px;">${new Date(currentUser.created_at).toLocaleString('zh-CN')}</span>
+                                </div>
+                                <div>
+                                    <strong style="color: #374151;">最后登录:</strong>
+                                    <span style="color: #6b7280; margin-left: 10px;">${currentUser.last_login_at ? new Date(currentUser.last_login_at).toLocaleString('zh-CN') : '从未登录'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="text-align: center;">
+                            <button class="btn" onclick="editProfile()" style="margin-right: 10px;">编辑资料</button>
+                            <button class="btn btn-secondary" onclick="changePassword()">修改密码</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // 编辑资料（占位函数）
+        function editProfile() {
+            alert('个人资料编辑功能正在开发中...');
+        }
+
+        // 修改密码（占位函数）
+        function changePassword() {
+            alert('密码修改功能正在开发中...');
+        }
+
+        // 打开决策树构建器
+        function openDecisionTreeBuilder() {
+            const token = localStorage.getItem('session_token') || localStorage.getItem('doctorToken');
+            if (token) {
+                window.open('/decision_tree_visual_builder.html', '_blank');
+            } else {
+                alert('请先登录');
+            }
+        }
+
+        // 打开统一问诊系统
+        function openUnifiedConsultation() {
+            window.open('/smart', '_blank');
+        }
+
+        // 退出登录
+        async function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                try {
+                    const token = localStorage.getItem('session_token') || localStorage.getItem('doctorToken');
+                    if (token) {
+                        // 调用统一认证的登出接口
+                        await fetch('/api/v2/auth/logout', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error('登出请求失败:', error);
+                } finally {
+                    // 清除本地存储
+                    localStorage.removeItem('doctorToken');
+                    localStorage.removeItem('session_token');
+                    localStorage.removeItem('userData');
+                    localStorage.removeItem('currentUser');
+                    
+                    // 重定向到登录页
+                    window.location.href = '/login';
+                }
+            }
+        }
+    </script>
+</body>
+</html>

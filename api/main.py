@@ -1086,6 +1086,7 @@ from api.routes.prescription_routes import router as prescription_router
 from api.routes.payment_routes import router as payment_router
 from api.routes.decoction_routes import router as decoction_router
 from api.routes.auth_routes import router as auth_router
+from api.routes.unified_auth_routes import router as unified_auth_router
 from api.routes.doctor_decision_tree_routes import router as decision_tree_router
 from api.routes.symptom_analysis_routes import router as symptom_analysis_router
 from api.routes.doctor_matching_routes import router as doctor_matching_router
@@ -1934,8 +1935,17 @@ async def get_recent_learning_activities():
             "data": []
         }
 
+# 先注册静态页面路由（在API路由之前）
+# 医生端友好URL路由 (去除.html扩展名)
+@app.get("/doctor")
+async def doctor_main():
+    """医生工作台主页 - 优化版本"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/static/doctor/index_optimized.html')
+
 # 集成所有路由
 app.include_router(auth_router)
+app.include_router(unified_auth_router)  # 新的统一认证系统
 app.include_router(doctor_router)
 app.include_router(prescription_router)
 app.include_router(payment_router)
@@ -2109,7 +2119,6 @@ try:
 except Exception as e:
     logger.warning(f"Static files not mounted: {e}")
 
-# 医生端友好URL路由 (去除.html扩展名)
 @app.get("/doctor/portal")
 async def doctor_portal():
     """医生门户 - 友好URL"""

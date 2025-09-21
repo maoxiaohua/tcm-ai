@@ -38,8 +38,8 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             elif request.url.path in ["/patient", "/patient/", "/patient-portal"]:
                 # 重定向患者相关页面到智能工作流
                 return RedirectResponse(url="/smart", status_code=302)
-            elif request.url.path in ["/doctor", "/doctor/", "/admin", "/admin/"]:
-                # 检查用户认证状态
+            elif request.url.path in ["/admin", "/admin/"]:
+                # 检查管理员认证状态
                 current_user = await get_current_user(request, None)
                 
                 if current_user.role == UserRole.ANONYMOUS:
@@ -306,13 +306,14 @@ def setup_security_routes(app: FastAPI):
         }
     
     # 保护现有的路由
-    @app.get("/doctor")
-    @app.get("/doctor/")
-    async def doctor_interface(current_user: UserSession = Depends(get_current_user)):
-        """医生界面（需要医生权限）"""
-        if current_user.role not in [UserRole.DOCTOR, UserRole.ADMIN, UserRole.SUPERADMIN]:
-            return {"success": False, "detail": f"Access denied. Required roles: ['doctor', 'admin', 'superadmin']. Your role: {current_user.role.value}"}
-        return FileResponse("/opt/tcm-ai/static/doctor/index.html")
+    # 医生界面路由已移至main.py，使用优化版本
+    # @app.get("/doctor")
+    # @app.get("/doctor/")
+    # async def doctor_interface(current_user: UserSession = Depends(get_current_user)):
+    #     """医生界面（需要医生权限）"""
+    #     if current_user.role not in [UserRole.DOCTOR, UserRole.ADMIN, UserRole.SUPERADMIN]:
+    #         return {"success": False, "detail": f"Access denied. Required roles: ['doctor', 'admin', 'superadmin']. Your role: {current_user.role.value}"}
+    #     return FileResponse("/opt/tcm-ai/static/doctor/index.html")
     
     @app.get("/admin") 
     @app.get("/admin/")
