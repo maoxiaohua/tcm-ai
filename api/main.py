@@ -1943,11 +1943,28 @@ async def doctor_main():
     from fastapi.responses import FileResponse
     return FileResponse('/opt/tcm-ai/static/doctor/index_optimized.html')
 
+@app.get("/decision_tree_visual_builder.html")
+async def decision_tree_builder():
+    """决策树可视化构建器 - 向后兼容路由"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/static/decision_tree_visual_builder.html')
+
+@app.get("/debug-doctor")
+async def get_debug_doctor_page():
+    """医生工作台调试页面"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/debug_doctor.html')
+
 # 集成所有路由
 app.include_router(auth_router)
 app.include_router(unified_auth_router)  # 新的统一认证系统
 app.include_router(doctor_router)
 app.include_router(prescription_router)
+
+# AI增强处方管理路由
+from api.routes.prescription_ai_routes import router as prescription_ai_router
+app.include_router(prescription_ai_router)
+
 app.include_router(payment_router)
 app.include_router(decoction_router)
 app.include_router(decision_tree_router)
