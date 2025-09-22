@@ -1096,6 +1096,7 @@ from api.routes.database_management_routes import router as database_management_
 from api.routes.conversation_sync_routes import router as conversation_sync_router
 from api.routes.user_data_sync_routes import router as user_data_sync_router
 from api.routes.data_migration_routes import router as data_migration_router
+from api.routes.medical_knowledge_routes import router as medical_knowledge_router
 import faiss
 
 # 导入智能缓存系统
@@ -1976,6 +1977,7 @@ app.include_router(database_management_router)
 app.include_router(conversation_sync_router)
 app.include_router(user_data_sync_router)
 app.include_router(data_migration_router)
+app.include_router(medical_knowledge_router)
 
 # 设置全局异常处理器
 from api.middleware.exception_handler import setup_exception_handlers

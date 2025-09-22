@@ -831,15 +831,15 @@
                         <span>▼</span>
                     </div>
                     <div class="category-content">
-                        <div class="knowledge-item">
+                        <div class="knowledge-item" onclick="openDiagnosticMethods('four_examinations')" style="cursor: pointer;">
                             <strong>四诊合参</strong><br>
                             <small>望诊、闻诊、问诊、切诊的综合运用方法</small>
                         </div>
-                        <div class="knowledge-item">
+                        <div class="knowledge-item" onclick="openDiagnosticMethods('pattern_identification')" style="cursor: pointer;">
                             <strong>八纲辨证</strong><br>
                             <small>阴阳、表里、寒热、虚实八个方面的辨证方法</small>
                         </div>
-                        <div class="knowledge-item">
+                        <div class="knowledge-item" onclick="openDiagnosticMethods('pattern_identification')" style="cursor: pointer;">
                             <strong>脏腑辨证</strong><br>
                             <small>根据脏腑功能特点进行的病理分析和诊断</small>
                         </div>
@@ -852,15 +852,15 @@
                         <span>▼</span>
                     </div>
                     <div class="category-content">
-                        <div class="knowledge-item">
+                        <div class="knowledge-item" onclick="openFormulasInfo('principles')" style="cursor: pointer;">
                             <strong>君臣佐使</strong><br>
                             <small>方剂组成的配伍规律和药物作用层次</small>
                         </div>
-                        <div class="knowledge-item">
+                        <div class="knowledge-item" onclick="openFormulasInfo('contraindications')" style="cursor: pointer;">
                             <strong>十八反十九畏</strong><br>
                             <small>中药配伍禁忌，确保用药安全的重要知识</small>
                         </div>
-                        <div class="knowledge-item">
+                        <div class="knowledge-item" onclick="openFormulasInfo('categories')" style="cursor: pointer;">
                             <strong>经典方剂</strong><br>
                             <small>麻黄汤、桂枝汤、小柴胡汤等经典方剂的应用</small>
                         </div>
@@ -1282,8 +1282,337 @@
         }
 
         // 打开知识内容
-        function openKnowledge(type) {
-            alert('知识库详细内容正在开发中，敬请期待...');
+        async function openKnowledge(type) {
+            console.log('打开知识库内容:', type);
+            
+            try {
+                const response = await fetch(`/api/medical-knowledge/classics/${type}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    showKnowledgeModal(data.data);
+                } else {
+                    alert('获取知识库内容失败，请稍后重试');
+                }
+            } catch (error) {
+                console.error('知识库请求失败:', error);
+                alert('网络错误，请检查连接');
+            }
+        }
+        
+        // 显示知识库模态框
+        function showKnowledgeModal(knowledgeData) {
+            // 先清除可能存在的旧模态框
+            const existingModals = document.querySelectorAll('.modal-overlay');
+            existingModals.forEach(modal => modal.remove());
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 3000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            // 生成内容HTML
+            let contentHtml = '';
+            
+            if (knowledgeData.content.core_concepts) {
+                contentHtml += `
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #1e40af; margin-bottom: 15px;">📚 核心理论</h4>
+                        ${knowledgeData.content.core_concepts.map(concept => `
+                            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #3b82f6;">
+                                <strong>${concept.name}</strong><br>
+                                <p style="margin: 5px 0; color: #4b5563;">${concept.description}</p>
+                                <small style="color: #6b7280;">${concept.details}</small>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            if (knowledgeData.content.six_meridians) {
+                contentHtml += `
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #1e40af; margin-bottom: 15px;">🌿 六经辨证</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px;">
+                            ${knowledgeData.content.six_meridians.map(meridian => `
+                                <div style="background: #f0f9ff; padding: 12px; border-radius: 6px; border-left: 3px solid #0ea5e9;">
+                                    <strong style="color: #0c4a6e;">${meridian.name}</strong><br>
+                                    <small style="color: #075985;">${meridian.symptoms}</small><br>
+                                    <em style="color: #0369a1;">代表方: ${meridian.representative_formula}</em>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (knowledgeData.content.key_herbs) {
+                contentHtml += `
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #1e40af; margin-bottom: 15px;">🌱 重要药材</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px;">
+                            ${knowledgeData.content.key_herbs.map(herb => `
+                                <div style="background: #f0fdf4; padding: 12px; border-radius: 6px; border-left: 3px solid #10b981;">
+                                    <strong style="color: #047857;">${herb.name}</strong>
+                                    <span style="color: #059669; font-size: 12px;">[${herb.nature}性 ${herb.flavor}味]</span><br>
+                                    <small style="color: #065f46;">${herb.effects}</small>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (knowledgeData.content.key_quotes) {
+                contentHtml += `
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #1e40af; margin-bottom: 15px;">📖 经典名句</h4>
+                        ${knowledgeData.content.key_quotes.map(quote => `
+                            <div style="background: #fefce8; padding: 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #eab308;">
+                                <em style="color: #a16207; font-size: 14px;">${quote}</em>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white; border-radius: 15px; padding: 30px;
+                    max-width: 900px; max-height: 85vh; overflow-y: auto;
+                    margin: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div>
+                            <h3 style="color: #1e40af; margin: 0;">${knowledgeData.title}</h3>
+                            <p style="color: #6b7280; margin: 5px 0 0 0; font-size: 14px;">${knowledgeData.subtitle}</p>
+                        </div>
+                        <button onclick="closeModal(this)" style="
+                            background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;
+                        ">×</button>
+                    </div>
+                    
+                    <div style="max-height: 60vh; overflow-y: auto;">
+                        ${contentHtml}
+                    </div>
+                    
+                    <div style="text-align: right; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                        <button class="btn" onclick="closeModal(this)" style="background: #6b7280;">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        // 打开诊断方法说明
+        async function openDiagnosticMethods(type) {
+            try {
+                const response = await fetch('/api/medical-knowledge/diagnostics/methods');
+                if (response.ok) {
+                    const data = await response.json();
+                    showDiagnosticModal(data.data, type);
+                } else {
+                    alert('获取诊断方法信息失败');
+                }
+            } catch (error) {
+                console.error('诊断方法请求失败:', error);
+                alert('网络错误，请检查连接');
+            }
+        }
+        
+        // 显示诊断方法模态框
+        function showDiagnosticModal(diagnosticData, type) {
+            const existingModals = document.querySelectorAll('.modal-overlay');
+            existingModals.forEach(modal => modal.remove());
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 3000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            let contentHtml = '';
+            const selectedData = diagnosticData[type];
+            
+            if (type === 'four_examinations' && selectedData.methods) {
+                contentHtml = `
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #1e40af; margin-bottom: 15px;">🔍 四诊方法详解</h4>
+                        ${selectedData.methods.map(method => `
+                            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #3b82f6;">
+                                <strong style="color: #1e40af;">${method.name}</strong><br>
+                                <p style="margin: 8px 0; color: #4b5563;">${method.description}</p>
+                                <div style="background: white; padding: 10px; border-radius: 6px; margin-top: 10px;">
+                                    <strong style="color: #059669; font-size: 14px;">要点：</strong>
+                                    <ul style="margin: 5px 0; padding-left: 20px;">
+                                        ${method.key_points.map(point => `<li style="color: #047857;">${point}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else if (type === 'pattern_identification' && selectedData.types) {
+                contentHtml = `
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #1e40af; margin-bottom: 15px;">🎯 辨证方法体系</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                            ${selectedData.types.map(type => `
+                                <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; border-left: 3px solid #0ea5e9;">
+                                    <strong style="color: #0c4a6e;">${type.name}</strong><br>
+                                    <p style="margin: 8px 0; color: #075985;">${type.content}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white; border-radius: 15px; padding: 30px;
+                    max-width: 800px; max-height: 85vh; overflow-y: auto;
+                    margin: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div>
+                            <h3 style="color: #1e40af; margin: 0;">${selectedData.name}</h3>
+                            <p style="color: #6b7280; margin: 5px 0 0 0; font-size: 14px;">${selectedData.description}</p>
+                        </div>
+                        <button onclick="closeModal(this)" style="
+                            background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;
+                        ">×</button>
+                    </div>
+                    
+                    <div style="max-height: 60vh; overflow-y: auto;">
+                        ${contentHtml}
+                    </div>
+                    
+                    <div style="text-align: right; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                        <button class="btn" onclick="closeModal(this)" style="background: #6b7280;">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        // 打开方剂学信息
+        async function openFormulasInfo(type) {
+            try {
+                const response = await fetch('/api/medical-knowledge/formulas/categories');
+                if (response.ok) {
+                    const data = await response.json();
+                    showFormulasModal(data.data, type);
+                } else {
+                    alert('获取方剂信息失败');
+                }
+            } catch (error) {
+                console.error('方剂信息请求失败:', error);
+                alert('网络错误，请检查连接');
+            }
+        }
+        
+        // 显示方剂学模态框
+        function showFormulasModal(formulasData, type) {
+            const existingModals = document.querySelectorAll('.modal-overlay');
+            existingModals.forEach(modal => modal.remove());
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 3000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            let contentHtml = '';
+            let title = '';
+            
+            if (type === 'categories') {
+                title = '📚 经典方剂分类';
+                contentHtml = `
+                    <div style="margin-bottom: 20px;">
+                        ${formulasData.categories.map(category => `
+                            <div style="background: #f8fafc; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #3b82f6;">
+                                <h4 style="color: #1e40af; margin: 0 0 10px 0;">${category.name}</h4>
+                                <p style="color: #4b5563; margin: 0 0 15px 0;">${category.description}</p>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px;">
+                                    ${category.subcategories.map(sub => `
+                                        <div style="background: white; padding: 12px; border-radius: 6px; border-left: 3px solid #10b981;">
+                                            <strong style="color: #047857; font-size: 14px;">${sub.name}</strong><br>
+                                            <small style="color: #065f46;">${sub.examples.join('、')}</small>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else if (type === 'principles') {
+                title = '⚖️ 方剂配伍原则';
+                contentHtml = `
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #1e40af; margin-bottom: 15px;">📖 配伍基本原则</h4>
+                        ${formulasData.principles.map(principle => `
+                            <div style="background: #fefce8; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #eab308;">
+                                <strong style="color: #a16207;">${principle.split('：')[0]}</strong><br>
+                                <p style="color: #92400e; margin: 5px 0 0 0;">${principle.split('：')[1]}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                title = '⚠️ 用药安全指南';
+                contentHtml = `
+                    <div style="background: #fef2f2; padding: 20px; border-radius: 10px; border-left: 4px solid #ef4444;">
+                        <h4 style="color: #dc2626; margin: 0 0 15px 0;">十八反十九畏</h4>
+                        <p style="color: #b91c1c; margin-bottom: 15px;">中药配伍禁忌，古代医家总结的用药安全原则</p>
+                        <div style="background: white; padding: 15px; border-radius: 8px;">
+                            <p style="color: #4b5563; line-height: 1.6;">
+                                <strong>十八反：</strong>甘草反甘遂、大戟、海藻、芫花；乌头反贝母、瓜蒌、半夏、白蔹、白及；藜芦反人参、沙参、丹参、玄参、细辛、芍药。<br><br>
+                                <strong>十九畏：</strong>硫磺畏朴硝；水银畏砒霜；狼毒畏密陀僧；巴豆畏牵牛；丁香畏郁金；川乌、草乌畏犀角；牙硝畏三棱；官桂畏石脂；人参畏五灵脂。
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white; border-radius: 15px; padding: 30px;
+                    max-width: 900px; max-height: 85vh; overflow-y: auto;
+                    margin: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="color: #1e40af; margin: 0;">${title}</h3>
+                        <button onclick="closeModal(this)" style="
+                            background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;
+                        ">×</button>
+                    </div>
+                    
+                    <div style="max-height: 60vh; overflow-y: auto;">
+                        ${contentHtml}
+                    </div>
+                    
+                    <div style="text-align: right; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                        <button class="btn" onclick="closeModal(this)" style="background: #6b7280;">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
         }
 
         // 加载详细统计
