@@ -1015,25 +1015,38 @@
             // 总览页面统计卡片联动
             const dashboardPendingCard = document.getElementById('dashboardPendingCard');
             if (dashboardPendingCard) {
-                dashboardPendingCard.addEventListener('click', () => {
+                dashboardPendingCard.addEventListener('click', async () => {
+                    console.log('点击待审查处方卡片');
                     showSection('prescriptions');
-                    setTimeout(() => filterPrescriptions('pending'), 500);
+                    // 等待页面切换完成，然后加载数据并过滤
+                    setTimeout(async () => {
+                        await loadPrescriptionReviewData();
+                        setTimeout(() => filterPrescriptions('pending'), 200);
+                    }, 800);
                 });
             }
             
             const dashboardTodayCard = document.getElementById('dashboardTodayCard');
             if (dashboardTodayCard) {
-                dashboardTodayCard.addEventListener('click', () => {
+                dashboardTodayCard.addEventListener('click', async () => {
+                    console.log('点击今日已审查卡片');
                     showSection('prescriptions');
-                    setTimeout(() => filterPrescriptions('today'), 500);
+                    setTimeout(async () => {
+                        await loadPrescriptionReviewData();
+                        setTimeout(() => filterPrescriptions('today'), 200);
+                    }, 800);
                 });
             }
             
             const dashboardTotalCard = document.getElementById('dashboardTotalCard');
             if (dashboardTotalCard) {
-                dashboardTotalCard.addEventListener('click', () => {
+                dashboardTotalCard.addEventListener('click', async () => {
+                    console.log('点击累计审查卡片');
                     showSection('prescriptions');
-                    setTimeout(() => filterPrescriptions('all'), 500);
+                    setTimeout(async () => {
+                        await loadPrescriptionReviewData();
+                        setTimeout(() => filterPrescriptions('all'), 200);
+                    }, 800);
                 });
             }
             

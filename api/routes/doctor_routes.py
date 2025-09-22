@@ -322,6 +322,37 @@ async def get_current_doctor_info(current_doctor: Doctor = Depends(get_current_d
         }
     }
 
+@router.get("/today-reviewed")
+async def get_today_reviewed_prescriptions(current_doctor: Doctor = Depends(get_current_doctor)):
+    """获取今日已审查处方列表"""
+    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT p.*
+            FROM prescriptions p 
+            WHERE p.doctor_id = ? 
+            AND DATE(p.reviewed_at) = DATE('now')
+            AND p.reviewed_at IS NOT NULL
+            ORDER BY p.reviewed_at DESC
+        """, (current_doctor.id,))
+        
+        rows = cursor.fetchall()
+        prescriptions = [dict(row) for row in rows]
+        
+        return {
+            "success": True,
+            "prescriptions": prescriptions,
+            "total": len(prescriptions)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取今日审查列表失败: {e}")
+    finally:
+        conn.close()
+
 @router.get("/statistics")
 async def get_doctor_statistics(current_doctor: Doctor = Depends(get_current_doctor)):
     """获取医生工作统计"""
@@ -350,6 +381,14 @@ async def get_doctor_statistics(current_doctor: Doctor = Depends(get_current_doc
         
         today_count = cursor.fetchone()[0]
         
+        # 待审查处方数量（全局，不限医生）
+        cursor.execute("""
+            SELECT COUNT(*) FROM prescriptions 
+            WHERE status IN ('pending', 'doctor_reviewing')
+        """)
+        
+        pending_count = cursor.fetchone()[0]
+        
         return {
             "success": True,
             "statistics": {
@@ -357,6 +396,7 @@ async def get_doctor_statistics(current_doctor: Doctor = Depends(get_current_doc
                 "approved": stats[1] if stats[1] else 0,
                 "rejected": stats[2] if stats[2] else 0,
                 "today_reviewed": today_count,
+                "pending_review": pending_count,
                 "active_days": stats[3] if stats[3] else 0
             }
         }
