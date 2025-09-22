@@ -615,21 +615,24 @@
             </div>
             <div class="section-body">
                 <div class="stat-cards">
-                    <div class="stat-card">
+                    <div class="stat-card clickable-stat" id="dashboardPendingCard" style="cursor: pointer;">
                         <div class="stat-number" id="pendingCount">-</div>
                         <div class="stat-label">待审查处方</div>
+                        <div class="stat-hint" style="font-size: 11px; color: #9ca3af; margin-top: 4px;">点击查看详情</div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card clickable-stat" id="dashboardTodayCard" style="cursor: pointer;">
                         <div class="stat-number" id="todayCount">-</div>
                         <div class="stat-label">今日已审查</div>
+                        <div class="stat-hint" style="font-size: 11px; color: #9ca3af; margin-top: 4px;">点击查看详情</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-number" id="approvedRate">-%</div>
                         <div class="stat-label">通过率</div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card clickable-stat" id="dashboardTotalCard" style="cursor: pointer;">
                         <div class="stat-number" id="totalCount">-</div>
                         <div class="stat-label">累计审查</div>
+                        <div class="stat-hint" style="font-size: 11px; color: #9ca3af; margin-top: 4px;">点击查看详情</div>
                     </div>
                 </div>
 
@@ -1009,6 +1012,31 @@
                 riskReminderCard.addEventListener('click', showRiskAnalysis);
             }
             
+            // 总览页面统计卡片联动
+            const dashboardPendingCard = document.getElementById('dashboardPendingCard');
+            if (dashboardPendingCard) {
+                dashboardPendingCard.addEventListener('click', () => {
+                    showSection('prescriptions');
+                    setTimeout(() => filterPrescriptions('pending'), 500);
+                });
+            }
+            
+            const dashboardTodayCard = document.getElementById('dashboardTodayCard');
+            if (dashboardTodayCard) {
+                dashboardTodayCard.addEventListener('click', () => {
+                    showSection('prescriptions');
+                    setTimeout(() => filterPrescriptions('today'), 500);
+                });
+            }
+            
+            const dashboardTotalCard = document.getElementById('dashboardTotalCard');
+            if (dashboardTotalCard) {
+                dashboardTotalCard.addEventListener('click', () => {
+                    showSection('prescriptions');
+                    setTimeout(() => filterPrescriptions('all'), 500);
+                });
+            }
+            
             console.log('事件监听器绑定完成');
         }
 
@@ -1147,7 +1175,7 @@
                     const statsData = await statsResponse.json();
 
                     const pendingElement = document.getElementById('pendingCount');
-                    const todayElement = document.getElementById('todayReviewedCount');
+                    const todayElement = document.getElementById('todayCount');
                     const totalElement = document.getElementById('totalCount');
                     
                     if (pendingElement) pendingElement.textContent = pendingData.total || 0;
