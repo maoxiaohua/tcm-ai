@@ -43,6 +43,7 @@ class Doctor:
     phone: Optional[str] = None
     email: Optional[str] = None
     speciality: Optional[str] = None
+    specialties: Optional[str] = None  # 数据库中存在两个专业字段
     hospital: Optional[str] = None
     auth_token: Optional[str] = None
     password_hash: Optional[str] = None
@@ -50,6 +51,14 @@ class Doctor:
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     last_login: Optional[datetime] = None
+    # 添加其他数据库字段以防止KeyError
+    average_rating: Optional[float] = None
+    total_reviews: Optional[int] = None
+    consultation_count: Optional[int] = None
+    commission_rate: Optional[float] = None
+    available_hours: Optional[str] = None
+    introduction: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 @dataclass
 class Prescription:

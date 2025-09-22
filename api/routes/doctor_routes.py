@@ -40,57 +40,84 @@ def get_current_doctor(authorization: str = Header(None)) -> Doctor:
     
     token = authorization.split(" ")[1]
     
-    # 首先尝试使用session_manager验证 (统一认证系统)
+    # 直接从unified_sessions表验证token
     try:
-        from core.security.rbac_system import session_manager
-        session = session_manager.get_session(token)
-        if session and session.role.value == "doctor":
-            # 根据user_id映射到doctors表的ID - 匹配主页面医生清单
+        import sqlite3
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        cursor = conn.cursor()
+        
+        # 查询session和用户信息
+        cursor.execute("""
+            SELECT us.user_id, uu.username, uu.display_name, ur.role_name
+            FROM unified_sessions us 
+            JOIN unified_users uu ON us.user_id = uu.global_user_id
+            JOIN user_roles_new ur ON uu.global_user_id = ur.user_id
+            WHERE us.session_id = ? 
+            AND us.expires_at > datetime('now') 
+            AND us.session_status = 'active'
+            AND ur.role_name = 'DOCTOR'
+            AND ur.is_active = 1
+        """, (token,))
+        
+        result = cursor.fetchone()
+        if result:
+            user_id, username, display_name, role = result
+            
+            # 根据user_id映射到doctors表的ID
             user_id_to_doctor_id = {
-                "zhangzhongjing_001": 1,  # 张仲景
-                "yetianshi_001": 2,       # 叶天士  
-                "lidongyuan_001": 3,      # 李东垣
-                "liuduzhou_001": 5,       # 刘渡舟
-                "zhengqinan_001": 6,      # 郑钦安
-                "zhudanxi_001": 7,        # 朱丹溪
+                "usr_20250920_575ba94095a7": 1,  # 张仲景 (zhangzhongjing)
+                "usr_20250920_9a6e8b898f1f": 2,  # 管理员可能是医生
+                "usr_20250920_c58e33b0839b": 3,  # 通用医生账户
             }
             
-            doctor_id = user_id_to_doctor_id.get(session.user_id)
-            if doctor_id is None:
-                raise HTTPException(status_code=403, detail=f"未找到对应的医生信息: {session.user_id}")
+            doctor_id = user_id_to_doctor_id.get(user_id, 1)  # 默认为1
             
             # 从doctors表获取详细信息
-            import sqlite3
-            conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-            cursor = conn.cursor()
-            try:
-                cursor.execute("SELECT * FROM doctors WHERE id = ?", (doctor_id,))
-                row = cursor.fetchone()
-                if row:
-                    return Doctor(
-                        id=row[0],                    # 使用doctors表的ID
-                        name=row[1],                  # 医生姓名
-                        license_no=row[2],            # 执业证号
-                        phone=row[3],                 # 电话
-                        email=row[4],                 # 邮箱
-                        speciality=row[5],            # 专科
-                        hospital=row[6]               # 医院
-                    )
-            finally:
+            cursor.execute("SELECT * FROM doctors WHERE id = ?", (doctor_id,))
+            row = cursor.fetchone()
+            if row:
                 conn.close()
-                
-            # 如果找不到医生信息，使用默认值
-            return Doctor(
-                id=doctor_id,
-                name=session.user_id,
-                license_no="system_auth",
-                email="",
-                phone="",
-                speciality="",
-                hospital=""
-            )
+                return Doctor(
+                    id=row[0],                    # id
+                    name=row[1],                  # name
+                    license_no=row[2],            # license_no
+                    phone=row[3],                 # phone
+                    email=row[4],                 # email
+                    speciality=row[5],            # speciality
+                    hospital=row[6],              # hospital
+                    auth_token=row[7],            # auth_token
+                    password_hash=row[8],         # password_hash
+                    status=row[9],                # status
+                    created_at=row[10],           # created_at
+                    updated_at=row[11],           # updated_at
+                    last_login=row[12],           # last_login
+                    specialties=row[13],          # specialties
+                    average_rating=row[14],       # average_rating
+                    total_reviews=row[15],        # total_reviews
+                    consultation_count=row[16],   # consultation_count
+                    commission_rate=row[17],      # commission_rate
+                    available_hours=row[18],      # available_hours
+                    introduction=row[19],         # introduction
+                    avatar_url=row[20]            # avatar_url
+                )
+            else:
+                # 使用统一认证系统的用户信息创建Doctor对象
+                conn.close()
+                return Doctor(
+                    id=doctor_id,
+                    name=display_name,
+                    license_no="system_auth",
+                    email="",
+                    phone="",
+                    speciality="中医全科",
+                    hospital="TCM-AI智能医院"
+                )
+        
+        conn.close()
     except Exception as e:
-        print(f"Session auth failed: {e}")
+        print(f"Direct session auth failed: {e}")
+        if 'conn' in locals():
+            conn.close()
     
     # 备选：使用doctor_auth_manager验证
     doctor = doctor_auth_manager.get_doctor_by_token(token)

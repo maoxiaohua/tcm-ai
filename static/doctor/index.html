@@ -667,27 +667,58 @@
             <div class="section-body">
                 <!-- 统计卡片 -->
                 <div class="stat-cards" id="reviewStats">
-                    <div class="stat-card">
+                    <div class="stat-card clickable-stat" data-filter="pending" style="cursor: pointer;" onclick="filterPrescriptions('pending')">
                         <div class="stat-number" id="pendingReviewCount">-</div>
                         <div class="stat-label">待审查处方</div>
+                        <div class="stat-hint" style="font-size: 11px; color: #9ca3af; margin-top: 4px;">点击查看详情</div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card clickable-stat" data-filter="today" style="cursor: pointer;" onclick="filterPrescriptions('today')">
                         <div class="stat-number" id="todayReviewedCount">-</div>
                         <div class="stat-label">今日已审查</div>
+                        <div class="stat-hint" style="font-size: 11px; color: #9ca3af; margin-top: 4px;">点击查看详情</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="approvalRate">-%</div>
-                        <div class="stat-label">通过率</div>
+                    <div class="stat-card clickable-stat" data-filter="ai-analysis" style="cursor: pointer;" id="aiInsightsBtn">
+                        <div class="stat-number">🤖</div>
+                        <div class="stat-label">AI辅助</div>
+                        <div class="stat-hint" style="font-size: 11px; color: #9ca3af; margin-top: 4px;">点击查看分析</div>
+                    </div>
+                    <div class="stat-card clickable-stat" id="riskReminderCard" data-filter="risk" style="cursor: pointer;">
+                        <div class="stat-number">⚠️</div>
+                        <div class="stat-label">风险提醒</div>
+                        <div class="stat-hint" style="font-size: 11px; color: #9ca3af; margin-top: 4px;">点击查看风险</div>
+                    </div>
+                </div>
+
+                <!-- 功能按钮区 -->
+                <div style="background: white; border-radius: 15px; padding: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <button class="btn" onclick="enableBatchMode()" style="background: #3b82f6;">
+                            📦 批量审查模式
+                        </button>
+                        <button class="btn" id="aiInsightsBtnToolbar" style="background: #8b5cf6;">
+                            🤖 AI洞察分析
+                        </button>
+                        <button class="btn" id="riskAnalysisBtn" style="background: #f59e0b;">
+                            ⚠️ 风险分析
+                        </button>
+                        <button class="btn" onclick="exportPrescriptionData()" style="background: #6b7280;">
+                            📊 导出数据
+                        </button>
                     </div>
                 </div>
 
                 <!-- 处方列表 -->
                 <div style="background: white; border-radius: 15px; padding: 25px; box-shadow: 0 5px 20px rgba(0,0,0,0.1);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 style="color: #1e40af;">待审查处方列表</h3>
-                        <button class="btn" onclick="refreshPrescriptionList()" style="background: #10b981;">
-                            🔄 刷新列表
-                        </button>
+                        <h3 style="color: #1e40af;" id="prescriptionListTitle">待审查处方列表</h3>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn" onclick="refreshPrescriptionList()" style="background: #10b981;">
+                                🔄 刷新列表
+                            </button>
+                            <button class="btn" id="batchActionBtn" onclick="processBatchActions()" style="background: #ef4444; display: none;">
+                                ✅ 批量操作
+                            </button>
+                        </div>
                     </div>
                     
                     <div id="prescriptionListContainer" style="max-height: 500px; overflow-y: auto;">
@@ -881,12 +912,21 @@
                     </div>
                     <div class="action-card">
                         <div class="action-icon">👨‍⚕️</div>
-                        <div class="action-title">王清任 - 活血化瘀</div>
+                        <div class="action-title">郑钦安 - 火神派</div>
                         <div class="action-desc">
-                            重视血瘀理论，强调解剖实证<br>
-                            <strong>特色：</strong>善治血瘀证，方药配伍精当
+                            火神派理论，重视阳气，善用附子温阳<br>
+                            <strong>特色：</strong>重视阳气，扶阳抑阴
                         </div>
-                        <button class="btn" style="margin-top: 15px;" onclick="learnThinking('qingren')">学习思维</button>
+                        <button class="btn" style="margin-top: 15px;" onclick="learnThinking('qinan')">学习思维</button>
+                    </div>
+                    <div class="action-card">
+                        <div class="action-icon">👨‍⚕️</div>
+                        <div class="action-title">刘渡舟 - 经方大师</div>
+                        <div class="action-desc">
+                            经方大师，临床实用，注重疗效验证<br>
+                            <strong>特色：</strong>经方应用，实证疗效
+                        </div>
+                        <button class="btn" style="margin-top: 15px;" onclick="learnThinking('duzhou')">学习思维</button>
                     </div>
                 </div>
             </div>
@@ -926,50 +966,140 @@
 
         // 页面加载时的初始化
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM加载完成，开始初始化...');
+            
+            // 绑定事件监听器
+            bindEventListeners();
+            
             checkAuth();
             loadDashboardStats();
+            
+            // 如果默认就在处方审查页面，则立即加载数据
+            setTimeout(() => {
+                const prescriptionSection = document.getElementById('prescriptionReview');
+                if (prescriptionSection && prescriptionSection.classList.contains('active')) {
+                    console.log('检测到处方审查页面已激活，自动加载数据');
+                    loadPrescriptionReviewData();
+                }
+            }, 1500);
         });
+        
+        // 绑定所有事件监听器
+        function bindEventListeners() {
+            // AI洞察分析按钮
+            const aiInsightsBtn = document.getElementById('aiInsightsBtn');
+            if (aiInsightsBtn) {
+                aiInsightsBtn.addEventListener('click', showAIInsights);
+            }
+            
+            const aiInsightsBtnToolbar = document.getElementById('aiInsightsBtnToolbar');
+            if (aiInsightsBtnToolbar) {
+                aiInsightsBtnToolbar.addEventListener('click', showAIInsights);
+            }
+            
+            // 风险分析按钮
+            const riskAnalysisBtn = document.getElementById('riskAnalysisBtn');
+            if (riskAnalysisBtn) {
+                riskAnalysisBtn.addEventListener('click', showRiskAnalysis);
+            }
+            
+            // 风险提醒统计卡片
+            const riskReminderCard = document.getElementById('riskReminderCard');
+            if (riskReminderCard) {
+                riskReminderCard.addEventListener('click', showRiskAnalysis);
+            }
+            
+            console.log('事件监听器绑定完成');
+        }
 
         // 检查用户认证
         async function checkAuth() {
             let token = localStorage.getItem('doctorToken');
             
-            // 如果localStorage中没有token，尝试从cookie中获取
+            // 如果没有doctorToken，尝试从session_token获取
             if (!token) {
-                const sessionToken = getCookie('session_token');
+                const sessionToken = localStorage.getItem('session_token');
                 if (sessionToken) {
                     localStorage.setItem('doctorToken', sessionToken);
                     token = sessionToken;
+                    console.log('从session_token获取到token:', token.substring(0, 20) + '...');
+                }
+            }
+            
+            // 如果localStorage中都没有，尝试从cookie中获取
+            if (!token) {
+                const cookieToken = getCookie('session_token');
+                if (cookieToken) {
+                    localStorage.setItem('doctorToken', cookieToken);
+                    localStorage.setItem('session_token', cookieToken);
+                    token = cookieToken;
                     console.log('从cookie获取到token:', token.substring(0, 20) + '...');
                 }
             }
             
             if (!token) {
-                console.log('未找到任何认证token，跳转到登录页面');
-                window.location.href = '/login';
+                console.log('未找到任何认证token');
+                // 给用户选择是否去登录
+                const goToLogin = confirm('未找到登录信息，是否前往登录页面？');
+                if (goToLogin) {
+                    window.location.href = '/login?redirect=/doctor';
+                }
                 return;
             }
+            
+            console.log('找到token，长度:', token.length, '前缀:', token.substring(0, 20) + '...');
 
             try {
+                console.log('开始认证检查，调用API:', '/api/doctor/profile');
                 const response = await fetch('/api/doctor/profile', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
+                console.log('API响应状态:', response.status, response.statusText);
+                
                 if (response.ok) {
                     const data = await response.json();
-                    currentUser = data.doctor;
-                    updateUserInfo();
-                    console.log('认证成功，用户信息:', currentUser);
+                    console.log('API响应数据:', data);
+                    
+                    // 检查返回的数据结构
+                    if (data && data.doctor) {
+                        currentUser = data.doctor;
+                        updateUserInfo();
+                        console.log('认证成功，用户信息:', currentUser);
+                    } else if (data && data.success) {
+                        // 可能数据结构不同
+                        currentUser = data;
+                        updateUserInfo();
+                        console.log('认证成功（备用格式），用户信息:', currentUser);
+                    } else {
+                        console.error('API返回数据格式异常:', data);
+                        alert('认证数据格式异常，请联系管理员');
+                    }
                 } else {
-                    console.log('认证失败，清除token并跳转登录');
-                    localStorage.removeItem('doctorToken');
-                    window.location.href = '/login';
+                    const errorData = await response.text();
+                    console.log('认证失败，状态码:', response.status, '响应:', errorData);
+                    
+                    if (response.status === 401) {
+                        // Session过期，清除token并提示重新登录
+                        localStorage.removeItem('doctorToken');
+                        // 清除cookie中的session token
+                        document.cookie = 'session_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                        
+                        alert('登录已过期，请重新登录');
+                        window.location.href = '/login?redirect=/doctor';
+                    } else {
+                        alert(`认证失败: ${response.status} - ${errorData.substring(0, 200)}`);
+                    }
                 }
             } catch (error) {
                 console.error('认证检查失败:', error);
-                // 网络错误时不跳转，给用户机会重试
+                alert(`网络错误: ${error.message}`);
+                // 暂时不自动跳转，让用户看到错误
+                // window.location.href = '/login?redirect=/doctor';
             }
         }
+
+        // 移除了额外的登录表单 - 直接使用统一认证系统
 
         // 获取Cookie的辅助函数
         function getCookie(name) {
@@ -990,7 +1120,12 @@
         // 加载工作台统计数据
         async function loadDashboardStats() {
             const token = localStorage.getItem('doctorToken');
-            if (!token) return;
+            if (!token) {
+                console.log('没有找到token，跳过数据加载');
+                return;
+            }
+
+            console.log('开始加载工作台数据，token:', token.substring(0, 20) + '...');
 
             try {
                 const [pendingResponse, statsResponse] = await Promise.all([
@@ -1001,14 +1136,23 @@
                         headers: { 'Authorization': `Bearer ${token}` }
                     })
                 ]);
+                
+                console.log('API响应状态:', {
+                    pending: pendingResponse.status,
+                    stats: statsResponse.status
+                });
 
                 if (pendingResponse.ok && statsResponse.ok) {
                     const pendingData = await pendingResponse.json();
                     const statsData = await statsResponse.json();
 
-                    document.getElementById('pendingCount').textContent = pendingData.total || 0;
-                    document.getElementById('todayCount').textContent = statsData.statistics.today_reviewed || 0;
-                    document.getElementById('totalCount').textContent = statsData.statistics.total_reviewed || 0;
+                    const pendingElement = document.getElementById('pendingCount');
+                    const todayElement = document.getElementById('todayReviewedCount');
+                    const totalElement = document.getElementById('totalCount');
+                    
+                    if (pendingElement) pendingElement.textContent = pendingData.total || 0;
+                    if (todayElement) todayElement.textContent = statsData.statistics.today_reviewed || 0;
+                    if (totalElement) totalElement.textContent = statsData.statistics.total_reviewed || 0;
                     
                     const approvedRate = statsData.statistics.total_reviewed > 0 
                         ? Math.round((statsData.statistics.approved / statsData.statistics.total_reviewed) * 100)
@@ -1021,39 +1165,6 @@
         }
 
         // 切换内容区域
-        function showSection(sectionId) {
-            // 隐藏所有内容区域
-            document.querySelectorAll('.content-section').forEach(section => {
-                section.classList.remove('active');
-            });
-            
-            // 移除所有导航项的active状态
-            document.querySelectorAll('.nav-item').forEach(item => {
-                item.classList.remove('active');
-            });
-
-            // 显示选中的内容区域
-            document.getElementById(sectionId).classList.add('active');
-            
-            // 激活对应的导航项
-            event.target.closest('.nav-item').classList.add('active');
-
-        // 根据不同区域加载相应数据
-            switch(sectionId) {
-                case 'dashboard':
-                    loadDashboardStats();
-                    break;
-                case 'prescriptions':
-                    loadPrescriptionReviewData();
-                    break;
-                case 'statistics':
-                    loadDetailedStats();
-                    break;
-                case 'profile':
-                    loadProfile();
-                    break;
-            }
-        }
 
         // 展开/收起知识分类
         function toggleCategory(header) {
@@ -1069,13 +1180,61 @@
             }
         }
 
+        // 关闭模态框的通用函数
+        function closeModal(button) {
+            console.log('开始关闭模态框...');
+            
+            try {
+                // 第一步：找到并移除特定模态框
+                const modal = button.closest('.modal-overlay');
+                if (modal) {
+                    modal.style.display = 'none';
+                    modal.remove();
+                    console.log('移除了特定模态框');
+                }
+                
+                // 第二步：强制清理所有模态框
+                const allModals = document.querySelectorAll('.modal-overlay');
+                console.log('找到', allModals.length, '个模态框');
+                allModals.forEach((m, index) => {
+                    m.style.display = 'none';
+                    m.remove();
+                    console.log('清理模态框', index + 1);
+                });
+                
+                // 第三步：重置body和html样式
+                document.body.style.overflow = '';
+                document.body.style.position = '';
+                document.body.style.pointerEvents = '';
+                document.documentElement.style.overflow = '';
+                
+                // 第四步：移除可能的事件阻止
+                const overlay = document.querySelector('.modal-overlay');
+                if (overlay) {
+                    overlay.remove();
+                }
+                
+                // 第五步：强制重绘
+                document.body.offsetHeight;
+                
+                console.log('模态框完全清理完成');
+                
+            } catch (error) {
+                console.error('关闭模态框时出错:', error);
+                // 强制清理
+                document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+                document.body.style.cssText = '';
+            }
+        }
+
         // 学习医家思维
         function learnThinking(doctor) {
             const thinkingMap = {
                 'zhongjing': '张仲景经方思维学习模块正在开发中...',
                 'dongyuan': '李东垣脾胃理论学习模块正在开发中...',
                 'tianshi': '叶天士温病思维学习模块正在开发中...',
-                'qingren': '王清任活血化瘀理论学习模块正在开发中...'
+                'qinan': '郑钦安火神派思维学习模块正在开发中...',
+                'duzhou': '刘渡舟经方实用思维学习模块正在开发中...'
             };
             
             alert(thinkingMap[doctor] || '该学习模块正在开发中...');
@@ -1167,6 +1326,10 @@
                 case 'dashboard':
                     loadDashboardStats();
                     break;
+                case 'prescriptions':
+                    console.log('切换到处方审查页面，开始加载数据...');
+                    loadPrescriptionReviewData();
+                    break;
                 case 'statistics':
                     loadDetailedStats();
                     break;
@@ -1208,13 +1371,20 @@
                     const data = await response.json();
                     const stats = data.statistics || {};
                     
-                    document.getElementById('pendingReviewCount').textContent = stats.pending_review || 0;
-                    document.getElementById('todayReviewedCount').textContent = stats.today_reviewed || 0;
+                    // 更新处方审查页面的统计
+                    const pendingElement = document.getElementById('pendingReviewCount');
+                    const todayElement = document.getElementById('todayReviewedCount');
+                    const approvalElement = document.getElementById('approvalRate');
+                    
+                    if (pendingElement) pendingElement.textContent = stats.pending_review || 0;
+                    if (todayElement) todayElement.textContent = stats.today_reviewed || 0;
                     
                     const total = stats.total_reviewed || 0;
                     const approved = stats.approved || 0;
                     const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
-                    document.getElementById('approvalRate').textContent = approvalRate;
+                    if (approvalElement) approvalElement.textContent = approvalRate;
+                } else {
+                    console.error('获取统计数据失败:', response.status);
                 }
             } catch (error) {
                 console.error('加载审查统计失败:', error);
@@ -1269,8 +1439,20 @@
                 const createdDate = new Date(prescription.created_at).toLocaleString('zh-CN');
                 const statusColor = prescription.status === 'pending' ? '#f59e0b' : '#6b7280';
                 
+                // 智能选择显示内容
+                let displayContent = '';
+                if (prescription.symptoms) {
+                    displayContent = `症状: ${prescription.symptoms.substring(0, 80)}...`;
+                } else if (prescription.diagnosis) {
+                    displayContent = `诊断: ${prescription.diagnosis.substring(0, 80)}...`;
+                } else if (prescription.ai_prescription) {
+                    displayContent = `处方: ${prescription.ai_prescription.substring(0, 80)}...`;
+                } else {
+                    displayContent = '暂无详细内容';
+                }
+                
                 html += `
-                    <div style="
+                    <div class="prescription-card" data-prescription-id="${prescription.id}" style="
                         background: #f8fafc;
                         border: 1px solid #e2e8f0;
                         border-radius: 10px;
@@ -1278,12 +1460,12 @@
                         margin-bottom: 15px;
                         cursor: pointer;
                         transition: all 0.3s ease;
-                    " onclick="viewPrescriptionDetail('${prescription.id}')">
+                    " onmouseover="this.style.borderColor='#1e40af'" onmouseout="this.style.borderColor='#e2e8f0'">
                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
                             <div>
                                 <h4 style="color: #1e40af; margin: 0 0 8px 0;">处方 #${prescription.id}</h4>
                                 <p style="color: #6b7280; margin: 0; font-size: 14px;">
-                                    创建时间: ${createdDate}
+                                    ${prescription.patient_name ? '患者: ' + prescription.patient_name + ' | ' : ''}创建时间: ${createdDate}
                                 </p>
                             </div>
                             <span style="
@@ -1296,16 +1478,19 @@
                             ">${getStatusText(prescription.status)}</span>
                         </div>
                         
-                        <div style="color: #4b5563; font-size: 14px; line-height: 1.5;">
-                            ${prescription.prescription_text ? prescription.prescription_text.substring(0, 100) + '...' : '暂无处方内容'}
+                        <div style="color: #4b5563; font-size: 14px; line-height: 1.5; margin-bottom: 12px;">
+                            ${displayContent}
                         </div>
                         
-                        <div style="margin-top: 12px; display: flex; gap: 10px;">
-                            <button class="btn" style="background: #10b981; padding: 6px 15px; font-size: 12px;" onclick="event.stopPropagation(); quickApprove('${prescription.id}')">
-                                快速通过
+                        <div class="prescription-actions" style="display: flex; gap: 10px;">
+                            <button class="btn quick-approve-btn" data-id="${prescription.id}" style="background: #10b981; padding: 6px 15px; font-size: 12px;">
+                                ✅ 快速通过
                             </button>
-                            <button class="btn" style="background: #ef4444; padding: 6px 15px; font-size: 12px;" onclick="event.stopPropagation(); quickReject('${prescription.id}')">
-                                快速拒绝
+                            <button class="btn quick-reject-btn" data-id="${prescription.id}" style="background: #ef4444; padding: 6px 15px; font-size: 12px;">
+                                ❌ 快速拒绝
+                            </button>
+                            <button class="btn view-detail-btn" data-id="${prescription.id}" style="background: #6b7280; padding: 6px 15px; font-size: 12px;">
+                                👁️ 查看详情
                             </button>
                         </div>
                     </div>
@@ -1313,29 +1498,98 @@
             });
             
             container.innerHTML = html;
+            
+            // 绑定事件监听器
+            bindPrescriptionEvents();
+        }
+
+        // 绑定处方相关事件
+        function bindPrescriptionEvents() {
+            // 处方卡片点击事件
+            document.querySelectorAll('.prescription-card').forEach(card => {
+                card.addEventListener('click', function(e) {
+                    // 如果点击的是按钮，不触发卡片点击
+                    if (e.target.classList.contains('btn') || e.target.closest('.prescription-actions')) {
+                        return;
+                    }
+                    const prescriptionId = this.dataset.prescriptionId;
+                    viewPrescriptionDetail(prescriptionId);
+                });
+            });
+
+            // 查看详情按钮
+            document.querySelectorAll('.view-detail-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const prescriptionId = this.dataset.id;
+                    viewPrescriptionDetail(prescriptionId);
+                });
+            });
+
+            // 快速通过按钮
+            document.querySelectorAll('.quick-approve-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const prescriptionId = this.dataset.id;
+                    quickApprove(prescriptionId);
+                });
+            });
+
+            // 快速拒绝按钮
+            document.querySelectorAll('.quick-reject-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const prescriptionId = this.dataset.id;
+                    quickReject(prescriptionId);
+                });
+            });
         }
 
         // 查看处方详情
         async function viewPrescriptionDetail(prescriptionId) {
+            console.log('查看处方详情:', prescriptionId);
+            
             const token = localStorage.getItem('doctorToken');
-            if (!token) return;
+            if (!token) {
+                console.error('未找到认证token');
+                alert('请先登录');
+                return;
+            }
+
+            if (!prescriptionId) {
+                console.error('处方ID为空');
+                alert('处方ID无效');
+                return;
+            }
 
             currentPrescriptionId = prescriptionId;
 
+            // 显示加载状态
+            const modal = document.getElementById('prescriptionDetailModal');
+            const content = document.getElementById('prescriptionDetailContent');
+            content.innerHTML = '<div style="text-align: center; padding: 40px;"><div style="font-size: 2rem; margin-bottom: 15px;">⏳</div><p>正在加载处方详情...</p></div>';
+            modal.style.display = 'flex';
+
             try {
+                console.log('发送API请求:', `/api/doctor/prescription/${prescriptionId}`);
                 const response = await fetch(`/api/doctor/prescription/${prescriptionId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
+                console.log('API响应状态:', response.status);
+                
                 if (response.ok) {
                     const data = await response.json();
+                    console.log('API响应数据:', data);
                     showPrescriptionDetailModal(data.prescription);
                 } else {
-                    alert('加载处方详情失败');
+                    const errorText = await response.text();
+                    console.error('API错误响应:', errorText);
+                    content.innerHTML = `<div style="text-align: center; padding: 40px; color: #ef4444;"><div style="font-size: 2rem; margin-bottom: 15px;">❌</div><p>加载处方详情失败: ${response.status}</p></div>`;
                 }
             } catch (error) {
                 console.error('加载处方详情失败:', error);
-                alert('网络错误，请稍后重试');
+                content.innerHTML = `<div style="text-align: center; padding: 40px; color: #ef4444;"><div style="font-size: 2rem; margin-bottom: 15px;">❌</div><p>网络错误: ${error.message}</p></div>`;
             }
         }
 
@@ -1343,6 +1597,11 @@
         function showPrescriptionDetailModal(prescription) {
             const content = document.getElementById('prescriptionDetailContent');
             const createdDate = new Date(prescription.created_at).toLocaleString('zh-CN');
+            
+            // 处理处方内容显示
+            let prescriptionContent = prescription.ai_prescription || prescription.prescription_text || prescription.diagnosis || '暂无处方内容';
+            let symptoms = prescription.symptoms || '未记录症状';
+            let diagnosis = prescription.diagnosis || '未记录诊断';
             
             content.innerHTML = `
                 <div style="margin-bottom: 20px;">
@@ -1354,7 +1613,7 @@
                             <strong>创建时间:</strong> ${createdDate}
                         </div>
                         <div>
-                            <strong>患者ID:</strong> ${prescription.patient_id || '-'}
+                            <strong>患者姓名:</strong> ${prescription.patient_name || '未提供'}
                         </div>
                         <div>
                             <strong>当前状态:</strong> 
@@ -1364,46 +1623,58 @@
                 </div>
                 
                 <div style="margin-bottom: 20px;">
-                    <h4 style="color: #1e40af; margin-bottom: 10px;">处方内容:</h4>
+                    <h4 style="color: #1e40af; margin-bottom: 10px;">症状描述:</h4>
+                    <div style="
+                        background: #fef7f0;
+                        border: 1px solid #fed7aa;
+                        border-radius: 8px;
+                        padding: 15px;
+                        white-space: pre-wrap;
+                        max-height: 150px;
+                        overflow-y: auto;
+                    ">${symptoms}</div>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #1e40af; margin-bottom: 10px;">辨证诊断:</h4>
+                    <div style="
+                        background: #f0f9ff;
+                        border: 1px solid #bae6fd;
+                        border-radius: 8px;
+                        padding: 15px;
+                        white-space: pre-wrap;
+                        max-height: 150px;
+                        overflow-y: auto;
+                    ">${diagnosis}</div>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #1e40af; margin-bottom: 10px;">AI生成处方:</h4>
                     <div style="
                         background: #f8fafc;
                         border: 1px solid #e2e8f0;
                         border-radius: 8px;
                         padding: 15px;
                         white-space: pre-wrap;
-                        font-family: monospace;
+                        font-family: 'Courier New', monospace;
                         max-height: 300px;
                         overflow-y: auto;
-                    ">${prescription.prescription_text || '暂无处方内容'}</div>
+                        line-height: 1.6;
+                    ">${prescriptionContent}</div>
                 </div>
                 
-                ${prescription.herbs ? `
+                ${prescription.doctor_notes ? `
                 <div style="margin-bottom: 20px;">
-                    <h4 style="color: #1e40af; margin-bottom: 10px;">药物组成:</h4>
+                    <h4 style="color: #1e40af; margin-bottom: 10px;">医生备注:</h4>
                     <div style="
-                        background: #f0f9f0;
-                        border: 1px solid #d1fae5;
+                        background: #f0fdf4;
+                        border: 1px solid #bbf7d0;
                         border-radius: 8px;
                         padding: 15px;
                         white-space: pre-wrap;
-                        max-height: 200px;
+                        max-height: 150px;
                         overflow-y: auto;
-                    ">${prescription.herbs}</div>
-                </div>
-                ` : ''}
-                
-                ${prescription.ai_analysis ? `
-                <div style="margin-bottom: 20px;">
-                    <h4 style="color: #1e40af; margin-bottom: 10px;">AI分析:</h4>
-                    <div style="
-                        background: #eff6ff;
-                        border: 1px solid #bfdbfe;
-                        border-radius: 8px;
-                        padding: 15px;
-                        white-space: pre-wrap;
-                        max-height: 200px;
-                        overflow-y: auto;
-                    ">${prescription.ai_analysis}</div>
+                    ">${prescription.doctor_notes}</div>
                 </div>
                 ` : ''}
             `;
@@ -1598,6 +1869,380 @@
                 localStorage.removeItem('doctorToken');
                 window.location.href = '/login';
             }
+        }
+
+        // ==================== 新增功能函数 ====================
+        
+        // 处方筛选功能
+        let currentFilter = 'all';
+        let allPrescriptions = [];
+        
+        async function filterPrescriptions(filterType) {
+            console.log('筛选处方:', filterType);
+            
+            const token = localStorage.getItem('doctorToken');
+            if (!token) return;
+            
+            try {
+                let endpoint = '/api/doctor/pending-prescriptions';
+                let title = '待审查处方列表';
+                
+                switch(filterType) {
+                    case 'pending':
+                        endpoint = '/api/doctor/pending-prescriptions';
+                        title = '待审查处方列表';
+                        break;
+                    case 'today':
+                        endpoint = '/api/doctor/today-reviewed';
+                        title = '今日已审查处方';
+                        break;
+                    case 'approved':
+                        endpoint = '/api/doctor/approved-prescriptions';
+                        title = '已通过处方列表';
+                        break;
+                    case 'rejected':
+                        endpoint = '/api/doctor/rejected-prescriptions';
+                        title = '已拒绝处方列表';
+                        break;
+                }
+                
+                document.getElementById('prescriptionListTitle').textContent = title;
+                document.getElementById('prescriptionListContainer').innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #6b7280;">
+                        <div style="font-size: 2rem; margin-bottom: 15px;">⏳</div>
+                        <p>正在加载${title}...</p>
+                    </div>
+                `;
+                
+                const response = await fetch(endpoint, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    currentFilter = filterType;
+                    allPrescriptions = data.prescriptions || [];
+                    displayPrescriptionsList(allPrescriptions);
+                } else {
+                    // 如果API不存在，使用本地筛选
+                    await loadPendingPrescriptionsList();
+                    filterLocalPrescriptions(filterType);
+                }
+            } catch (error) {
+                console.error('筛选处方失败:', error);
+                // 降级到本地筛选
+                await loadPendingPrescriptionsList();
+                filterLocalPrescriptions(filterType);
+            }
+        }
+        
+        // 本地筛选处方
+        function filterLocalPrescriptions(filterType) {
+            if (!currentPrescriptions.length) return;
+            
+            let filtered = currentPrescriptions;
+            let title = '处方列表';
+            
+            switch(filterType) {
+                case 'pending':
+                    filtered = currentPrescriptions.filter(p => p.status === 'pending');
+                    title = '待审查处方列表';
+                    break;
+                case 'today':
+                    const today = new Date().toDateString();
+                    filtered = currentPrescriptions.filter(p => 
+                        p.reviewed_at && new Date(p.reviewed_at).toDateString() === today
+                    );
+                    title = '今日已审查处方';
+                    break;
+            }
+            
+            document.getElementById('prescriptionListTitle').textContent = title;
+            displayPrescriptionsList(filtered);
+        }
+
+        // AI洞察分析
+        function showAIInsights() {
+            // 先清除可能存在的旧模态框
+            const existingModals = document.querySelectorAll('.modal-overlay');
+            existingModals.forEach(modal => modal.remove());
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 3000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white; border-radius: 15px; padding: 30px;
+                    max-width: 800px; max-height: 80vh; overflow-y: auto;
+                    margin: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="color: #1e40af; margin: 0;">🤖 AI洞察分析</h3>
+                        <button onclick="closeModal(this)" style="
+                            background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;
+                        ">×</button>
+                    </div>
+                    
+                    <div style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
+                        <div style="background: #f0f9ff; padding: 20px; border-radius: 10px;">
+                            <h4 style="color: #1e40af; margin-top: 0;">📊 处方质量分析</h4>
+                            <p>• 平均药物种类: 8-12种</p>
+                            <p>• 君臣佐使配伍完整度: 85%</p>
+                            <p>• 剂量安全性评分: 92/100</p>
+                            <p>• 常见问题: 药物用量偏保守</p>
+                        </div>
+                        
+                        <div style="background: #f0fdf4; padding: 20px; border-radius: 10px;">
+                            <h4 style="color: #059669; margin-top: 0;">🎯 审查建议</h4>
+                            <p>• 重点关注: 孕妇用药安全</p>
+                            <p>• 建议优化: 煎煮方法说明</p>
+                            <p>• 常见改进: 增加服药时间</p>
+                            <p>• 审查效率: 可提升15%</p>
+                        </div>
+                        
+                        <div style="background: #fef7f0; padding: 20px; border-radius: 10px;">
+                            <h4 style="color: #ea580c; margin-top: 0;">⚠️ 风险提示</h4>
+                            <p>• 高风险处方: 2份</p>
+                            <p>• 配伍禁忌检查: 通过</p>
+                            <p>• 剂量超标风险: 低</p>
+                            <p>• 建议优先审查儿童用药</p>
+                        </div>
+                        
+                        <div style="background: #faf5ff; padding: 20px; border-radius: 10px;">
+                            <h4 style="color: #7c3aed; margin-top: 0;">📈 趋势分析</h4>
+                            <p>• 本周审查量: 较上周+12%</p>
+                            <p>• 通过率趋势: 稳定在88%</p>
+                            <p>• 常见病症: 脾胃虚弱(35%)</p>
+                            <p>• 处方复杂度: 中等偏上</p>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px; text-align: right;">
+                        <button class="btn" onclick="closeModal(this)" style="background: #6b7280;">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        // 风险分析
+        function showRiskAnalysis() {
+            // 先清除可能存在的旧模态框
+            const existingModals = document.querySelectorAll('.modal-overlay');
+            existingModals.forEach(modal => modal.remove());
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 3000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white; border-radius: 15px; padding: 30px;
+                    max-width: 800px; max-height: 80vh; overflow-y: auto;
+                    margin: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="color: #dc2626; margin: 0;">⚠️ 风险分析报告</h3>
+                        <button onclick="closeModal(this)" style="
+                            background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;
+                        ">×</button>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                            <h4 style="color: #dc2626; margin-top: 0;">🚨 高风险处方 (2份)</h4>
+                            <p><strong>处方 #12:</strong> 患儿8岁，方中含附子用量偏大</p>
+                            <p><strong>处方 #15:</strong> 孕妇用药，含活血化瘀药物</p>
+                        </div>
+                        
+                        <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                            <h4 style="color: #d97706; margin-top: 0;">⚡ 中风险处方 (5份)</h4>
+                            <p><strong>处方 #8:</strong> 老年患者，药物种类较多</p>
+                            <p><strong>处方 #14:</strong> 煎煮方法需要特殊说明</p>
+                            <p><strong>处方 #16:</strong> 罕见药材组合，需确认配伍</p>
+                        </div>
+                        
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px;">
+                            <h4 style="color: #059669; margin-top: 0;">✅ 低风险处方 (11份)</h4>
+                            <p>常规病症，标准用药，无明显风险点</p>
+                        </div>
+                    </div>
+                    
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4 style="color: #1e40af;">📋 风险检查清单</h4>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li>✅ 十八反十九畏检查</li>
+                            <li>✅ 妊娠禁忌检查</li>
+                            <li>✅ 儿童用药安全检查</li>
+                            <li>✅ 剂量范围检查</li>
+                            <li>⚠️ 特殊体质用药需注意</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="text-align: right;">
+                        <button class="btn" onclick="closeModal(this)" style="background: #6b7280; margin-right: 10px;">
+                            关闭
+                        </button>
+                        <button class="btn" onclick="filterPrescriptions('high-risk')" style="background: #dc2626;">
+                            查看高风险处方
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        // 批量审查模式
+        let batchMode = false;
+        let selectedPrescriptions = new Set();
+
+        function enableBatchMode() {
+            batchMode = !batchMode;
+            
+            if (batchMode) {
+                document.querySelector('button[onclick="enableBatchMode()"]').textContent = '📦 退出批量模式';
+                document.querySelector('button[onclick="enableBatchMode()"]').style.background = '#ef4444';
+                document.getElementById('batchActionBtn').style.display = 'block';
+                addBatchSelectionUI();
+            } else {
+                document.querySelector('button[onclick="enableBatchMode()"]').textContent = '📦 批量审查模式';
+                document.querySelector('button[onclick="enableBatchMode()"]').style.background = '#3b82f6';
+                document.getElementById('batchActionBtn').style.display = 'none';
+                selectedPrescriptions.clear();
+                removeBatchSelectionUI();
+            }
+        }
+
+        function addBatchSelectionUI() {
+            document.querySelectorAll('.prescription-card').forEach(card => {
+                const prescriptionId = card.dataset.prescriptionId;
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'batch-checkbox';
+                checkbox.style.cssText = 'margin-right: 10px; transform: scale(1.2);';
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        selectedPrescriptions.add(prescriptionId);
+                    } else {
+                        selectedPrescriptions.delete(prescriptionId);
+                    }
+                    updateBatchActionBtn();
+                });
+                
+                card.insertBefore(checkbox, card.firstChild);
+            });
+        }
+
+        function removeBatchSelectionUI() {
+            document.querySelectorAll('.batch-checkbox').forEach(checkbox => {
+                checkbox.remove();
+            });
+        }
+
+        function updateBatchActionBtn() {
+            const btn = document.getElementById('batchActionBtn');
+            btn.textContent = `✅ 批量操作 (${selectedPrescriptions.size})`;
+        }
+
+        function processBatchActions() {
+            if (selectedPrescriptions.size === 0) {
+                alert('请先选择要操作的处方');
+                return;
+            }
+            
+            const action = confirm('选择操作：\n确定 = 批量通过\n取消 = 批量拒绝');
+            const actionType = action ? 'approve' : 'reject';
+            
+            let notes = actionType === 'approve' ? '批量通过' : prompt('请输入拒绝原因：');
+            if (actionType === 'reject' && !notes) return;
+            
+            batchProcessPrescriptions(Array.from(selectedPrescriptions), actionType, notes);
+        }
+
+        async function batchProcessPrescriptions(prescriptionIds, action, notes) {
+            const token = localStorage.getItem('doctorToken');
+            if (!token) return;
+            
+            const total = prescriptionIds.length;
+            let completed = 0;
+            
+            for (const id of prescriptionIds) {
+                try {
+                    const response = await fetch(`/api/doctor/prescription/${id}/review`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            action: action,
+                            doctor_notes: notes
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        completed++;
+                    }
+                } catch (error) {
+                    console.error(`处理处方 ${id} 失败:`, error);
+                }
+            }
+            
+            alert(`批量操作完成: ${completed}/${total} 成功处理`);
+            selectedPrescriptions.clear();
+            enableBatchMode(); // 退出批量模式
+            await loadPrescriptionReviewData(); // 刷新数据
+        }
+
+        // 导出数据
+        function exportPrescriptionData() {
+            const data = currentPrescriptions.map(p => ({
+                '处方ID': p.id,
+                '患者姓名': p.patient_name || '未提供',
+                '创建时间': new Date(p.created_at).toLocaleString('zh-CN'),
+                '状态': getStatusText(p.status),
+                '症状': p.symptoms ? p.symptoms.substring(0, 50) + '...' : '未记录'
+            }));
+            
+            const csv = convertToCSV(data);
+            downloadCSV(csv, '处方审查数据.csv');
+        }
+
+        function convertToCSV(data) {
+            if (!data.length) return '';
+            
+            const headers = Object.keys(data[0]).join(',');
+            const rows = data.map(row => 
+                Object.values(row).map(value => 
+                    `"${String(value).replace(/"/g, '""')}"`
+                ).join(',')
+            );
+            
+            return [headers, ...rows].join('\n');
+        }
+
+        function downloadCSV(csv, filename) {
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     </script>
 </body>

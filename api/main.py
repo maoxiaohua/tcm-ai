@@ -1939,9 +1939,9 @@ async def get_recent_learning_activities():
 # 医生端友好URL路由 (去除.html扩展名)
 @app.get("/doctor")
 async def doctor_main():
-    """医生工作台主页 - 优化版本"""
+    """医生工作台主页 - 完整功能版本"""
     from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/doctor/index_optimized.html')
+    return FileResponse('/opt/tcm-ai/static/doctor/index.html')
 
 @app.get("/decision_tree_visual_builder.html")
 async def decision_tree_builder():
@@ -5196,6 +5196,10 @@ async def admin_get_logs(page: int = 1, per_page: int = 50):
             "logs": [],
             "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0}
         }
+
+# ==================== 医生工作台API ====================
+# 所有医生API已移至 api/routes/doctor_routes.py 统一管理
+# 避免重复定义和路由冲突
 
 # ==================== Agent系统已完全移除 ====================
 # 使用阿里云qwen大模型已足够，无需外部Agent服务
