@@ -990,8 +990,8 @@
                         <div class="table-header">
                             <h3 class="table-title">医生列表</h3>
                             <div class="table-actions">
-                                <button class="btn btn-secondary">📋 审核列表</button>
-                                <button class="btn btn-primary">👨‍⚕️ 添加医生</button>
+                                <button class="btn btn-secondary" onclick="showDoctorReviewList()">📋 审核列表</button>
+                                <button class="btn btn-primary" onclick="addNewDoctor()">👨‍⚕️ 添加医生</button>
                             </div>
                         </div>
                         <div class="table-content">
@@ -1317,16 +1317,21 @@
                 align-items: center; justify-content: center;
             `;
             
-            // 点击背景关闭模态框
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    closeEditModal();
-                }
-            });
+            // 移除点击背景关闭功能，只允许通过取消按钮或ESC键关闭
+            // modal.addEventListener('click', function(e) {
+            //     if (e.target === modal) {
+            //         closeEditModal();
+            //     }
+            // });
             
             modal.innerHTML = `
-                <div style="background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 500px;" onclick="event.stopPropagation();">
-                    <h3 style="margin-bottom: 20px; color: #1f2937;">添加新用户</h3>
+                <div style="background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 500px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="color: #1f2937; margin: 0;">添加新用户</h3>
+                        <div style="font-size: 12px; color: #6b7280; padding: 4px 8px; background: #f3f4f6; border-radius: 4px;">
+                            按ESC键或点击取消关闭
+                        </div>
+                    </div>
                     <form id="addUserForm">
                         <div style="margin-bottom: 15px;">
                             <label style="display: block; margin-bottom: 5px; color: #374151;">用户名 *:</label>
@@ -1763,8 +1768,188 @@
         }
         
         function viewUser(userId) {
-            // TODO: 实现查看用户详情
-            alert(`查看用户: ${userId}`);
+            // 关闭可能存在的其他模态框
+            closeEditModal();
+            closeViewModal();
+            
+            // 从缓存中查找用户数据
+            const user = usersDataCache.find(u => u.id === userId);
+            if (!user) {
+                alert('未找到用户信息，请刷新页面后重试');
+                return;
+            }
+            
+            // 创建查看用户详情模态框
+            const modal = document.createElement('div');
+            modal.id = 'viewUserModal';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 1000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            // 格式化注册时间
+            const formatDate = (dateString) => {
+                if (!dateString) return '未知';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                } catch (e) {
+                    return dateString;
+                }
+            };
+            
+            // 格式化用户类型
+            const formatUserType = (type) => {
+                const typeMap = {
+                    'patient': '患者',
+                    'doctor': '医生',
+                    'admin': '管理员',
+                    'superadmin': '超级管理员'
+                };
+                return typeMap[type] || type || '未知';
+            };
+            
+            // 格式化状态
+            const formatStatus = (status) => {
+                switch(status) {
+                    case 'active': return '激活';
+                    case 'suspended': return '暂停';
+                    case 'locked': return '锁定';
+                    case 'deleted': return '已删除';
+                    default: return '未知';
+                }
+            };
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 600px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); max-height: 80vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #f3f4f6; padding-bottom: 15px;">
+                        <h3 style="color: #1f2937; margin: 0; font-size: 20px;">👤 用户详情</h3>
+                        <div style="font-size: 12px; color: #6b7280; padding: 4px 8px; background: #f3f4f6; border-radius: 4px;">
+                            按ESC键或点击关闭
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; gap: 20px;">
+                        <!-- 基本信息 -->
+                        <div style="background: #f8fafc; padding: 20px; border-radius: 10px; border-left: 4px solid #3b82f6;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">📋 基本信息</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">用户ID</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${user.id || '未知'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">用户名</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${user.username || '未设置'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">昵称</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${user.nickname || '未设置'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">用户类型</label>
+                                    <div style="color: #1f2937; font-weight: 500;">
+                                        <span style="background: ${user.role === 'admin' ? '#dc2626' : user.role === 'doctor' ? '#059669' : '#3b82f6'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
+                                            ${formatUserType(user.role)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 联系信息 -->
+                        <div style="background: #f0fdf4; padding: 20px; border-radius: 10px; border-left: 4px solid #22c55e;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">📞 联系信息</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">邮箱地址</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${user.email || '未设置'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">手机号码</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${user.phone || '未设置'}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 账户状态 -->
+                        <div style="background: #fefce8; padding: 20px; border-radius: 10px; border-left: 4px solid #eab308;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">⚙️ 账户状态</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">账户状态</label>
+                                    <div style="color: #1f2937; font-weight: 500;">
+                                        <span style="background: ${user.account_status === 'active' ? '#22c55e' : user.account_status === 'suspended' ? '#eab308' : '#ef4444'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
+                                            ${formatStatus(user.account_status)}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">注册方式</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${user.registration_type || '未知'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">注册时间</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${formatDate(user.created_at)}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">最后更新</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${formatDate(user.updated_at)}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 专业信息（仅医生显示） -->
+                        ${user.role === 'doctor' ? `
+                        <div style="background: #f0f9ff; padding: 20px; border-radius: 10px; border-left: 4px solid #0ea5e9;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">🩺 专业信息</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">执业证号</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${user.license_number || '未设置'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">专业科室</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${user.specialties || '未设置'}</div>
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div style="margin-top: 25px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 20px; display: flex; gap: 15px; justify-content: center;">
+                        <button onclick="editUser('${user.id}')" style="background: #3b82f6; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s;">
+                            ✏️ 编辑用户
+                        </button>
+                        <button onclick="closeViewModal()" style="background: #6b7280; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s;">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // 添加到页面
+            document.body.appendChild(modal);
+            
+            // ESC键关闭
+            const escListener = function(e) {
+                if (e.key === 'Escape') {
+                    closeViewModal();
+                }
+            };
+            
+            document.addEventListener('keydown', escListener);
+            document._viewEscListener = escListener;
+            
+            // 防止body滚动
+            document.body.style.overflow = 'hidden';
         }
         
         function editUser(userId) {
@@ -1789,16 +1974,21 @@
                 align-items: center; justify-content: center;
             `;
             
-            // 点击背景关闭模态框
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    closeEditModal();
-                }
-            });
+            // 移除点击背景关闭功能，只允许通过取消按钮或ESC键关闭
+            // modal.addEventListener('click', function(e) {
+            //     if (e.target === modal) {
+            //         closeEditModal();
+            //     }
+            // });
             
             modal.innerHTML = `
-                <div style="background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 500px;" onclick="event.stopPropagation();">
-                    <h3 style="margin-bottom: 20px; color: #1f2937;">编辑用户信息</h3>
+                <div style="background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 500px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="color: #1f2937; margin: 0;">编辑用户信息</h3>
+                        <div style="font-size: 12px; color: #6b7280; padding: 4px 8px; background: #f3f4f6; border-radius: 4px;">
+                            按ESC键或点击取消关闭
+                        </div>
+                    </div>
                     <form id="editUserForm">
                         <div style="margin-bottom: 15px;">
                             <label style="display: block; margin-bottom: 5px; color: #374151;">用户名:</label>
@@ -1895,6 +2085,22 @@
             document.body.style.overflow = '';
         }
         
+        function closeViewModal() {
+            const modal = document.getElementById('viewUserModal');
+            if (modal) {
+                modal.remove();
+            }
+            
+            // 移除查看模态框的ESC键监听器
+            if (document._viewEscListener) {
+                document.removeEventListener('keydown', document._viewEscListener);
+                document._viewEscListener = null;
+            }
+            
+            // 确保body可以正常滚动
+            document.body.style.overflow = '';
+        }
+        
         async function updateUser(userId, userData) {
             try {
                 const response = await fetch(`/api/admin/users/${userId}`, {
@@ -1946,6 +2152,9 @@
             }
         }
 
+        // 全局医生数据缓存
+        let doctorsDataCache = [];
+        
         // 加载医生数据
         async function loadDoctorsData() {
             try {
@@ -1954,6 +2163,9 @@
                 
                 const tableBody = document.getElementById('doctorsTableBody');
                 if (data.success && data.doctors.length > 0) {
+                    // 缓存医生数据
+                    doctorsDataCache = data.doctors;
+                    
                     tableBody.innerHTML = '';
                     data.doctors.forEach(doctor => {
                         const row = document.createElement('tr');
@@ -1966,8 +2178,8 @@
                             <td><span class="status-badge status-${doctor.status === 'active' ? 'active' : 'inactive'}">${doctor.status === 'active' ? '活跃' : '非活跃'}</span></td>
                             <td>${formatDate(doctor.created_at)}</td>
                             <td>
-                                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;">查看</button>
-                                <button class="btn btn-primary" style="padding: 4px 8px; font-size: 12px;">编辑</button>
+                                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="viewDoctor('${doctor.id}')">查看</button>
+                                <button class="btn btn-primary" style="padding: 4px 8px; font-size: 12px;" onclick="editDoctor('${doctor.id}')">编辑</button>
                             </td>
                         `;
                         tableBody.appendChild(row);
@@ -1991,6 +2203,209 @@
                     </tr>
                 `;
             }
+        }
+
+        // 医生查看功能
+        function viewDoctor(doctorId) {
+            // 关闭可能存在的其他模态框
+            closeEditModal();
+            closeViewModal();
+            closeDoctorViewModal();
+            
+            // 从缓存中查找医生数据
+            const doctor = doctorsDataCache.find(d => d.id === doctorId);
+            if (!doctor) {
+                alert('未找到医生信息，请刷新页面后重试');
+                return;
+            }
+            
+            // 创建查看医生详情模态框
+            const modal = document.createElement('div');
+            modal.id = 'viewDoctorModal';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 1000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            // 格式化注册时间
+            const formatDate = (dateString) => {
+                if (!dateString) return '未知';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                } catch (e) {
+                    return dateString;
+                }
+            };
+            
+            // 格式化状态
+            const formatDoctorStatus = (status) => {
+                switch(status) {
+                    case 'active': return '活跃';
+                    case 'inactive': return '非活跃';
+                    case 'pending': return '待审核';
+                    case 'suspended': return '暂停';
+                    default: return '未知';
+                }
+            };
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 700px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); max-height: 80vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #f3f4f6; padding-bottom: 15px;">
+                        <h3 style="color: #1f2937; margin: 0; font-size: 20px;">👨‍⚕️ 医生详情</h3>
+                        <div style="font-size: 12px; color: #6b7280; padding: 4px 8px; background: #f3f4f6; border-radius: 4px;">
+                            按ESC键或点击关闭
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; gap: 20px;">
+                        <!-- 基本信息 -->
+                        <div style="background: #f8fafc; padding: 20px; border-radius: 10px; border-left: 4px solid #3b82f6;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">📋 基本信息</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">医生ID</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${doctor.id || '未知'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">医生姓名</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${doctor.name || '未设置'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">状态</label>
+                                    <div style="color: #1f2937; font-weight: 500;">
+                                        <span style="background: ${doctor.status === 'active' ? '#22c55e' : doctor.status === 'pending' ? '#eab308' : '#ef4444'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
+                                            ${formatDoctorStatus(doctor.status)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 执业信息 -->
+                        <div style="background: #f0fdf4; padding: 20px; border-radius: 10px; border-left: 4px solid #22c55e;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">🏥 执业信息</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">执业证号</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${doctor.license_no || '未设置'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">专业科室</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${doctor.speciality || '未设置'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">所属医院</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${doctor.hospital || '未设置'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">联系电话</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${doctor.phone || '未设置'}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 注册信息 -->
+                        <div style="background: #fefce8; padding: 20px; border-radius: 10px; border-left: 4px solid #eab308;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">📅 注册信息</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">注册时间</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${formatDate(doctor.created_at)}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">最后更新</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${formatDate(doctor.updated_at)}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">邮箱地址</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${doctor.email || '未设置'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">个人简介</label>
+                                    <div style="color: #1f2937; font-weight: 500; max-width: 300px; word-wrap: break-word;">${doctor.bio || '未设置'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 25px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 20px; display: flex; gap: 15px; justify-content: center;">
+                        <button onclick="editDoctor('${doctorId}')" style="background: #3b82f6; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s;">
+                            ✏️ 编辑医生
+                        </button>
+                        <button onclick="closeDoctorViewModal()" style="background: #6b7280; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s;">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // 添加到页面
+            document.body.appendChild(modal);
+            
+            // ESC键关闭
+            const escListener = function(e) {
+                if (e.key === 'Escape') {
+                    closeDoctorViewModal();
+                }
+            };
+            
+            document.addEventListener('keydown', escListener);
+            document._doctorViewEscListener = escListener;
+            
+            // 防止body滚动
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeDoctorViewModal() {
+            const modal = document.getElementById('viewDoctorModal');
+            if (modal) {
+                modal.remove();
+            }
+            
+            // 移除查看模态框的ESC键监听器
+            if (document._doctorViewEscListener) {
+                document.removeEventListener('keydown', document._doctorViewEscListener);
+                document._doctorViewEscListener = null;
+            }
+            
+            // 确保body可以正常滚动
+            document.body.style.overflow = '';
+        }
+        
+        // 医生编辑功能
+        function editDoctor(doctorId) {
+            // 关闭可能存在的其他模态框
+            closeEditModal();
+            closeViewModal();
+            closeDoctorViewModal();
+            
+            // 从缓存中查找医生数据
+            const doctor = doctorsDataCache.find(d => d.id === doctorId);
+            if (!doctor) {
+                alert('未找到医生信息，请刷新页面后重试');
+                return;
+            }
+            
+            // TODO: 实现医生编辑功能
+            alert(`编辑医生功能正在开发中，医生ID: ${doctorId}`);
+        }
+        
+        // 医生审核列表功能
+        function showDoctorReviewList() {
+            alert('医生审核列表功能正在开发中');
+        }
+        
+        // 添加新医生功能
+        function addNewDoctor() {
+            alert('添加新医生功能正在开发中');
         }
 
         // 加载处方数据
