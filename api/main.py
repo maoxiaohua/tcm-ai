@@ -5280,6 +5280,49 @@ async def admin_get_prescriptions(page: int = 1, per_page: int = 20):
         if 'conn' in locals():
             conn.close()
 
+@app.get("/api/admin/prescription/{prescription_id}")
+async def admin_get_prescription(prescription_id: int):
+    """获取单个处方详情 - 支持订单管理联动"""
+    import sqlite3
+    
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT p.*, d.name as doctor_name
+            FROM prescriptions p
+            LEFT JOIN doctors d ON p.doctor_id = d.id
+            WHERE p.id = ?
+        """, (prescription_id,))
+        
+        row = cursor.fetchone()
+        if not row:
+            return {
+                "success": False,
+                "message": f"处方ID {prescription_id} 不存在",
+                "prescription": None
+            }
+        
+        prescription = dict(row)
+        
+        return {
+            "success": True,
+            "prescription": prescription
+        }
+        
+    except Exception as e:
+        logger.error(f"获取处方详情失败: {e}")
+        return {
+            "success": False,
+            "message": f"获取处方详情失败: {e}",
+            "prescription": None
+        }
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 @app.get("/api/admin/orders")
 async def admin_get_orders(page: int = 1, per_page: int = 20):
     """获取订单列表"""
