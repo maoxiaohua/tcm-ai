@@ -517,6 +517,36 @@ async def get_today_reviewed_prescriptions(current_doctor: Doctor = Depends(get_
     finally:
         conn.close()
 
+@router.get("/all-prescriptions")
+async def get_all_prescriptions(current_doctor: Doctor = Depends(get_current_doctor)):
+    """获取医生相关的所有处方列表"""
+    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT p.*, 
+                   CASE WHEN p.doctor_id = ? THEN 1 ELSE 0 END as is_assigned_to_me
+            FROM prescriptions p 
+            WHERE p.doctor_id = ? OR p.doctor_id IS NULL
+            ORDER BY p.created_at DESC
+        """, (current_doctor.id, current_doctor.id))
+        
+        rows = cursor.fetchall()
+        prescriptions = [dict(row) for row in rows]
+        
+        return {
+            "success": True,
+            "prescriptions": prescriptions,
+            "total": len(prescriptions)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取处方列表失败: {e}")
+    finally:
+        conn.close()
+
 @router.get("/statistics")
 async def get_doctor_statistics(current_doctor: Doctor = Depends(get_current_doctor)):
     """获取医生工作统计"""

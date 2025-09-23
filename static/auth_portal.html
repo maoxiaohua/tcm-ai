@@ -632,6 +632,13 @@
     </style>
 </head>
 <body>
+    <!-- 调试面板 -->
+    <div id="debugPanel" style="position: fixed; top: 10px; right: 10px; background: #000; color: #fff; padding: 10px; font-size: 12px; max-width: 400px; z-index: 9999; border-radius: 5px; max-height: 300px; overflow-y: auto; display: none;">
+        <div style="font-weight: bold; margin-bottom: 5px;">🔍 登录调试信息</div>
+        <div id="debugLog"></div>
+        <button onclick="document.getElementById('debugPanel').style.display='none'" style="background: #f00; color: #fff; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; float: right;">关闭</button>
+    </div>
+
     <div class="auth-container">
         <!-- 头部 -->
         <div class="header">
@@ -962,6 +969,17 @@
     </div>
 
     <script>
+        // 调试函数
+        function addDebugLog(message) {
+            const debugLog = document.getElementById('debugLog');
+            const debugPanel = document.getElementById('debugPanel');
+            const timestamp = new Date().toLocaleTimeString();
+            debugLog.innerHTML += `<div style="margin-bottom: 3px; border-bottom: 1px solid #333; padding-bottom: 2px;">[${timestamp}] ${message}</div>`;
+            debugPanel.style.display = 'block';
+            debugLog.scrollTop = debugLog.scrollHeight;
+            console.log(`[调试] ${message}`);
+        }
+
         // 全局变量
         let currentTab = 'login';
         let countdownTimer = null;
@@ -1057,6 +1075,8 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
+                    console.log('🎉 登录API调用成功，完整响应数据:', data);
+                    addDebugLog('✅ 登录API成功，redirect_url: ' + data.redirect_url);
                     showSuccess('登录成功！正在跳转...');
                     
                     // 保存用户信息和token
@@ -1072,9 +1092,13 @@
                         // 保存token (统一认证系统)
                         if (data.session && data.session.session_id) {
                             localStorage.setItem('session_token', data.session.session_id);
+                            // 设置cookie用于权限验证
+                            document.cookie = `session_token=${data.session.session_id}; path=/; max-age=86400; secure; samesite=strict`;
+                            addDebugLog('🍪 设置cookie: session_token=' + data.session.session_id.substring(0, 10) + '...');
                             // 向后兼容
                             const role = data.user.primary_role;
                             localStorage.setItem(`${role}Token`, data.session.session_id);
+                            addDebugLog('💾 设置localStorage: ' + role + 'Token = ' + data.session.session_id.substring(0, 10) + '...');
                         }
                         
                         // 保存用户信息
@@ -1089,8 +1113,26 @@
                         console.log('✅ 用户登录成功，已保存固定ID:', data.user.id);
                     }
 
+                    console.log('🔄 准备跳转，redirect_url:', data.redirect_url);
+                    console.log('🔄 用户角色:', data.user.primary_role);
+                    console.log('🔄 最终跳转URL:', data.redirect_url || getDefaultRedirectUrl(data.user.primary_role));
+                    
                     setTimeout(() => {
-                        window.location.href = data.redirect_url || getDefaultRedirectUrl(data.user.primary_role);
+                        const targetUrl = data.redirect_url || getDefaultRedirectUrl(data.user.primary_role);
+                        addDebugLog('🚀 开始跳转到: ' + targetUrl);
+                        console.log('🚀 正在跳转到:', targetUrl);
+                        console.log('🔍 当前window.location.href:', window.location.href);
+                        try {
+                            addDebugLog('📍 执行 window.location.href = ' + targetUrl);
+                            window.location.href = targetUrl;
+                            console.log('✅ 跳转命令已执行');
+                            addDebugLog('✅ 跳转命令已执行，等待页面加载...');
+                        } catch (error) {
+                            console.error('❌ 跳转失败:', error);
+                            addDebugLog('❌ 跳转失败: ' + error.message);
+                            // 备用跳转方法
+                            window.location.replace(targetUrl);
+                        }
                     }, 1000);
                 } else {
                     showError(data.detail || data.message || '登录失败');
@@ -1273,21 +1315,29 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
+                    console.log('🎉 角色登录API调用成功，完整响应数据:', data);
+                    
                     // 验证角色匹配
                     if (data.user.primary_role !== selectedRole && 
                         !(selectedRole === 'admin' && data.user.primary_role === 'superadmin')) {
+                        console.log('❌ 角色不匹配，用户角色:', data.user.primary_role, '选择角色:', selectedRole);
                         showError(`账户角色不匹配，请选择正确的${getRoleDisplayName(data.user.primary_role)}角色`);
                         return;
                     }
 
+                    console.log('✅ 角色验证通过，继续登录流程');
                     showSuccess(`${getRoleDisplayName(selectedRole)}登录成功！正在跳转...`);
                     
                     // 保存token (统一认证系统)
                     if (data.session && data.session.session_id) {
                         localStorage.setItem('session_token', data.session.session_id);
+                        // 设置cookie用于权限验证
+                        document.cookie = `session_token=${data.session.session_id}; path=/; max-age=86400; samesite=strict`;
+                        addDebugLog('🍪 设置cookie: session_token=' + data.session.session_id.substring(0, 10) + '...');
                         // 向后兼容
                         const role = data.user.primary_role;
                         localStorage.setItem(`${role}Token`, data.session.session_id);
+                        addDebugLog('💾 设置localStorage: ' + role + 'Token = ' + data.session.session_id.substring(0, 10) + '...');
                     }
                     
                     // 保存用户信息
@@ -1295,8 +1345,22 @@
                         localStorage.setItem('currentUser', JSON.stringify(data.user));
                     }
 
+                    console.log('🔄 角色登录准备跳转，redirect_url:', data.redirect_url);
+                    console.log('🔄 用户角色:', data.user.primary_role);
+                    console.log('🔄 最终跳转URL:', data.redirect_url || getRoleDefaultUrl(data.user.primary_role));
+                    
                     setTimeout(() => {
-                        window.location.href = data.redirect_url || getRoleDefaultUrl(data.user.primary_role);
+                        const targetUrl = data.redirect_url || getRoleDefaultUrl(data.user.primary_role);
+                        console.log('🚀 角色登录正在跳转到:', targetUrl);
+                        console.log('🔍 当前window.location.href:', window.location.href);
+                        try {
+                            window.location.href = targetUrl;
+                            console.log('✅ 角色登录跳转命令已执行');
+                        } catch (error) {
+                            console.error('❌ 角色登录跳转失败:', error);
+                            // 备用跳转方法
+                            window.location.replace(targetUrl);
+                        }
                     }, 1000);
                 } else {
                     showError(data.detail || data.message || '登录失败');
@@ -1326,9 +1390,9 @@
         // 获取角色默认跳转URL
         function getRoleDefaultUrl(role) {
             const urls = {
-                'doctor': '/doctor/dashboard',
-                'admin': '/admin/dashboard',
-                'superadmin': '/admin/dashboard',
+                'doctor': '/doctor',
+                'admin': '/admin',
+                'superadmin': '/admin',
                 'patient': '/smart',
                 'guest': '/smart'
             };
@@ -1428,9 +1492,9 @@
         // 获取默认跳转URL
         function getDefaultRedirectUrl(role) {
             const redirectMap = {
-                'doctor': '/doctor/dashboard',
-                'admin': '/admin/dashboard',
-                'superadmin': '/admin/dashboard',
+                'doctor': '/doctor',
+                'admin': '/admin',
+                'superadmin': '/admin',
                 'patient': '/smart',
                 'guest': '/smart'
             };

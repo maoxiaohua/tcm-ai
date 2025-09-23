@@ -39,19 +39,82 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 # 重定向患者相关页面到智能工作流
                 return RedirectResponse(url="/smart", status_code=302)
             elif request.url.path in ["/admin", "/admin/"]:
-                # 检查管理员认证状态
-                current_user = await get_current_user(request, None)
+                # 检查管理员认证状态 - 使用统一认证系统
+                # 从多个来源获取session_token
+                session_token = None
                 
-                if current_user.role == UserRole.ANONYMOUS:
-                    # 匿名用户访问需要登录的页面，重定向到登录
+                # 1. 从Authorization头获取
+                auth_header = request.headers.get("Authorization")
+                if auth_header and auth_header.startswith("Bearer "):
+                    session_token = auth_header[7:]  # 移除 "Bearer " 前缀
+                    logger.info(f"从Authorization头获取token: {session_token[:20]}...")
+                
+                # 2. 从cookie获取
+                if not session_token:
+                    session_token = request.cookies.get("session_token")
+                    if session_token:
+                        logger.info(f"从cookie获取token: {session_token[:20]}...")
+                    else:
+                        logger.info(f"未找到session_token cookie，可用cookies: {list(request.cookies.keys())}")
+                
+                # 如果没有token，重定向到登录
+                if not session_token:
                     return RedirectResponse(url="/login", status_code=302)
                 
-                route_result = await smart_router.route_user(request)
-                
-                if route_result[1]:  # 如果有文件响应，直接返回
-                    return route_result[1]
-                elif route_result[0] != request.url.path:  # 需要重定向
-                    return RedirectResponse(url=route_result[0], status_code=302)
+                # 验证token并检查用户角色 - 使用统一认证系统
+                import sqlite3
+                try:
+                    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+                    cursor = conn.cursor()
+                    
+                    logger.info(f"验证token: {session_token[:20]}...")
+                    
+                    # 检查统一session token是否有效
+                    cursor.execute("""
+                        SELECT u.global_user_id, s.session_status
+                        FROM unified_users u
+                        JOIN unified_sessions s ON u.global_user_id = s.user_id
+                        WHERE s.session_id = ? AND s.session_status = 'active'
+                        AND datetime(s.expires_at) > datetime('now')
+                    """, (session_token,))
+                    
+                    session_row = cursor.fetchone()
+                    logger.info(f"Session查询结果: {session_row}")
+                    
+                    if not session_row:
+                        conn.close()
+                        logger.info("Session无效或过期，重定向到登录")
+                        # token无效或过期，重定向到登录
+                        return RedirectResponse(url="/login", status_code=302)
+                    
+                    user_id, session_status = session_row
+                    logger.info(f"找到用户: {user_id}, session状态: {session_status}")
+                    
+                    # 检查用户是否有管理员角色
+                    cursor.execute("""
+                        SELECT role_name
+                        FROM user_roles_new
+                        WHERE user_id = ? AND is_active = 1 AND is_primary = 1
+                        AND UPPER(role_name) IN ('ADMIN', 'SUPERADMIN')
+                    """, (user_id,))
+                    
+                    role_row = cursor.fetchone()
+                    logger.info(f"角色查询结果: {role_row}")
+                    conn.close()
+                    
+                    if not role_row:
+                        logger.info("用户非管理员，重定向到登录")
+                        # 非管理员用户，重定向到登录
+                        return RedirectResponse(url="/login", status_code=302)
+                    
+                    logger.info(f"管理员权限验证成功，用户: {user_id}, 角色: {role_row[0]}")
+                    # 权限验证成功，直接返回管理员页面
+                    from fastapi.responses import FileResponse
+                    return FileResponse('/opt/tcm-ai/static/admin/index.html')
+                        
+                except Exception as e:
+                    logger.error(f"Admin auth check error: {e}")
+                    return RedirectResponse(url="/login", status_code=302)
             
             # 2. 继续处理请求
             response = await call_next(request)
@@ -315,13 +378,8 @@ def setup_security_routes(app: FastAPI):
     #         return {"success": False, "detail": f"Access denied. Required roles: ['doctor', 'admin', 'superadmin']. Your role: {current_user.role.value}"}
     #     return FileResponse("/opt/tcm-ai/static/doctor/index.html")
     
-    @app.get("/admin") 
-    @app.get("/admin/")
-    async def admin_interface(current_user: UserSession = Depends(get_current_user)):
-        """管理界面（需要管理员权限）"""
-        if current_user.role not in [UserRole.ADMIN, UserRole.SUPERADMIN]:
-            return {"success": False, "detail": f"Access denied. Required roles: ['admin', 'superadmin']. Your role: {current_user.role.value}"}
-        return FileResponse("/opt/tcm-ai/static/admin/index.html")
+    # 管理员路由已在main.py中定义，此处移除以避免冲突
+    # 中间件会处理权限检查
 
 def setup_background_tasks(app: FastAPI):
     """设置后台任务"""

@@ -724,6 +724,31 @@
                         </div>
                     </div>
                     
+                    <!-- 处方筛选器 -->
+                    <div style="margin-bottom: 20px; padding: 15px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
+                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                            <span style="color: #4b5563; font-weight: 500;">🔍 筛选条件:</span>
+                            <select id="statusFilter" onchange="handleFilterChange()" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                                <option value="all">全部处方</option>
+                                <option value="pending" selected>待审查</option>
+                                <option value="today">今日已审查</option>
+                                <option value="approved">已通过</option>
+                                <option value="rejected">已拒绝</option>
+                                <option value="high-risk">高风险</option>
+                            </select>
+                            <select id="timeFilter" onchange="handleFilterChange()" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                                <option value="all">全部时间</option>
+                                <option value="today">今天</option>
+                                <option value="week">本周</option>
+                                <option value="month">本月</option>
+                            </select>
+                            <input type="text" id="searchInput" placeholder="搜索患者姓名..." onkeyup="handleSearchChange()" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; width: 200px;">
+                            <button onclick="clearFilters()" style="padding: 8px 16px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                🗑️ 清除筛选
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div id="prescriptionListContainer" style="max-height: 500px; overflow-y: auto;">
                         <div style="text-align: center; padding: 40px; color: #6b7280;">
                             <div style="font-size: 2rem; margin-bottom: 15px;">📋</div>
@@ -1045,7 +1070,8 @@
                     showSection('prescriptions');
                     setTimeout(async () => {
                         await loadPrescriptionReviewData();
-                        setTimeout(() => filterPrescriptions('all'), 200);
+                        // 显示今日已审查的处方，更符合"累计审查"的含义
+                        setTimeout(() => filterPrescriptions('today'), 200);
                     }, 800);
                 });
             }
@@ -2957,6 +2983,10 @@
                 let title = '待审查处方列表';
                 
                 switch(filterType) {
+                    case 'all':
+                        endpoint = '/api/doctor/all-prescriptions';
+                        title = '全部处方列表';
+                        break;
                     case 'pending':
                         endpoint = '/api/doctor/pending-prescriptions';
                         title = '待审查处方列表';
@@ -3028,6 +3058,57 @@
             
             document.getElementById('prescriptionListTitle').textContent = title;
             displayPrescriptionsList(filtered);
+        }
+        
+        // 处理筛选器变化
+        function handleFilterChange() {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const timeFilter = document.getElementById('timeFilter').value;
+            const searchInput = document.getElementById('searchInput').value.trim();
+            
+            // 根据状态筛选
+            if (statusFilter && statusFilter !== 'all') {
+                filterPrescriptions(statusFilter);
+            } else {
+                // 重新加载所有数据
+                loadPendingPrescriptionsList();
+            }
+        }
+        
+        // 处理搜索变化
+        function handleSearchChange() {
+            const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+            
+            if (searchTerm === '') {
+                // 如果搜索为空，显示当前筛选的结果
+                const statusFilter = document.getElementById('statusFilter').value;
+                if (statusFilter !== 'all') {
+                    filterPrescriptions(statusFilter);
+                } else {
+                    loadPendingPrescriptionsList();
+                }
+                return;
+            }
+            
+            // 在当前显示的处方中搜索
+            const currentList = allPrescriptions.length > 0 ? allPrescriptions : currentPrescriptions;
+            const filtered = currentList.filter(p => {
+                const patientName = p.patient_name || p.symptoms || '';
+                return patientName.toLowerCase().includes(searchTerm);
+            });
+            
+            displayPrescriptionsList(filtered);
+            document.getElementById('prescriptionListTitle').textContent = `搜索结果 (${filtered.length}个)`;
+        }
+        
+        // 清除筛选条件
+        function clearFilters() {
+            document.getElementById('statusFilter').value = 'pending';
+            document.getElementById('timeFilter').value = 'all';
+            document.getElementById('searchInput').value = '';
+            
+            // 重新加载待审查处方
+            filterPrescriptions('pending');
         }
 
         // AI洞察分析

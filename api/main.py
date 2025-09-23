@@ -1944,6 +1944,13 @@ async def doctor_main():
     from fastapi.responses import FileResponse
     return FileResponse('/opt/tcm-ai/static/doctor/index.html')
 
+# 管理员端路由
+@app.get("/admin")
+async def admin_main():
+    """管理员系统主页"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/static/admin/index.html')
+
 @app.get("/decision_tree_visual_builder.html")
 async def decision_tree_builder():
     """决策树可视化构建器 - 向后兼容路由"""
@@ -1960,6 +1967,10 @@ async def get_debug_doctor_page():
 app.include_router(auth_router)
 app.include_router(unified_auth_router)  # 新的统一认证系统
 app.include_router(doctor_router)
+
+# 添加管理员路由
+from api.routes.admin_routes import router as admin_router
+app.include_router(admin_router)
 app.include_router(prescription_router)
 
 # AI增强处方管理路由
@@ -4769,16 +4780,7 @@ def get_default_doctors() -> list:
         }
     ]
 
-# 管理端路由
-@app.get("/admin")
-async def admin_portal():
-    """管理端主页"""
-    return FileResponse("/opt/tcm-ai/static/admin/index.html")
-
-@app.get("/admin/")
-async def admin_portal_trailing_slash():
-    """管理端主页 - 带斜杠"""
-    return FileResponse("/opt/tcm-ai/static/admin/index.html")
+# 管理端路由已移动到 security_integration.py 中，带有适当的权限检查
 
 @app.get("/login")
 async def login_portal():
