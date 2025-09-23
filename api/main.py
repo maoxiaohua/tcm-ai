@@ -5053,6 +5053,184 @@ async def admin_get_doctors(page: int = 1, per_page: int = 20):
         if 'conn' in locals():
             conn.close()
 
+@app.post("/api/admin/doctors")
+async def admin_add_doctor(doctor_data: dict):
+    """添加新医生"""
+    import sqlite3
+    
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        cursor = conn.cursor()
+        
+        # 验证必填字段
+        required_fields = ['name', 'license_no']
+        for field in required_fields:
+            if not doctor_data.get(field):
+                return {"success": False, "message": f"缺少必填字段: {field}"}
+        
+        # 检查执业证号是否已存在
+        cursor.execute("SELECT id FROM doctors WHERE license_no = ?", (doctor_data['license_no'],))
+        if cursor.fetchone():
+            return {"success": False, "message": "执业证号已存在"}
+        
+        # 插入新医生
+        cursor.execute("""
+            INSERT INTO doctors (name, license_no, phone, email, speciality, hospital, 
+                               introduction, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'active', datetime('now'), datetime('now'))
+        """, (
+            doctor_data['name'],
+            doctor_data['license_no'],
+            doctor_data.get('phone'),
+            doctor_data.get('email'),
+            doctor_data.get('speciality'),
+            doctor_data.get('hospital'),
+            doctor_data.get('introduction')
+        ))
+        
+        doctor_id = cursor.lastrowid
+        conn.commit()
+        
+        return {
+            "success": True,
+            "message": "医生添加成功",
+            "doctor_id": doctor_id
+        }
+        
+    except Exception as e:
+        logger.error(f"添加医生失败: {e}")
+        return {"success": False, "message": f"添加医生失败: {e}"}
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.put("/api/admin/doctors/{doctor_id}")
+async def admin_update_doctor(doctor_id: int, doctor_data: dict):
+    """更新医生信息"""
+    import sqlite3
+    
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        cursor = conn.cursor()
+        
+        # 检查医生是否存在
+        cursor.execute("SELECT id FROM doctors WHERE id = ?", (doctor_id,))
+        if not cursor.fetchone():
+            return {"success": False, "message": "医生不存在"}
+        
+        # 构建更新字段
+        update_fields = []
+        values = []
+        
+        allowed_fields = ['name', 'license_no', 'phone', 'email', 'speciality', 'hospital', 'introduction', 'status']
+        for field in allowed_fields:
+            if field in doctor_data:
+                update_fields.append(f"{field} = ?")
+                values.append(doctor_data[field])
+        
+        if not update_fields:
+            return {"success": False, "message": "没有提供更新字段"}
+        
+        # 如果更新执业证号，检查是否重复
+        if 'license_no' in doctor_data:
+            cursor.execute("SELECT id FROM doctors WHERE license_no = ? AND id != ?", 
+                         (doctor_data['license_no'], doctor_id))
+            if cursor.fetchone():
+                return {"success": False, "message": "执业证号已被其他医生使用"}
+        
+        # 添加更新时间
+        update_fields.append("updated_at = datetime('now')")
+        values.append(doctor_id)
+        
+        # 执行更新
+        sql = f"UPDATE doctors SET {', '.join(update_fields)} WHERE id = ?"
+        cursor.execute(sql, values)
+        conn.commit()
+        
+        return {
+            "success": True,
+            "message": "医生信息更新成功"
+        }
+        
+    except Exception as e:
+        logger.error(f"更新医生信息失败: {e}")
+        return {"success": False, "message": f"更新医生信息失败: {e}"}
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.post("/api/admin/doctors/{doctor_id}/approve")
+async def admin_approve_doctor(doctor_id: int):
+    """审核通过医生申请"""
+    import sqlite3
+    
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        cursor = conn.cursor()
+        
+        # 检查医生是否存在且为待审核状态
+        cursor.execute("SELECT id, status FROM doctors WHERE id = ?", (doctor_id,))
+        doctor = cursor.fetchone()
+        
+        if not doctor:
+            return {"success": False, "message": "医生不存在"}
+        
+        # 更新状态为active
+        cursor.execute("""
+            UPDATE doctors 
+            SET status = 'active', updated_at = datetime('now')
+            WHERE id = ?
+        """, (doctor_id,))
+        
+        conn.commit()
+        
+        return {
+            "success": True,
+            "message": "医生申请已通过"
+        }
+        
+    except Exception as e:
+        logger.error(f"审核医生失败: {e}")
+        return {"success": False, "message": f"审核医生失败: {e}"}
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.post("/api/admin/doctors/{doctor_id}/reject")
+async def admin_reject_doctor(doctor_id: int):
+    """拒绝医生申请"""
+    import sqlite3
+    
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        cursor = conn.cursor()
+        
+        # 检查医生是否存在
+        cursor.execute("SELECT id FROM doctors WHERE id = ?", (doctor_id,))
+        if not cursor.fetchone():
+            return {"success": False, "message": "医生不存在"}
+        
+        # 更新状态为rejected
+        cursor.execute("""
+            UPDATE doctors 
+            SET status = 'rejected', updated_at = datetime('now')
+            WHERE id = ?
+        """, (doctor_id,))
+        
+        conn.commit()
+        
+        return {
+            "success": True,
+            "message": "医生申请已拒绝"
+        }
+        
+    except Exception as e:
+        logger.error(f"拒绝医生申请失败: {e}")
+        return {"success": False, "message": f"拒绝医生申请失败: {e}"}
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 @app.get("/api/admin/prescriptions")
 async def admin_get_prescriptions(page: int = 1, per_page: int = 20):
     """获取处方列表"""

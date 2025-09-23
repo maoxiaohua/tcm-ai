@@ -1031,8 +1031,8 @@
                         <div class="table-header">
                             <h3 class="table-title">处方列表</h3>
                             <div class="table-actions">
-                                <button class="btn btn-secondary">📊 统计报告</button>
-                                <button class="btn btn-primary">🔍 高级搜索</button>
+                                <button class="btn btn-secondary" onclick="showPrescriptionStats()">📊 统计报告</button>
+                                <button class="btn btn-primary" onclick="showAdvancedSearch()">🔍 高级搜索</button>
                             </div>
                         </div>
                         <div class="table-content">
@@ -2212,8 +2212,9 @@
             closeViewModal();
             closeDoctorViewModal();
             
-            // 从缓存中查找医生数据
-            const doctor = doctorsDataCache.find(d => d.id === doctorId);
+            // 从缓存中查找医生数据  
+            const doctor = doctorsDataCache.find(d => d.id == doctorId || d.id === parseInt(doctorId));
+            
             if (!doctor) {
                 alert('未找到医生信息，请刷新页面后重试');
                 return;
@@ -2387,27 +2388,470 @@
             closeViewModal();
             closeDoctorViewModal();
             
-            // 从缓存中查找医生数据
-            const doctor = doctorsDataCache.find(d => d.id === doctorId);
+            // 从缓存中查找医生数据  
+            const doctor = doctorsDataCache.find(d => d.id == doctorId || d.id === parseInt(doctorId));
             if (!doctor) {
                 alert('未找到医生信息，请刷新页面后重试');
                 return;
             }
             
-            // TODO: 实现医生编辑功能
-            alert(`编辑医生功能正在开发中，医生ID: ${doctorId}`);
+            // 创建编辑医生模态框
+            const modal = document.createElement('div');
+            modal.id = 'editDoctorModal';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 1000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 600px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); max-height: 80vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="color: #1f2937; margin: 0;">✏️ 编辑医生信息</h3>
+                        <div style="font-size: 12px; color: #6b7280; padding: 4px 8px; background: #f3f4f6; border-radius: 4px;">
+                            按ESC键或点击取消关闭
+                        </div>
+                    </div>
+                    
+                    <form id="editDoctorForm">
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">医生姓名 *:</label>
+                            <input type="text" id="edit_doctor_name" required value="${doctor.name || ''}" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">执业证号 *:</label>
+                            <input type="text" id="edit_doctor_license" required value="${doctor.license_no || ''}" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">专业科室:</label>
+                            <select id="edit_doctor_speciality" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                <option value="">请选择专业科室</option>
+                                <option value="中医内科" ${doctor.speciality === '中医内科' ? 'selected' : ''}>中医内科</option>
+                                <option value="中医外科" ${doctor.speciality === '中医外科' ? 'selected' : ''}>中医外科</option>
+                                <option value="妇科" ${doctor.speciality === '妇科' ? 'selected' : ''}>妇科</option>
+                                <option value="儿科" ${doctor.speciality === '儿科' ? 'selected' : ''}>儿科</option>
+                                <option value="皮肤科" ${doctor.speciality === '皮肤科' ? 'selected' : ''}>皮肤科</option>
+                                <option value="骨伤科" ${doctor.speciality === '骨伤科' ? 'selected' : ''}>骨伤科</option>
+                                <option value="针灸科" ${doctor.speciality === '针灸科' ? 'selected' : ''}>针灸科</option>
+                                <option value="推拿科" ${doctor.speciality === '推拿科' ? 'selected' : ''}>推拿科</option>
+                                <option value="经方科" ${doctor.speciality === '经方科' ? 'selected' : ''}>经方科</option>
+                            </select>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">联系电话:</label>
+                            <input type="tel" id="edit_doctor_phone" value="${doctor.phone || ''}" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">邮箱地址:</label>
+                            <input type="email" id="edit_doctor_email" value="${doctor.email || ''}" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">所属医院:</label>
+                            <input type="text" id="edit_doctor_hospital" value="${doctor.hospital || ''}" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">状态:</label>
+                            <select id="edit_doctor_status" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                <option value="active" ${doctor.status === 'active' ? 'selected' : ''}>活跃</option>
+                                <option value="inactive" ${doctor.status === 'inactive' ? 'selected' : ''}>非活跃</option>
+                                <option value="pending" ${doctor.status === 'pending' ? 'selected' : ''}>待审核</option>
+                                <option value="suspended" ${doctor.status === 'suspended' ? 'selected' : ''}>暂停</option>
+                            </select>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">个人简介:</label>
+                            <textarea id="edit_doctor_intro" rows="3" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; resize: vertical;">${doctor.introduction || ''}</textarea>
+                        </div>
+                        
+                        <div style="display: flex; gap: 15px; justify-content: center;">
+                            <button type="submit" style="background: #3b82f6; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                                💾 保存修改
+                            </button>
+                            <button type="button" onclick="closeEditDoctorModal()" style="background: #6b7280; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                                取消
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 处理表单提交
+            document.getElementById('editDoctorForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await submitDoctorUpdate(doctorId);
+            });
+            
+            // ESC键关闭
+            const escListener = function(e) {
+                if (e.key === 'Escape') {
+                    closeEditDoctorModal();
+                }
+            };
+            
+            document.addEventListener('keydown', escListener);
+            document._editDoctorEscListener = escListener;
+            
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeEditDoctorModal() {
+            const modal = document.getElementById('editDoctorModal');
+            if (modal) {
+                modal.remove();
+            }
+            
+            if (document._editDoctorEscListener) {
+                document.removeEventListener('keydown', document._editDoctorEscListener);
+                document._editDoctorEscListener = null;
+            }
+            
+            document.body.style.overflow = '';
+        }
+        
+        async function submitDoctorUpdate(doctorId) {
+            try {
+                const doctorData = {
+                    name: document.getElementById('edit_doctor_name').value.trim(),
+                    license_no: document.getElementById('edit_doctor_license').value.trim(),
+                    speciality: document.getElementById('edit_doctor_speciality').value,
+                    phone: document.getElementById('edit_doctor_phone').value.trim(),
+                    email: document.getElementById('edit_doctor_email').value.trim(),
+                    hospital: document.getElementById('edit_doctor_hospital').value.trim(),
+                    status: document.getElementById('edit_doctor_status').value,
+                    introduction: document.getElementById('edit_doctor_intro').value.trim()
+                };
+                
+                // 基本验证
+                if (!doctorData.name || !doctorData.license_no) {
+                    alert('请填写医生姓名和执业证号');
+                    return;
+                }
+                
+                const response = await fetch(`/api/admin/doctors/${doctorId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(doctorData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('医生信息更新成功！');
+                    closeEditDoctorModal();
+                    loadDoctorsData(); // 刷新医生列表
+                } else {
+                    alert('更新失败: ' + result.message);
+                }
+                
+            } catch (error) {
+                console.error('更新医生信息失败:', error);
+                alert('更新失败: ' + error.message);
+            }
         }
         
         // 医生审核列表功能
-        function showDoctorReviewList() {
-            alert('医生审核列表功能正在开发中');
+        async function showDoctorReviewList() {
+            try {
+                // 获取待审核医生数据
+                const response = await fetch('/api/admin/doctors?status=pending&page=1&per_page=50');
+                const data = await response.json();
+                
+                // 创建审核列表模态框
+                const modal = document.createElement('div');
+                modal.id = 'doctorReviewModal';
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background: rgba(0,0,0,0.5); z-index: 1000; display: flex;
+                    align-items: center; justify-content: center;
+                `;
+                
+                const pendingDoctors = data.success ? data.doctors.filter(d => d.status === 'pending') : [];
+                
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 1000px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); max-height: 80vh; overflow-y: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #f3f4f6; padding-bottom: 15px;">
+                            <h3 style="color: #1f2937; margin: 0; font-size: 20px;">📋 医生审核列表</h3>
+                            <button onclick="closeDoctorReviewModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">×</button>
+                        </div>
+                        
+                        ${pendingDoctors.length > 0 ? `
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #f9fafb;">
+                                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">医生姓名</th>
+                                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">执业证号</th>
+                                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">专业科室</th>
+                                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">申请时间</th>
+                                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${pendingDoctors.map(doctor => `
+                                            <tr style="border-bottom: 1px solid #e5e7eb;">
+                                                <td style="padding: 12px;">${doctor.name}</td>
+                                                <td style="padding: 12px;">${doctor.license_no}</td>
+                                                <td style="padding: 12px;">${doctor.speciality || '-'}</td>
+                                                <td style="padding: 12px;">${formatDate(doctor.created_at)}</td>
+                                                <td style="padding: 12px;">
+                                                    <button onclick="approveDoctor(${doctor.id})" style="background: #22c55e; color: white; border: none; padding: 6px 12px; border-radius: 4px; margin-right: 8px; cursor: pointer;">通过</button>
+                                                    <button onclick="rejectDoctor(${doctor.id})" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">拒绝</button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ` : `
+                            <div style="text-align: center; padding: 40px; color: #6b7280;">
+                                <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
+                                <div style="font-size: 18px; margin-bottom: 8px;">暂无待审核医生</div>
+                                <div style="font-size: 14px;">所有医生申请已处理完毕</div>
+                            </div>
+                        `}
+                        
+                        <div style="margin-top: 25px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                            <button onclick="closeDoctorReviewModal()" style="background: #6b7280; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                                关闭
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                document.body.style.overflow = 'hidden';
+                
+            } catch (error) {
+                console.error('加载审核列表失败:', error);
+                alert('加载审核列表失败: ' + error.message);
+            }
+        }
+        
+        function closeDoctorReviewModal() {
+            const modal = document.getElementById('doctorReviewModal');
+            if (modal) {
+                modal.remove();
+            }
+            document.body.style.overflow = '';
+        }
+        
+        async function approveDoctor(doctorId) {
+            if (!confirm('确认通过此医生的申请吗？')) return;
+            
+            try {
+                const response = await fetch(`/api/admin/doctors/${doctorId}/approve`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('医生申请已通过');
+                    closeDoctorReviewModal();
+                    loadDoctorsData(); // 刷新医生列表
+                } else {
+                    alert('操作失败: ' + result.message);
+                }
+            } catch (error) {
+                alert('操作失败: ' + error.message);
+            }
+        }
+        
+        async function rejectDoctor(doctorId) {
+            if (!confirm('确认拒绝此医生的申请吗？')) return;
+            
+            try {
+                const response = await fetch(`/api/admin/doctors/${doctorId}/reject`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('医生申请已拒绝');
+                    closeDoctorReviewModal();
+                    loadDoctorsData(); // 刷新医生列表
+                } else {
+                    alert('操作失败: ' + result.message);
+                }
+            } catch (error) {
+                alert('操作失败: ' + error.message);
+            }
         }
         
         // 添加新医生功能
         function addNewDoctor() {
-            alert('添加新医生功能正在开发中');
+            // 关闭其他模态框
+            closeEditModal();
+            closeViewModal();
+            closeDoctorViewModal();
+            
+            // 创建添加医生模态框
+            const modal = document.createElement('div');
+            modal.id = 'addDoctorModal';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 1000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 600px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); max-height: 80vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="color: #1f2937; margin: 0;">👨‍⚕️ 添加新医生</h3>
+                        <div style="font-size: 12px; color: #6b7280; padding: 4px 8px; background: #f3f4f6; border-radius: 4px;">
+                            按ESC键或点击取消关闭
+                        </div>
+                    </div>
+                    
+                    <form id="addDoctorForm">
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">医生姓名 *:</label>
+                            <input type="text" id="add_doctor_name" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">执业证号 *:</label>
+                            <input type="text" id="add_doctor_license" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">专业科室:</label>
+                            <select id="add_doctor_speciality" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                <option value="">请选择专业科室</option>
+                                <option value="中医内科">中医内科</option>
+                                <option value="中医外科">中医外科</option>
+                                <option value="妇科">妇科</option>
+                                <option value="儿科">儿科</option>
+                                <option value="皮肤科">皮肤科</option>
+                                <option value="骨伤科">骨伤科</option>
+                                <option value="针灸科">针灸科</option>
+                                <option value="推拿科">推拿科</option>
+                                <option value="经方科">经方科</option>
+                            </select>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">联系电话:</label>
+                            <input type="tel" id="add_doctor_phone" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">邮箱地址:</label>
+                            <input type="email" id="add_doctor_email" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">所属医院:</label>
+                            <input type="text" id="add_doctor_hospital" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 5px; color: #374151;">个人简介:</label>
+                            <textarea id="add_doctor_intro" rows="3" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; resize: vertical;"></textarea>
+                        </div>
+                        
+                        <div style="display: flex; gap: 15px; justify-content: center;">
+                            <button type="submit" style="background: #3b82f6; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                                ✅ 添加医生
+                            </button>
+                            <button type="button" onclick="closeAddDoctorModal()" style="background: #6b7280; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                                取消
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 处理表单提交
+            document.getElementById('addDoctorForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await submitNewDoctor();
+            });
+            
+            // ESC键关闭
+            const escListener = function(e) {
+                if (e.key === 'Escape') {
+                    closeAddDoctorModal();
+                }
+            };
+            
+            document.addEventListener('keydown', escListener);
+            document._addDoctorEscListener = escListener;
+            
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeAddDoctorModal() {
+            const modal = document.getElementById('addDoctorModal');
+            if (modal) {
+                modal.remove();
+            }
+            
+            if (document._addDoctorEscListener) {
+                document.removeEventListener('keydown', document._addDoctorEscListener);
+                document._addDoctorEscListener = null;
+            }
+            
+            document.body.style.overflow = '';
+        }
+        
+        async function submitNewDoctor() {
+            try {
+                const doctorData = {
+                    name: document.getElementById('add_doctor_name').value.trim(),
+                    license_no: document.getElementById('add_doctor_license').value.trim(),
+                    speciality: document.getElementById('add_doctor_speciality').value,
+                    phone: document.getElementById('add_doctor_phone').value.trim(),
+                    email: document.getElementById('add_doctor_email').value.trim(),
+                    hospital: document.getElementById('add_doctor_hospital').value.trim(),
+                    introduction: document.getElementById('add_doctor_intro').value.trim()
+                };
+                
+                // 基本验证
+                if (!doctorData.name || !doctorData.license_no) {
+                    alert('请填写医生姓名和执业证号');
+                    return;
+                }
+                
+                const response = await fetch('/api/admin/doctors', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(doctorData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('医生添加成功！');
+                    closeAddDoctorModal();
+                    loadDoctorsData(); // 刷新医生列表
+                } else {
+                    alert('添加失败: ' + result.message);
+                }
+                
+            } catch (error) {
+                console.error('添加医生失败:', error);
+                alert('添加失败: ' + error.message);
+            }
         }
 
+        // 全局处方数据缓存
+        let prescriptionsDataCache = [];
+        
         // 加载处方数据
         async function loadPrescriptionsData() {
             try {
@@ -2416,6 +2860,9 @@
                 
                 const tableBody = document.getElementById('prescriptionsTableBody');
                 if (data.success && data.prescriptions.length > 0) {
+                    // 缓存处方数据
+                    prescriptionsDataCache = data.prescriptions;
+                    
                     tableBody.innerHTML = '';
                     data.prescriptions.forEach(prescription => {
                         const row = document.createElement('tr');
@@ -2427,7 +2874,7 @@
                             <td>${formatDate(prescription.created_at)}</td>
                             <td>${prescription.reviewed_at ? formatDate(prescription.reviewed_at) : '-'}</td>
                             <td>
-                                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;">查看</button>
+                                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="viewPrescription('${prescription.id}')">查看</button>
                             </td>
                         `;
                         tableBody.appendChild(row);
@@ -2451,6 +2898,592 @@
                     </tr>
                 `;
             }
+        }
+        
+        // 处方查看功能
+        function viewPrescription(prescriptionId) {
+            // 从缓存中查找处方数据
+            const prescription = prescriptionsDataCache.find(p => p.id == prescriptionId || p.id === parseInt(prescriptionId));
+            if (!prescription) {
+                alert('未找到处方信息，请刷新页面后重试');
+                return;
+            }
+            
+            // 关闭其他模态框
+            closeEditModal();
+            closeViewModal();
+            closeDoctorViewModal();
+            
+            // 创建处方详情模态框
+            const modal = document.createElement('div');
+            modal.id = 'viewPrescriptionModal';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 1000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            // 格式化处方状态
+            const formatPrescriptionStatus = (status) => {
+                switch(status) {
+                    case 'pending': return '待审核';
+                    case 'approved': return '已审核';
+                    case 'rejected': return '已拒绝';
+                    case 'completed': return '已完成';
+                    case 'paid': return '已支付';
+                    default: return '未知';
+                }
+            };
+            
+            // 格式化处方内容
+            const formatPrescriptionContent = (content) => {
+                if (!content) return '暂无';
+                // 简化显示，避免过长的内容
+                if (content.length > 500) {
+                    return content.substring(0, 500) + '...';
+                }
+                return content.replace(/\n/g, '<br>');
+            };
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 800px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); max-height: 80vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #f3f4f6; padding-bottom: 15px;">
+                        <h3 style="color: #1f2937; margin: 0; font-size: 20px;">📋 处方详情 #${prescription.id}</h3>
+                        <button onclick="closePrescriptionViewModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">×</button>
+                    </div>
+                    
+                    <div style="display: grid; gap: 20px;">
+                        <!-- 基本信息 -->
+                        <div style="background: #f8fafc; padding: 20px; border-radius: 10px; border-left: 4px solid #3b82f6;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">📋 基本信息</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">处方ID</label>
+                                    <div style="color: #1f2937; font-weight: 500;">#${prescription.id}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">患者信息</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${prescription.patient_name || prescription.patient_id}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">状态</label>
+                                    <div style="color: #1f2937; font-weight: 500;">
+                                        <span style="background: ${prescription.status === 'approved' ? '#22c55e' : prescription.status === 'pending' ? '#eab308' : '#ef4444'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
+                                            ${formatPrescriptionStatus(prescription.status)}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">费用</label>
+                                    <div style="color: #1f2937; font-weight: 500;">¥${prescription.prescription_fee || 0}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 症状与诊断 -->
+                        <div style="background: #f0fdf4; padding: 20px; border-radius: 10px; border-left: 4px solid #22c55e;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">🩺 症状与诊断</h4>
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">主要症状</label>
+                                <div style="color: #1f2937; font-weight: 500; line-height: 1.5;">${prescription.symptoms || '暂无'}</div>
+                            </div>
+                            <div>
+                                <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">中医诊断</label>
+                                <div style="color: #1f2937; font-weight: 500;">${prescription.diagnosis || '暂无'}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- AI处方 -->
+                        <div style="background: #f0f9ff; padding: 20px; border-radius: 10px; border-left: 4px solid #0ea5e9;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">🤖 AI处方方案</h4>
+                            <div style="color: #1f2937; line-height: 1.6; max-height: 300px; overflow-y: auto; background: white; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                                ${formatPrescriptionContent(prescription.ai_prescription)}
+                            </div>
+                        </div>
+                        
+                        ${prescription.doctor_prescription ? `
+                        <!-- 医生处方 -->
+                        <div style="background: #fefce8; padding: 20px; border-radius: 10px; border-left: 4px solid #eab308;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">👨‍⚕️ 医生处方</h4>
+                            <div style="color: #1f2937; line-height: 1.6; max-height: 300px; overflow-y: auto; background: white; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                                ${formatPrescriptionContent(prescription.doctor_prescription)}
+                            </div>
+                            ${prescription.doctor_notes ? `
+                            <div style="margin-top: 15px;">
+                                <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">医生备注</label>
+                                <div style="color: #1f2937; line-height: 1.5;">${prescription.doctor_notes}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        ` : ''}
+                        
+                        <!-- 时间信息 -->
+                        <div style="background: #fdf2f8; padding: 20px; border-radius: 10px; border-left: 4px solid #ec4899;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">⏰ 时间记录</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">创建时间</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${formatDate(prescription.created_at)}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">审核时间</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${prescription.reviewed_at ? formatDate(prescription.reviewed_at) : '未审核'}</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">确认时间</label>
+                                    <div style="color: #1f2937; font-weight: 500;">${prescription.confirmed_at ? formatDate(prescription.confirmed_at) : '未确认'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 25px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                        <button onclick="closePrescriptionViewModal()" style="background: #6b7280; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closePrescriptionViewModal() {
+            const modal = document.getElementById('viewPrescriptionModal');
+            if (modal) {
+                modal.remove();
+            }
+            document.body.style.overflow = '';
+        }
+        
+        // 高级搜索功能
+        function showAdvancedSearch() {
+            // 关闭其他模态框
+            closeEditModal();
+            closeViewModal();
+            closeDoctorViewModal();
+            
+            // 创建高级搜索模态框
+            const modal = document.createElement('div');
+            modal.id = 'advancedSearchModal';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 1000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 600px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); max-height: 80vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #f3f4f6; padding-bottom: 15px;">
+                        <h3 style="color: #1f2937; margin: 0; font-size: 20px;">🔍 高级搜索</h3>
+                        <button onclick="closeAdvancedSearchModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">×</button>
+                    </div>
+                    
+                    <form id="advancedSearchForm">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                            
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px; color: #374151; font-weight: 500;">处方状态:</label>
+                                <select id="search_status" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                    <option value="">全部状态</option>
+                                    <option value="pending">待审核</option>
+                                    <option value="approved">已审核</option>
+                                    <option value="rejected">已拒绝</option>
+                                    <option value="completed">已完成</option>
+                                    <option value="paid">已支付</option>
+                                </select>
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px; color: #374151; font-weight: 500;">患者姓名:</label>
+                                <input type="text" id="search_patient" placeholder="输入患者姓名" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px; color: #374151; font-weight: 500;">医生姓名:</label>
+                                <input type="text" id="search_doctor" placeholder="输入医生姓名" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px; color: #374151; font-weight: 500;">费用范围:</label>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <input type="number" id="search_fee_min" placeholder="最低" style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                    <span style="color: #6b7280;">~</span>
+                                    <input type="number" id="search_fee_max" placeholder="最高" style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px; color: #374151; font-weight: 500;">创建时间:</label>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <input type="date" id="search_date_start" style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                    <span style="color: #6b7280;">~</span>
+                                    <input type="date" id="search_date_end" style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px; color: #374151; font-weight: 500;">症状关键词:</label>
+                                <input type="text" id="search_symptoms" placeholder="输入症状关键词" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                            </div>
+                            
+                        </div>
+                        
+                        <div style="margin-top: 25px; display: flex; gap: 15px; justify-content: center; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                            <button type="submit" style="background: #3b82f6; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                                🔍 开始搜索
+                            </button>
+                            <button type="button" onclick="resetSearchForm()" style="background: #6b7280; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                                🔄 重置条件
+                            </button>
+                            <button type="button" onclick="closeAdvancedSearchModal()" style="background: #ef4444; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                                取消
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 处理搜索表单提交
+            document.getElementById('advancedSearchForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await performAdvancedSearch();
+            });
+            
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeAdvancedSearchModal() {
+            const modal = document.getElementById('advancedSearchModal');
+            if (modal) {
+                modal.remove();
+            }
+            document.body.style.overflow = '';
+        }
+        
+        function resetSearchForm() {
+            document.getElementById('advancedSearchForm').reset();
+        }
+        
+        async function performAdvancedSearch() {
+            try {
+                const searchParams = {
+                    status: document.getElementById('search_status').value,
+                    patient_name: document.getElementById('search_patient').value.trim(),
+                    doctor_name: document.getElementById('search_doctor').value.trim(),
+                    fee_min: document.getElementById('search_fee_min').value,
+                    fee_max: document.getElementById('search_fee_max').value,
+                    date_start: document.getElementById('search_date_start').value,
+                    date_end: document.getElementById('search_date_end').value,
+                    symptoms: document.getElementById('search_symptoms').value.trim()
+                };
+                
+                // 先尝试使用API搜索，如果失败则使用客户端搜索
+                try {
+                    // 构建查询字符串
+                    const queryParams = new URLSearchParams();
+                    Object.keys(searchParams).forEach(key => {
+                        if (searchParams[key]) {
+                            queryParams.append(key, searchParams[key]);
+                        }
+                    });
+                    
+                    const response = await fetch(`/api/admin/prescriptions/search?${queryParams}`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // API搜索成功
+                        prescriptionsDataCache = data.prescriptions;
+                        displaySearchResults(data.prescriptions);
+                        closeAdvancedSearchModal();
+                        alert(`搜索完成，找到 ${data.prescriptions.length} 条记录`);
+                        return;
+                    }
+                } catch (apiError) {
+                    console.log('API搜索失败，使用客户端搜索:', apiError);
+                }
+                
+                // API搜索失败，使用客户端搜索
+                const filteredResults = performClientSideSearch(searchParams);
+                displaySearchResults(filteredResults);
+                closeAdvancedSearchModal();
+                alert(`搜索完成，找到 ${filteredResults.length} 条记录`);
+                
+            } catch (error) {
+                console.error('搜索失败:', error);
+                alert('搜索失败，请重试');
+            }
+        }
+        
+        function performClientSideSearch(searchParams) {
+            let results = [...prescriptionsDataCache];
+            
+            // 按状态筛选
+            if (searchParams.status) {
+                results = results.filter(p => p.status === searchParams.status);
+            }
+            
+            // 按患者姓名筛选
+            if (searchParams.patient_name) {
+                const patientName = searchParams.patient_name.toLowerCase();
+                results = results.filter(p => 
+                    (p.patient_name && p.patient_name.toLowerCase().includes(patientName)) ||
+                    (p.patient_id && p.patient_id.toLowerCase().includes(patientName))
+                );
+            }
+            
+            // 按医生姓名筛选
+            if (searchParams.doctor_name) {
+                const doctorName = searchParams.doctor_name.toLowerCase();
+                results = results.filter(p => 
+                    p.doctor_name && p.doctor_name.toLowerCase().includes(doctorName)
+                );
+            }
+            
+            // 按费用范围筛选
+            if (searchParams.fee_min) {
+                const minFee = parseFloat(searchParams.fee_min);
+                results = results.filter(p => (p.prescription_fee || 0) >= minFee);
+            }
+            
+            if (searchParams.fee_max) {
+                const maxFee = parseFloat(searchParams.fee_max);
+                results = results.filter(p => (p.prescription_fee || 0) <= maxFee);
+            }
+            
+            // 按创建时间筛选
+            if (searchParams.date_start) {
+                const startDate = new Date(searchParams.date_start);
+                results = results.filter(p => {
+                    const createDate = new Date(p.created_at);
+                    return createDate >= startDate;
+                });
+            }
+            
+            if (searchParams.date_end) {
+                const endDate = new Date(searchParams.date_end);
+                endDate.setHours(23, 59, 59, 999); // 设置为当天结束时间
+                results = results.filter(p => {
+                    const createDate = new Date(p.created_at);
+                    return createDate <= endDate;
+                });
+            }
+            
+            // 按症状关键词筛选
+            if (searchParams.symptoms) {
+                const symptomsKeyword = searchParams.symptoms.toLowerCase();
+                results = results.filter(p => 
+                    p.symptoms && p.symptoms.toLowerCase().includes(symptomsKeyword)
+                );
+            }
+            
+            return results;
+        }
+        
+        function displaySearchResults(prescriptions) {
+            const tableBody = document.getElementById('prescriptionsTableBody');
+            
+            if (prescriptions.length > 0) {
+                tableBody.innerHTML = '';
+                prescriptions.forEach(prescription => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>#${prescription.id}</td>
+                        <td>${prescription.patient_name || prescription.patient_id}</td>
+                        <td>${prescription.doctor_name || '待分配'}</td>
+                        <td><span class="status-badge status-${getStatusClass(prescription.status)}">${getStatusText(prescription.status)}</span></td>
+                        <td>${formatDate(prescription.created_at)}</td>
+                        <td>${prescription.reviewed_at ? formatDate(prescription.reviewed_at) : '-'}</td>
+                        <td>
+                            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="viewPrescription('${prescription.id}')">查看</button>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } else {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 40px; color: #6b7280;">
+                            未找到符合条件的处方记录
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+        
+        // 统计报告功能
+        function showPrescriptionStats() {
+            // 关闭其他模态框
+            closeEditModal();
+            closeViewModal();
+            closeDoctorViewModal();
+            
+            // 获取统计数据并显示
+            generatePrescriptionReport();
+        }
+        
+        async function generatePrescriptionReport() {
+            try {
+                const response = await fetch('/api/admin/prescriptions/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayPrescriptionReport(data.stats);
+                } else {
+                    // 如果API不存在，使用客户端计算
+                    const clientStats = calculateClientStats();
+                    displayPrescriptionReport(clientStats);
+                }
+                
+            } catch (error) {
+                // 如果API调用失败，使用客户端计算
+                const clientStats = calculateClientStats();
+                displayPrescriptionReport(clientStats);
+            }
+        }
+        
+        function calculateClientStats() {
+            const total = prescriptionsDataCache.length;
+            const pending = prescriptionsDataCache.filter(p => p.status === 'pending').length;
+            const approved = prescriptionsDataCache.filter(p => p.status === 'approved').length;
+            const completed = prescriptionsDataCache.filter(p => p.status === 'completed').length;
+            const totalFees = prescriptionsDataCache.reduce((sum, p) => sum + (p.prescription_fee || 0), 0);
+            
+            return {
+                total_prescriptions: total,
+                pending_prescriptions: pending,
+                approved_prescriptions: approved,
+                completed_prescriptions: completed,
+                total_fees: totalFees,
+                avg_fee: total > 0 ? totalFees / total : 0
+            };
+        }
+        
+        function displayPrescriptionReport(stats) {
+            // 创建统计报告模态框
+            const modal = document.createElement('div');
+            modal.id = 'prescriptionStatsModal';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.5); z-index: 1000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 15px; padding: 30px; width: 90%; max-width: 700px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); max-height: 80vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid #f3f4f6; padding-bottom: 15px;">
+                        <h3 style="color: #1f2937; margin: 0; font-size: 20px;">📊 处方统计报告</h3>
+                        <button onclick="closePrescriptionStatsModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">×</button>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 25px;">
+                        
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 8px;">${stats.total_prescriptions || 0}</div>
+                            <div style="font-size: 14px; opacity: 0.9;">总处方数</div>
+                        </div>
+                        
+                        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 8px;">${stats.pending_prescriptions || 0}</div>
+                            <div style="font-size: 14px; opacity: 0.9;">待审核</div>
+                        </div>
+                        
+                        <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 8px;">${stats.approved_prescriptions || 0}</div>
+                            <div style="font-size: 14px; opacity: 0.9;">已审核</div>
+                        </div>
+                        
+                        <div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                            <div style="font-size: 32px; font-weight: bold; margin-bottom: 8px;">${stats.completed_prescriptions || 0}</div>
+                            <div style="font-size: 14px; opacity: 0.9;">已完成</div>
+                        </div>
+                        
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                        
+                        <div style="background: #f8fafc; padding: 20px; border-radius: 10px; border-left: 4px solid #3b82f6;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">💰 费用统计</h4>
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">总收入</label>
+                                <div style="color: #1f2937; font-weight: 600; font-size: 18px;">¥${(stats.total_fees || 0).toFixed(2)}</div>
+                            </div>
+                            <div>
+                                <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">平均费用</label>
+                                <div style="color: #1f2937; font-weight: 500;">¥${(stats.avg_fee || 0).toFixed(2)}</div>
+                            </div>
+                        </div>
+                        
+                        <div style="background: #f0fdf4; padding: 20px; border-radius: 10px; border-left: 4px solid #22c55e;">
+                            <h4 style="color: #1f2937; margin: 0 0 15px 0; font-size: 16px;">📈 处理效率</h4>
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">审核率</label>
+                                <div style="color: #1f2937; font-weight: 500;">
+                                    ${stats.total_prescriptions > 0 ? ((stats.approved_prescriptions / stats.total_prescriptions) * 100).toFixed(1) : 0}%
+                                </div>
+                            </div>
+                            <div>
+                                <label style="display: block; color: #6b7280; font-size: 12px; margin-bottom: 5px;">完成率</label>
+                                <div style="color: #1f2937; font-weight: 500;">
+                                    ${stats.total_prescriptions > 0 ? ((stats.completed_prescriptions / stats.total_prescriptions) * 100).toFixed(1) : 0}%
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <div style="margin-top: 25px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                        <button onclick="exportPrescriptionReport()" style="background: #22c55e; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-weight: 500; margin-right: 15px;">
+                            📥 导出报告
+                        </button>
+                        <button onclick="closePrescriptionStatsModal()" style="background: #6b7280; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closePrescriptionStatsModal() {
+            const modal = document.getElementById('prescriptionStatsModal');
+            if (modal) {
+                modal.remove();
+            }
+            document.body.style.overflow = '';
+        }
+        
+        function exportPrescriptionReport() {
+            const stats = calculateClientStats();
+            const reportData = [
+                ['指标', '数值'],
+                ['总处方数', stats.total_prescriptions],
+                ['待审核处方', stats.pending_prescriptions],
+                ['已审核处方', stats.approved_prescriptions],
+                ['已完成处方', stats.completed_prescriptions],
+                ['总收入', '¥' + stats.total_fees.toFixed(2)],
+                ['平均费用', '¥' + stats.avg_fee.toFixed(2)],
+                ['审核率', ((stats.approved_prescriptions / stats.total_prescriptions) * 100).toFixed(1) + '%'],
+                ['完成率', ((stats.completed_prescriptions / stats.total_prescriptions) * 100).toFixed(1) + '%']
+            ];
+            
+            const csvContent = reportData.map(row => row.join(',')).join('\n');
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `处方统计报告_${new Date().toISOString().slice(0, 10)}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            alert('统计报告已导出到下载文件夹');
         }
 
         // 加载订单数据
