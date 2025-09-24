@@ -2020,51 +2020,80 @@
         let currentUser = null;
         let userToken = null;
 
-        // 医生数据
-        const doctors = {
-            "zhang_zhongjing": {
-                "name": "张仲景",
-                "school": "伤寒派", 
-                "avatar": "🎯",
-                "specialty": "外感病、内伤杂病、急症",
-                "introduction": "伤寒派以《伤寒论》为理论基础，擅长六经辨证，治疗外感热病和内伤杂病。用药精准，方证对应。"
-            },
-            "ye_tianshi": {
-                "name": "叶天士", 
-                "school": "温病派",
-                "avatar": "🌡️",
-                "specialty": "温病、热病、儿科、妇科",
-                "introduction": "温病派专治各种热性疾病，以卫气营血辨证为特色，用药轻清灵动。"
-            },
-            "li_dongyuan": {
-                "name": "李东垣",
-                "school": "补土派", 
-                "avatar": "🌱",
-                "specialty": "脾胃病、内伤发热、消化系统疾病",
-                "introduction": "补土派以调理脾胃为核心，擅长治疗消化系统疾病和内伤发热。"
-            },
-            "zhu_danxi": {
-                "name": "朱丹溪",
-                "school": "滋阴派",
-                "avatar": "💧", 
-                "specialty": "阴虚火旺、妇科杂症、内科调养",
-                "introduction": "滋阴派重视养阴清热，擅长治疗阴虚火旺和各种内科调养，用药平和有效。"
-            },
-            "liu_duzhou": {
-                "name": "刘渡舟",
-                "school": "经方派",
-                "avatar": "📚", 
-                "specialty": "经方应用、疑难杂症、慢性病",
-                "introduction": "经方派严格按照古代经典方剂治疗，特别擅长疑难杂症和慢性疾病。"
-            },
-            "zheng_qin_an": {
-                "name": "郑钦安",
-                "school": "扶阳派",
-                "avatar": "☀️",
-                "specialty": "阳虚证、急危重症、疑难杂症", 
-                "introduction": "扶阳派重视阳气，擅长治疗各种阳虚症状和急危重症。"
-            }
+        // 医生数据（动态加载）
+        let doctors = {};
+        
+        // 医生默认头像映射（用于API返回的医生数据）
+        const doctorAvatarMap = {
+            "zhang_zhongjing": "🎯",
+            "ye_tianshi": "🌡️",
+            "li_dongyuan": "🌱",
+            "zhu_danxi": "💧",
+            "liu_duzhou": "📚",
+            "zheng_qin_an": "☀️"
         };
+        
+        // 从API加载医生列表
+        async function loadDoctors() {
+            try {
+                const response = await fetch('/api/doctor/list');
+                const result = await response.json();
+                
+                if (result.success && result.doctors) {
+                    // 转换为前端需要的格式
+                    doctors = {};
+                    result.doctors.forEach(doctor => {
+                        const doctorCode = doctor.doctor_code;
+                        
+                        // 解析specialties（可能是JSON字符串）
+                        let specialty = "中医全科";
+                        if (doctor.specialties) {
+                            try {
+                                const specs = JSON.parse(doctor.specialties);
+                                specialty = Array.isArray(specs) ? specs.join('、') : doctor.specialties;
+                            } catch {
+                                specialty = doctor.specialties;
+                            }
+                        }
+                        
+                        doctors[doctorCode] = {
+                            "name": doctor.name,
+                            "school": specialty.split('、')[0] || "中医",
+                            "avatar": doctorAvatarMap[doctorCode] || "👨‍⚕️",
+                            "specialty": specialty,
+                            "introduction": doctor.introduction || `${doctor.name}医师，擅长${specialty}等疾病的诊治。`
+                        };
+                    });
+                    
+                    console.log('✅ 医生列表加载成功:', Object.keys(doctors).length, '位医生');
+                    
+                    // 更新医生选择器
+                    updateDoctorSelector();
+                } else {
+                    console.error('❌ 医生列表加载失败:', result.message);
+                    // 使用默认医生数据作为备选
+                    loadDefaultDoctors();
+                }
+            } catch (error) {
+                console.error('❌ 加载医生列表异常:', error);
+                // 使用默认医生数据作为备选
+                loadDefaultDoctors();
+            }
+        }
+        
+        // 加载默认医生数据（备选方案）
+        function loadDefaultDoctors() {
+            doctors = {
+                "zhang_zhongjing": {
+                    "name": "张仲景",
+                    "school": "伤寒派", 
+                    "avatar": "🎯",
+                    "specialty": "外感病、内伤杂病、急症",
+                    "introduction": "伤寒派以《伤寒论》为理论基础，擅长六经辨证，治疗外感热病和内伤杂病。用药精准，方证对应。"
+                }
+            };
+            console.log('⚠️ 使用默认医生数据');
+        }
 
         // 初始化应用
         document.addEventListener('DOMContentLoaded', function() {
@@ -2088,7 +2117,7 @@
             });
         }
 
-        function initializeApp() {
+        async function initializeApp() {
             console.log('🚀 初始化TCM-AI智能工作流系统');
             
             // 🔍 用户状态检测和管理
@@ -2111,6 +2140,8 @@
                 detectUserChange();
             }, 5000);
             
+            // 🔧 先加载医生列表，再渲染医生卡片
+            await loadDoctors();
             renderDoctorCards();
             loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
             
@@ -2553,12 +2584,28 @@
         function getAvatarForDoctor(doctorName) {
             const avatarMap = {
                 '张仲景': '🎯',
+                '金大夫': '🎯',  // 金大夫使用张仲景的头像
                 '叶天士': '🌡️', 
                 '李东垣': '🌱',
                 '郑钦安': '🔥',
                 '刘渡舟': '⚖️'
             };
             return avatarMap[doctorName] || '👨‍⚕️';
+        }
+        
+        // 更新医生选择器（在医生数据加载后调用）
+        function updateDoctorSelector() {
+            // 更新当前医生显示
+            const currentDoctorDesc = document.getElementById('currentDoctorDesc');
+            if (currentDoctorDesc && selectedDoctor && doctors[selectedDoctor]) {
+                currentDoctorDesc.textContent = `当前医师：${doctors[selectedDoctor].name}`;
+            }
+            
+            // 确保第一个医生被设为默认
+            if (Object.keys(doctors).length > 0 && !selectedDoctor) {
+                const firstDoctorKey = Object.keys(doctors)[0];
+                selectedDoctor = firstDoctorKey;
+            }
         }
 
         // 添加医生切换按钮
@@ -3500,8 +3547,14 @@
             }
         }
         
-        // 获取医生显示名称
+        // 获取医生显示名称（动态从doctors对象获取）
         function getDoctorDisplayName(doctorKey) {
+            // 优先从加载的医生数据中获取
+            if (doctors[doctorKey] && doctors[doctorKey].name) {
+                return doctors[doctorKey].name;
+            }
+            
+            // 备选：硬编码映射（兼容旧数据）
             const doctorNames = {
                 'zhang_zhongjing': '张仲景',
                 'ye_tianshi': '叶天士',

@@ -599,3 +599,54 @@ async def get_doctor_statistics(current_doctor: Doctor = Depends(get_current_doc
         raise HTTPException(status_code=500, detail=f"获取统计信息失败: {e}")
     finally:
         conn.close()
+
+@router.get("/list")
+async def get_doctor_list():
+    """获取所有可用医生列表（用于问诊页面医生选择）"""
+    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT id, name, specialties, introduction, avatar_url
+            FROM doctors
+            WHERE status = 'active'
+            ORDER BY id ASC
+        """)
+        
+        rows = cursor.fetchall()
+        doctors = []
+        
+        # 医生ID到代码标识的映射
+        doctor_id_mapping = {
+            1: "zhang_zhongjing",
+            2: "ye_tianshi", 
+            3: "li_dongyuan",
+            5: "liu_duzhou",
+            6: "zheng_qin_an"
+        }
+        
+        for row in rows:
+            doctor_dict = dict(row)
+            doctor_id = doctor_dict['id']
+            
+            # 添加doctor_code用于前端识别
+            if doctor_id in doctor_id_mapping:
+                doctor_dict['doctor_code'] = doctor_id_mapping[doctor_id]
+            else:
+                # 新医生使用名字拼音或自定义code
+                doctor_dict['doctor_code'] = f"doctor_{doctor_id}"
+            
+            doctors.append(doctor_dict)
+        
+        return {
+            "success": True,
+            "doctors": doctors,
+            "total": len(doctors)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取医生列表失败: {e}")
+    finally:
+        conn.close()
