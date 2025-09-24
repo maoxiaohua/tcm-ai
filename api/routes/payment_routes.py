@@ -212,6 +212,58 @@ async def get_payment_status(payment_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查询支付状态失败: {e}")
 
+@router.post("/wechat/test-success")
+async def test_wechat_payment_success(order_no: str):
+    """测试微信支付成功（开发测试用）"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 查找订单
+        cursor.execute("SELECT * FROM orders WHERE order_no = ?", (order_no,))
+        order = cursor.fetchone()
+        
+        if not order:
+            raise HTTPException(status_code=404, detail="订单不存在")
+        
+        order_dict = dict(order)
+        
+        # 更新订单状态
+        cursor.execute("""
+            UPDATE orders 
+            SET payment_status = 'paid', 
+                payment_time = datetime('now'),
+                payment_transaction_id = ?
+            WHERE order_no = ? AND payment_status = 'pending'
+        """, (f"TEST_{order_no}", order_no))
+        
+        if cursor.rowcount > 0:
+            # 更新处方状态为pending（进入医生审核流程）
+            cursor.execute("""
+                UPDATE prescriptions 
+                SET status = 'pending', payment_status = 'paid'
+                WHERE id = ?
+            """, (order_dict['prescription_id'],))
+            
+            conn.commit()
+            
+            return {
+                "success": True,
+                "message": "测试支付成功，处方已进入医生审核流程",
+                "order_no": order_no,
+                "prescription_id": order_dict['prescription_id']
+            }
+        else:
+            raise HTTPException(status_code=400, detail="订单状态异常")
+            
+    except Exception as e:
+        if 'conn' in locals():
+            conn.rollback()
+        raise HTTPException(status_code=500, detail=f"测试支付失败: {e}")
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 @router.get("/order/{order_id}/status")
 async def get_order_status(order_id: int):
     """查询订单状态"""
@@ -285,10 +337,10 @@ async def alipay_notify_handler(request: Request):
                     if row:
                         prescription_id = row['prescription_id']
                         
-                        # 更新处方状态为已支付
+                        # 更新处方状态为pending（进入医生审核流程）
                         cursor.execute("""
                             UPDATE prescriptions 
-                            SET status = 'paid' 
+                            SET status = 'pending', payment_status = 'paid'
                             WHERE id = ?
                         """, (prescription_id,))
                 
@@ -354,10 +406,10 @@ async def wechat_notify_handler(request: Request):
                     if row:
                         prescription_id = row['prescription_id']
                         
-                        # 更新处方状态为已支付
+                        # 更新处方状态为pending（进入医生审核流程）
                         cursor.execute("""
                             UPDATE prescriptions 
-                            SET status = 'paid' 
+                            SET status = 'pending', payment_status = 'paid'
                             WHERE id = ?
                         """, (prescription_id,))
                 

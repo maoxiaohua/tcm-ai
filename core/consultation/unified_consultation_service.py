@@ -227,6 +227,7 @@ class UnifiedConsultationService:
     def _get_default_tcm_prompt(self, doctor_name: str) -> str:
         """获取默认中医提示词"""
         doctor_info = {
+            "jin_daifu": {"name": "金大夫", "school": "伤寒派", "method": "六经辨证"},  # 金大夫使用张仲景人格
             "zhang_zhongjing": {"name": "张仲景", "school": "伤寒派", "method": "六经辨证"},
             "ye_tianshi": {"name": "叶天士", "school": "温病派", "method": "卫气营血辨证"},
             "li_dongyuan": {"name": "李东垣", "school": "脾胃派", "method": "脾胃调理"},
@@ -946,6 +947,7 @@ class UnifiedConsultationService:
     def _map_doctor_name_to_id(self, doctor_name: str) -> str:
         """将医生名称映射为ID"""
         mapping = {
+            "jin_daifu": "zhang_zhongjing",  # 金大夫使用张仲景的问诊人格
             "zhang_zhongjing": "zhang_zhongjing",
             "ye_tianshi": "ye_tianshi", 
             "li_dongyuan": "li_dongyuan",

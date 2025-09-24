@@ -2487,89 +2487,34 @@
             };
         }
 
-        // 全局变量：推荐医生列表
-        let recommendedDoctors = [];
-        let isUsingRecommendedDoctors = false;
+        // 全局变量：推荐医生列表 - AI推荐医生功能已移除
+        // let recommendedDoctors = [];
+        // let isUsingRecommendedDoctors = false;
 
-        // 获取AI推荐医生
-        async function getRecommendedDoctors(symptoms) {
-            try {
-                const response = await fetch('/api/doctor-matching/recommend', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        patient_id: currentConversationId || 'anonymous-' + Date.now(),
-                        symptoms: symptoms,
-                        max_results: 6
-                    })
-                });
+        // 获取AI推荐医生 - AI推荐医生功能已移除
+        // async function getRecommendedDoctors(symptoms) {
+        //     // AI推荐医生功能已移除，返回空数组
+        //     return [];
+        // }
 
-                if (!response.ok) {
-                    throw new Error('获取推荐医生失败');
-                }
-
-                const result = await response.json();
-                if (result.success && result.data.recommended_doctors) {
-                    return result.data.recommended_doctors;
-                }
-                return [];
-            } catch (error) {
-                console.error('获取推荐医生错误:', error);
-                return [];
-            }
-        }
-
-        // 渲染医生卡片（支持默认医生和推荐医生）
-        function renderDoctorCards(useRecommended = false) {
+        // 渲染医生卡片 - 已简化，移除AI推荐功能
+        function renderDoctorCards() {
             const container = document.getElementById('doctorsGrid');
             container.innerHTML = '';
             
-            let doctorsToRender = {};
-            
-            if (useRecommended && recommendedDoctors.length > 0) {
-                // 使用推荐医生，但保持原有的格式
-                recommendedDoctors.forEach(doctor => {
-                    // 将API返回的医生转换为原有格式
-                    const doctorId = doctor.uuid || doctor.name.toLowerCase().replace(/\s+/g, '_');
-                    doctorsToRender[doctorId] = {
-                        name: doctor.name,
-                        school: doctor.title || '中医师',
-                        avatar: getAvatarForDoctor(doctor.name),
-                        specialty: doctor.specialties.join(', ') || '中医内科',
-                        introduction: doctor.introduction || '',
-                        rating: doctor.average_rating,
-                        consultationCount: doctor.consultation_count
-                    };
-                });
-                isUsingRecommendedDoctors = true;
-            } else {
-                // 使用默认医生
-                doctorsToRender = doctors;
-                isUsingRecommendedDoctors = false;
-            }
-
-            Object.entries(doctorsToRender).forEach(([key, doctor]) => {
+            // 直接使用默认医生列表
+            Object.entries(doctors).forEach(([key, doctor]) => {
                 const card = document.createElement('div');
                 card.className = 'doctor-card';
                 card.onclick = () => selectDoctor(key, doctor);
-                
-                // 添加推荐标识和评分信息
-                const recommendationBadge = isUsingRecommendedDoctors ? 
-                    `<div style="background: #10b981; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 4px;">AI推荐</div>` : '';
-                
-                const ratingInfo = doctor.rating ? 
-                    `<div style="font-size: 11px; color: #f59e0b; margin-top: 2px;">⭐ ${doctor.rating.toFixed(1)} (${doctor.consultationCount || 0}例)</div>` : '';
                 
                 card.innerHTML = `
                     <div class="doctor-header">
                         <div class="doctor-info">
                             <div class="doctor-avatar">${doctor.avatar}</div>
                             <div class="doctor-details">
-                                <h3>${doctor.name} ${recommendationBadge}</h3>
+                                <h3>${doctor.name}</h3>
                                 <span class="doctor-school">${doctor.school}</span>
-                                ${ratingInfo}
                             </div>
                         </div>
                         <div class="selection-indicator">
@@ -2583,9 +2528,6 @@
                 
                 container.appendChild(card);
             });
-            
-            // 添加切换按钮
-            addDoctorToggleButton(container);
         }
 
         // 为医生分配头像
@@ -2616,51 +2558,15 @@
             }
         }
 
-        // 添加医生切换按钮
-        function addDoctorToggleButton(container) {
-            const toggleButton = document.createElement('div');
-            toggleButton.style.cssText = `
-                margin-top: 10px; 
-                text-align: center; 
-                padding: 8px;
-                background: #f3f4f6; 
-                border-radius: 8px; 
-                cursor: pointer;
-                font-size: 12px;
-                color: #374151;
-                transition: all 0.2s;
-            `;
-            toggleButton.innerHTML = isUsingRecommendedDoctors ? 
-                '🔄 切换到经典名医' : '🤖 使用AI推荐医生';
-                
-            toggleButton.onclick = () => {
-                renderDoctorCards(!isUsingRecommendedDoctors);
-            };
-            
-            toggleButton.onmouseover = () => {
-                toggleButton.style.background = '#e5e7eb';
-            };
-            
-            toggleButton.onmouseout = () => {
-                toggleButton.style.background = '#f3f4f6';
-            };
-            
-            container.appendChild(toggleButton);
-        }
+        // 添加医生切换按钮 - AI推荐医生功能已移除
+        // function addDoctorToggleButton(container) {
+        //     // AI推荐医生功能已移除，不再需要切换按钮
+        // }
 
-        // 智能推荐医生（基于用户输入的症状）
-        async function recommendDoctorsForSymptoms(userInput) {
-            const symptoms = extractSymptomsFromText(userInput);
-            if (symptoms.length > 0) {
-                console.log('🤖 检测到症状，获取AI推荐医生:', symptoms);
-                recommendedDoctors = await getRecommendedDoctors(symptoms);
-                if (recommendedDoctors.length > 0) {
-                    console.log('✅ 获取到推荐医生:', recommendedDoctors.length, '位');
-                    // 重新渲染医生卡片，优先显示推荐医生
-                    renderDoctorCards(true);
-                }
-            }
-        }
+        // 智能推荐医生（基于用户输入的症状）- AI推荐医生功能已移除
+        // async function recommendDoctorsForSymptoms(userInput) {
+        //     // AI推荐医生功能已移除，不再处理症状推荐
+        // }
 
         // 从文本中提取症状关键词
         function extractSymptomsFromText(text) {
@@ -3154,13 +3060,8 @@
             input.value = '';
             adjustTextareaHeight();
             
-            // 智能推荐医生（在用户发送第一条消息时，检测症状并推荐医生）
-            if (!isUsingRecommendedDoctors) {
-                // 检测症状并异步推荐医生，不阻塞当前对话
-                recommendDoctorsForSymptoms(message).catch(error => {
-                    console.warn('推荐医生功能异常:', error);
-                });
-            }
+            // 智能推荐医生 - AI推荐医生功能已移除
+            // 不再进行症状检测和医生推荐
 
             // 显示加载状态
             const sendBtn = document.getElementById('sendBtn');
@@ -6982,53 +6883,23 @@ ${data.analysis_result}`;
             setTimeout(() => ensureMobileInputVisible(), 500);
         }
 
-        // 移动端渲染医生卡片（支持默认医生和推荐医生）
-        function renderMobileDoctorCards(useRecommended = false) {
+        // 移动端渲染医生卡片 - 已简化，移除AI推荐功能
+        function renderMobileDoctorCards() {
             const container = document.getElementById('mobileDoctorsGrid');
             container.innerHTML = '';
             
-            let doctorsToRender = {};
-            
-            if (useRecommended && recommendedDoctors.length > 0) {
-                // 使用推荐医生，转换为移动端格式
-                recommendedDoctors.forEach(doctor => {
-                    const doctorId = doctor.uuid || doctor.name.toLowerCase().replace(/\s+/g, '_');
-                    doctorsToRender[doctorId] = {
-                        name: doctor.name,
-                        school: doctor.title || '中医师',
-                        avatar: getAvatarForDoctor(doctor.name),
-                        specialty: doctor.specialties.join(', ') || '中医内科',
-                        introduction: doctor.introduction || '',
-                        rating: doctor.average_rating,
-                        consultationCount: doctor.consultation_count
-                    };
-                });
-                isUsingRecommendedDoctors = true;
-            } else {
-                // 使用默认医生
-                doctorsToRender = doctors;
-                isUsingRecommendedDoctors = false;
-            }
-
-            Object.entries(doctorsToRender).forEach(([key, doctor]) => {
+            // 直接使用默认医生列表
+            Object.entries(doctors).forEach(([key, doctor]) => {
                 const card = document.createElement('div');
                 card.className = 'mobile-doctor-card';
                 card.onclick = () => selectMobileDoctor(key, doctor);
-                
-                // 添加推荐标识和评分信息
-                const recommendationBadge = isUsingRecommendedDoctors ? 
-                    `<div style="background: #10b981; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 4px; display: inline-block;">AI推荐</div>` : '';
-                
-                const ratingInfo = doctor.rating ? 
-                    `<div style="font-size: 11px; color: #f59e0b; margin-top: 2px;">⭐ ${doctor.rating.toFixed(1)} (${doctor.consultationCount || 0}例)</div>` : '';
                 
                 card.innerHTML = `
                     <div class="mobile-doctor-info">
                         <div class="mobile-doctor-avatar">${doctor.avatar}</div>
                         <div class="mobile-doctor-details">
-                            <h3>${doctor.name} ${recommendationBadge}</h3>
+                            <h3>${doctor.name}</h3>
                             <div class="school">${doctor.school}</div>
-                            ${ratingInfo}
                         </div>
                     </div>
                     <div class="mobile-doctor-specialty">
@@ -7038,35 +6909,12 @@ ${data.analysis_result}`;
                 
                 container.appendChild(card);
             });
-            
-            // 添加移动端切换按钮
-            addMobileDoctorToggleButton(container);
         }
 
-        // 添加移动端医生切换按钮
-        function addMobileDoctorToggleButton(container) {
-            const toggleButton = document.createElement('div');
-            toggleButton.style.cssText = `
-                margin: 10px 16px; 
-                text-align: center; 
-                padding: 12px;
-                background: #f3f4f6; 
-                border-radius: 8px; 
-                cursor: pointer;
-                font-size: 14px;
-                color: #374151;
-                transition: all 0.2s;
-                font-weight: 500;
-            `;
-            toggleButton.innerHTML = isUsingRecommendedDoctors ? 
-                '🔄 切换到经典名医' : '🤖 使用AI推荐医生';
-                
-            toggleButton.onclick = () => {
-                renderMobileDoctorCards(!isUsingRecommendedDoctors);
-            };
-            
-            container.appendChild(toggleButton);
-        }
+        // 添加移动端医生切换按钮 - AI推荐医生功能已移除
+        // function addMobileDoctorToggleButton(container) {
+        //     // AI推荐医生功能已移除，不再需要切换按钮
+        // }
 
         // 移动端添加消息
         function addMobileMessage(sender, content, showFeedback = false, isPaid = false, prescriptionId = null) {

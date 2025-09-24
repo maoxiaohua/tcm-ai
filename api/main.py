@@ -1089,7 +1089,7 @@ from api.routes.auth_routes import router as auth_router
 from api.routes.unified_auth_routes import router as unified_auth_router
 from api.routes.doctor_decision_tree_routes import router as decision_tree_router
 from api.routes.symptom_analysis_routes import router as symptom_analysis_router
-from api.routes.doctor_matching_routes import router as doctor_matching_router
+# from api.routes.doctor_matching_routes import router as doctor_matching_router  # AI推荐医生功能已移除
 from api.routes.review_routes import router as review_router
 from api.routes.unified_consultation_routes import router as unified_consultation_router
 from api.routes.database_management_routes import router as database_management_router
@@ -1981,7 +1981,7 @@ app.include_router(payment_router)
 app.include_router(decoction_router)
 app.include_router(decision_tree_router)
 app.include_router(symptom_analysis_router)
-app.include_router(doctor_matching_router)
+# app.include_router(doctor_matching_router)  # AI推荐医生功能已移除
 app.include_router(review_router)
 app.include_router(unified_consultation_router)
 app.include_router(database_management_router)
