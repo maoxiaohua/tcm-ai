@@ -4295,41 +4295,59 @@ ${data.analysis_result}`;
 
         // 检查登录状态
         function checkLoginStatus() {
+            console.log('🔍 检查登录状态...');
+            
             // 检查是否是访客模式
             const urlParams = new URLSearchParams(window.location.search);
             const isGuestMode = urlParams.get('mode') === 'guest';
             
-            // 按角色检查token
+            // 按角色检查token - 统一使用session_token
+            const sessionToken = localStorage.getItem('session_token');
             const patientToken = localStorage.getItem('patientToken');
             const doctorToken = localStorage.getItem('doctorToken');
             const adminToken = localStorage.getItem('adminToken');
-            const storedUserToken = localStorage.getItem('userToken');
             
-            // 优先使用角色专用token，然后fallback到通用token
-            const token = patientToken || doctorToken || adminToken || storedUserToken;
-            const userData = localStorage.getItem('userData');
+            // 优先使用session_token，然后fallback到角色专用token
+            const token = sessionToken || patientToken || doctorToken || adminToken;
             
-            if (token) {
-                // 如果有token但没有用户数据，尝试验证token
-                if (!userData) {
-                    verifyTokenAndLoadUserData(token);
-                } else {
-                    try {
-                        currentUser = JSON.parse(userData);
-                        userToken = token;
-                        updateUserInterface(true);
-                    } catch (e) {
-                        console.error('用户数据解析失败:', e);
+            // 读取用户数据 - 统一使用currentUser
+            const userDataStr = localStorage.getItem('currentUser');
+            
+            console.log('📋 登录状态检查结果:', {
+                isGuestMode,
+                hasToken: !!token,
+                hasUserData: !!userDataStr,
+                tokenType: sessionToken ? 'session_token' : (patientToken ? 'patientToken' : (doctorToken ? 'doctorToken' : (adminToken ? 'adminToken' : 'none')))
+            });
+            
+            if (token && userDataStr) {
+                // 有token且有用户数据 - 直接使用
+                try {
+                    currentUser = JSON.parse(userDataStr);
+                    userToken = token;
+                    console.log('✅ 登录状态有效，用户:', currentUser.username || currentUser.display_name);
+                    updateUserInterface(true);
+                } catch (e) {
+                    console.error('❌ 用户数据解析失败:', e);
+                    // 清除无效数据
+                    localStorage.removeItem('currentUser');
+                    if (isGuestMode) {
+                        updateUserInterface(false);
+                    } else {
                         verifyTokenAndLoadUserData(token);
                     }
                 }
+            } else if (token && !userDataStr) {
+                // 有token但没有用户数据 - 尝试从后端验证
+                console.log('⚠️ 有token但缺少用户数据，尝试验证...');
+                verifyTokenAndLoadUserData(token);
             } else if (isGuestMode) {
-                // 访客模式 - 允许无token访问，显示登录/注册按钮
-                console.log('访客模式：允许无登录访问');
+                // 访客模式 - 允许无token访问
+                console.log('ℹ️ 访客模式：允许无登录访问');
                 updateUserInterface(false);
             } else {
                 // 非访客模式且无token - 跳转到登录页
-                console.log('未检测到有效登录状态，跳转到登录页面');
+                console.log('❌ 未检测到有效登录状态，跳转到登录页面');
                 showMessage('请先登录后使用智能问诊服务', 'warning');
                 setTimeout(() => {
                     window.location.href = '/login';
@@ -4341,6 +4359,7 @@ ${data.analysis_result}`;
         // 验证token并加载用户数据
         async function verifyTokenAndLoadUserData(token) {
             try {
+                console.log('🔄 验证token并加载用户数据...');
                 const response = await fetch('/api/auth/profile', {
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -4353,16 +4372,19 @@ ${data.analysis_result}`;
                     if (data.success && data.user) {
                         currentUser = data.user;
                         userToken = token;
-                        localStorage.setItem('userData', JSON.stringify(currentUser));
+                        // 统一使用currentUser键
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                        console.log('✅ 从后端验证成功，用户:', currentUser.username || currentUser.display_name);
                         updateUserInterface(true);
                         return;
                     }
                 }
                 
                 // token无效，清除数据
+                console.log('❌ Token验证失败，清除数据');
                 clearUserData();
             } catch (error) {
-                console.error('验证token失败:', error);
+                console.error('❌ 验证token失败:', error);
                 clearUserData();
             }
         }
