@@ -138,11 +138,14 @@ AI生成处方 → 安全校验 → 医生审查 → 患者确认 → 支付订�
 # 开发环境
 python api/main.py
 
-# 生产环境 (宝塔面板) ⚠️ 重要：代码修改后必须重启服务
-python3 /opt/tcm-ai/api/main.py  # 宝塔面板Python项目启动方式
-# 注意: 使用宝塔面板管理Python项目，SSL证书和进程管理由宝塔负责
-# 重启服务: 在宝塔面板 -> Python项目 -> 重启项目
-# 查看日志: 宝塔面板 -> Python项目 -> 日志查看
+# 生产环境 (systemd服务管理) ⚠️ 推荐方式
+sudo service tcm-ai start    # 启动服务
+sudo service tcm-ai restart # 重启服务  
+sudo service tcm-ai stop    # 停止服务
+sudo service tcm-ai status  # 查看状态
+
+# 手动启动（调试用）
+python3 /opt/tcm-ai/api/main.py
 
 # 测试环境
 python api/main_test_8002.py
@@ -330,29 +333,41 @@ L3: Redis集群 (可选)     # 分布式缓存
 
 ### 生产环境部署
 ```bash
-# 宝塔面板Python项目配置
-# 1. 创建Python项目: /opt/tcm-ai
-# 2. 启动文件: /opt/tcm-ai/api/main.py
-# 3. 端口配置: 8000
-# 4. SSL证书管理: 宝塔面板自动管理
+# systemd服务配置 (/etc/systemd/system/tcm-ai.service)
+[Unit]
+Description=TCM-AI Medical Diagnosis System
+After=network.target
 
-# nginx反向代理 (宝塔面板自动生成)
-# 配置文件位置由宝塔面板管理
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/tcm-ai
+ExecStart=/opt/tcm01/tcm-venv/bin/python3 /opt/tcm-ai/scripts/start_service.py
+Restart=always
+RestartSec=10
+Environment=PYTHONPATH=/opt/tcm-ai
 
-# 服务管理
-# 通过宝塔面板 -> Python项目进行启动/停止/重启操作
+[Install]
+WantedBy=multi-user.target
+
+# 服务管理命令
+sudo systemctl enable tcm-ai     # 开机自启
+sudo systemctl daemon-reload    # 重载配置
+sudo service tcm-ai restart     # 重启服务
 ```
 
 ### 环境配置
 - **运行端口**: 8000 (生产), 8002 (测试)  
 - **数据路径**: `/opt/tcm-ai/data/`
-- **日志路径**: `/opt/tcm-ai/logs/ + api.log` (宝塔面板日志查看)
+- **日志路径**: `/opt/tcm-ai/logs/api.log`
 - **静态资源**: `/opt/tcm-ai/static/`
+- **服务配置**: `/etc/systemd/system/tcm-ai.service`
 
 ### 依赖服务
 - **阿里云Dashscope**: AI模型服务 (必需)
 - **PostgreSQL**: 向量数据库 (可选，FAISS为备选)
-- **宝塔面板**: Python项目管理，SSL证书管理，自动nginx配置
+- **systemd**: 系统服务管理，进程守护，自动重启
+- **nginx**: 反向代理和SSL证书管理 (推荐)
 - **Redis**: 分布式缓存 (可选)
 
 ## 安全与监控
@@ -370,6 +385,20 @@ L3: Redis集群 (可选)     # 分布式缓存
 - **业务监控**: 问诊量、处方审查率、支付成功率
 
 ## 版本更新记录
+
+### v2.9 - 服务管理优化版 (2025-09-24)
+**部署方式优化**: 从宝塔面板改为systemd服务管理，提高系统稳定性
+
+**核心改进**:
+- ✅ **systemd服务管理**: 替代宝塔面板，避免服务器重连中断
+- ✅ **医生信息联动修复**: 数据库医生信息与问诊页面实时同步
+- ✅ **API端点统一**: 修复/api/doctor/list与/api/doctors/list不一致问题
+- ✅ **15位医生完整显示**: 包含数据库更新的所有医生信息
+
+**服务管理命令**:
+- `sudo service tcm-ai start/restart/stop/status` - 标准systemd管理
+- 配置文件: `/etc/systemd/system/tcm-ai.service`
+- 日志路径: `/opt/tcm-ai/logs/api.log`
 
 ### v2.8 - 系统架构现状版 (2025-09-24)
 **文档同步更新**: 基于实际运行状态全面更新文档，确保与当前系统完全一致
@@ -444,7 +473,7 @@ L3: Redis集群 (可选)     # 分布式缓存
    - ✅ 智能问诊：`/smart` (FastAPI路由 → index_smart_workflow.html)
    - ✅ 管理后台：`/admin` (FastAPI路由 → admin/index.html)
    - ✅ 医生端：`/doctor` (FastAPI路由 → doctor/index.html)
-   - ✅ 宝塔面板配置：Python项目 + 自动nginx配置
+   - ✅ systemd服务配置：/etc/systemd/system/tcm-ai.service
 
 2. **API端点检查**：
    - ✅ 统一问诊：`/api/consultation/chat` 
@@ -511,7 +540,7 @@ L3: Redis集群 (可选)     # 分布式缓存
 
 **开发团队**: TCM-AI Development Team  
 **最后更新**: 2025-09-24  
-**文档版本**: v2.8 (系统架构现状版)
+**文档版本**: v2.9 (服务管理优化版)
 
 ---
 
