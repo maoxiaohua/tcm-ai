@@ -1,0 +1,75 @@
+{
+  "basic": {
+    "system_name": "TCM-AI 中医智能诊断系统",
+    "system_version": "v2.6.0",
+    "server_port": 8000,
+    "domain_name": "mxh0510.cn",
+    "database_path": "/opt/tcm-ai/data/user_history.sqlite",
+    "backup_retention": 30,
+    "log_level": "INFO",
+    "log_retention": 90,
+    "session_timeout": 60,
+    "upload_limit": 10,
+    "api_timeout": 30,
+    "max_connections": 100
+  },
+  "ai": {
+    "dashscope_api_key": "[已配置环境变量，请勿修改]",
+    "dashscope_endpoint": "https://dashscope.aliyuncs.com/api/v1/",
+    "default_text_model": "qwen-max",
+    "multimodal_model": "qwen-vl-max",
+    "model_temperature": 0.7,
+    "max_tokens": 2000,
+    "daily_cost_limit": 500,
+    "monthly_cost_limit": 15000,
+    "retry_attempts": 3,
+    "enable_cost_alerts": false
+  },
+  "business": {
+    "standard_prescription_fee": 88,
+    "decoction_service_fee": 50,
+    "require_doctor_review": false,
+    "prescription_validity": 30,
+    "require_license_verification": false,
+    "doctor_commission_rate": 15,
+    "review_time_limit": 24,
+    "auto_assign_doctors": false,
+    "require_real_name": false,
+    "free_consultation_limit": 1,
+    "followup_interval": 7,
+    "enable_patient_feedback": true
+  },
+  "security": {
+    "password_min_length": 8,
+    "require_password_complexity": false,
+    "login_failure_limit": 5,
+    "account_lockout_duration": 15,
+    "api_rate_limit": 60,
+    "enable_ip_whitelist": false,
+    "ip_whitelist": "",
+    "enable_https_only": true,
+    "enable_audit_logging": true,
+    "sensitive_log_retention": 365,
+    "log_failed_requests": true,
+    "enable_real_time_alerts": false
+  },
+  "integration": {
+    "enable_alipay": true,
+    "alipay_merchant_id": "",
+    "enable_wechatpay": false,
+    "wechat_merchant_id": "",
+    "smtp_server": "",
+    "smtp_port": 587,
+    "sender_email": "",
+    "sms_api_key": "",
+    "enable_decoction_service": true,
+    "decoction_api_endpoint": "",
+    "decoction_api_key": "",
+    "delivery_promise_days": 3
+  },
+  "_metadata": {
+    "last_updated": "2025-09-23T17:40:47.304437",
+    "version": "v2.6.0",
+    "backup_file": "/opt/tcm-ai/data/system_settings_backup_20250923_174047.json"
+  }
+}

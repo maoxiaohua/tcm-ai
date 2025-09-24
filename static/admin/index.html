@@ -746,6 +746,177 @@
             }
         }
 
+        /* 系统配置样式 */
+        .settings-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .settings-tabs {
+            display: flex;
+            border-bottom: 1px solid #e5e7eb;
+            background: #f9fafb;
+            border-radius: 12px 12px 0 0;
+            overflow-x: auto;
+        }
+
+        .tab-item {
+            padding: 16px 24px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: #6b7280;
+            min-width: max-content;
+        }
+
+        .tab-item:hover {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .tab-item.active {
+            background: white;
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+
+        .settings-content {
+            display: none;
+            padding: 30px;
+        }
+
+        .settings-content.active {
+            display: block;
+        }
+
+        .settings-section {
+            margin-bottom: 40px;
+            padding: 25px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #fafbfc;
+        }
+
+        .section-title {
+            color: #1f2937;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .setting-item {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .setting-label {
+            display: block;
+            color: #374151;
+            font-weight: 500;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .setting-input, .setting-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .setting-input:focus, .setting-textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .setting-range {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .setting-help {
+            display: block;
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        .settings-footer {
+            padding: 20px 30px;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .settings-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #059669;
+        }
+
+        .status-icon {
+            font-size: 16px;
+        }
+
+        .content-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .settings-tabs {
+                flex-wrap: nowrap;
+                overflow-x: scroll;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .tab-item {
+                padding: 12px 16px;
+                font-size: 13px;
+            }
+            
+            .settings-content {
+                padding: 20px 15px;
+            }
+            
+            .settings-section {
+                padding: 20px 15px;
+                margin-bottom: 25px;
+            }
+            
+            .settings-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .setting-item {
+                padding: 15px;
+            }
+            
+            .content-actions {
+                flex-direction: column;
+            }
+        }
+
         /* 横屏适配 */
         @media (max-width: 768px) and (orientation: landscape) {
             .stats-grid {
@@ -1188,12 +1359,469 @@
                     <div class="content-header">
                         <h2 class="content-title">系统配置</h2>
                         <p class="content-subtitle">管理系统参数和配置选项</p>
+                        <div class="content-actions">
+                            <button class="btn btn-primary" onclick="saveAllSettings()">💾 保存所有配置</button>
+                            <button class="btn btn-secondary" onclick="resetToDefaults()">🔄 重置默认值</button>
+                            <div id="save-status" style="margin-left: 20px; padding: 8px 16px; border-radius: 6px; display: none; align-items: center; gap: 8px;">
+                                <span id="save-status-icon"></span>
+                                <span id="save-status-text"></span>
+                            </div>
+                        </div>
                     </div>
 
-                    <div style="text-align: center; padding: 60px; color: #6b7280;">
-                        <div style="font-size: 4rem; margin-bottom: 20px;">🔧</div>
-                        <p>系统配置功能开发中...</p>
-                        <p style="margin-top: 10px;">将包含系统参数、邮件配置等设置</p>
+                    <div class="settings-container">
+                        <!-- 配置导航标签 -->
+                        <div class="settings-tabs">
+                            <div class="tab-item active" onclick="showSettingsTab('basic', this)">⚙️ 基础设置</div>
+                            <div class="tab-item" onclick="showSettingsTab('ai', this)">🤖 AI模型配置</div>
+                            <div class="tab-item" onclick="showSettingsTab('business', this)">🏥 业务规则</div>
+                            <div class="tab-item" onclick="showSettingsTab('security', this)">🔒 安全策略</div>
+                            <div class="tab-item" onclick="showSettingsTab('integration', this)">🌐 第三方服务</div>
+                        </div>
+
+                        <!-- 基础设置 -->
+                        <div id="settings-basic" class="settings-content active">
+                            <div class="settings-section">
+                                <h3 class="section-title">🌐 系统基础配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">系统名称</label>
+                                        <input type="text" id="system_name" class="setting-input" placeholder="TCM-AI 中医智能诊断系统">
+                                        <small class="setting-help">显示在页面标题和系统中的名称</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">系统版本</label>
+                                        <input type="text" id="system_version" class="setting-input" placeholder="v2.6.0" readonly>
+                                        <small class="setting-help">当前系统版本号（只读）</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">服务器端口</label>
+                                        <input type="number" id="server_port" class="setting-input" placeholder="8000" min="1000" max="65535">
+                                        <small class="setting-help">系统运行的端口号</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">域名地址</label>
+                                        <input type="text" id="domain_name" class="setting-input" placeholder="https://tcm-ai.example.com">
+                                        <small class="setting-help">系统访问的完整域名</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <h3 class="section-title">🗄️ 数据存储配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">数据库路径</label>
+                                        <input type="text" id="database_path" class="setting-input" placeholder="/opt/tcm-ai/data/user_history.sqlite">
+                                        <small class="setting-help">SQLite数据库文件路径</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">备份保留天数</label>
+                                        <input type="number" id="backup_retention" class="setting-input" placeholder="30" min="1" max="365">
+                                        <small class="setting-help">数据库备份保留的天数</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">日志级别</label>
+                                        <select id="log_level" class="setting-input">
+                                            <option value="DEBUG">DEBUG - 详细调试</option>
+                                            <option value="INFO" selected>INFO - 一般信息</option>
+                                            <option value="WARNING">WARNING - 警告信息</option>
+                                            <option value="ERROR">ERROR - 错误信息</option>
+                                        </select>
+                                        <small class="setting-help">系统日志记录级别</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">日志保留天数</label>
+                                        <input type="number" id="log_retention" class="setting-input" placeholder="90" min="7" max="365">
+                                        <small class="setting-help">系统日志保留的天数</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <h3 class="section-title">⏱️ 会话和性能配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">会话超时时间（分钟）</label>
+                                        <input type="number" id="session_timeout" class="setting-input" placeholder="60" min="5" max="1440">
+                                        <small class="setting-help">用户会话保持时间</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">文件上传限制（MB）</label>
+                                        <input type="number" id="upload_limit" class="setting-input" placeholder="10" min="1" max="100">
+                                        <small class="setting-help">单个文件上传大小限制</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">API请求超时（秒）</label>
+                                        <input type="number" id="api_timeout" class="setting-input" placeholder="30" min="5" max="300">
+                                        <small class="setting-help">API请求的超时时间</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">并发连接数限制</label>
+                                        <input type="number" id="max_connections" class="setting-input" placeholder="100" min="10" max="1000">
+                                        <small class="setting-help">系统最大并发连接数</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AI模型配置 -->
+                        <div id="settings-ai" class="settings-content">
+                            <div class="settings-section">
+                                <h3 class="section-title">🔑 阿里云Dashscope配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">API密钥</label>
+                                        <div style="display: flex; gap: 10px; align-items: center;">
+                                            <input type="text" id="dashscope_api_key" class="setting-input" readonly style="background-color: #f5f5f5; cursor: not-allowed;" placeholder="环境变量配置">
+                                            <small class="text-muted">⚠️ API密钥通过环境变量配置，请勿在此修改</small>
+                                        </div>
+                                        <small class="setting-help">阿里云Dashscope服务的API密钥</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">API接口地址</label>
+                                        <input type="text" id="dashscope_endpoint" class="setting-input" placeholder="https://dashscope.aliyuncs.com/api/v1/">
+                                        <small class="setting-help">Dashscope API服务地址</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <h3 class="section-title">🧠 模型参数配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">默认文本模型</label>
+                                        <select id="default_text_model" class="setting-input">
+                                            <option value="qwen-max">qwen-max - 最强性能</option>
+                                            <option value="qwen-plus">qwen-plus - 平衡性能</option>
+                                            <option value="qwen-turbo">qwen-turbo - 快速响应</option>
+                                        </select>
+                                        <small class="setting-help">用于文本处理的默认模型</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">多模态模型</label>
+                                        <select id="multimodal_model" class="setting-input">
+                                            <option value="qwen-vl-max">qwen-vl-max - 视觉理解</option>
+                                            <option value="qwen-vl-plus">qwen-vl-plus - 平衡模式</option>
+                                        </select>
+                                        <small class="setting-help">用于图像分析的多模态模型</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">温度参数</label>
+                                        <input type="range" id="model_temperature" class="setting-range" min="0" max="1" step="0.1" value="0.7">
+                                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6b7280;">
+                                            <span>0 (准确)</span>
+                                            <span id="temperature_value">0.7</span>
+                                            <span>1 (创新)</span>
+                                        </div>
+                                        <small class="setting-help">控制AI回答的创造性，较低值更准确，较高值更有创意</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">最大Token数</label>
+                                        <input type="number" id="max_tokens" class="setting-input" placeholder="2000" min="100" max="8000">
+                                        <small class="setting-help">AI回答的最大长度限制</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <h3 class="section-title">💰 成本控制配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">日消费限额（元）</label>
+                                        <input type="number" id="daily_cost_limit" class="setting-input" placeholder="500" min="1" max="10000">
+                                        <small class="setting-help">每日AI服务消费上限</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">月消费限额（元）</label>
+                                        <input type="number" id="monthly_cost_limit" class="setting-input" placeholder="15000" min="100" max="100000">
+                                        <small class="setting-help">每月AI服务消费上限</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">请求重试次数</label>
+                                        <input type="number" id="retry_attempts" class="setting-input" placeholder="3" min="1" max="10">
+                                        <small class="setting-help">API请求失败时的重试次数</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="enable_cost_alerts"> 启用成本告警
+                                        </label>
+                                        <small class="setting-help">消费超过阈值时发送告警通知</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 业务规则配置 -->
+                        <div id="settings-business" class="settings-content">
+                            <div class="settings-section">
+                                <h3 class="section-title">💊 处方管理配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">标准处方费用（元）</label>
+                                        <input type="number" id="standard_prescription_fee" class="setting-input" placeholder="88" min="1" max="1000">
+                                        <small class="setting-help">AI生成处方的标准费用</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">代煎服务费用（元）</label>
+                                        <input type="number" id="decoction_service_fee" class="setting-input" placeholder="50" min="1" max="200">
+                                        <small class="setting-help">中药代煎服务费用</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="require_doctor_review"> 强制医生审查
+                                        </label>
+                                        <small class="setting-help">所有AI处方都必须经过医生审查</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">处方有效期（天）</label>
+                                        <input type="number" id="prescription_validity" class="setting-input" placeholder="30" min="1" max="365">
+                                        <small class="setting-help">处方有效使用期限</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <h3 class="section-title">👨‍⚕️ 医生管理配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="require_license_verification"> 要求执业证验证
+                                        </label>
+                                        <small class="setting-help">注册医生时必须验证执业医师证</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">医生佣金比例（%）</label>
+                                        <input type="number" id="doctor_commission_rate" class="setting-input" placeholder="15" min="0" max="50">
+                                        <small class="setting-help">医生从处方费用中获得的佣金比例</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">审查时间限制（小时）</label>
+                                        <input type="number" id="review_time_limit" class="setting-input" placeholder="24" min="1" max="168">
+                                        <small class="setting-help">医生必须在此时间内完成处方审查</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="auto_assign_doctors"> 自动分配医生
+                                        </label>
+                                        <small class="setting-help">根据专长和工作负荷自动分配审查医生</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <h3 class="section-title">🏥 患者服务配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="require_real_name"> 要求实名认证
+                                        </label>
+                                        <small class="setting-help">患者必须完成实名认证才能使用服务</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">免费咨询次数</label>
+                                        <input type="number" id="free_consultation_limit" class="setting-input" placeholder="1" min="0" max="10">
+                                        <small class="setting-help">每个患者的免费问诊次数</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">随访提醒间隔（天）</label>
+                                        <input type="number" id="followup_interval" class="setting-input" placeholder="7" min="1" max="30">
+                                        <small class="setting-help">用药后自动发送随访提醒的间隔</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="enable_patient_feedback"> 启用患者反馈
+                                        </label>
+                                        <small class="setting-help">允许患者对服务进行评价和反馈</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 安全策略配置 -->
+                        <div id="settings-security" class="settings-content">
+                            <div class="settings-section">
+                                <h3 class="section-title">🔐 访问控制配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">密码最小长度</label>
+                                        <input type="number" id="password_min_length" class="setting-input" placeholder="8" min="6" max="20">
+                                        <small class="setting-help">用户密码的最小长度要求</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="require_password_complexity"> 要求密码复杂度
+                                        </label>
+                                        <small class="setting-help">密码必须包含大小写字母、数字和特殊字符</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">登录失败锁定次数</label>
+                                        <input type="number" id="login_failure_limit" class="setting-input" placeholder="5" min="3" max="20">
+                                        <small class="setting-help">连续登录失败多少次后锁定账户</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">账户锁定时间（分钟）</label>
+                                        <input type="number" id="account_lockout_duration" class="setting-input" placeholder="15" min="5" max="1440">
+                                        <small class="setting-help">账户被锁定的持续时间</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <h3 class="section-title">🌐 网络安全配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">API频率限制（次/分钟）</label>
+                                        <input type="number" id="api_rate_limit" class="setting-input" placeholder="60" min="10" max="1000">
+                                        <small class="setting-help">每个IP每分钟的API调用次数限制</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="enable_ip_whitelist"> 启用IP白名单
+                                        </label>
+                                        <small class="setting-help">只允许白名单内的IP地址访问管理功能</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">IP白名单</label>
+                                        <textarea id="ip_whitelist" class="setting-textarea" placeholder="192.168.1.0/24&#10;10.0.0.0/8&#10;127.0.0.1" rows="4"></textarea>
+                                        <small class="setting-help">每行一个IP地址或网段，支持CIDR格式</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="enable_https_only"> 强制HTTPS
+                                        </label>
+                                        <small class="setting-help">强制所有连接使用HTTPS加密</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <h3 class="section-title">📊 审计日志配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="enable_audit_logging" checked> 启用审计日志
+                                        </label>
+                                        <small class="setting-help">记录所有用户操作和系统事件</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">敏感操作日志保留（天）</label>
+                                        <input type="number" id="sensitive_log_retention" class="setting-input" placeholder="365" min="30" max="2555">
+                                        <small class="setting-help">敏感操作（如处方、支付）日志保留时间</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="log_failed_requests"> 记录失败请求
+                                        </label>
+                                        <small class="setting-help">记录所有失败的API请求和访问尝试</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="enable_real_time_alerts"> 启用实时告警
+                                        </label>
+                                        <small class="setting-help">检测到可疑活动时立即发送告警</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 第三方服务配置 -->
+                        <div id="settings-integration" class="settings-content">
+                            <div class="settings-section">
+                                <h3 class="section-title">💳 支付服务配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="enable_alipay" checked> 启用支付宝
+                                        </label>
+                                        <small class="setting-help">启用支付宝支付功能</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">支付宝商户ID</label>
+                                        <input type="text" id="alipay_merchant_id" class="setting-input" placeholder="请输入支付宝商户ID">
+                                        <small class="setting-help">支付宝分配的商户身份标识</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="enable_wechatpay"> 启用微信支付
+                                        </label>
+                                        <small class="setting-help">启用微信支付功能</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">微信商户号</label>
+                                        <input type="text" id="wechat_merchant_id" class="setting-input" placeholder="请输入微信商户号">
+                                        <small class="setting-help">微信支付分配的商户号</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <h3 class="section-title">📧 通知服务配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">邮件服务器地址</label>
+                                        <input type="text" id="smtp_server" class="setting-input" placeholder="smtp.example.com">
+                                        <small class="setting-help">SMTP邮件服务器地址</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">邮件服务器端口</label>
+                                        <input type="number" id="smtp_port" class="setting-input" placeholder="587" min="25" max="9999">
+                                        <small class="setting-help">SMTP服务器端口号</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">发件邮箱</label>
+                                        <input type="email" id="sender_email" class="setting-input" placeholder="noreply@tcm-ai.com">
+                                        <small class="setting-help">系统发送通知邮件的邮箱地址</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">短信服务商API密钥</label>
+                                        <div style="display: flex; gap: 10px; align-items: center;">
+                                            <input type="password" id="sms_api_key" class="setting-input" placeholder="短信服务商API密钥">
+                                            <button class="btn btn-secondary" onclick="togglePasswordVisibility('sms_api_key')">👁️</button>
+                                        </div>
+                                        <small class="setting-help">短信服务提供商的API密钥</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <h3 class="section-title">🏭 代煎服务配置</h3>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label class="setting-label">
+                                            <input type="checkbox" id="enable_decoction_service" checked> 启用代煎服务
+                                        </label>
+                                        <small class="setting-help">为患者提供中药代煎服务</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">代煎商API接口</label>
+                                        <input type="text" id="decoction_api_endpoint" class="setting-input" placeholder="https://api.decoction-partner.com">
+                                        <small class="setting-help">代煎服务商的API接口地址</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">代煎商API密钥</label>
+                                        <div style="display: flex; gap: 10px; align-items: center;">
+                                            <input type="password" id="decoction_api_key" class="setting-input" placeholder="代煎商API密钥">
+                                            <button class="btn btn-secondary" onclick="togglePasswordVisibility('decoction_api_key')">👁️</button>
+                                        </div>
+                                        <small class="setting-help">代煎服务商提供的API认证密钥</small>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label class="setting-label">配送时间承诺（天）</label>
+                                        <input type="number" id="delivery_promise_days" class="setting-input" placeholder="3" min="1" max="30">
+                                        <small class="setting-help">向患者承诺的代煎药品配送时间</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-footer">
+                        <div class="settings-status" id="settings-status">
+                            <span class="status-icon">⏳</span>
+                            <span class="status-text">正在加载配置...</span>
+                            <span class="status-time">--</span>
+                        </div>
                     </div>
                 </div>
 
@@ -4649,23 +5277,477 @@
             alert('收入统计报告已导出到下载文件夹');
         }
 
-        // 加载系统配置数据
-        function loadSettingsData() {
-            const settingsContent = document.querySelector('#settings .content-section');
-            if (settingsContent) {
-                settingsContent.innerHTML = `
-                    <div class="content-header">
-                        <h2 class="content-title">系统配置</h2>
-                        <p class="content-subtitle">管理系统参数和配置选项</p>
-                    </div>
-                    <div style="text-align: center; padding: 60px; color: #6b7280;">
-                        <div style="font-size: 4rem; margin-bottom: 20px;">🔧</div>
-                        <p>系统配置功能开发中...</p>
-                        <p style="margin-top: 10px;">将包含系统参数、邮件配置等设置</p>
-                    </div>
-                `;
+        // ==================== 系统配置管理功能 ====================
+        
+        let currentSettingsData = {}; // 存储当前配置数据
+        
+        // 显示配置标签页
+        function showSettingsTab(tabName, element) {
+            // 更新标签页状态
+            document.querySelectorAll('.tab-item').forEach(tab => tab.classList.remove('active'));
+            element.classList.add('active');
+            
+            // 更新内容显示
+            document.querySelectorAll('.settings-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(`settings-${tabName}`).classList.add('active');
+        }
+        
+        // 密码可见性切换
+        function togglePasswordVisibility(inputId) {
+            const input = document.getElementById(inputId);
+            const button = input.nextElementSibling;
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                button.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                button.textContent = '👁️';
             }
         }
+        
+        // 温度参数实时更新
+        document.addEventListener('DOMContentLoaded', function() {
+            const temperatureSlider = document.getElementById('model_temperature');
+            const temperatureValue = document.getElementById('temperature_value');
+            
+            if (temperatureSlider && temperatureValue) {
+                temperatureSlider.addEventListener('input', function() {
+                    temperatureValue.textContent = this.value;
+                });
+            }
+        });
+        
+        // 加载系统配置数据
+        async function loadSettingsData() {
+            // 显示加载状态
+            showSaveStatus('loading', '🔄 正在加载配置...');
+            
+            try {
+                const response = await fetch('/api/admin/settings');
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentSettingsData = data.settings;
+                    populateSettingsForm(data.settings);
+                    
+                    // 更新左下角状态显示
+                    updateSettingsStatus('success', '配置加载成功', '刚刚');
+                    
+                    // 显示临时成功状态
+                    showSaveStatus('success', '📋 配置加载成功');
+                    setTimeout(() => hideSaveStatus(), 2000);
+                } else {
+                    // 如果API不存在，使用默认配置
+                    loadDefaultSettings();
+                    updateSettingsStatus('warning', '使用默认配置', '刚刚');
+                    showSaveStatus('warning', '⚠️ 使用默认配置');
+                    setTimeout(() => hideSaveStatus(), 3000);
+                }
+            } catch (error) {
+                console.log('加载配置失败，使用默认配置:', error);
+                loadDefaultSettings();
+                updateSettingsStatus('error', '加载失败，使用默认配置', '刚刚');
+                showSaveStatus('error', '❌ 加载失败，使用默认配置');
+                setTimeout(() => hideSaveStatus(), 3000);
+            }
+        }
+        
+        // 填充设置表单
+        function populateSettingsForm(settings) {
+            // 基础设置
+            if (settings.basic) {
+                setInputValue('system_name', settings.basic.system_name);
+                setInputValue('system_version', settings.basic.system_version);
+                setInputValue('server_port', settings.basic.server_port);
+                setInputValue('domain_name', settings.basic.domain_name);
+                setInputValue('database_path', settings.basic.database_path);
+                setInputValue('backup_retention', settings.basic.backup_retention);
+                setInputValue('log_level', settings.basic.log_level);
+                setInputValue('log_retention', settings.basic.log_retention);
+                setInputValue('session_timeout', settings.basic.session_timeout);
+                setInputValue('upload_limit', settings.basic.upload_limit);
+                setInputValue('api_timeout', settings.basic.api_timeout);
+                setInputValue('max_connections', settings.basic.max_connections);
+            }
+            
+            // AI模型配置
+            if (settings.ai) {
+                setInputValue('dashscope_api_key', settings.ai.dashscope_api_key);
+                setInputValue('dashscope_endpoint', settings.ai.dashscope_endpoint);
+                setInputValue('default_text_model', settings.ai.default_text_model);
+                setInputValue('multimodal_model', settings.ai.multimodal_model);
+                setInputValue('model_temperature', settings.ai.model_temperature);
+                setInputValue('max_tokens', settings.ai.max_tokens);
+                setInputValue('daily_cost_limit', settings.ai.daily_cost_limit);
+                setInputValue('monthly_cost_limit', settings.ai.monthly_cost_limit);
+                setInputValue('retry_attempts', settings.ai.retry_attempts);
+                setCheckboxValue('enable_cost_alerts', settings.ai.enable_cost_alerts);
+            }
+            
+            // 业务规则配置
+            if (settings.business) {
+                setInputValue('standard_prescription_fee', settings.business.standard_prescription_fee);
+                setInputValue('decoction_service_fee', settings.business.decoction_service_fee);
+                setCheckboxValue('require_doctor_review', settings.business.require_doctor_review);
+                setInputValue('prescription_validity', settings.business.prescription_validity);
+                setCheckboxValue('require_license_verification', settings.business.require_license_verification);
+                setInputValue('doctor_commission_rate', settings.business.doctor_commission_rate);
+                setInputValue('review_time_limit', settings.business.review_time_limit);
+                setCheckboxValue('auto_assign_doctors', settings.business.auto_assign_doctors);
+                setCheckboxValue('require_real_name', settings.business.require_real_name);
+                setInputValue('free_consultation_limit', settings.business.free_consultation_limit);
+                setInputValue('followup_interval', settings.business.followup_interval);
+                setCheckboxValue('enable_patient_feedback', settings.business.enable_patient_feedback);
+            }
+            
+            // 安全策略配置
+            if (settings.security) {
+                setInputValue('password_min_length', settings.security.password_min_length);
+                setCheckboxValue('require_password_complexity', settings.security.require_password_complexity);
+                setInputValue('login_failure_limit', settings.security.login_failure_limit);
+                setInputValue('account_lockout_duration', settings.security.account_lockout_duration);
+                setInputValue('api_rate_limit', settings.security.api_rate_limit);
+                setCheckboxValue('enable_ip_whitelist', settings.security.enable_ip_whitelist);
+                setInputValue('ip_whitelist', settings.security.ip_whitelist);
+                setCheckboxValue('enable_https_only', settings.security.enable_https_only);
+                setCheckboxValue('enable_audit_logging', settings.security.enable_audit_logging);
+                setInputValue('sensitive_log_retention', settings.security.sensitive_log_retention);
+                setCheckboxValue('log_failed_requests', settings.security.log_failed_requests);
+                setCheckboxValue('enable_real_time_alerts', settings.security.enable_real_time_alerts);
+            }
+            
+            // 第三方服务配置
+            if (settings.integration) {
+                setCheckboxValue('enable_alipay', settings.integration.enable_alipay);
+                setInputValue('alipay_merchant_id', settings.integration.alipay_merchant_id);
+                setCheckboxValue('enable_wechatpay', settings.integration.enable_wechatpay);
+                setInputValue('wechat_merchant_id', settings.integration.wechat_merchant_id);
+                setInputValue('smtp_server', settings.integration.smtp_server);
+                setInputValue('smtp_port', settings.integration.smtp_port);
+                setInputValue('sender_email', settings.integration.sender_email);
+                setInputValue('sms_api_key', settings.integration.sms_api_key);
+                setCheckboxValue('enable_decoction_service', settings.integration.enable_decoction_service);
+                setInputValue('decoction_api_endpoint', settings.integration.decoction_api_endpoint);
+                setInputValue('decoction_api_key', settings.integration.decoction_api_key);
+                setInputValue('delivery_promise_days', settings.integration.delivery_promise_days);
+            }
+            
+            // 更新温度显示值
+            const temperatureValue = document.getElementById('temperature_value');
+            const temperatureSlider = document.getElementById('model_temperature');
+            if (temperatureValue && temperatureSlider) {
+                temperatureValue.textContent = temperatureSlider.value;
+            }
+        }
+        
+        // 加载默认设置
+        function loadDefaultSettings() {
+            const defaultSettings = {
+                basic: {
+                    system_name: "TCM-AI 中医智能诊断系统",
+                    system_version: "v2.6.0",
+                    server_port: 8000,
+                    domain_name: "",
+                    database_path: "/opt/tcm-ai/data/user_history.sqlite",
+                    backup_retention: 30,
+                    log_level: "INFO",
+                    log_retention: 90,
+                    session_timeout: 60,
+                    upload_limit: 10,
+                    api_timeout: 30,
+                    max_connections: 100
+                },
+                ai: {
+                    dashscope_api_key: "",
+                    dashscope_endpoint: "https://dashscope.aliyuncs.com/api/v1/",
+                    default_text_model: "qwen-max",
+                    multimodal_model: "qwen-vl-max",
+                    model_temperature: 0.7,
+                    max_tokens: 2000,
+                    daily_cost_limit: 500,
+                    monthly_cost_limit: 15000,
+                    retry_attempts: 3,
+                    enable_cost_alerts: false
+                },
+                business: {
+                    standard_prescription_fee: 88,
+                    decoction_service_fee: 50,
+                    require_doctor_review: false,
+                    prescription_validity: 30,
+                    require_license_verification: false,
+                    doctor_commission_rate: 15,
+                    review_time_limit: 24,
+                    auto_assign_doctors: false,
+                    require_real_name: false,
+                    free_consultation_limit: 1,
+                    followup_interval: 7,
+                    enable_patient_feedback: true
+                },
+                security: {
+                    password_min_length: 8,
+                    require_password_complexity: false,
+                    login_failure_limit: 5,
+                    account_lockout_duration: 15,
+                    api_rate_limit: 60,
+                    enable_ip_whitelist: false,
+                    ip_whitelist: "",
+                    enable_https_only: false,
+                    enable_audit_logging: true,
+                    sensitive_log_retention: 365,
+                    log_failed_requests: true,
+                    enable_real_time_alerts: false
+                },
+                integration: {
+                    enable_alipay: true,
+                    alipay_merchant_id: "",
+                    enable_wechatpay: false,
+                    wechat_merchant_id: "",
+                    smtp_server: "",
+                    smtp_port: 587,
+                    sender_email: "",
+                    sms_api_key: "",
+                    enable_decoction_service: true,
+                    decoction_api_endpoint: "",
+                    decoction_api_key: "",
+                    delivery_promise_days: 3
+                }
+            };
+            
+            currentSettingsData = defaultSettings;
+            populateSettingsForm(defaultSettings);
+        }
+        
+        // 设置输入框值
+        function setInputValue(id, value) {
+            const element = document.getElementById(id);
+            if (element && value !== undefined && value !== null) {
+                element.value = value;
+            }
+        }
+        
+        // 设置复选框值
+        function setCheckboxValue(id, value) {
+            const element = document.getElementById(id);
+            if (element && value !== undefined && value !== null) {
+                element.checked = !!value;
+            }
+        }
+        
+        // 收集所有设置数据
+        function collectAllSettings() {
+            const settings = {
+                basic: {
+                    system_name: document.getElementById('system_name').value,
+                    system_version: document.getElementById('system_version').value,
+                    server_port: parseInt(document.getElementById('server_port').value) || 8000,
+                    domain_name: document.getElementById('domain_name').value,
+                    database_path: document.getElementById('database_path').value,
+                    backup_retention: parseInt(document.getElementById('backup_retention').value) || 30,
+                    log_level: document.getElementById('log_level').value,
+                    log_retention: parseInt(document.getElementById('log_retention').value) || 90,
+                    session_timeout: parseInt(document.getElementById('session_timeout').value) || 60,
+                    upload_limit: parseInt(document.getElementById('upload_limit').value) || 10,
+                    api_timeout: parseInt(document.getElementById('api_timeout').value) || 30,
+                    max_connections: parseInt(document.getElementById('max_connections').value) || 100
+                },
+                ai: {
+                    dashscope_api_key: "[已配置环境变量，请勿修改]",  // 固定值，不从界面获取
+                    dashscope_endpoint: document.getElementById('dashscope_endpoint').value,
+                    default_text_model: document.getElementById('default_text_model').value,
+                    multimodal_model: document.getElementById('multimodal_model').value,
+                    model_temperature: parseFloat(document.getElementById('model_temperature').value) || 0.7,
+                    max_tokens: parseInt(document.getElementById('max_tokens').value) || 2000,
+                    daily_cost_limit: parseInt(document.getElementById('daily_cost_limit').value) || 500,
+                    monthly_cost_limit: parseInt(document.getElementById('monthly_cost_limit').value) || 15000,
+                    retry_attempts: parseInt(document.getElementById('retry_attempts').value) || 3,
+                    enable_cost_alerts: document.getElementById('enable_cost_alerts').checked
+                },
+                business: {
+                    standard_prescription_fee: parseInt(document.getElementById('standard_prescription_fee').value) || 88,
+                    decoction_service_fee: parseInt(document.getElementById('decoction_service_fee').value) || 50,
+                    require_doctor_review: document.getElementById('require_doctor_review').checked,
+                    prescription_validity: parseInt(document.getElementById('prescription_validity').value) || 30,
+                    require_license_verification: document.getElementById('require_license_verification').checked,
+                    doctor_commission_rate: parseInt(document.getElementById('doctor_commission_rate').value) || 15,
+                    review_time_limit: parseInt(document.getElementById('review_time_limit').value) || 24,
+                    auto_assign_doctors: document.getElementById('auto_assign_doctors').checked,
+                    require_real_name: document.getElementById('require_real_name').checked,
+                    free_consultation_limit: parseInt(document.getElementById('free_consultation_limit').value) || 1,
+                    followup_interval: parseInt(document.getElementById('followup_interval').value) || 7,
+                    enable_patient_feedback: document.getElementById('enable_patient_feedback').checked
+                },
+                security: {
+                    password_min_length: parseInt(document.getElementById('password_min_length').value) || 8,
+                    require_password_complexity: document.getElementById('require_password_complexity').checked,
+                    login_failure_limit: parseInt(document.getElementById('login_failure_limit').value) || 5,
+                    account_lockout_duration: parseInt(document.getElementById('account_lockout_duration').value) || 15,
+                    api_rate_limit: parseInt(document.getElementById('api_rate_limit').value) || 60,
+                    enable_ip_whitelist: document.getElementById('enable_ip_whitelist').checked,
+                    ip_whitelist: document.getElementById('ip_whitelist').value,
+                    enable_https_only: document.getElementById('enable_https_only').checked,
+                    enable_audit_logging: document.getElementById('enable_audit_logging').checked,
+                    sensitive_log_retention: parseInt(document.getElementById('sensitive_log_retention').value) || 365,
+                    log_failed_requests: document.getElementById('log_failed_requests').checked,
+                    enable_real_time_alerts: document.getElementById('enable_real_time_alerts').checked
+                },
+                integration: {
+                    enable_alipay: document.getElementById('enable_alipay').checked,
+                    alipay_merchant_id: document.getElementById('alipay_merchant_id').value,
+                    enable_wechatpay: document.getElementById('enable_wechatpay').checked,
+                    wechat_merchant_id: document.getElementById('wechat_merchant_id').value,
+                    smtp_server: document.getElementById('smtp_server').value,
+                    smtp_port: parseInt(document.getElementById('smtp_port').value) || 587,
+                    sender_email: document.getElementById('sender_email').value,
+                    sms_api_key: document.getElementById('sms_api_key').value,
+                    enable_decoction_service: document.getElementById('enable_decoction_service').checked,
+                    decoction_api_endpoint: document.getElementById('decoction_api_endpoint').value,
+                    decoction_api_key: document.getElementById('decoction_api_key').value,
+                    delivery_promise_days: parseInt(document.getElementById('delivery_promise_days').value) || 3
+                }
+            };
+            
+            return settings;
+        }
+        
+        // 保存所有配置
+        async function saveAllSettings() {
+            const settings = collectAllSettings();
+            const saveButton = document.querySelector('.btn.btn-primary');
+            const originalText = saveButton.textContent;
+            
+            try {
+                saveButton.textContent = '💾 保存中...';
+                saveButton.disabled = true;
+                
+                const response = await fetch('/api/admin/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(settings)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 更新左下角状态显示
+                    updateSettingsStatus('success', '配置保存成功', '刚刚');
+                    
+                    // 显示临时成功状态
+                    showSaveStatus('success', '✅ 配置保存成功！');
+                    currentSettingsData = settings;
+                    
+                    // 3秒后自动隐藏状态
+                    setTimeout(() => hideSaveStatus(), 3000);
+                } else {
+                    throw new Error(data.message || '保存失败');
+                }
+                
+            } catch (error) {
+                console.error('保存配置失败:', error);
+                
+                // 更新左下角状态显示
+                updateSettingsStatus('error', '保存失败: ' + error.message, '刚刚');
+                
+                // 显示错误状态
+                showSaveStatus('error', '❌ 保存失败: ' + error.message);
+                
+                // 临时保存到localStorage作为备用
+                localStorage.setItem('tcm_ai_settings_backup', JSON.stringify(settings));
+                
+                // 5秒后自动隐藏状态
+                setTimeout(() => hideSaveStatus(), 5000);
+            } finally {
+                saveButton.textContent = originalText;
+                saveButton.disabled = false;
+            }
+        }
+        
+        // 重置为默认值
+        function resetToDefaults() {
+            if (confirm('⚠️ 确定要重置所有配置为默认值吗？\\n\\n此操作将清除所有自定义配置，无法撤销。')) {
+                loadDefaultSettings();
+                updateSettingsStatus('warning', '已重置为默认配置', '刚刚');
+                alert('🔄 所有配置已重置为默认值。\\n\\n记得点击"保存所有配置"来保存更改。');
+            }
+        }
+        
+        // 显示保存状态
+        function showSaveStatus(type, message) {
+            const statusDiv = document.getElementById('save-status');
+            const iconSpan = document.getElementById('save-status-icon');
+            const textSpan = document.getElementById('save-status-text');
+            
+            if (!statusDiv || !iconSpan || !textSpan) return;
+            
+            // 设置样式和内容
+            if (type === 'success') {
+                statusDiv.style.backgroundColor = '#dcfce7';
+                statusDiv.style.color = '#059669';
+                statusDiv.style.border = '1px solid #bbf7d0';
+                iconSpan.textContent = '✅';
+            } else if (type === 'error') {
+                statusDiv.style.backgroundColor = '#fef2f2';
+                statusDiv.style.color = '#dc2626';
+                statusDiv.style.border = '1px solid #fecaca';
+                iconSpan.textContent = '❌';
+            } else if (type === 'loading') {
+                statusDiv.style.backgroundColor = '#e0f2fe';
+                statusDiv.style.color = '#0369a1';
+                statusDiv.style.border = '1px solid #bae6fd';
+                iconSpan.textContent = '🔄';
+            } else if (type === 'warning') {
+                statusDiv.style.backgroundColor = '#fffbeb';
+                statusDiv.style.color = '#d97706';
+                statusDiv.style.border = '1px solid #fed7aa';
+                iconSpan.textContent = '⚠️';
+            }
+            
+            textSpan.textContent = message;
+            statusDiv.style.display = 'flex';
+        }
+        
+        // 隐藏保存状态
+        function hideSaveStatus() {
+            const statusDiv = document.getElementById('save-status');
+            if (statusDiv) {
+                statusDiv.style.display = 'none';
+            }
+        }
+        
+        // 更新设置状态显示
+        function updateSettingsStatus(type, text, time) {
+            const statusElement = document.getElementById('settings-status');
+            if (!statusElement) return;
+            
+            const iconElement = statusElement.querySelector('.status-icon');
+            const textElement = statusElement.querySelector('.status-text');
+            const timeElement = statusElement.querySelector('.status-time');
+            
+            // 更新图标和颜色
+            switch (type) {
+                case 'success':
+                    iconElement.textContent = '✅';
+                    statusElement.style.color = '#059669';
+                    break;
+                case 'error':
+                    iconElement.textContent = '❌';
+                    statusElement.style.color = '#dc2626';
+                    break;
+                case 'warning':
+                    iconElement.textContent = '⚠️';
+                    statusElement.style.color = '#d97706';
+                    break;
+                default:
+                    iconElement.textContent = '💾';
+                    statusElement.style.color = '#059669';
+            }
+            
+            textElement.textContent = text;
+            timeElement.textContent = time;
+        }
+
 
         // 加载日志数据
         async function loadLogsData() {

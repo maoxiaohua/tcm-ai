@@ -5323,6 +5323,229 @@ async def admin_get_prescription(prescription_id: int):
         if 'conn' in locals():
             conn.close()
 
+@app.get("/api/admin/settings")
+async def admin_get_settings():
+    """获取系统配置"""
+    import json
+    import os
+    
+    config_file_path = "/opt/tcm-ai/data/system_settings.json"
+    
+    try:
+        # 获取默认配置作为基础
+        settings = get_default_system_settings()
+        
+        # 尝试从配置文件读取并合并
+        if os.path.exists(config_file_path):
+            with open(config_file_path, 'r', encoding='utf-8') as f:
+                file_settings = json.load(f)
+                
+                # 合并配置，文件中的配置覆盖默认配置
+                for section in ['basic', 'ai', 'business', 'security', 'integration']:
+                    if section in file_settings:
+                        if section in settings:
+                            settings[section].update(file_settings[section])
+                        else:
+                            settings[section] = file_settings[section]
+        
+        return {
+            "success": True,
+            "settings": settings
+        }
+        
+    except Exception as e:
+        logger.error(f"获取系统配置失败: {e}")
+        # 出现错误时返回默认配置
+        return {
+            "success": True,
+            "settings": get_default_system_settings()
+        }
+
+@app.post("/api/admin/settings")
+async def admin_save_settings(settings_data: dict):
+    """保存系统配置"""
+    import json
+    import os
+    from datetime import datetime
+    
+    config_file_path = "/opt/tcm-ai/data/system_settings.json"
+    backup_file_path = f"/opt/tcm-ai/data/system_settings_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    
+    try:
+        # 创建数据目录（如果不存在）
+        os.makedirs("/opt/tcm-ai/data", exist_ok=True)
+        
+        # 如果已有配置文件，先备份
+        if os.path.exists(config_file_path):
+            import shutil
+            shutil.copy2(config_file_path, backup_file_path)
+        
+        # 验证配置数据
+        validated_settings = validate_system_settings(settings_data)
+        
+        # 添加保存时间戳
+        validated_settings['_metadata'] = {
+            'last_updated': datetime.now().isoformat(),
+            'version': 'v2.6.0',
+            'backup_file': backup_file_path
+        }
+        
+        # 保存配置到文件
+        with open(config_file_path, 'w', encoding='utf-8') as f:
+            json.dump(validated_settings, f, ensure_ascii=False, indent=2)
+        
+        # 清理旧备份文件（只保留最近5个备份）
+        cleanup_old_backups("/opt/tcm-ai/data", "system_settings_backup_", 5)
+        
+        logger.info("系统配置已成功保存")
+        
+        return {
+            "success": True,
+            "message": "系统配置保存成功",
+            "backup_file": backup_file_path
+        }
+        
+    except Exception as e:
+        logger.error(f"保存系统配置失败: {e}")
+        return {
+            "success": False,
+            "message": f"保存系统配置失败: {str(e)}"
+        }
+
+def get_default_system_settings():
+    """获取默认系统配置"""
+    return {
+        "basic": {
+            "system_name": "TCM-AI 中医智能诊断系统",
+            "system_version": "v2.6.0",
+            "server_port": 8000,
+            "domain_name": "mxh0510.cn",
+            "database_path": "/opt/tcm-ai/data/user_history.sqlite",
+            "backup_retention": 30,
+            "log_level": "INFO",
+            "log_retention": 90,
+            "session_timeout": 60,
+            "upload_limit": 10,
+            "api_timeout": 30,
+            "max_connections": 100
+        },
+        "ai": {
+            "dashscope_api_key": "[已配置环境变量，请勿修改]",
+            "dashscope_endpoint": "https://dashscope.aliyuncs.com/api/v1/",
+            "default_text_model": "qwen-max",
+            "multimodal_model": "qwen-vl-max",
+            "model_temperature": 0.7,
+            "max_tokens": 2000,
+            "daily_cost_limit": 500,
+            "monthly_cost_limit": 15000,
+            "retry_attempts": 3,
+            "enable_cost_alerts": False
+        },
+        "business": {
+            "standard_prescription_fee": 88,
+            "decoction_service_fee": 50,
+            "require_doctor_review": False,
+            "prescription_validity": 30,
+            "require_license_verification": False,
+            "doctor_commission_rate": 15,
+            "review_time_limit": 24,
+            "auto_assign_doctors": False,
+            "require_real_name": False,
+            "free_consultation_limit": 1,
+            "followup_interval": 7,
+            "enable_patient_feedback": True
+        },
+        "security": {
+            "password_min_length": 8,
+            "require_password_complexity": False,
+            "login_failure_limit": 5,
+            "account_lockout_duration": 15,
+            "api_rate_limit": 60,
+            "enable_ip_whitelist": False,
+            "ip_whitelist": "",
+            "enable_https_only": True,
+            "enable_audit_logging": True,
+            "sensitive_log_retention": 365,
+            "log_failed_requests": True,
+            "enable_real_time_alerts": False
+        },
+        "integration": {
+            "enable_alipay": True,
+            "alipay_merchant_id": "",
+            "enable_wechatpay": False,
+            "wechat_merchant_id": "",
+            "smtp_server": "",
+            "smtp_port": 587,
+            "sender_email": "",
+            "sms_api_key": "",
+            "enable_decoction_service": True,
+            "decoction_api_endpoint": "",
+            "decoction_api_key": "",
+            "delivery_promise_days": 3
+        }
+    }
+
+def validate_system_settings(settings):
+    """验证系统配置数据"""
+    validated = {}
+    
+    # 验证基础设置
+    if 'basic' in settings:
+        basic = settings['basic']
+        validated['basic'] = {
+            'system_name': str(basic.get('system_name', 'TCM-AI 中医智能诊断系统'))[:100],
+            'system_version': str(basic.get('system_version', 'v2.6.0')),
+            'server_port': max(1000, min(65535, int(basic.get('server_port', 8000)))),
+            'domain_name': str(basic.get('domain_name', ''))[:200],
+            'database_path': str(basic.get('database_path', '/opt/tcm-ai/data/user_history.sqlite')),
+            'backup_retention': max(1, min(365, int(basic.get('backup_retention', 30)))),
+            'log_level': basic.get('log_level', 'INFO') if basic.get('log_level') in ['DEBUG', 'INFO', 'WARNING', 'ERROR'] else 'INFO',
+            'log_retention': max(7, min(365, int(basic.get('log_retention', 90)))),
+            'session_timeout': max(5, min(1440, int(basic.get('session_timeout', 60)))),
+            'upload_limit': max(1, min(100, int(basic.get('upload_limit', 10)))),
+            'api_timeout': max(5, min(300, int(basic.get('api_timeout', 30)))),
+            'max_connections': max(10, min(1000, int(basic.get('max_connections', 100))))
+        }
+    
+    # 验证AI配置
+    if 'ai' in settings:
+        ai = settings['ai']
+        validated['ai'] = {
+            'dashscope_api_key': str(ai.get('dashscope_api_key', ''))[:200],
+            'dashscope_endpoint': str(ai.get('dashscope_endpoint', 'https://dashscope.aliyuncs.com/api/v1/'))[:300],
+            'default_text_model': ai.get('default_text_model', 'qwen-max') if ai.get('default_text_model') in ['qwen-max', 'qwen-plus', 'qwen-turbo'] else 'qwen-max',
+            'multimodal_model': ai.get('multimodal_model', 'qwen-vl-max') if ai.get('multimodal_model') in ['qwen-vl-max', 'qwen-vl-plus'] else 'qwen-vl-max',
+            'model_temperature': max(0.0, min(1.0, float(ai.get('model_temperature', 0.7)))),
+            'max_tokens': max(100, min(8000, int(ai.get('max_tokens', 2000)))),
+            'daily_cost_limit': max(1, min(10000, int(ai.get('daily_cost_limit', 500)))),
+            'monthly_cost_limit': max(100, min(100000, int(ai.get('monthly_cost_limit', 15000)))),
+            'retry_attempts': max(1, min(10, int(ai.get('retry_attempts', 3)))),
+            'enable_cost_alerts': bool(ai.get('enable_cost_alerts', False))
+        }
+    
+    # 验证其他配置分类（简化处理）
+    for category in ['business', 'security', 'integration']:
+        if category in settings:
+            validated[category] = settings[category]
+    
+    return validated
+
+def cleanup_old_backups(directory, prefix, keep_count):
+    """清理旧的备份文件"""
+    import glob
+    
+    try:
+        backup_files = glob.glob(os.path.join(directory, f"{prefix}*.json"))
+        backup_files.sort(key=os.path.getctime, reverse=True)
+        
+        # 删除多余的备份文件
+        for old_backup in backup_files[keep_count:]:
+            os.remove(old_backup)
+            logger.info(f"已删除旧备份文件: {old_backup}")
+    
+    except Exception as e:
+        logger.warning(f"清理备份文件失败: {e}")
+
 @app.get("/api/admin/orders")
 async def admin_get_orders(page: int = 1, per_page: int = 20):
     """获取订单列表"""
