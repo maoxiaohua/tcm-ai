@@ -5663,45 +5663,157 @@ async def admin_system_monitor():
         }
 
 @app.get("/api/admin/logs")
-async def admin_get_logs(page: int = 1, per_page: int = 50):
-    """获取系统日志"""
+async def admin_get_logs(
+    page: int = 1, 
+    per_page: int = 50,
+    level: str = None,
+    keyword: str = None,
+    date: str = None
+):
+    """获取系统日志 - 从审计日志和安全日志中提取"""
     try:
-        # 读取API日志文件
-        log_file = "/opt/tcm-ai/api.log"
-        logs = []
+        import sqlite3
+        # 获取数据库中的审计日志
+        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
+        cursor = conn.cursor()
         
-        if os.path.exists(log_file):
-            with open(log_file, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-                # 获取最新的日志
-                start_idx = max(0, len(lines) - page * per_page)
-                end_idx = len(lines) - (page - 1) * per_page
-                
-                for line in lines[start_idx:end_idx]:
+        # 合并audit_logs和security_audit_logs，统一格式
+        query = """
+            SELECT 
+                created_at as timestamp,
+                'INFO' as level,
+                resource_type || ':' || action as source,
+                COALESCE(details, action || ' ' || COALESCE(resource_type, '')) as message
+            FROM audit_logs
+            UNION ALL
+            SELECT 
+                event_timestamp as timestamp,
+                CASE 
+                    WHEN risk_level = 'high' THEN 'ERROR'
+                    WHEN risk_level = 'medium' THEN 'WARN'
+                    ELSE 'INFO'
+                END as level,
+                audit_source as source,
+                event_type || ': ' || COALESCE(event_details, '') as message
+            FROM security_audit_logs
+            WHERE 1=1
+        """
+        params = []
+        
+        # 添加过滤条件
+        having_conditions = []
+        if level:
+            having_conditions.append("level = ?")
+            params.append(level)
+        
+        if keyword:
+            having_conditions.append("(message LIKE ? OR source LIKE ?)")
+            params.extend([f"%{keyword}%", f"%{keyword}%"])
+            
+        if date:
+            having_conditions.append("DATE(timestamp) = ?")
+            params.append(date)
+        
+        if having_conditions:
+            # 使用子查询来应用过滤
+            query = f"SELECT * FROM ({query}) WHERE {' AND '.join(having_conditions)}"
+        
+        # 排序和分页
+        query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+        params.extend([per_page, (page - 1) * per_page])
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        logs = []
+        for row in rows:
+            logs.append({
+                "timestamp": row[0],
+                "level": row[1],
+                "source": row[2],
+                "message": row[3]
+            })
+        
+        # 获取总数
+        count_query = """
+            SELECT COUNT(*) FROM (
+                SELECT created_at as timestamp, 'INFO' as level, resource_type as source, details as message FROM audit_logs
+                UNION ALL
+                SELECT event_timestamp as timestamp, 
+                    CASE WHEN risk_level = 'high' THEN 'ERROR' WHEN risk_level = 'medium' THEN 'WARN' ELSE 'INFO' END as level,
+                    audit_source as source, event_type as message FROM security_audit_logs
+            )
+        """
+        count_params = []
+        
+        if level or keyword or date:
+            count_conditions = []
+            if level:
+                count_conditions.append("level = ?")
+                count_params.append(level)
+            if keyword:
+                count_conditions.append("(message LIKE ? OR source LIKE ?)")
+                count_params.extend([f"%{keyword}%", f"%{keyword}%"])
+            if date:
+                count_conditions.append("DATE(timestamp) = ?")
+                count_params.append(date)
+            count_query += " WHERE " + " AND ".join(count_conditions)
+        
+        cursor.execute(count_query, count_params)
+        total = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        # 如果数据库没有日志，尝试读取文件日志
+        if not logs:
+            log_file = "/opt/tcm-ai/api.log"
+            if os.path.exists(log_file):
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    
+                for line in lines[-50:]:  # 只取最新50条
                     if line.strip():
+                        # 简单解析日志行
+                        log_level = "INFO"
+                        if "ERROR" in line.upper():
+                            log_level = "ERROR"
+                        elif "WARN" in line.upper():
+                            log_level = "WARN"
+                        elif "DEBUG" in line.upper():
+                            log_level = "DEBUG"
+                        
+                        # 过滤条件检查
+                        if level and log_level != level:
+                            continue
+                        if keyword and keyword.lower() not in line.lower():
+                            continue
+                            
                         logs.append({
                             "timestamp": datetime.now().isoformat(),
-                            "level": "INFO",
+                            "level": log_level,
                             "message": line.strip(),
                             "source": "api.log"
                         })
-        
-        if not logs:
-            # 如果没有日志文件，返回模拟数据
-            logs = [
-                {
-                    "timestamp": datetime.now().isoformat(),
-                    "level": "INFO",
-                    "message": "系统正常运行",
-                    "source": "system"
-                },
-                {
-                    "timestamp": datetime.now().isoformat(),
-                    "level": "INFO", 
-                    "message": "API服务器启动成功",
-                    "source": "system"
-                }
-            ]
+                
+                total = len(logs)
+            
+            # 如果还是没有日志，返回模拟数据
+            if not logs:
+                logs = [
+                    {
+                        "timestamp": datetime.now().isoformat(),
+                        "level": "INFO",
+                        "message": "系统正常运行",
+                        "source": "system"
+                    },
+                    {
+                        "timestamp": datetime.now().isoformat(),
+                        "level": "INFO", 
+                        "message": "API服务器启动成功",
+                        "source": "system"
+                    }
+                ]
+                total = len(logs)
         
         return {
             "success": True,
@@ -5709,8 +5821,8 @@ async def admin_get_logs(page: int = 1, per_page: int = 50):
             "pagination": {
                 "page": page,
                 "per_page": per_page,
-                "total": len(logs),
-                "pages": (len(logs) + per_page - 1) // per_page
+                "total": total,
+                "pages": (total + per_page - 1) // per_page
             }
         }
         
@@ -5722,6 +5834,103 @@ async def admin_get_logs(page: int = 1, per_page: int = 50):
             "logs": [],
             "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0}
         }
+
+@app.get("/api/admin/logs/export")
+async def admin_export_logs(
+    level: str = None,
+    keyword: str = None,
+    date: str = None
+):
+    """导出系统日志为CSV格式"""
+    try:
+        import sqlite3
+        from fastapi.responses import StreamingResponse
+        import csv
+        from io import StringIO
+        
+        # 获取所有符合条件的日志
+        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
+        cursor = conn.cursor()
+        
+        # 构建查询 - 合并audit_logs和security_audit_logs
+        query = """
+            SELECT 
+                created_at as timestamp,
+                'INFO' as level,
+                resource_type || ':' || action as source,
+                COALESCE(details, action || ' ' || COALESCE(resource_type, '')) as message
+            FROM audit_logs
+            UNION ALL
+            SELECT 
+                event_timestamp as timestamp,
+                CASE 
+                    WHEN risk_level = 'high' THEN 'ERROR'
+                    WHEN risk_level = 'medium' THEN 'WARN'
+                    ELSE 'INFO'
+                END as level,
+                audit_source as source,
+                event_type || ': ' || COALESCE(event_details, '') as message
+            FROM security_audit_logs
+        """
+        params = []
+        
+        # 添加过滤条件
+        conditions = []
+        if level:
+            conditions.append("level = ?")
+            params.append(level)
+        
+        if keyword:
+            conditions.append("(message LIKE ? OR source LIKE ?)")
+            params.extend([f"%{keyword}%", f"%{keyword}%"])
+            
+        if date:
+            conditions.append("DATE(timestamp) = ?")
+            params.append(date)
+        
+        if conditions:
+            query = f"SELECT * FROM ({query}) WHERE {' AND '.join(conditions)}"
+        
+        query += " ORDER BY timestamp DESC"
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        conn.close()
+        
+        # 创建CSV内容
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # 写入表头
+        writer.writerow(['时间', '级别', '来源', '消息'])
+        
+        # 写入数据
+        for row in rows:
+            writer.writerow([row[0], row[1], row[2], row[3]])
+        
+        # 如果没有数据，返回提示
+        if not rows:
+            writer.writerow(['暂无日志数据', '', '', ''])
+        
+        # 准备文件内容
+        csv_content = output.getvalue()
+        output.close()
+        
+        # 添加BOM以支持Excel正确显示中文
+        csv_content = '\ufeff' + csv_content
+        
+        # 返回CSV文件
+        return StreamingResponse(
+            iter([csv_content.encode('utf-8')]),
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": f"attachment; filename=system-logs-{datetime.now().strftime('%Y%m%d-%H%M%S')}.csv"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"导出系统日志失败: {e}")
+        raise HTTPException(status_code=500, detail=f"导出失败: {e}")
 
 # ==================== 医生工作台API ====================
 # 所有医生API已移至 api/routes/doctor_routes.py 统一管理

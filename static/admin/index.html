@@ -1836,10 +1836,40 @@
                         <div class="table-header">
                             <h3 class="table-title">系统日志</h3>
                             <div class="table-actions">
-                                <button class="btn btn-secondary">📥 导出日志</button>
-                                <button class="btn btn-primary">🔍 搜索过滤</button>
+                                <button id="exportLogsBtn" class="btn btn-secondary" onclick="exportLogs()">📥 导出日志</button>
+                                <button id="searchLogsBtn" class="btn btn-primary" onclick="showLogsFilter()">🔍 搜索过滤</button>
                             </div>
                         </div>
+                        
+                        <!-- 搜索过滤面板 -->
+                        <div id="logsFilterPanel" class="filter-panel" style="display: none; margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e5e7eb;">
+                            <div class="filter-row" style="display: flex; gap: 15px; align-items: end;">
+                                <div class="filter-item">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">日志级别:</label>
+                                    <select id="logLevelFilter" class="form-control" style="width: 120px;">
+                                        <option value="">全部</option>
+                                        <option value="INFO">INFO</option>
+                                        <option value="WARN">WARN</option>
+                                        <option value="ERROR">ERROR</option>
+                                        <option value="DEBUG">DEBUG</option>
+                                    </select>
+                                </div>
+                                <div class="filter-item">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">关键词:</label>
+                                    <input type="text" id="logKeywordFilter" class="form-control" placeholder="搜索日志内容..." style="width: 200px;">
+                                </div>
+                                <div class="filter-item">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">时间范围:</label>
+                                    <input type="date" id="logDateFilter" class="form-control" style="width: 150px;">
+                                </div>
+                                <div class="filter-item">
+                                    <button onclick="applyLogsFilter()" class="btn btn-primary" style="height: 38px;">🔍 搜索</button>
+                                    <button onclick="clearLogsFilter()" class="btn btn-secondary" style="height: 38px; margin-left: 10px;">🧹 清除</button>
+                                    <button onclick="hideLogsFilter()" class="btn btn-secondary" style="height: 38px; margin-left: 10px;">✖ 关闭</button>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="table-content">
                             <table>
                                 <thead>
@@ -5786,6 +5816,143 @@
                         </td>
                     </tr>
                 `;
+            }
+        }
+
+        // 日志相关功能函数
+        
+        // 显示日志搜索过滤面板
+        function showLogsFilter() {
+            const panel = document.getElementById('logsFilterPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // 隐藏日志搜索过滤面板
+        function hideLogsFilter() {
+            document.getElementById('logsFilterPanel').style.display = 'none';
+        }
+
+        // 应用日志过滤
+        async function applyLogsFilter() {
+            try {
+                const level = document.getElementById('logLevelFilter').value;
+                const keyword = document.getElementById('logKeywordFilter').value;
+                const date = document.getElementById('logDateFilter').value;
+                
+                let url = '/api/admin/logs?page=1&per_page=100';
+                
+                // 构建查询参数
+                const params = new URLSearchParams();
+                if (level) params.append('level', level);
+                if (keyword) params.append('keyword', keyword);
+                if (date) params.append('date', date);
+                
+                if (params.toString()) {
+                    url += '&' + params.toString();
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                const tableBody = document.getElementById('logsTableBody');
+                if (data.success && data.logs.length > 0) {
+                    tableBody.innerHTML = '';
+                    data.logs.forEach(log => {
+                        // 如果有关键词过滤，高亮显示
+                        let message = log.message;
+                        if (keyword && keyword.trim()) {
+                            const regex = new RegExp(`(${keyword.trim()})`, 'gi');
+                            message = message.replace(regex, '<mark style="background-color: #fef08a;">$1</mark>');
+                        }
+                        
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${formatDate(log.timestamp)}</td>
+                            <td><span class="status-badge status-${log.level.toLowerCase() === 'info' ? 'active' : 'pending'}">${log.level}</span></td>
+                            <td>${log.source}</td>
+                            <td style="max-width: 400px; word-break: break-word;">${message}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                } else {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 40px; color: #6b7280;">
+                                没有找到符合条件的日志
+                            </td>
+                        </tr>
+                    `;
+                }
+            } catch (error) {
+                console.error('过滤日志失败:', error);
+                alert('过滤日志失败: ' + error.message);
+            }
+        }
+
+        // 清除日志过滤
+        function clearLogsFilter() {
+            document.getElementById('logLevelFilter').value = '';
+            document.getElementById('logKeywordFilter').value = '';
+            document.getElementById('logDateFilter').value = '';
+            loadLogsData(); // 重新加载所有日志
+        }
+
+        // 导出日志功能
+        async function exportLogs() {
+            try {
+                const level = document.getElementById('logLevelFilter').value;
+                const keyword = document.getElementById('logKeywordFilter').value;
+                const date = document.getElementById('logDateFilter').value;
+                
+                let url = '/api/admin/logs/export';
+                
+                // 构建查询参数
+                const params = new URLSearchParams();
+                if (level) params.append('level', level);
+                if (keyword) params.append('keyword', keyword);
+                if (date) params.append('date', date);
+                
+                if (params.toString()) {
+                    url += '?' + params.toString();
+                }
+                
+                // 显示加载提示
+                const exportBtn = document.getElementById('exportLogsBtn');
+                const originalText = exportBtn.textContent;
+                exportBtn.textContent = '🔄 导出中...';
+                exportBtn.disabled = true;
+                
+                const response = await fetch(url);
+                
+                if (response.ok) {
+                    // 创建下载链接
+                    const blob = await response.blob();
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    
+                    // 设置文件名
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                    link.download = `system-logs-${timestamp}.csv`;
+                    
+                    // 触发下载
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(downloadUrl);
+                    
+                    alert('日志导出成功！');
+                } else {
+                    throw new Error('导出请求失败');
+                }
+            } catch (error) {
+                console.error('导出日志失败:', error);
+                alert('导出日志失败: ' + error.message);
+            } finally {
+                // 恢复按钮状态
+                const exportBtn = document.getElementById('exportLogsBtn');
+                exportBtn.textContent = '📥 导出日志';
+                exportBtn.disabled = false;
             }
         }
 
