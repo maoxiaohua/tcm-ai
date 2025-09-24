@@ -129,12 +129,12 @@ def format_session_response(session: UserSession) -> Dict[str, Any]:
 def get_redirect_url(user_type: UserType) -> str:
     """根据用户类型获取重定向URL"""
     redirect_map = {
-        UserType.PATIENT: "/",
+        UserType.PATIENT: "/smart",
         UserType.DOCTOR: "/doctor",
         UserType.ADMIN: "/admin",
         UserType.SUPERADMIN: "/admin"
     }
-    return redirect_map.get(user_type, "/")
+    return redirect_map.get(user_type, "/smart")
 
 async def get_current_user_session(
     request: Request,
