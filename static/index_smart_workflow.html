@@ -1875,6 +1875,9 @@
                         <button class="logout-btn" onclick="logout()">退出</button>
                     </div>
                     
+                    <button class="history-btn" onclick="window.location.href='/static/prescription_checker_v2.html'" title="处方安全检测" id="prescriptionCheckerBtn">
+                        💊 处方检测
+                    </button>
                     <button class="history-btn" onclick="openHistoryPage()" title="查看问诊历史" id="historyBtn">
                         📋 历史记录
                     </button>
@@ -4292,6 +4295,10 @@ ${data.analysis_result}`;
 
         // 检查登录状态
         function checkLoginStatus() {
+            // 检查是否是访客模式
+            const urlParams = new URLSearchParams(window.location.search);
+            const isGuestMode = urlParams.get('mode') === 'guest';
+            
             // 按角色检查token
             const patientToken = localStorage.getItem('patientToken');
             const doctorToken = localStorage.getItem('doctorToken');
@@ -4316,8 +4323,12 @@ ${data.analysis_result}`;
                         verifyTokenAndLoadUserData(token);
                     }
                 }
+            } else if (isGuestMode) {
+                // 访客模式 - 允许无token访问，显示登录/注册按钮
+                console.log('访客模式：允许无登录访问');
+                updateUserInterface(false);
             } else {
-                // 🔒 安全修复：未登录用户强制跳转到登录页面
+                // 非访客模式且无token - 跳转到登录页
                 console.log('未检测到有效登录状态，跳转到登录页面');
                 showMessage('请先登录后使用智能问诊服务', 'warning');
                 setTimeout(() => {
@@ -4363,42 +4374,66 @@ ${data.analysis_result}`;
             const userAvatar = document.getElementById('userAvatar');
             const userName = document.getElementById('userName');
             
-            if (isLoggedIn && currentUser) {
-                authButtons.style.display = 'none';
-                userInfo.style.display = 'flex';
-                
-                // 处理用户显示名称
-                let displayName = '用户';
-                if (currentUser.username) {
-                    displayName = currentUser.username;
-                } else if (currentUser.name) {
-                    displayName = currentUser.name;
-                } else if (currentUser.phone) {
-                    displayName = currentUser.phone;
-                } else if (currentUser.user_id) {
-                    // 将user_id转换为友好的显示名称
-                    if (currentUser.user_id.includes('patient')) {
-                        displayName = '患者用户';
-                    } else if (currentUser.user_id.includes('doctor')) {
-                        displayName = '医生用户';
-                    } else if (currentUser.user_id.includes('admin')) {
-                        displayName = '管理员';
-                    } else {
-                        displayName = currentUser.user_id;
+            if (isLoggedIn) {
+                // 从localStorage读取最新的用户信息
+                let userData = currentUser;
+                if (!userData) {
+                    const storedUser = localStorage.getItem('currentUser');
+                    if (storedUser) {
+                        try {
+                            userData = JSON.parse(storedUser);
+                        } catch (e) {
+                            console.error('解析用户数据失败:', e);
+                        }
                     }
                 }
                 
-                userName.textContent = displayName;
-                userAvatar.textContent = displayName.charAt(0).toUpperCase();
-                
-                console.log('用户界面更新:', {
-                    isLoggedIn,
-                    currentUser,
-                    displayName
-                });
+                if (userData) {
+                    authButtons.style.display = 'none';
+                    userInfo.style.display = 'flex';
+                    
+                    // 处理用户显示名称
+                    let displayName = '用户';
+                    if (userData.username) {
+                        displayName = userData.username;
+                    } else if (userData.name) {
+                        displayName = userData.name;
+                    } else if (userData.display_name) {
+                        displayName = userData.display_name;
+                    } else if (userData.phone) {
+                        displayName = userData.phone;
+                    } else if (userData.user_id || userData.id) {
+                        // 将user_id转换为友好的显示名称
+                        const userId = userData.user_id || userData.id;
+                        if (userId.includes('patient')) {
+                            displayName = '患者用户';
+                        } else if (userId.includes('doctor')) {
+                            displayName = '医生用户';
+                        } else if (userId.includes('admin')) {
+                            displayName = '管理员';
+                        } else {
+                            displayName = userId.substring(0, 12) + '...';
+                        }
+                    }
+                    
+                    userName.textContent = displayName;
+                    userAvatar.textContent = displayName.charAt(0).toUpperCase();
+                    
+                    console.log('✅ 用户界面更新 - 已登录:', {
+                        displayName,
+                        userId: userData.user_id || userData.id
+                    });
+                } else {
+                    // userData不存在，显示未登录状态
+                    authButtons.style.display = 'flex';
+                    userInfo.style.display = 'none';
+                    console.log('⚠️ 用户界面更新 - userData不存在，显示登录按钮');
+                }
             } else {
+                // 未登录状态
                 authButtons.style.display = 'flex';
                 userInfo.style.display = 'none';
+                console.log('ℹ️ 用户界面更新 - 未登录状态');
             }
         }
 
