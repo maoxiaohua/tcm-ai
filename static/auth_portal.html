@@ -6,6 +6,9 @@
     <title>TCM AI 中医智能诊疗系统 - 登录注册</title>
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     
+    <!-- 统一认证管理器 -->
+    <script src="/static/js/auth_manager.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -1079,35 +1082,14 @@
                     addDebugLog('✅ 登录API成功，redirect_url: ' + data.redirect_url);
                     showSuccess('登录成功！正在跳转...');
                     
-                    // 保存用户信息和token
-                    if (data.user) {
-                        // 保存完整用户信息，确保跨设备一致性
-                        localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    // 使用统一认证管理器保存登录状态
+                    if (data.user && data.session && data.session.session_id) {
+                        // 使用authManager统一保存
+                        window.authManager.saveLoginState(data.user, data.session.session_id, remember);
                         
                         // 如果是患者，设置固定用户ID到对话状态管理器
                         if (data.user.primary_role === 'patient' && window.conversationStateManager) {
                             window.conversationStateManager.setCurrentUserId(data.user.id, data.user);
-                        }
-                        
-                        // 保存token (统一认证系统)
-                        if (data.session && data.session.session_id) {
-                            localStorage.setItem('session_token', data.session.session_id);
-                            // 设置cookie用于权限验证
-                            document.cookie = `session_token=${data.session.session_id}; path=/; max-age=86400; secure; samesite=strict`;
-                            addDebugLog('🍪 设置cookie: session_token=' + data.session.session_id.substring(0, 10) + '...');
-                            // 向后兼容
-                            const role = data.user.primary_role;
-                            localStorage.setItem(`${role}Token`, data.session.session_id);
-                            addDebugLog('💾 设置localStorage: ' + role + 'Token = ' + data.session.session_id.substring(0, 10) + '...');
-                        }
-                        
-                        // 保存用户信息
-                        if (data.user) {
-                            localStorage.setItem('currentUser', JSON.stringify(data.user));
-                        }
-                        
-                        if (remember) {
-                            localStorage.setItem('rememberedUser', username);
                         }
                         
                         console.log('✅ 用户登录成功，已保存固定ID:', data.user.id);

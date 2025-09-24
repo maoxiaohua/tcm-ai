@@ -44,6 +44,9 @@
     <!-- 版本标识: v1.2.4 更新时间: 2025-08-03 20:20 分享优化版 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    
+    <!-- 统一认证管理器 -->
+    <script src="/static/js/auth_manager.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -4293,7 +4296,7 @@ ${data.analysis_result}`;
             checkLoginStatus();
         });
 
-        // 检查登录状态
+        // 检查登录状态 - 使用统一认证管理器
         function checkLoginStatus() {
             console.log('🔍 检查登录状态...');
             
@@ -4301,48 +4304,30 @@ ${data.analysis_result}`;
             const urlParams = new URLSearchParams(window.location.search);
             const isGuestMode = urlParams.get('mode') === 'guest';
             
-            // 按角色检查token - 统一使用session_token
-            const sessionToken = localStorage.getItem('session_token');
-            const patientToken = localStorage.getItem('patientToken');
-            const doctorToken = localStorage.getItem('doctorToken');
-            const adminToken = localStorage.getItem('adminToken');
-            
-            // 优先使用session_token，然后fallback到角色专用token
-            const token = sessionToken || patientToken || doctorToken || adminToken;
-            
-            // 读取用户数据 - 统一使用currentUser
-            const userDataStr = localStorage.getItem('currentUser');
+            // 使用authManager检查登录状态
+            const user = window.authManager.getCurrentUser();
+            const token = window.authManager.getToken();
             
             console.log('📋 登录状态检查结果:', {
                 isGuestMode,
+                isLoggedIn: window.authManager.isLoggedIn(),
+                hasUser: !!user,
                 hasToken: !!token,
-                hasUserData: !!userDataStr,
-                tokenType: sessionToken ? 'session_token' : (patientToken ? 'patientToken' : (doctorToken ? 'doctorToken' : (adminToken ? 'adminToken' : 'none')))
+                username: user?.username || user?.display_name
             });
             
-            if (token && userDataStr) {
-                // 有token且有用户数据 - 直接使用
-                try {
-                    currentUser = JSON.parse(userDataStr);
-                    userToken = token;
-                    console.log('✅ 登录状态有效，用户:', currentUser.username || currentUser.display_name);
-                    updateUserInterface(true);
-                } catch (e) {
-                    console.error('❌ 用户数据解析失败:', e);
-                    // 清除无效数据
-                    localStorage.removeItem('currentUser');
-                    if (isGuestMode) {
-                        updateUserInterface(false);
-                    } else {
-                        verifyTokenAndLoadUserData(token);
-                    }
-                }
-            } else if (token && !userDataStr) {
-                // 有token但没有用户数据 - 尝试从后端验证
-                console.log('⚠️ 有token但缺少用户数据，尝试验证...');
+            if (window.authManager.isLoggedIn()) {
+                // 已登录 - 直接使用
+                currentUser = user;
+                userToken = token;
+                console.log('✅ 登录状态有效，用户:', user.username || user.display_name, '角色:', user.primary_role);
+                updateUserInterface(true);
+            } else if (token) {
+                // 有token但用户信息缺失 - 尝试从后端验证
+                console.log('⚠️ 有token但缺少完整用户数据，尝试验证...');
                 verifyTokenAndLoadUserData(token);
             } else if (isGuestMode) {
-                // 访客模式 - 允许无token访问
+                // 访客模式 - 允许无登录访问
                 console.log('ℹ️ 访客模式：允许无登录访问');
                 updateUserInterface(false);
             } else {
@@ -4356,36 +4341,24 @@ ${data.analysis_result}`;
             }
         }
         
-        // 验证token并加载用户数据
+        // 验证token并加载用户数据 - 使用统一认证管理器
         async function verifyTokenAndLoadUserData(token) {
-            try {
-                console.log('🔄 验证token并加载用户数据...');
-                const response = await fetch('/api/auth/profile', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.user) {
-                        currentUser = data.user;
-                        userToken = token;
-                        // 统一使用currentUser键
-                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                        console.log('✅ 从后端验证成功，用户:', currentUser.username || currentUser.display_name);
-                        updateUserInterface(true);
-                        return;
-                    }
-                }
-                
-                // token无效，清除数据
+            console.log('🔄 验证token并加载用户数据...');
+            
+            const user = await window.authManager.verifyToken(token);
+            
+            if (user) {
+                currentUser = user;
+                userToken = token;
+                console.log('✅ 从后端验证成功，用户:', user.username || user.display_name);
+                updateUserInterface(true);
+            } else {
                 console.log('❌ Token验证失败，清除数据');
-                clearUserData();
-            } catch (error) {
-                console.error('❌ 验证token失败:', error);
-                clearUserData();
+                window.authManager.clearLoginState();
+                // 跳转到登录页
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1000);
             }
         }
 
@@ -4532,11 +4505,13 @@ ${data.analysis_result}`;
 
         // 退出登录
         function logout() {
+            console.log('🚪 用户退出登录');
+            
+            // 使用统一认证管理器清除登录状态
+            window.authManager.clearLoginState();
+            
             currentUser = null;
             userToken = null;
-            
-            // 清除localStorage
-            clearUserData();
             
             // 更新界面
             updateUserInterface(false);
@@ -4544,10 +4519,10 @@ ${data.analysis_result}`;
             // 显示退出消息
             showMessage('正在退出登录...', 'info');
             
-            // 🔒 安全修复：退出后立即跳转到登录界面
+            // 退出后跳转到登录页面
             setTimeout(() => {
                 window.location.href = '/login';
-            }, 1000); // 1秒后跳转，让用户看到退出消息
+            }, 1000);
         }
 
         // 清除用户数据
