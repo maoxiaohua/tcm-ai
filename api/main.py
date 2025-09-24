@@ -4620,7 +4620,7 @@ async def navigation_page():
 
 # 公共API - 医生列表
 @app.get("/api/doctors/list")
-async def get_doctors_list(page: int = 1, per_page: int = 10):
+async def get_doctors_list(page: int = 1, per_page: int = 20):
     """获取医生列表 - 支持分页"""
     import sqlite3
     
@@ -4639,7 +4639,12 @@ async def get_doctors_list(page: int = 1, per_page: int = 10):
             SELECT id, name, license_no, speciality, hospital, created_at
             FROM doctors 
             WHERE status = 'active' 
-            ORDER BY created_at DESC
+            ORDER BY 
+                CASE 
+                    WHEN id IN (1, 2, 3, 5, 6, 7) THEN 0 
+                    ELSE 1 
+                END,
+                id ASC
             LIMIT ? OFFSET ?
         """, (per_page, offset))
         
@@ -4658,12 +4663,13 @@ async def get_doctors_list(page: int = 1, per_page: int = 10):
             # 查找是否有对应的默认医生模板
             default_template = None
             for default_doc in default_doctors:
-                # 根据ID映射或名字匹配找到模板
-                if (doctor_id == 1 and default_doc['id'] == 'zhang_zhongjing') or \
+                # 根据ID映射或名字匹配找到模板 - 修复映射关系
+                if (doctor_id == 1 and default_doc['id'] == 'jin_daifu') or \
                    (doctor_id == 2 and default_doc['id'] == 'ye_tianshi') or \
                    (doctor_id == 3 and default_doc['id'] == 'li_dongyuan') or \
                    (doctor_id == 5 and default_doc['id'] == 'liu_duzhou') or \
-                   (doctor_id == 6 and default_doc['id'] == 'zheng_qin_an'):
+                   (doctor_id == 6 and default_doc['id'] == 'zheng_qin_an') or \
+                   (doctor_id == 7 and default_doc['id'] == 'zhu_danxi'):
                     default_template = default_doc
                     break
             
@@ -4671,6 +4677,9 @@ async def get_doctors_list(page: int = 1, per_page: int = 10):
                 # 使用模板但更新数据库中的姓名和专业信息
                 doctor_data = default_template.copy()
                 doctor_data['name'] = doctor_name  # 使用数据库中的实际姓名
+                # 强制确保doctor_code字段存在
+                if 'doctor_code' not in doctor_data:
+                    doctor_data['doctor_code'] = doctor_data['id']
                 if row['speciality']:
                     doctor_data['school'] = row['speciality']
                     doctor_data['specialty'] = row['speciality']
@@ -4678,8 +4687,10 @@ async def get_doctors_list(page: int = 1, per_page: int = 10):
                     doctor_data['hospital'] = row['hospital']
             else:
                 # 新医生使用基础数据结构
+                doctor_code = f"doctor_{doctor_id}"
                 doctor_data = {
-                    "id": f"doctor_{doctor_id}",
+                    "id": doctor_code,
+                    "doctor_code": doctor_code,  # 添加doctor_code字段
                     "name": doctor_name,
                     "school": row['speciality'] or "现代中医",
                     "avatar": get_doctor_avatar(doctor_name),
@@ -4753,7 +4764,19 @@ def get_default_doctors() -> list:
     """返回默认医生数据（与前端保持完全一致）"""
     return [
         {
+            "id": "jin_daifu",
+            "doctor_code": "jin_daifu",
+            "name": "金大夫",
+            "school": "经方大师",
+            "era": "现代",
+            "avatar": "👨‍⚕️",
+            "description": "经方大师，深通古典医学，擅长运用经典方剂解决现代疑难杂症，临床经验丰富。",
+            "specialty": "经方大师 • 综合诊疗",
+            "specialties": ["经方应用", "疑难杂症", "综合诊疗", "古典医学"]
+        },
+        {
             "id": "zhang_zhongjing",
+            "doctor_code": "zhang_zhongjing",  # 添加doctor_code字段
             "name": "张仲景",
             "school": "伤寒派",
             "era": "汉代",
@@ -4764,6 +4787,7 @@ def get_default_doctors() -> list:
         },
         {
             "id": "ye_tianshi",
+            "doctor_code": "ye_tianshi",
             "name": "叶天士",
             "school": "温病派",
             "era": "清代", 
@@ -4774,6 +4798,7 @@ def get_default_doctors() -> list:
         },
         {
             "id": "li_dongyuan",
+            "doctor_code": "li_dongyuan",
             "name": "李东垣",
             "school": "补土派",
             "era": "金代",
@@ -4784,6 +4809,7 @@ def get_default_doctors() -> list:
         },
         {
             "id": "zhu_danxi",
+            "doctor_code": "zhu_danxi",
             "name": "朱丹溪",
             "school": "滋阴派",
             "era": "元代",
@@ -4793,7 +4819,8 @@ def get_default_doctors() -> list:
             "specialties": ["阴虚火旺", "妇科杂症", "内科调养", "养阴清热"]
         },
         {
-            "id": "liu_duzhou", 
+            "id": "liu_duzhou",
+            "doctor_code": "liu_duzhou", 
             "name": "刘渡舟",
             "school": "经方派",
             "era": "现代",
@@ -4804,6 +4831,7 @@ def get_default_doctors() -> list:
         },
         {
             "id": "zheng_qin_an",
+            "doctor_code": "zheng_qin_an",
             "name": "郑钦安", 
             "school": "扶阳派",
             "era": "清代",

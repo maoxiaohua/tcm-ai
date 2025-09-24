@@ -2011,7 +2011,7 @@
     <script>
         // 全局变量
         let currentConversationId = '';
-        let selectedDoctor = 'zhang_zhongjing'; // 默认张仲景
+        let selectedDoctor = 'jin_daifu'; // 默认金大夫
         let isVoiceRecording = false;
         let mediaRecorder = null;
         let audioChunks = [];
@@ -2025,6 +2025,7 @@
         
         // 医生默认头像映射（用于API返回的医生数据）
         const doctorAvatarMap = {
+            "jin_daifu": "👨‍⚕️",
             "zhang_zhongjing": "🎯",
             "ye_tianshi": "🌡️",
             "li_dongyuan": "🌱",
@@ -2084,6 +2085,13 @@
         // 加载默认医生数据（备选方案）
         function loadDefaultDoctors() {
             doctors = {
+                "jin_daifu": {
+                    "name": "金大夫",
+                    "school": "经方大师", 
+                    "avatar": "👨‍⚕️",
+                    "specialty": "经方应用、疑难杂症、综合诊疗",
+                    "introduction": "经方大师，深通古典医学，擅长运用经典方剂解决现代疑难杂症，临床经验丰富。"
+                },
                 "zhang_zhongjing": {
                     "name": "张仲景",
                     "school": "伤寒派", 
@@ -2145,9 +2153,9 @@
             renderDoctorCards();
             loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
             
-            // 设置默认医生 - 张仲景（最全面的医师）
+            // 设置默认医生 - 金大夫（经方大师）
             // 🔧 修复重复欢迎消息：跳过历史记录加载，因为loadConversationHistory已经处理了
-            setDefaultDoctor('zhang_zhongjing', true);
+            setDefaultDoctor('jin_daifu', true);
             
             // 🧹 暴露全局清理函数（供外部调用）
             window.clearCurrentUserData = clearCurrentUserData;
@@ -3556,6 +3564,7 @@
             
             // 备选：硬编码映射（兼容旧数据）
             const doctorNames = {
+                'jin_daifu': '金大夫',
                 'zhang_zhongjing': '张仲景',
                 'ye_tianshi': '叶天士',
                 'li_dongyuan': '李东垣',
