@@ -109,7 +109,6 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                     
                     logger.info(f"管理员权限验证成功，用户: {user_id}, 角色: {role_row[0]}")
                     # 权限验证成功，直接返回管理员页面
-                    from fastapi.responses import FileResponse
                     return FileResponse('/opt/tcm-ai/static/admin/index.html')
                         
                 except Exception as e:
