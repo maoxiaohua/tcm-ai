@@ -2036,7 +2036,7 @@
         // 从API加载医生列表
         async function loadDoctors() {
             try {
-                const response = await fetch('/api/doctor/list');
+                const response = await fetch('/api/doctors/list');
                 const result = await response.json();
                 
                 if (result.success && result.doctors) {

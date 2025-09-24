@@ -4646,21 +4646,55 @@ async def get_doctors_list(page: int = 1, per_page: int = 10):
         rows = cursor.fetchall()
         doctors = []
         
-        # 为每个医生生成与前端一致的数据结构
+        # 获取默认医生数据模板
+        default_doctors = get_default_doctors()
+        
+        # 为每个数据库医生生成与前端一致的数据结构
+        doctors = []
         for row in rows:
-            doctor_data = {
-                "id": f"doctor_{row['id']}",
-                "name": row['name'],
-                "school": row['speciality'] or "现代中医",
-                "avatar": get_doctor_avatar(row['name']),
-                "description": f"{row['speciality']}专家，来自{row['hospital'] or '知名医院'}，具有丰富的临床经验。",
-                "specialties": [row['speciality'] or "中医诊疗", "方剂调配", "健康调理"],
-                "hospital": row['hospital']
-            }
+            doctor_id = row['id']
+            doctor_name = row['name']
+            
+            # 查找是否有对应的默认医生模板
+            default_template = None
+            for default_doc in default_doctors:
+                # 根据ID映射或名字匹配找到模板
+                if (doctor_id == 1 and default_doc['id'] == 'zhang_zhongjing') or \
+                   (doctor_id == 2 and default_doc['id'] == 'ye_tianshi') or \
+                   (doctor_id == 3 and default_doc['id'] == 'li_dongyuan') or \
+                   (doctor_id == 5 and default_doc['id'] == 'liu_duzhou') or \
+                   (doctor_id == 6 and default_doc['id'] == 'zheng_qin_an'):
+                    default_template = default_doc
+                    break
+            
+            if default_template:
+                # 使用模板但更新数据库中的姓名和专业信息
+                doctor_data = default_template.copy()
+                doctor_data['name'] = doctor_name  # 使用数据库中的实际姓名
+                if row['speciality']:
+                    doctor_data['school'] = row['speciality']
+                    doctor_data['specialty'] = row['speciality']
+                if row['hospital']:
+                    doctor_data['hospital'] = row['hospital']
+            else:
+                # 新医生使用基础数据结构
+                doctor_data = {
+                    "id": f"doctor_{doctor_id}",
+                    "name": doctor_name,
+                    "school": row['speciality'] or "现代中医",
+                    "avatar": get_doctor_avatar(doctor_name),
+                    "description": f"{row['speciality'] or '中医'}专家，来自{row['hospital'] or '知名医院'}，具有丰富的临床经验。",
+                    "specialty": row['speciality'] or "现代中医",
+                    "specialties": [row['speciality'] or "中医诊疗", "方剂调配", "健康调理"],
+                    "hospital": row['hospital']
+                }
+            
             doctors.append(doctor_data)
         
-        # 始终返回标准的六大流派医生数据，忽略数据库中的测试数据
-        doctors = get_default_doctors()
+        # 如果数据库没有医生数据，使用默认数据作为备选
+        if not doctors:
+            doctors = default_doctors
+        
         total = len(doctors)
         
         # 支持分页

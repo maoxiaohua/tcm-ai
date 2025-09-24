@@ -618,7 +618,7 @@ async def get_doctor_list():
         rows = cursor.fetchall()
         doctors = []
         
-        # 医生ID到代码标识的映射
+        # 医生ID到代码标识的映射(仅用于兼容老系统)
         doctor_id_mapping = {
             1: "zhang_zhongjing",
             2: "ye_tianshi", 
@@ -635,7 +635,7 @@ async def get_doctor_list():
             if doctor_id in doctor_id_mapping:
                 doctor_dict['doctor_code'] = doctor_id_mapping[doctor_id]
             else:
-                # 新医生使用名字拼音或自定义code
+                # 新医生使用id作为code标识
                 doctor_dict['doctor_code'] = f"doctor_{doctor_id}"
             
             doctors.append(doctor_dict)
