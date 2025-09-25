@@ -947,7 +947,7 @@ class UnifiedConsultationService:
     def _map_doctor_name_to_id(self, doctor_name: str) -> str:
         """将医生名称映射为ID"""
         mapping = {
-            "jin_daifu": "zhang_zhongjing",  # 金大夫使用张仲景的问诊人格
+            "jin_daifu": "jin_daifu",  # 金大夫使用独立的医学人格
             "zhang_zhongjing": "zhang_zhongjing",
             "ye_tianshi": "ye_tianshi", 
             "li_dongyuan": "li_dongyuan",

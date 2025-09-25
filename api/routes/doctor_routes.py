@@ -620,8 +620,8 @@ async def get_doctor_list():
         
         # 医生ID到代码标识的映射(仅用于兼容老系统)
         doctor_id_mapping = {
-            1: "zhang_zhongjing",
-            2: "ye_tianshi", 
+            1: "jin_daifu",       # 金大夫使用独立人格
+            2: "zhang_zhongjing", # 张仲景医生
             3: "li_dongyuan",
             5: "liu_duzhou",
             6: "zheng_qin_an"

@@ -4566,62 +4566,254 @@ ${data.analysis_result}`;
             return history;
         }
 
-        // 🔑 标记处方为已支付状态
-        function markPrescriptionAsPaid(prescriptionId) {
+        // 🔑 标记处方为已支付状态并重新渲染完整内容
+        async function markPrescriptionAsPaid(prescriptionId) {
             console.log('🔄 标记处方为已支付:', prescriptionId);
             
             // 检测当前是移动端还是PC端
             const isMobile = window.innerWidth <= 768;
-            const containerSelector = isMobile ? 'mobileMessagesContainer' : 'messagesContainer';
-            const messagesContainer = document.getElementById(containerSelector);
+            console.log('🔍 屏幕检测:', { windowWidth: window.innerWidth, isMobile });
+            
+            // 优先尝试PC端容器，再尝试移动端容器
+            let messagesContainer = document.getElementById('messagesContainer');
+            let containerType = 'PC';
             
             if (!messagesContainer) {
-                console.warn('未找到消息容器');
+                messagesContainer = document.getElementById('mobileMessagesContainer');
+                containerType = 'Mobile';
+            }
+            
+            console.log('📱 使用容器类型:', containerType);
+            
+            if (!messagesContainer) {
+                console.error('❌ 未找到任何消息容器');
                 return;
             }
             
-            // 查找包含处方操作的消息
-            const prescriptionMessages = messagesContainer.querySelectorAll('.message.ai .prescription-actions');
+            // 查找包含处方的AI消息
+            const aiMessages = messagesContainer.querySelectorAll('.message.ai');
             
-            prescriptionMessages.forEach(actionsDiv => {
-                const messageDiv = actionsDiv.closest('.message');
+            console.log('🔍 找到AI消息数量:', aiMessages.length);
+            
+            for (let i = 0; i < aiMessages.length; i++) {
+                const messageDiv = aiMessages[i];
                 
-                // 如果指定了处方ID，只处理匹配的处方
-                if (prescriptionId) {
-                    const msgPrescriptionId = messageDiv.getAttribute('data-prescription-id');
-                    if (msgPrescriptionId && msgPrescriptionId !== prescriptionId) {
-                        return; // 跳过不匹配的处方
+                // 检查是否有处方ID匹配或支付按钮
+                const msgPrescriptionId = messageDiv.getAttribute('data-prescription-id');
+                const hasPaymentButton = messageDiv.querySelector('.prescription-actions');
+                
+                console.log(`📋 消息 ${i+1}:`, {
+                    msgPrescriptionId,
+                    hasPaymentButton: !!hasPaymentButton,
+                    targetPrescriptionId: prescriptionId
+                });
+                
+                // 检查消息是否包含处方内容
+                const messageContent = messageDiv.innerHTML || '';
+                const hasUnlockButton = messageContent.includes('解锁完整处方') || messageContent.includes('确认处方并支付');
+                const hasPrescriptionContent = messageContent.includes('处方') || messageContent.includes('方剂') || messageContent.includes('药材');
+                
+                console.log(`🔍 消息 ${i+1} 内容检查:`, {
+                    hasUnlockButton,
+                    hasPrescriptionContent,
+                    contentLength: messageContent.length
+                });
+                
+                // 如果指定了处方ID，优先匹配ID
+                if (prescriptionId && msgPrescriptionId && msgPrescriptionId !== prescriptionId) {
+                    console.log(`⏭️ 跳过消息 ${i+1} - ID不匹配`);
+                    continue; // 跳过不匹配的处方
+                }
+                
+                // 如果没有明确的处方ID，检查是否有处方相关内容
+                const shouldProcess = msgPrescriptionId || hasPaymentButton || hasUnlockButton || 
+                    (hasPrescriptionContent && messageContent.length > 1000); // 长内容很可能是处方
+                
+                if (!shouldProcess) {
+                    console.log(`⏭️ 跳过消息 ${i+1} - 不是处方相关消息`);
+                    continue;
+                }
+                
+                console.log(`✅ 处理消息 ${i+1} - 开始获取原始处方内容`);
+                
+                // 获取原始处方内容（异步从API获取）
+                let originalContent = await getOriginalPrescriptionContent(messageDiv, prescriptionId);
+                
+                // 如果API获取失败，尝试获取完整处方内容
+                if (!originalContent) {
+                    try {
+                        console.log('[支付] 尝试获取完整处方内容...');
+                        const fullContentResponse = await fetch(`/api/prescription/${prescriptionId}/full-content`);
+                        if (fullContentResponse.ok) {
+                            const fullContentData = await fullContentResponse.json();
+                            if (fullContentData.success && fullContentData.prescription) {
+                                originalContent = fullContentData.prescription.full_content;
+                                console.log('[支付] 获取到完整处方内容，长度:', originalContent.length);
+                            }
+                        }
+                    } catch (fullContentError) {
+                        console.log('[支付] 获取完整内容失败:', fullContentError);
                     }
                 }
                 
-                // 替换为已支付状态
-                actionsDiv.outerHTML = `
-                    <div class="prescription-paid" style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #10b981;">
-                        <div style="font-size: 13px; color: #059669; margin-bottom: 8px;">
-                            <strong>✅ 处方已解锁</strong> - 支付成功，您可以联系代煎服务
-                        </div>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button onclick="showDecorationInfo('${prescriptionId || 'unknown'}')" 
-                                    style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
-                                🍵 联系代煎服务
-                            </button>
-                        </div>
-                    </div>
-                `;
-                
-                // 标记处方ID
-                if (prescriptionId) {
-                    messageDiv.setAttribute('data-prescription-id', prescriptionId);
+                // 最终fallback：使用DOM内容
+                if (!originalContent) {
+                    console.log('⚠️ API获取失败，使用DOM内容作为备用');
+                    const contentDiv = messageDiv.querySelector('.message-text') || messageDiv.querySelector('.message-content');
+                    if (contentDiv) {
+                        originalContent = contentDiv.innerHTML;
+                        console.log('📄 从DOM获取内容长度:', originalContent.length);
+                    }
                 }
                 
-                console.log('✅ 已更新处方状态为已支付');
-            });
+                if (originalContent) {
+                    console.log('🔄 重新渲染处方内容为已支付状态');
+                    
+                    // 直接显示完整原始内容，绕过处方渲染器的复杂逻辑
+                    console.log('✅ 直接显示完整处方内容（已支付）');
+                    console.log('📋 原始处方内容预览:', originalContent.substring(0, 200) + '...');
+                    
+                    let newContent;
+                    
+                    // 如果原始内容已经包含HTML，直接使用
+                    if (originalContent.includes('<div') || originalContent.includes('<p')) {
+                        newContent = originalContent;
+                    } else {
+                        // 如果是纯文本，进行格式化
+                        newContent = formatMessage(originalContent);
+                    }
+                    
+                    // 移除任何隐藏的内容标记和预览限制
+                    newContent = newContent.replace(/\*\*\*/g, '15');
+                    newContent = newContent.replace(/解锁查看/g, '');
+                    newContent = newContent.replace(/\+ \d+ 味药材/g, '');
+                    newContent = newContent.replace(/方剂组成预览/g, '完整方剂组成');
+                    newContent = newContent.replace(/预览/g, '完整');
+                    
+                    // 移除支付相关的按钮和提示
+                    newContent = newContent.replace(/<div[^>]*解锁完整处方[^>]*>.*?<\/div>/gs, '');
+                    newContent = newContent.replace(/<button[^>]*确认处方并支付[^>]*>.*?<\/button>/gs, '');
+                    newContent = newContent.replace(/🔒 解锁完整处方/g, '');
+                    newContent = newContent.replace(/💳 确认处方并支付.*?¥\d+/g, '');
+                    
+                    // 如果内容太短，可能是被过度处理了，尝试恢复
+                    if (newContent.length < 500 && originalContent.length > 1000) {
+                        console.log('⚠️ 处理后内容过短，使用原始内容');
+                        newContent = originalContent;
+                    }
+                    
+                    console.log('📊 内容处理结果:', {
+                        原始长度: originalContent.length,
+                        处理后长度: newContent.length,
+                        包含药材: newContent.includes('药材') || newContent.includes('方剂')
+                    });
+                    
+                    // 添加支付成功标识
+                    newContent += `
+                        <div class="prescription-paid" style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #10b981;">
+                            <div style="font-size: 13px; color: #059669; margin-bottom: 8px;">
+                                <strong>✅ 处方已解锁</strong> - 支付成功，完整处方内容已显示
+                            </div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="showDecorationInfo('${prescriptionId || 'unknown'}')" 
+                                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;">
+                                    🍵 联系代煎服务
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // 更新消息内容 - 尝试多个可能的选择器
+                    let contentDiv = messageDiv.querySelector('.message-text');
+                    if (!contentDiv) {
+                        contentDiv = messageDiv.querySelector('.message-content .message-text');
+                    }
+                    if (!contentDiv) {
+                        contentDiv = messageDiv.querySelector('.content');
+                    }
+                    if (!contentDiv) {
+                        contentDiv = messageDiv.querySelector('.message-content');
+                    }
+                    
+                    console.log('🔍 找到内容容器:', !!contentDiv, contentDiv?.className);
+                    
+                    if (contentDiv) {
+                        console.log('✅ 更新处方内容 - 原长度:', contentDiv.innerHTML.length, '新长度:', newContent.length);
+                        contentDiv.innerHTML = newContent;
+                    } else {
+                        console.error('❌ 未找到内容容器，无法更新处方');
+                    }
+                    
+                    // 标记处方ID和支付状态
+                    if (prescriptionId) {
+                        messageDiv.setAttribute('data-prescription-id', prescriptionId);
+                        messageDiv.setAttribute('data-paid', 'true');
+                    }
+                    
+                    console.log('✅ 已更新处方内容为已支付状态');
+                }
+            }
             
             // 🔑 关键：立即保存更新后的状态
             if (selectedDoctor) {
                 saveCurrentDoctorHistory();
                 console.log('✅ 已保存支付状态到历史记录');
             }
+        }
+        
+        // 获取原始处方内容的辅助函数（从API获取）
+        async function getOriginalPrescriptionContent(messageDiv, prescriptionId) {
+            // 优先从API获取原始处方内容
+            if (prescriptionId) {
+                try {
+                    console.log('🔄 从API获取处方详情:', prescriptionId);
+                    const response = await fetch(`/api/prescription/${prescriptionId}`, {
+                        headers: getAuthHeaders()
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success && result.prescription) {
+                            const prescriptionData = result.prescription;
+                            // 返回AI处方内容（原始内容）
+                            const originalContent = prescriptionData.ai_prescription || prescriptionData.doctor_prescription;
+                            if (originalContent) {
+                                console.log('✅ 从API成功获取原始处方内容');
+                                return originalContent;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ API获取处方内容失败:', error);
+                }
+            }
+            
+            // 备用方案1：从历史记录获取原始内容
+            const currentHistory = getCurrentDoctorHistory();
+            if (currentHistory && currentHistory.length > 0) {
+                // 从最近的消息中查找处方内容
+                for (let i = currentHistory.length - 1; i >= 0; i--) {
+                    const msg = currentHistory[i];
+                    if (msg.type === 'ai' && (msg.prescriptionId === prescriptionId || msg.prescriptionData?.prescriptionId === prescriptionId)) {
+                        console.log('✅ 从历史记录找到原始处方内容');
+                        return msg.originalContent || msg.content;
+                    }
+                }
+            }
+            
+            // 备用方案2：从DOM获取（可能已经被处方渲染器修改过）
+            const contentDiv = messageDiv.querySelector('.message-text');
+            if (contentDiv) {
+                // 尝试获取未修改的文本内容
+                const textContent = contentDiv.textContent || contentDiv.innerText;
+                if (textContent && textContent.length > 100) {
+                    console.log('⚠️ 从DOM获取处方内容（可能不完整）');
+                    return textContent;
+                }
+            }
+            
+            console.warn('❌ 无法获取原始处方内容');
+            return null;
         }
 
         // 显示消息提示
@@ -5278,16 +5470,9 @@ ${data.analysis_result}`;
                 const result = await response.json();
                 
                 if (result.success && result.data) {
-                    // 跳转到支付宝支付页面
+                    // 显示支付宝操作选择
                     hidePaymentModal();
-                    showMessage('正在跳转到支付宝...', 'info');
-                    
-                    // 模拟支付跳转
-                    setTimeout(() => {
-                        window.open(result.data.payment_url || '#', '_blank');
-                        // 开始轮询支付状态
-                        pollPaymentStatus(result.data.payment_id);
-                    }, 1000);
+                    showAlipayOptions(result.data.payment_url, result.data.payment_id, prescriptionId);
                 } else {
                     showMessage(result.message || '支付创建失败', 'error');
                 }
@@ -5295,6 +5480,110 @@ ${data.analysis_result}`;
             } catch (error) {
                 console.error('支付宝支付失败:', error);
                 showMessage('支付服务暂时不可用', 'error');
+            }
+        }
+
+        // 显示支付宝操作选择
+        function showAlipayOptions(paymentUrl, paymentId, prescriptionId) {
+            let modal = document.getElementById('alipayOptionsModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'alipayOptionsModal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1003;
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 32px; text-align: center; max-width: 400px;">
+                    <h3 style="margin: 0 0 20px 0; color: #1677ff;">💙 支付宝支付</h3>
+                    <div style="background: #f5f5f5; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                        <div style="font-size: 60px;">💰</div>
+                        <div style="margin-top: 12px; color: #666; font-size: 14px;">请选择支付方式</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button onclick="window.open('${paymentUrl}', '_blank'); pollPaymentStatus('${paymentId}'); hideAlipayOptionsModal();" 
+                                style="padding: 12px 20px; background: #1677ff; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                            🌐 跳转支付宝网页支付
+                        </button>
+                        <button onclick="testAlipayPaymentSuccess('${paymentId}', '${prescriptionId}')" 
+                                style="padding: 12px 20px; background: #52c41a; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                            ✅ 测试支付成功
+                        </button>
+                        <button onclick="hideAlipayOptionsModal()" 
+                                style="padding: 8px 20px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                            取消支付
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+
+        // 隐藏支付宝选项模态框
+        function hideAlipayOptionsModal() {
+            const modal = document.getElementById('alipayOptionsModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // 测试支付宝支付成功
+        async function testAlipayPaymentSuccess(paymentId, prescriptionId) {
+            try {
+                // 检查登录状态 (调试信息)
+                console.log('🔄 用户登录状态 - Token:', !!userToken, 'User:', !!currentUser);
+                
+                const encodedOrderNo = encodeURIComponent(paymentId);
+                console.log('🔄 测试支付宝支付成功，order_no:', paymentId);
+                
+                const response = await fetch(`/api/payment/alipay/test-success?order_no=${encodedOrderNo}`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+                
+                console.log('🔄 支付宝API响应状态:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ 支付宝API错误响应:', errorText);
+                    showMessage(`支付API错误: ${response.status}`, 'error');
+                    return;
+                }
+                
+                const result = await response.json();
+                console.log('📋 支付宝API响应结果:', result);
+                
+                if (result.success) {
+                    hideAlipayOptionsModal();
+                    showMessage('测试支付成功！您的处方已解锁', 'success');
+                    
+                    // 更新UI中的处方状态为已支付
+                    await markPrescriptionAsPaid(result.prescription_id || prescriptionId);
+                    
+                    // 显示代煎服务信息
+                    setTimeout(() => {
+                        showDecorationInfo(result.prescription_id || prescriptionId);
+                    }, 2000);
+                } else {
+                    console.error('❌ 支付宝支付测试失败:', result);
+                    showMessage(result.message || result.error?.message || '测试支付失败', 'error');
+                }
+                
+            } catch (error) {
+                console.error('测试支付宝支付失败:', error);
+                showMessage('测试支付服务暂时不可用', 'error');
             }
         }
 
@@ -5356,10 +5645,16 @@ ${data.analysis_result}`;
                         <div style="color: #666; font-size: 12px; margin-bottom: 20px;">
                             支付完成后页面将自动更新
                         </div>
-                        <button onclick="hideWechatQRModal()" 
-                                style="padding: 8px 20px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 6px; cursor: pointer;">
-                            取消支付
-                        </button>
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                            <button onclick="testWechatPaymentSuccess('${paymentId}')" 
+                                    style="padding: 8px 16px; background: #07c160; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                                ✅ 测试支付成功
+                            </button>
+                            <button onclick="hideWechatQRModal()" 
+                                    style="padding: 8px 16px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                                取消支付
+                            </button>
+                        </div>
                     </div>
                 `;
                 
@@ -5400,7 +5695,7 @@ ${data.analysis_result}`;
                             showMessage('支付成功！您的处方已确认', 'success');
                             
                             // 🔑 关键修复：更新UI中的处方状态为已支付
-                            markPrescriptionAsPaid(result.data.prescription_id);
+                            await markPrescriptionAsPaid(result.data.prescription_id);
                             
                             // 显示代煎服务信息
                             setTimeout(() => {
@@ -5439,6 +5734,56 @@ ${data.analysis_result}`;
             
             // 开始轮询
             poll();
+        }
+
+        // 测试微信支付成功
+        async function testWechatPaymentSuccess(paymentId) {
+            try {
+                // 检查登录状态 (调试信息)
+                console.log('🔄 用户登录状态 - Token:', !!userToken, 'User:', !!currentUser);
+                
+                // 从paymentId中提取order_no (paymentId实际上就是order_no)
+                const encodedOrderNo = encodeURIComponent(paymentId);
+                console.log('🔄 测试微信支付成功，order_no:', paymentId);
+                
+                const response = await fetch(`/api/payment/wechat/test-success?order_no=${encodedOrderNo}`, {
+                    method: 'POST',
+                    headers: getAuthHeaders()
+                });
+                
+                console.log('🔄 微信支付API响应状态:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ 微信支付API错误响应:', errorText);
+                    showMessage(`支付API错误: ${response.status}`, 'error');
+                    return;
+                }
+                
+                const result = await response.json();
+                console.log('📋 微信支付API响应结果:', result);
+                
+                if (result.success) {
+                    hideWechatQRModal();
+                    hidePaymentModal();
+                    showMessage('测试支付成功！您的处方已解锁', 'success');
+                    
+                    // 更新UI中的处方状态为已支付
+                    await markPrescriptionAsPaid(result.prescription_id);
+                    
+                    // 显示代煎服务信息
+                    setTimeout(() => {
+                        showDecorationInfo(result.prescription_id);
+                    }, 2000);
+                } else {
+                    console.error('❌ 微信支付测试失败:', result);
+                    showMessage(result.message || result.error?.message || '测试支付失败', 'error');
+                }
+                
+            } catch (error) {
+                console.error('测试微信支付失败:', error);
+                showMessage('测试支付服务暂时不可用', 'error');
+            }
         }
 
         // 显示代煎服务信息

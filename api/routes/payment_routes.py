@@ -56,9 +56,33 @@ def calculate_prescription_amount(prescription_id: int) -> float:
 @router.post("/alipay/create")
 async def create_alipay_payment(request: CreatePaymentRequest):
     """创建支付宝支付订单"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
     try:
+        # 检查处方是否存在
+        cursor.execute("SELECT * FROM prescriptions WHERE id = ?", (request.prescription_id,))
+        prescription = cursor.fetchone()
+        if not prescription:
+            raise HTTPException(status_code=404, detail="处方不存在")
+        
+        prescription_dict = dict(prescription)
+        
         # 生成订单号
         order_no = f"TCM{datetime.now().strftime('%Y%m%d%H%M%S')}{str(uuid.uuid4())[:8]}"
+        
+        # 创建数据库订单记录
+        cursor.execute("""
+            INSERT INTO orders (
+                order_no, prescription_id, patient_id, amount, payment_method,
+                decoction_required, payment_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            order_no, request.prescription_id, prescription_dict['patient_id'],
+            request.amount, 'alipay', 0, 'pending'
+        ))
+        
+        conn.commit()
         
         # 模拟支付数据（开发环境）
         payment_url = f"https://openapi.alipay.com/gateway.do?out_trade_no={order_no}"
@@ -74,15 +98,44 @@ async def create_alipay_payment(request: CreatePaymentRequest):
             "message": "支付宝支付订单创建成功"
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
+        conn.rollback()
         raise HTTPException(status_code=500, detail=f"创建支付宝支付失败: {e}")
+    finally:
+        conn.close()
 
 @router.post("/wechat/create") 
 async def create_wechat_payment(request: CreatePaymentRequest):
     """创建微信支付订单"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
     try:
+        # 检查处方是否存在
+        cursor.execute("SELECT * FROM prescriptions WHERE id = ?", (request.prescription_id,))
+        prescription = cursor.fetchone()
+        if not prescription:
+            raise HTTPException(status_code=404, detail="处方不存在")
+        
+        prescription_dict = dict(prescription)
+        
         # 生成订单号
         order_no = f"TCM{datetime.now().strftime('%Y%m%d%H%M%S')}{str(uuid.uuid4())[:8]}"
+        
+        # 创建数据库订单记录
+        cursor.execute("""
+            INSERT INTO orders (
+                order_no, prescription_id, patient_id, amount, payment_method,
+                decoction_required, payment_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            order_no, request.prescription_id, prescription_dict['patient_id'],
+            request.amount, 'wechat', 0, 'pending'
+        ))
+        
+        conn.commit()
         
         # 模拟二维码数据（开发环境）
         qr_code = f"weixin://wxpay/bizpayurl?pr={order_no}"
@@ -98,8 +151,13 @@ async def create_wechat_payment(request: CreatePaymentRequest):
             "message": "微信支付订单创建成功"
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
+        conn.rollback()
         raise HTTPException(status_code=500, detail=f"创建微信支付失败: {e}")
+    finally:
+        conn.close()
 
 @router.post("/create-order")
 async def create_payment_order(request: CreateOrderRequest):
@@ -186,31 +244,46 @@ async def create_payment_order(request: CreateOrderRequest):
 
 @router.get("/status/{payment_id}")
 async def get_payment_status(payment_id: str):
-    """查询支付状态（模拟）"""
+    """查询支付状态（基于数据库真实状态）"""
     try:
-        # 模拟支付状态检查
-        # 在实际环境中，这里会调用真实的支付平台API
-        import random
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-        # 10%概率返回已支付状态（用于演示）
-        if random.random() < 0.1:
-            status = "paid"
-            message = "支付成功"
-        else:
-            status = "pending"
-            message = "等待支付"
+        # 查询订单状态 (payment_id实际上是order_no)
+        cursor.execute("""
+            SELECT o.payment_status, o.prescription_id, o.amount, o.payment_method
+            FROM orders o
+            WHERE o.order_no = ?
+        """, (payment_id,))
+        
+        order = cursor.fetchone()
+        
+        if not order:
+            raise HTTPException(status_code=404, detail="订单不存在")
+        
+        order_dict = dict(order)
+        status = "paid" if order_dict['payment_status'] == 'paid' else "pending"
+        message = "支付成功" if status == "paid" else "等待支付"
         
         return {
             "success": True,
             "data": {
                 "payment_id": payment_id,
                 "status": status,
-                "message": message
+                "message": message,
+                "prescription_id": order_dict['prescription_id'],
+                "amount": order_dict['amount'],
+                "payment_method": order_dict['payment_method']
             }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查询支付状态失败: {e}")
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 @router.post("/wechat/test-success")
 async def test_wechat_payment_success(order_no: str):
@@ -224,11 +297,15 @@ async def test_wechat_payment_success(order_no: str):
         order = cursor.fetchone()
         
         if not order:
-            raise HTTPException(status_code=404, detail="订单不存在")
+            return {
+                "success": False,
+                "message": "订单不存在，请重新创建订单后再试",
+                "error_code": "ORDER_NOT_FOUND"
+            }
         
         order_dict = dict(order)
         
-        # 更新订单状态
+        # 更新订单状态 (如果尚未支付)
         cursor.execute("""
             UPDATE orders 
             SET payment_status = 'paid', 
@@ -237,7 +314,8 @@ async def test_wechat_payment_success(order_no: str):
             WHERE order_no = ? AND payment_status = 'pending'
         """, (f"TEST_{order_no}", order_no))
         
-        if cursor.rowcount > 0:
+        # 检查订单是否已经支付或刚刚更新成功
+        if cursor.rowcount > 0 or order_dict['payment_status'] == 'paid':
             # 更新处方状态为pending（进入医生审核流程）
             cursor.execute("""
                 UPDATE prescriptions 
@@ -254,7 +332,74 @@ async def test_wechat_payment_success(order_no: str):
                 "prescription_id": order_dict['prescription_id']
             }
         else:
-            raise HTTPException(status_code=400, detail="订单状态异常")
+            return {
+                "success": True,
+                "message": f"订单已处理完成（当前状态：{order_dict['payment_status']}）",
+                "order_no": order_no,
+                "prescription_id": order_dict['prescription_id']
+            }
+            
+    except Exception as e:
+        if 'conn' in locals():
+            conn.rollback()
+        raise HTTPException(status_code=500, detail=f"测试支付失败: {e}")
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@router.post("/alipay/test-success")
+async def test_alipay_payment_success(order_no: str):
+    """测试支付宝支付成功（开发测试用）"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 查找订单
+        cursor.execute("SELECT * FROM orders WHERE order_no = ?", (order_no,))
+        order = cursor.fetchone()
+        
+        if not order:
+            return {
+                "success": False,
+                "message": "订单不存在，请重新创建订单后再试",
+                "error_code": "ORDER_NOT_FOUND"
+            }
+        
+        order_dict = dict(order)
+        
+        # 更新订单状态 (如果尚未支付)
+        cursor.execute("""
+            UPDATE orders 
+            SET payment_status = 'paid', 
+                payment_time = datetime('now'),
+                payment_transaction_id = ?
+            WHERE order_no = ? AND payment_status = 'pending'
+        """, (f"TEST_ALIPAY_{order_no}", order_no))
+        
+        # 检查订单是否已经支付或刚刚更新成功
+        if cursor.rowcount > 0 or order_dict['payment_status'] == 'paid':
+            # 更新处方状态为pending（进入医生审核流程）
+            cursor.execute("""
+                UPDATE prescriptions 
+                SET status = 'pending', payment_status = 'paid'
+                WHERE id = ?
+            """, (order_dict['prescription_id'],))
+            
+            conn.commit()
+            
+            return {
+                "success": True,
+                "message": "测试支付成功，处方已进入医生审核流程",
+                "order_no": order_no,
+                "prescription_id": order_dict['prescription_id']
+            }
+        else:
+            return {
+                "success": True,
+                "message": f"订单已处理完成（当前状态：{order_dict['payment_status']}）",
+                "order_no": order_no,
+                "prescription_id": order_dict['prescription_id']
+            }
             
     except Exception as e:
         if 'conn' in locals():
