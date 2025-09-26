@@ -1052,10 +1052,11 @@ import asyncio
 import logging
 import re
 import json
+import sqlite3
 import tempfile
 import platform
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Response
@@ -1155,12 +1156,14 @@ except Exception as e:
 
 # 初始化用户历史系统
 try:
-    from services.user_history_system import UserHistorySystem, user_history
+    from services.user_history_system import UserHistorySystem
+    user_history = UserHistorySystem()  # 直接实例化
     USER_HISTORY_AVAILABLE = True
-    # print("User history system initialized successfully")  # 减少启动日志
+    logger.info("✅ 用户历史系统初始化成功")
 except ImportError as e:
     print(f"User history system not available: {e}")
     USER_HISTORY_AVAILABLE = False
+    user_history = None
 
 # 基础导入和配置
 if platform.system() == "Linux":
@@ -1819,6 +1822,104 @@ if SECURITY_AVAILABLE:
     setup_security_system(app)
     logger.info("Security system activated")
 
+# 🔑 修复认证profile端点 - 覆盖安全系统的版本
+@app.get("/api/auth/profile-fixed", tags=["auth-fixed"])
+async def get_auth_profile_fixed(request: Request):
+    """获取用户认证信息 - 修复版本，直接使用corrected token validation"""
+    try:
+        # 获取token
+        token = None
+        auth_header = request.headers.get('authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.replace('Bearer ', '')
+        
+        if not token:
+            token = request.cookies.get('session_token')
+        
+        if not token:
+            # 无token，返回anonymous用户
+            return {
+                "success": True,
+                "user": {
+                    "user_id": "anonymous",
+                    "role": "anonymous",
+                    "permissions": ["chat:access"],
+                    "session_info": {
+                        "created_at": datetime.now().isoformat(),
+                        "last_activity": datetime.now().isoformat(),
+                        "expires_at": (datetime.now() + timedelta(days=1)).isoformat()
+                    }
+                }
+            }
+        
+        # 使用修复的token验证函数
+        user_info = await get_user_info_by_token(token)
+        if user_info:
+            return {
+                "success": True,
+                "user": {
+                    "user_id": user_info['user_id'],
+                    "username": user_info.get('username', 'Unknown'),
+                    "email": user_info.get('email'),
+                    "role": user_info.get('role', 'patient'),
+                    "permissions": ["chat:access", "prescription:view"],
+                    "session_info": {
+                        "created_at": datetime.now().isoformat(),
+                        "last_activity": datetime.now().isoformat(),
+                        "expires_at": (datetime.now() + timedelta(days=1)).isoformat()
+                    }
+                }
+            }
+        else:
+            # token无效，返回anonymous
+            return {
+                "success": True,
+                "user": {
+                    "user_id": "anonymous",
+                    "role": "anonymous", 
+                    "permissions": ["chat:access"],
+                    "session_info": {
+                        "created_at": datetime.now().isoformat(),
+                        "last_activity": datetime.now().isoformat(),
+                        "expires_at": (datetime.now() + timedelta(days=1)).isoformat()
+                    }
+                }
+            }
+    except Exception as e:
+        logger.error(f"认证profile获取失败: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+# 🔍 Direct debug endpoint to test token validation
+@app.get("/api/debug-token", tags=["debug"])
+async def debug_token_validation(request: Request):
+    """直接测试token验证功能的调试端点"""
+    try:
+        # 获取token
+        token = None
+        auth_header = request.headers.get('authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.replace('Bearer ', '')
+        
+        if not token:
+            return {"error": "No token provided", "token": None}
+        
+        # 直接测试我们的函数
+        print(f"🔍 DEBUG: Direct test of token: {token[:20]}...")
+        result = await get_user_info_by_token(token)
+        print(f"🔍 DEBUG: Direct test result: {result}")
+        
+        return {
+            "token_provided": token[:20] + "...",
+            "token_validation_result": result,
+            "success": result is not None
+        }
+    except Exception as e:
+        print(f"🔍 DEBUG: Error in token test: {e}")
+        return {"error": str(e)}
+
 # 先注册具体路由，再注册通用路由（避免路由冲突）
 @app.get("/api/prescription/learning_stats")
 async def get_prescription_learning_stats():
@@ -1966,6 +2067,36 @@ async def get_debug_doctor_page():
     from fastapi.responses import FileResponse
     return FileResponse('/opt/tcm-ai/debug_doctor.html')
 
+@app.get("/test-prescription")
+async def get_test_prescription_page():
+    """处方解锁功能测试页面"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/static/test_prescription_unlock.html')
+
+@app.get("/test-persistence")
+async def test_persistence_page():
+    """测试页面刷新持久性"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/test_persistence.html')
+
+@app.get("/test-cross-device")
+async def test_cross_device_page():
+    """测试跨设备支付同步"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/test_cross_device.html')
+
+@app.get("/test-history-sync")
+async def test_history_sync_page():
+    """测试跨设备历史记录同步"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/test_cross_device_history.html')
+
+@app.get("/debug-user-api")
+async def debug_user_api_page():
+    """调试用户API"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/debug_user_api.html')
+
 # 集成所有路由
 app.include_router(auth_router)
 app.include_router(unified_auth_router)  # 新的统一认证系统
@@ -1995,6 +2126,10 @@ app.include_router(medical_knowledge_router)
 app.include_router(follow_up_router)
 app.include_router(session_router)
 app.include_router(security_router)
+
+# WebSocket实时同步路由
+from api.routes.websocket_sync_routes import router as websocket_sync_router
+app.include_router(websocket_sync_router)
 
 # 设置全局异常处理器
 from api.middleware.exception_handler import setup_exception_handlers
@@ -3735,17 +3870,21 @@ async def get_user_info_api(request: Request):
         return {"success": False, "error": "用户历史系统不可用"}
     
     try:
+        # 🔧 直接创建实例避免导入问题
+        from services.user_history_system import UserHistorySystem
+        history_service = UserHistorySystem()
+        
         # 生成设备指纹
         request_info = {
             'user_agent': request.headers.get('user-agent', ''),
             'client_ip': request.client.host,
             'accept_language': request.headers.get('accept-language', '')
         }
-        device_fingerprint = user_history.generate_device_fingerprint(request_info)
+        device_fingerprint = history_service.generate_device_fingerprint(request_info)
         
         # 获取用户信息
-        user_id = user_history.register_or_get_user(device_fingerprint)
-        user_info = user_history.get_user_info(user_id)
+        user_id = history_service.register_or_get_user(device_fingerprint)
+        user_info = history_service.get_user_info(user_id)
         
         if user_info:
             return {"success": True, **user_info}
@@ -3756,24 +3895,101 @@ async def get_user_info_api(request: Request):
         logger.error(f"获取用户信息失败: {e}")
         return {"success": False, "error": str(e)}
 
+async def get_user_info_by_token(token: str):
+    """通过token获取用户信息"""
+    try:
+        # 检查统一会话系统
+        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
+        cursor = conn.cursor()
+        
+        # 🔑 修复：正确的表连接和字段查询
+        cursor.execute("""
+            SELECT us.user_id, uu.username, uu.email, ur.role_name
+            FROM unified_sessions us
+            JOIN unified_users uu ON us.user_id = uu.global_user_id
+            LEFT JOIN user_roles_new ur ON uu.global_user_id = ur.user_id AND ur.is_active = 1 AND ur.is_primary = 1
+            WHERE us.session_id = ? AND us.session_status = 'active' 
+            AND datetime(us.expires_at) > datetime('now')
+        """, (token,))
+        
+        result = cursor.fetchone()
+        
+        if result:
+            user_id, username, email, role_name = result
+            return {
+                'user_id': user_id,
+                'username': username,
+                'email': email,
+                'role': role_name.lower() if role_name else 'patient'
+            }
+        
+        # 检查传统会话系统
+        cursor.execute("""
+            SELECT user_id, role
+            FROM user_sessions 
+            WHERE session_token = ? AND is_active = 1
+            AND expires_at > datetime('now')
+        """, (token,))
+        
+        result = cursor.fetchone()
+        if result:
+            return {
+                'user_id': result[0],
+                'role': result[1]
+            }
+            
+        return None
+        
+    except Exception as e:
+        logger.error(f"Token验证失败: {e}")
+        return None
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 @app.get("/api/user/sessions")
 async def get_user_sessions_api(request: Request, limit: int = 20):
-    """获取用户的问诊会话历史"""
+    """获取用户的问诊会话历史 - 支持跨设备同步"""
     if not USER_HISTORY_AVAILABLE:
         return {"success": False, "error": "用户历史系统不可用"}
     
     try:
-        # 获取用户ID
-        request_info = {
-            'user_agent': request.headers.get('user-agent', ''),
-            'client_ip': request.client.host,
-            'accept_language': request.headers.get('accept-language', '')
-        }
-        device_fingerprint = user_history.generate_device_fingerprint(request_info)
-        user_id = user_history.register_or_get_user(device_fingerprint)
+        # 🔑 优先获取认证用户ID，回退到设备指纹
+        user_id = None
+        
+        # 1. 尝试从认证token获取用户ID
+        auth_header = request.headers.get('authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.replace('Bearer ', '')
+            try:
+                auth_user_info = await get_user_info_by_token(token)
+                if auth_user_info and auth_user_info.get('user_id'):
+                    user_id = auth_user_info['user_id']
+                    logger.info(f"✅ 使用认证用户ID获取历史记录: {user_id}")
+            except:
+                pass
+        
+        # 2. 如果没有认证用户，回退到设备指纹
+        if not user_id:
+            # 🔧 直接创建实例避免导入问题
+            from services.user_history_system import UserHistorySystem
+            history_service = UserHistorySystem()
+            
+            request_info = {
+                'user_agent': request.headers.get('user-agent', ''),
+                'client_ip': request.client.host,
+                'accept_language': request.headers.get('accept-language', '')
+            }
+            device_fingerprint = history_service.generate_device_fingerprint(request_info)
+            user_id = history_service.register_or_get_user(device_fingerprint)
+            logger.info(f"⚠️ 使用设备指纹获取历史记录: {user_id}")
+        else:
+            # 认证用户也需要创建服务实例
+            from services.user_history_system import UserHistorySystem
+            history_service = UserHistorySystem()
         
         # 获取会话历史
-        sessions = user_history.get_user_sessions(user_id, limit)
+        sessions = history_service.get_user_sessions(user_id, limit)
         
         # 计算统计信息
         doctor_names = set(session['doctor_name'] for session in sessions)

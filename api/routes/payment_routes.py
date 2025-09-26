@@ -316,18 +316,47 @@ async def test_wechat_payment_success(order_no: str):
         
         # 检查订单是否已经支付或刚刚更新成功
         if cursor.rowcount > 0 or order_dict['payment_status'] == 'paid':
-            # 更新处方状态为pending（进入医生审核流程）
+            # 更新处方状态为pending（进入医生审核流程）并解锁处方可见性
             cursor.execute("""
                 UPDATE prescriptions 
-                SET status = 'pending', payment_status = 'paid'
+                SET status = 'pending', 
+                    payment_status = 'paid',
+                    is_visible_to_patient = 1,
+                    visibility_unlock_time = datetime('now')
                 WHERE id = ?
             """, (order_dict['prescription_id'],))
+            
+            # 🔑 新增：更新对应的问诊记录状态为已完成
+            cursor.execute("""
+                UPDATE consultations 
+                SET status = 'completed', 
+                    updated_at = datetime('now')
+                WHERE patient_id = (
+                    SELECT patient_id FROM prescriptions WHERE id = ?
+                ) AND selected_doctor_id = (
+                    SELECT doctor_id FROM prescriptions WHERE id = ?
+                ) AND status = 'in_progress'
+            """, (order_dict['prescription_id'], order_dict['prescription_id']))
+            
+            # 更新对话状态为已完成
+            cursor.execute("""
+                UPDATE conversation_states 
+                SET current_stage = 'completed',
+                    has_prescription = 1,
+                    is_active = 0,
+                    updated_at = datetime('now')
+                WHERE user_id = (
+                    SELECT patient_id FROM prescriptions WHERE id = ?
+                ) AND doctor_id = (
+                    SELECT doctor_id FROM prescriptions WHERE id = ?
+                ) AND is_active = 1
+            """, (order_dict['prescription_id'], order_dict['prescription_id']))
             
             conn.commit()
             
             return {
                 "success": True,
-                "message": "测试支付成功，处方已进入医生审核流程",
+                "message": "测试支付成功，处方已解锁并进入医生审核流程",
                 "order_no": order_no,
                 "prescription_id": order_dict['prescription_id']
             }
@@ -378,18 +407,47 @@ async def test_alipay_payment_success(order_no: str):
         
         # 检查订单是否已经支付或刚刚更新成功
         if cursor.rowcount > 0 or order_dict['payment_status'] == 'paid':
-            # 更新处方状态为pending（进入医生审核流程）
+            # 更新处方状态为pending（进入医生审核流程）并解锁处方可见性
             cursor.execute("""
                 UPDATE prescriptions 
-                SET status = 'pending', payment_status = 'paid'
+                SET status = 'pending', 
+                    payment_status = 'paid',
+                    is_visible_to_patient = 1,
+                    visibility_unlock_time = datetime('now')
                 WHERE id = ?
             """, (order_dict['prescription_id'],))
+            
+            # 🔑 新增：更新对应的问诊记录状态为已完成
+            cursor.execute("""
+                UPDATE consultations 
+                SET status = 'completed', 
+                    updated_at = datetime('now')
+                WHERE patient_id = (
+                    SELECT patient_id FROM prescriptions WHERE id = ?
+                ) AND selected_doctor_id = (
+                    SELECT doctor_id FROM prescriptions WHERE id = ?
+                ) AND status = 'in_progress'
+            """, (order_dict['prescription_id'], order_dict['prescription_id']))
+            
+            # 更新对话状态为已完成
+            cursor.execute("""
+                UPDATE conversation_states 
+                SET current_stage = 'completed',
+                    has_prescription = 1,
+                    is_active = 0,
+                    updated_at = datetime('now')
+                WHERE user_id = (
+                    SELECT patient_id FROM prescriptions WHERE id = ?
+                ) AND doctor_id = (
+                    SELECT doctor_id FROM prescriptions WHERE id = ?
+                ) AND is_active = 1
+            """, (order_dict['prescription_id'], order_dict['prescription_id']))
             
             conn.commit()
             
             return {
                 "success": True,
-                "message": "测试支付成功，处方已进入医生审核流程",
+                "message": "测试支付成功，处方已解锁并进入医生审核流程",
                 "order_no": order_no,
                 "prescription_id": order_dict['prescription_id']
             }

@@ -186,20 +186,56 @@ async def get_conversation_history(user_id: str, doctor_id: Optional[str] = None
         
         consultation_records = cursor.fetchall()
         
-        # 获取最近的消息记录（如果有会话元数据表）
+        # 🔑 修复：从consultations表获取实际的对话消息
+        messages = []
         try:
-            cursor.execute("""
-                SELECT cm.conversation_id, cm.message_count, cm.diagnosis_summary, 
-                       cm.prescription_given, cm.created_at
-                FROM conversation_metadata cm
-                JOIN doctor_sessions ds ON cm.session_id = ds.session_id
-                WHERE ds.patient_id = ?
-                ORDER BY cm.created_at DESC LIMIT 5
-            """, (user_id,))
-            recent_messages = cursor.fetchall()
-        except Exception:
-            # 如果表不存在，使用空数组
-            recent_messages = []
+            if doctor_id:
+                # 获取特定医生的对话记录
+                cursor.execute("""
+                    SELECT conversation_log, created_at, updated_at 
+                    FROM consultations 
+                    WHERE patient_id = ? AND selected_doctor_id = ?
+                    ORDER BY created_at DESC LIMIT 20
+                """, (user_id, doctor_id))
+            else:
+                # 获取所有医生的对话记录
+                cursor.execute("""
+                    SELECT conversation_log, selected_doctor_id, created_at, updated_at 
+                    FROM consultations 
+                    WHERE patient_id = ?
+                    ORDER BY created_at DESC LIMIT 20
+                """, (user_id,))
+            
+            consultation_logs = cursor.fetchall()
+            
+            for log_row in consultation_logs:
+                conversation_log = log_row[0]  # JSON string
+                created_at = log_row[-2]  # 创建时间
+                
+                if conversation_log:
+                    try:
+                        log_data = json.loads(conversation_log)
+                        # 构建前端期望的消息格式
+                        if log_data.get('patient_query'):
+                            messages.append({
+                                'sender': 'user',
+                                'content': log_data['patient_query'],
+                                'timestamp': created_at,
+                                'doctor': log_data.get('conversation_id', 'unknown')
+                            })
+                        if log_data.get('ai_response'):
+                            messages.append({
+                                'sender': 'ai', 
+                                'content': log_data['ai_response'],
+                                'timestamp': created_at,
+                                'doctor': log_data.get('conversation_id', 'unknown')
+                            })
+                    except json.JSONDecodeError:
+                        continue
+                        
+        except Exception as e:
+            logger.error(f"获取对话消息失败: {e}")
+            messages = []
         
         conn.close()
         
@@ -207,7 +243,7 @@ async def get_conversation_history(user_id: str, doctor_id: Optional[str] = None
         result_data = {
             "conversation_states": [dict(row) for row in conversation_states],
             "consultation_records": [dict(row) for row in consultation_records],
-            "recent_messages": [dict(row) for row in recent_messages],
+            "messages": messages,  # 🔑 修复：前端期望的字段名
             "user_id": user_id,
             "sync_time": datetime.now().isoformat()
         }
@@ -220,6 +256,72 @@ async def get_conversation_history(user_id: str, doctor_id: Optional[str] = None
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取历史记录失败: {str(e)}")
+
+@router.post("/clear", response_model=HistoryResponse)
+async def clear_conversation_history(request: Dict[str, Any]):
+    """清空用户与特定医生的对话记录"""
+    try:
+        user_id = request.get('user_id')
+        doctor_id = request.get('doctor_id')
+        clear_type = request.get('clear_type', 'all')
+        
+        if not user_id or not doctor_id:
+            raise HTTPException(status_code=400, detail="用户ID和医生ID不能为空")
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        deleted_count = 0
+        
+        if clear_type in ['all', 'consultations']:
+            # 清空问诊记录
+            cursor.execute("""
+                DELETE FROM consultations 
+                WHERE patient_id = ? AND selected_doctor_id = ?
+            """, (user_id, doctor_id))
+            deleted_count += cursor.rowcount
+        
+        if clear_type in ['all', 'conversation_states']:
+            # 清空对话状态
+            cursor.execute("""
+                DELETE FROM conversation_states 
+                WHERE user_id = ? AND doctor_id = ?
+            """, (user_id, doctor_id))
+            deleted_count += cursor.rowcount
+        
+        if clear_type in ['all', 'doctor_sessions']:
+            # 清空医生会话记录
+            cursor.execute("""
+                DELETE FROM doctor_sessions 
+                WHERE user_id = ? AND doctor_name = ?
+            """, (user_id, doctor_id))
+            deleted_count += cursor.rowcount
+        
+        if clear_type in ['all', 'prescriptions']:
+            # 清空相关处方（只清空未支付的）
+            cursor.execute("""
+                DELETE FROM prescriptions 
+                WHERE patient_id = ? AND doctor_id = ? AND payment_status != 'paid'
+            """, (user_id, doctor_id))
+            deleted_count += cursor.rowcount
+        
+        conn.commit()
+        conn.close()
+        
+        return HistoryResponse(
+            success=True,
+            message=f"已清空{deleted_count}条相关记录",
+            data={
+                "user_id": user_id,
+                "doctor_id": doctor_id,
+                "deleted_count": deleted_count,
+                "clear_type": clear_type,
+                "clear_time": datetime.now().isoformat()
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"清空记录失败: {str(e)}")
 
 @router.get("/status/{user_id}/{doctor_id}", response_model=HistoryResponse)
 async def get_conversation_status(user_id: str, doctor_id: str):

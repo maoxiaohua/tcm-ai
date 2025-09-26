@@ -159,7 +159,7 @@
             align-items: center;
         }
 
-        .history-btn, .new-chat-btn, .auth-btn, .sync-btn {
+        .history-btn, .new-chat-btn, .auth-btn {
             background: rgba(255,255,255,0.2);
             border: 1px solid rgba(255,255,255,0.3);
             color: white;
@@ -169,22 +169,6 @@
             font-size: 14px;
             transition: all 0.2s;
             white-space: nowrap;
-        }
-        
-        .sync-btn {
-            background: rgba(34, 197, 94, 0.2);
-            border-color: rgba(34, 197, 94, 0.4);
-        }
-        
-        .sync-btn:hover {
-            background: rgba(34, 197, 94, 0.3);
-            transform: translateY(-1px);
-        }
-        
-        .sync-btn.syncing {
-            background: rgba(245, 101, 101, 0.2);
-            border-color: rgba(245, 101, 101, 0.4);
-            animation: pulse 1.5s infinite;
         }
         
         @keyframes pulse {
@@ -1936,10 +1920,7 @@
                     <p class="header-subtitle">传统中医 × 人工智能 - 专业版</p>
                 </div>
                 <div class="header-actions">
-                    <!-- 数据同步按钮 -->
-                    <button id="syncButton" class="sync-btn" onclick="triggerUserDataSync()" title="同步问诊记录">
-                        🔄 同步
-                    </button>
+                    <!-- 自动同步状态指示器 (自动显示，无需手动操作) -->
                     <!-- 未登录状态 -->
                     <div id="authButtons" style="display: flex; gap: 12px;">
                         <button class="auth-btn" onclick="showLoginModal()" title="用户登录">
@@ -2473,11 +2454,115 @@
                 window.lastKnownUser = currentStoredUser;
                 
                 // 用户状态发生变化，执行切换处理
-                switchUserContext();
+                handleUserSwitch();
                 return true;
             }
             
             return false;
+        }
+
+        /**
+         * 🔄 处理用户切换
+         */
+        function handleUserSwitch() {
+            console.log('🔄 开始处理用户切换...');
+            
+            // 1. 清理当前页面状态
+            clearAllMessages();
+            resetDoctorSelection();
+            
+            // 2. 清理旧用户的会话数据
+            clearCurrentUserData();
+            
+            // 3. 重新初始化当前用户
+            const newUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            if (newUser.id || newUser.user_id) {
+                currentUser = newUser;
+                console.log('🔑 切换到认证用户:', newUser.username || newUser.display_name);
+                
+                // 4. 重新加载该用户的数据
+                loadConversationHistory();
+                updateUserInterface(true);
+            } else {
+                console.log('⚠️ 切换到访客模式');
+                currentUser = null;
+                userToken = null;
+                updateUserInterface(false);
+            }
+            
+            // 5. 显示切换通知
+            showMessage('用户身份已更新', 'info');
+        }
+
+        /**
+         * 🧹 清理当前用户的所有数据
+         */
+        function clearCurrentUserData() {
+            try {
+                const currentUserId = getCurrentUserId();
+                console.log('🧹 开始清理用户数据，用户ID:', currentUserId);
+                
+                // 1. 清理当前用户的所有历史记录
+                const keys = Object.keys(localStorage);
+                const userHistoryKeys = keys.filter(key => 
+                    key.includes(`_${currentUserId}_`) || 
+                    key.endsWith(`_${currentUserId}`) ||
+                    key.startsWith(`tcm_doctor_history_${currentUserId}`) ||
+                    key.startsWith(`conversationId_${currentUserId}`)
+                );
+                
+                let cleanedCount = 0;
+                userHistoryKeys.forEach(key => {
+                    localStorage.removeItem(key);
+                    cleanedCount++;
+                    console.log('🗑️ 删除用户数据:', key);
+                });
+                
+                // 2. 重置全局变量
+                window.currentConversationId = null;
+                window.selectedDoctor = null;
+                
+                // 3. 清理UI状态
+                clearAllMessages();
+                resetDoctorSelection();
+                
+                console.log(`✅ 用户数据清理完成，共删除 ${cleanedCount} 项数据`);
+                return cleanedCount;
+            } catch (error) {
+                console.error('❌ 用户数据清理失败:', error);
+                return 0;
+            }
+        }
+
+        /**
+         * 🧹 清理旧用户数据（防止数据泄露）
+         */
+        function cleanupOldUserData() {
+            const currentUserId = getCurrentUserId();
+            const keys = Object.keys(localStorage);
+            
+            // 查找其他用户的数据
+            const otherUserKeys = keys.filter(key => 
+                (key.includes('real_user_') || key.includes('smart_user_') || key.includes('usr_')) && 
+                !key.includes(currentUserId)
+            );
+            
+            if (otherUserKeys.length > 0) {
+                console.log('🧹 清理其他用户的遗留数据:', otherUserKeys.length, '项');
+                otherUserKeys.forEach(key => {
+                    localStorage.removeItem(key);
+                    console.log('🗑️ 删除遗留数据:', key);
+                });
+            }
+        }
+
+        /**
+         * 🔄 切换用户上下文（供调试使用）
+         */
+        function switchUserContext() {
+            handleUserSwitch();
+            updateCurrentUserDisplay();
+            return true;
         }
 
         /**
@@ -2784,7 +2869,7 @@
         }
 
         // 添加消息
-        function addMessage(sender, content, showFeedback = false, isPaid = false, prescriptionId = null) {
+        async function addMessage(sender, content, showFeedback = false, isPaid = false, prescriptionId = null) {
             console.log('🔍 addMessage被调用:', {
                 sender,
                 contentLength: content ? content.length : 0,
@@ -2819,7 +2904,7 @@
                 if (window.simplePrescriptionManager) {
                     // 使用简化版处方管理器
                     console.log('✅ 使用简化版处方管理器处理内容');
-                    processedContent = window.simplePrescriptionManager.processContent(content, prescriptionId);
+                    processedContent = await window.simplePrescriptionManager.processContent(content, prescriptionId);
                 } else if (window.prescriptionContentRenderer) {
                     // 备用：使用原来的处方渲染器
                     console.log('⚠️ 使用备用处方渲染器');
@@ -3143,7 +3228,7 @@
             }
 
             // 添加用户消息
-            addMessage('user', message);
+            await addMessage('user', message);
             input.value = '';
             adjustTextareaHeight();
             
@@ -3170,9 +3255,7 @@
                 
                 const response = await fetch('/api/consultation/chat', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         message: message,
                         conversation_id: currentConversationId,
@@ -3269,7 +3352,7 @@
                 });
                 
                 // 🔑 关键修复：根据处方状态决定显示模式
-                addMessage('ai', aiReply, shouldShowFeedback, isPaid, prescriptionId);
+                await addMessage('ai', aiReply, shouldShowFeedback, isPaid, prescriptionId);
                 
                 // 记录诊断阶段
                 if (shouldShowFeedback) {
@@ -3711,21 +3794,57 @@ ${record.prescription_given}
         }
 
         // 开始新对话
-        function startNewChat() {
-            const choice = confirm('开始新对话选项：\n- 确定：清空当前医生的对话记录\n- 取消：保持历史记录不变');
+        async function startNewChat() {
+            if (!selectedDoctor) {
+                alert('请先选择医生再清空对话记录');
+                return;
+            }
+            
+            const choice = confirm('🗑️ 清空对话记录\n\n这将清空当前医生的所有对话记录，包括：\n• 本地存储的消息\n• 服务器端的对话历史\n• 已保存的问诊状态\n\n确定要清空吗？');
+            
             if (choice) {
-                // 用户选择清空当前医生的历史记录
-                if (selectedDoctor) {
+                try {
                     const userId = getCurrentUserId();
+                    
+                    // 1. 清空本地存储
                     const historyKey = `tcm_doctor_history_${userId}_${selectedDoctor}`;
                     localStorage.removeItem(historyKey);
-                    console.log(`已清空${selectedDoctor}医生的历史记录`);
-                }
-                generateConversationId();
-                
-                // 重新加载当前医生的历史记录（现在是空的）
-                if (selectedDoctor) {
+                    
+                    // 2. 清空服务器端对话记录
+                    const response = await fetch('/api/conversation/clear', {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({
+                            user_id: userId,
+                            doctor_id: selectedDoctor,
+                            clear_type: 'all' // 清空所有相关记录
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success) {
+                            console.log(`✅ 已清空${selectedDoctor}医生的完整对话记录`);
+                            showMessage(`已清空${getDoctorDisplayName(selectedDoctor)}的对话记录`, 'success');
+                        } else {
+                            console.warn('服务器清空失败，但本地已清空');
+                            showMessage('本地记录已清空，服务器清空失败', 'warning');
+                        }
+                    } else {
+                        console.warn('服务器清空请求失败，但本地已清空');
+                        showMessage('本地记录已清空，服务器清空失败', 'warning');
+                    }
+                    
+                    // 3. 生成新的对话ID
+                    generateConversationId();
+                    
+                    // 4. 清空页面显示并重新加载空白状态
+                    clearAllMessages();
                     loadDoctorHistory(selectedDoctor);
+                    
+                } catch (error) {
+                    console.error('清空对话记录失败:', error);
+                    showMessage('清空失败，请重试', 'error');
                 }
             } else {
                 // 用户选择保持历史记录，什么都不做
@@ -4561,89 +4680,8 @@ ${data.analysis_result}`;
             }
         }
 
-        // 触发用户数据同步
-        async function triggerUserDataSync() {
-            const syncButton = document.getElementById('syncButton');
-            const userId = getCurrentUserId();
-            
-            if (!userId || userId.startsWith('temp_user_') || userId.startsWith('device_')) {
-                showMessage('💡 请先登录账户以同步问诊记录', 'info');
-                return;
-            }
-            
-            // 更新按钮状态
-            syncButton.classList.add('syncing');
-            syncButton.textContent = '🔄 同步中...';
-            syncButton.disabled = true;
-            
-            try {
-                console.log('🔄 开始用户数据同步...', userId);
-                
-                if (window.conversationStateManager && window.conversationStateManager.performFullUserSync) {
-                    const result = await window.conversationStateManager.performFullUserSync(userId);
-                    
-                    if (result && result.success) {
-                        showMessage('✅ 问诊记录同步成功！现在可以在其他设备上访问您的问诊历史', 'success');
-                        
-                        // 更新UI显示同步状态
-                        setTimeout(() => {
-                            showSyncStatusIndicator('已同步', 'success');
-                        }, 500);
-                        
-                    } else if (result && result.conflicts && result.conflicts.length > 0) {
-                        showMessage('⚠️ 检测到数据冲突，需要手动处理', 'warning');
-                        console.warn('数据冲突:', result.conflicts);
-                        
-                    } else {
-                        showMessage('❌ 数据同步失败，请稍后重试', 'error');
-                    }
-                } else {
-                    // 回退到简单的状态保存
-                    if (window.conversationStateManager && window.conversationStateManager.syncStateToServer) {
-                        await window.conversationStateManager.syncStateToServer();
-                        showMessage('✅ 当前对话状态已保存到云端', 'success');
-                    }
-                }
-                
-            } catch (error) {
-                console.error('❌ 数据同步异常:', error);
-                showMessage('❌ 同步失败：' + error.message, 'error');
-            } finally {
-                // 恢复按钮状态
-                syncButton.classList.remove('syncing');
-                syncButton.textContent = '🔄 同步';
-                syncButton.disabled = false;
-            }
-        }
-
-        // 显示同步状态指示器
-        function showSyncStatusIndicator(message, type) {
-            const indicator = document.createElement('div');
-            indicator.style.cssText = `
-                position: fixed;
-                top: 80px;
-                right: 20px;
-                background: ${type === 'success' ? '#10b981' : '#f59e0b'};
-                color: white;
-                padding: 12px 16px;
-                border-radius: 8px;
-                font-size: 14px;
-                z-index: 1002;
-                animation: slideIn 0.3s ease;
-            `;
-            indicator.textContent = `${type === 'success' ? '✅' : '⚠️'} ${message}`;
-            
-            document.body.appendChild(indicator);
-            
-            setTimeout(() => {
-                indicator.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => {
-                    if (indicator.parentNode) {
-                        indicator.parentNode.removeChild(indicator);
-                    }
-                }, 300);
-            }, 3000);
-        }
+        // 注意：原有的手动同步功能已被自动同步管理器替代
+        // 新的自动同步系统无需手动操作，将自动在后台运行
 
         // 退出登录
         function logout() {
@@ -5045,8 +5083,13 @@ ${data.analysis_result}`;
                 'Content-Type': 'application/json',
             };
             
-            if (userToken) {
-                headers['Authorization'] = `Bearer ${userToken}`;
+            // 🔑 修复：使用authManager获取正确的token
+            const token = window.authManager ? window.authManager.getToken() : userToken;
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+                console.log('🔑 使用认证token:', token.substring(0, 20) + '...');
+            } else {
+                console.log('⚠️ 没有找到认证token');
             }
             
             return headers;
@@ -6797,15 +6840,20 @@ ${data.analysis_result}`;
                     });
                 }
                 
+                // 🔑 修复：匹配API期望的参数格式
+                const userId = getCurrentUserId();
                 const response = await fetch('/api/session/update', {
                     method: 'POST',
                     headers: getAuthHeaders(),
                     body: JSON.stringify({
-                        conversation_id: currentConversationId,
-                        doctor_id: selectedDoctor,
-                        messages: messages,
-                        device_info: getDeviceInfo(),
-                        sync_time: Date.now()
+                        user_id: userId,
+                        session_data: {
+                            conversation_id: currentConversationId,
+                            doctor_id: selectedDoctor,
+                            messages: messages,
+                            device_info: getDeviceInfo(),
+                            sync_time: Date.now()
+                        }
                     })
                 });
                 
@@ -7596,9 +7644,7 @@ ${data.analysis_result}`;
                 
                 const response = await fetch('/api/consultation/chat', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         message: message,
                         conversation_id: currentConversationId,
@@ -8279,5 +8325,30 @@ ${data.analysis_result}`;
     
     <!-- 对话状态管理器 - 在主要JavaScript代码之后加载 -->
     <script src="/static/js/conversation_state_manager.js"></script>
+    
+    <!-- 自动同步管理器 v2.0 - 替代手动同步按钮 -->
+    <script src="/static/js/auto_sync_manager.js"></script>
+    
+    <script>
+        // 初始化自动同步系统
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 自动同步系统已启用，告别手动同步时代！');
+            
+            // 监听自动同步事件
+            if (window.autoSyncManager) {
+                window.autoSyncManager.addEventListener('connected', function() {
+                    console.log('✅ 实时同步已连接，您的数据将自动在设备间同步');
+                });
+                
+                window.autoSyncManager.addEventListener('synced', function(data) {
+                    console.log('🔄 自动同步完成:', data.type);
+                });
+                
+                window.autoSyncManager.addEventListener('conflict', function(data) {
+                    console.warn('⚠️ 检测到数据冲突，请处理:', data);
+                });
+            }
+        });
+    </script>
 </body>
 </html>

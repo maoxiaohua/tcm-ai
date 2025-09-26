@@ -4,7 +4,7 @@
 为智能工作流程和原系统提供统一的问诊接口
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Dict, Optional, Any
 import logging
@@ -39,29 +39,53 @@ class ChatResponse(BaseModel):
     message: str = ""
 
 @router.post("/chat", response_model=ChatResponse)
-async def unified_chat_endpoint(request: ChatMessage):
+async def unified_chat_endpoint(request: ChatMessage, http_request: Request):
     """
-    统一问诊聊天接口
+    统一问诊聊天接口 - 支持跨设备同步
     兼容智能工作流程和原系统的调用方式
     """
     try:
         logger.info(f"统一问诊请求: 医生={request.selected_doctor}, 消息长度={len(request.message)}")
         
+        # 🔑 获取真实用户ID (优先认证用户，回退到设备用户)
+        real_user_id = None
+        
+        # 1. 尝试从认证token获取用户ID
+        auth_header = http_request.headers.get('authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.replace('Bearer ', '')
+            try:
+                from api.main import get_user_info_by_token
+                auth_user_info = await get_user_info_by_token(token)
+                if auth_user_info and auth_user_info.get('user_id'):
+                    real_user_id = auth_user_info['user_id']
+                    logger.info(f"✅ 使用认证用户ID进行问诊: {real_user_id}")
+            except:
+                pass
+        
+        # 2. 如果没有认证用户，使用前端传递的patient_id或生成设备用户
+        if not real_user_id:
+            real_user_id = request.patient_id or "guest"
+            logger.info(f"⚠️ 使用设备/guest用户进行问诊: {real_user_id}")
+        
         # 获取统一问诊服务
         consultation_service = get_consultation_service()
         
-        # 构建请求对象
+        # 构建请求对象 (使用真实用户ID)
         consultation_request = ConsultationRequest(
             message=request.message,
             conversation_id=request.conversation_id,
             selected_doctor=request.selected_doctor,
             conversation_history=request.conversation_history or [],
-            patient_id=request.patient_id,
+            patient_id=real_user_id,  # 🔑 使用真实用户ID
             has_images=request.has_images
         )
         
         # 处理问诊
         response = await consultation_service.process_consultation(consultation_request)
+        
+        # 🔑 新增：存储问诊记录到数据库以支持跨设备同步
+        await _store_consultation_record(real_user_id, request, response)
         
         # 构建响应数据
         response_data = {
@@ -384,3 +408,117 @@ async def get_conversation_summary(conversation_id: str):
             "success": False,
             "message": str(e)
         }
+
+async def _store_consultation_record(user_id: str, request: ChatMessage, response) -> None:
+    """
+    存储问诊记录到数据库以支持跨设备同步
+    整合多个存储机制确保数据完整性
+    """
+    try:
+        import sqlite3
+        import json
+        import uuid
+        from datetime import datetime
+        
+        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
+        cursor = conn.cursor()
+        
+        # 1. 存储到 consultations 表（问诊主记录）
+        consultation_uuid = str(uuid.uuid4())
+        conversation_log = json.dumps({
+            "patient_query": request.message,
+            "ai_response": response.reply,
+            "conversation_id": request.conversation_id,
+            "conversation_history": request.conversation_history or [],
+            "stage": response.stage,
+            "confidence_score": response.confidence_score
+        })
+        
+        cursor.execute("""
+            INSERT OR REPLACE INTO consultations (
+                uuid, patient_id, selected_doctor_id, conversation_log,
+                symptoms_analysis, tcm_syndrome, status,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            consultation_uuid,
+            user_id,
+            request.selected_doctor,
+            conversation_log,
+            json.dumps({"confidence_score": response.confidence_score, "stage": response.stage}),
+            json.dumps(response.prescription_data.get('syndrome', {}) if response.prescription_data else {}),
+            "completed" if response.contains_prescription else "in_progress",
+            datetime.now().isoformat(),
+            datetime.now().isoformat()
+        ))
+        
+        # 2. 更新或创建 conversation_states 表（对话状态）
+        cursor.execute("""
+            INSERT OR REPLACE INTO conversation_states (
+                conversation_id, user_id, doctor_id, current_stage, 
+                start_time, last_activity, turn_count, symptoms_collected, 
+                has_prescription, is_active, diagnosis_confidence, 
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            request.conversation_id,
+            user_id,
+            request.selected_doctor,
+            response.stage,
+            datetime.now().isoformat(),  # start_time
+            datetime.now().isoformat(),  # last_activity
+            len(request.conversation_history or []) + 1,
+            json.dumps({"last_query": request.message, "last_response": response.reply}),
+            1 if response.contains_prescription else 0,
+            1,
+            response.confidence_score,  # diagnosis_confidence
+            datetime.now().isoformat(),
+            datetime.now().isoformat()
+        ))
+        
+        # 3. 如果有处方，存储到 prescriptions 表
+        if response.contains_prescription and response.prescription_data:
+            prescription_uuid = response.prescription_data.get('prescription_id', str(uuid.uuid4()))
+            cursor.execute("""
+                INSERT OR REPLACE INTO prescriptions (
+                    uuid, consultation_id, patient_id, doctor_id, 
+                    prescription_data, tcm_syndrome, status, 
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                prescription_uuid,
+                consultation_uuid,
+                user_id,
+                request.selected_doctor,
+                json.dumps(response.prescription_data),
+                json.dumps(response.prescription_data.get('syndrome', {})),
+                "pending_review",
+                datetime.now().isoformat(),
+                datetime.now().isoformat()
+            ))
+        
+        # 4. 存储到 doctor_sessions 表（兼容历史记录系统）
+        cursor.execute("""
+            INSERT OR REPLACE INTO doctor_sessions (
+                session_id, user_id, doctor_name, chief_complaint,
+                session_status, created_at, last_updated
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            request.conversation_id,
+            user_id,
+            request.selected_doctor,
+            request.message[:100] if request.message else "问诊咨询",  # 截取前100字符作为主诉
+            "completed" if response.contains_prescription else "active",
+            datetime.now().isoformat(),
+            datetime.now().isoformat()
+        ))
+        
+        conn.commit()
+        logger.info(f"✅ 问诊记录已存储: user={user_id}, doctor={request.selected_doctor}, 包含处方={response.contains_prescription}")
+        
+    except Exception as e:
+        logger.error(f"❌ 存储问诊记录失败: {e}")
+        logger.error(traceback.format_exc())
+    finally:
+        if 'conn' in locals():
+            conn.close()

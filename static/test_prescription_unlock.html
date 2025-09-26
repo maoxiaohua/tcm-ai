@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>处方解锁测试页面</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .test-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+        }
+        
+        .test-title {
+            color: #1f2937;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        .test-result {
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+            min-height: 100px;
+        }
+        
+        .button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 8px 0;
+        }
+        
+        .button:hover {
+            background: #2563eb;
+        }
+        
+        .success { color: #059669; }
+        .error { color: #dc2626; }
+        .info { color: #0891b2; }
+    </style>
+</head>
+<body>
+    <h1>📋 处方解锁功能测试</h1>
+    
+    <div class="test-section">
+        <div class="test-title">🔍 1. 处方管理器状态检查</div>
+        <button class="button" onclick="checkManagerStatus()">检查管理器状态</button>
+        <div id="managerStatus" class="test-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">🏥 2. 测试处方API调用</div>
+        <input type="number" id="prescriptionId" placeholder="输入处方ID" value="89">
+        <button class="button" onclick="testPrescriptionAPI()">测试API调用</button>
+        <div id="apiResult" class="test-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">💊 3. 测试处方内容处理</div>
+        <button class="button" onclick="testPrescriptionProcessing()">测试处方处理</button>
+        <div id="processingResult" class="test-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">🔒 4. 测试支付状态检查</div>
+        <button class="button" onclick="testPaymentStatus()">测试支付状态</button>
+        <div id="paymentResult" class="test-result"></div>
+    </div>
+    
+    <script src="/static/js/simple_prescription_manager.js"></script>
+    
+    <script>
+        // 全局变量
+        let testPrescriptionManager = null;
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 处方解锁测试页面已加载');
+            
+            // 初始化处方管理器
+            if (typeof SimplePrescriptionManager !== 'undefined') {
+                testPrescriptionManager = new SimplePrescriptionManager();
+                log('managerStatus', '✅ 处方管理器已初始化', 'success');
+            } else {
+                log('managerStatus', '❌ 处方管理器未加载', 'error');
+            }
+        });
+        
+        // 工具函数
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            element.innerHTML += `<div class="${className}">[${new Date().toLocaleTimeString()}] ${message}</div>`;
+        }
+        
+        function clearLog(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+        
+        // 测试函数
+        function checkManagerStatus() {
+            clearLog('managerStatus');
+            
+            if (!testPrescriptionManager) {
+                log('managerStatus', '❌ 处方管理器未初始化', 'error');
+                return;
+            }
+            
+            log('managerStatus', '✅ 处方管理器状态正常', 'success');
+            log('managerStatus', `📊 支付状态缓存: ${testPrescriptionManager.paymentStatus.size} 条记录`, 'info');
+            log('managerStatus', `📦 原始内容缓存: ${testPrescriptionManager.originalContent.size} 条记录`, 'info');
+        }
+        
+        async function testPrescriptionAPI() {
+            clearLog('apiResult');
+            
+            const prescriptionId = document.getElementById('prescriptionId').value;
+            if (!prescriptionId) {
+                log('apiResult', '❌ 请输入处方ID', 'error');
+                return;
+            }
+            
+            log('apiResult', `🔄 正在调用API: /api/prescription/${prescriptionId}`, 'info');
+            
+            try {
+                const response = await fetch(`/api/prescription/${prescriptionId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('apiResult', '✅ API调用成功', 'success');
+                    log('apiResult', `📋 处方ID: ${data.prescription.id}`, 'info');
+                    log('apiResult', `💳 支付状态: ${data.prescription.payment_status}`, 'info');
+                    log('apiResult', `🔓 可见状态: ${data.prescription.is_visible_to_patient ? '已解锁' : '锁定'}`, data.prescription.is_visible_to_patient ? 'success' : 'error');
+                    log('apiResult', `⏰ 解锁时间: ${data.prescription.visibility_unlock_time || '未解锁'}`, 'info');
+                } else {
+                    log('apiResult', '❌ API调用失败', 'error');
+                    log('apiResult', `错误信息: ${JSON.stringify(data)}`, 'error');
+                }
+            } catch (error) {
+                log('apiResult', '❌ API调用异常', 'error');
+                log('apiResult', `异常信息: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testPrescriptionProcessing() {
+            clearLog('processingResult');
+            
+            if (!testPrescriptionManager) {
+                log('processingResult', '❌ 处方管理器未初始化', 'error');
+                return;
+            }
+            
+            // 模拟处方内容
+            const testContent = `
+🩺 专业诊断分析
+
+辨证分析：根据患者目前提供的症状：口干多饮、多尿、消瘦、易饥多食，舌苔薄白淡红，无发热、无汗、大小便正常，结合《伤寒论》六经辨证理论及现代医学"糖尿病"诊断，初步判断为阳明燥热内盛，气阴两虚之证
+
+📋 个性化处方方案
+名医专方
+
+方剂组成预览 (共11味药材)
+- 生地黄 ***g
+- 知母 ***g
++ 9味药材 解锁查看
+
+完整处方包含
+⚖️ 精确剂量配比
+🎯 个人体质调整
+📖 详细煎服指导
+⚠️ 用药注意事项
+
+🔓 解锁完整处方 ¥88
+🔒 安全支付
+💯 专业保障
+🎁 含代煎服务
+            `;
+            
+            log('processingResult', '🔄 正在处理测试处方内容...', 'info');
+            
+            try {
+                const processedContent = await testPrescriptionManager.processContent(testContent);
+                log('processingResult', '✅ 处方内容处理完成', 'success');
+                log('processingResult', `📄 处理后HTML长度: ${processedContent.length} 字符`, 'info');
+                
+                // 在结果区域显示处理后的内容
+                document.getElementById('processingResult').innerHTML += 
+                    `<div style="border-top: 1px solid #ddd; margin-top: 16px; padding-top: 16px;">
+                        <strong>处理结果预览:</strong><br>
+                        ${processedContent}
+                    </div>`;
+                    
+            } catch (error) {
+                log('processingResult', '❌ 处方内容处理失败', 'error');
+                log('processingResult', `错误信息: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testPaymentStatus() {
+            clearLog('paymentResult');
+            
+            if (!testPrescriptionManager) {
+                log('paymentResult', '❌ 处方管理器未初始化', 'error');
+                return;
+            }
+            
+            // 测试不同的处方ID支付状态
+            const testIds = ['89', 'rx_test123', 'rx_nonexistent'];
+            
+            for (const testId of testIds) {
+                log('paymentResult', `🔄 检查处方 ${testId} 的支付状态...`, 'info');
+                
+                try {
+                    const isPaid = await testPrescriptionManager.isPaid(testId);
+                    log('paymentResult', `📋 处方 ${testId}: ${isPaid ? '✅ 已支付' : '❌ 未支付'}`, isPaid ? 'success' : 'error');
+                } catch (error) {
+                    log('paymentResult', `❌ 检查处方 ${testId} 失败: ${error.message}`, 'error');
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -751,27 +751,111 @@
         let userToken = null;
         let currentUser = null;
         
-        // 医生信息映射
-        const doctorInfo = {
-            'zhang_zhongjing': { name: '张仲景', emoji: '🎯', description: '伤寒派' },
-            'ye_tianshi': { name: '叶天士', emoji: '🌡️', description: '温病派' },
-            'li_dongyuan': { name: '李东垣', emoji: '🌱', description: '补土派' },
-            'zhu_danxi': { name: '朱丹溪', emoji: '💧', description: '滋阴派' },
-            'liu_duzhou': { name: '刘渡舟', emoji: '📚', description: '经方派' },
-            'zheng_qin_an': { name: '郑钦安', emoji: '☀️', description: '扶阳派' }
-        };
+        // 医生信息映射 - 只保留活跃医生，从服务器动态获取
+        let doctorInfo = {};
         
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
             initializePage();
         });
         
+        // 🔑 动态加载活跃医生信息
+        async function loadDoctorInfo() {
+            try {
+                const response = await fetch('/api/doctor/list');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.doctors) {
+                        // 清空现有映射，只保留活跃医生
+                        doctorInfo = {};
+                        
+                        // 更新医生信息映射
+                        data.doctors.forEach(doctor => {
+                            if (doctor.doctor_code) {
+                                doctorInfo[doctor.doctor_code] = {
+                                    name: doctor.name,
+                                    emoji: getEmojiForDoctor(doctor.doctor_code),
+                                    description: extractDescription(doctor.specialties)
+                                };
+                            }
+                        });
+                        console.log('✅ 活跃医生信息已更新:', Object.keys(doctorInfo));
+                        console.log('✅ 活跃医生列表:', data.doctors.map(d => d.name));
+                        
+                        // 更新医生筛选选项卡
+                        updateDoctorTabs();
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ 加载医生信息失败:', error);
+            }
+        }
+
+        // 🔑 更新医生筛选选项卡（仅显示活跃医生和有历史记录的医生）
+        function updateDoctorTabs() {
+            const filterTabs = document.querySelector('.filter-tabs');
+            if (!filterTabs) return;
+            
+            // 获取所有有数据的医生
+            const doctorsWithData = [...new Set(allSessions.map(session => session.doctor_name))];
+            console.log('有历史记录的医生:', doctorsWithData);
+            console.log('活跃医生:', Object.keys(doctorInfo));
+            
+            // 重新生成过滤标签 - 只显示活跃医生中有历史记录的医生
+            let tabsHtml = '<button class="filter-tab active" onclick="filterSessions(\'all\')">全部</button>';
+            
+            // 筛选出活跃且有历史记录的医生
+            const validDoctors = doctorsWithData.filter(doctorKey => doctorInfo[doctorKey]);
+            
+            validDoctors.forEach(doctorKey => {
+                const doctor = doctorInfo[doctorKey];
+                tabsHtml += `<button class="filter-tab" onclick="filterSessions('${doctorKey}')">${doctor.name}</button>`;
+            });
+            
+            // 添加时间筛选
+            tabsHtml += '<button class="filter-tab" onclick="filterSessions(\'recent\')">最近7天</button>';
+            
+            filterTabs.innerHTML = tabsHtml;
+            console.log('✅ 医生筛选选项卡已更新，只显示活跃医生');
+        }
+        
+        // 为医生分配emoji
+        function getEmojiForDoctor(doctorCode) {
+            const emojiMap = {
+                'zhang_zhongjing': '🎯',
+                'ye_tianshi': '🌡️', 
+                'li_dongyuan': '🌱',
+                'zhu_danxi': '💧',
+                'liu_duzhou': '📚',
+                'zheng_qin_an': '☀️',
+                'jin_daifu': '⚕️'
+            };
+            return emojiMap[doctorCode] || '👨‍⚕️';
+        }
+        
+        // 从specialties中提取描述
+        function extractDescription(specialties) {
+            if (!specialties) return '中医专家';
+            try {
+                const parsed = JSON.parse(specialties);
+                return parsed.length > 0 ? parsed[0] : '中医专家';
+            } catch {
+                return specialties || '中医专家';
+            }
+        }
+        
         // 初始化页面
         async function initializePage() {
             try {
                 // 先检查登录状态
                 checkLoginStatus();
-                await loadUserInfo();
+                
+                // 🔑 并行加载医生信息和用户信息
+                await Promise.all([
+                    loadDoctorInfo(),
+                    loadUserInfo()
+                ]);
+                
                 await loadSessionHistory();
             } catch (error) {
                 console.error('页面初始化失败:', error);
@@ -781,15 +865,16 @@
         
         // 检查登录状态
         function checkLoginStatus() {
-            // 按角色检查token
+            // 按角色检查token (修复token键名不匹配问题)
             const patientToken = localStorage.getItem('patientToken');
             const doctorToken = localStorage.getItem('doctorToken');
             const adminToken = localStorage.getItem('adminToken');
+            const sessionToken = localStorage.getItem('session_token'); // 🔧 修复：添加session_token
             const userTokenStored = localStorage.getItem('userToken');
             
             // 优先使用角色专用token，然后fallback到通用token
-            userToken = patientToken || doctorToken || adminToken || userTokenStored;
-            const userData = localStorage.getItem('userData');
+            userToken = patientToken || doctorToken || adminToken || sessionToken || userTokenStored;
+            const userData = localStorage.getItem('userData') || localStorage.getItem('currentUser'); // 🔧 修复：添加currentUser
             
             if (userToken) {
                 try {
@@ -811,8 +896,13 @@
                 'Content-Type': 'application/json',
             };
             
-            if (userToken) {
-                headers['Authorization'] = `Bearer ${userToken}`;
+            // 🔑 修复：使用authManager获取正确的token
+            const token = window.authManager ? window.authManager.getToken() : userToken;
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+                console.log('🔑 历史页面使用认证token:', token.substring(0, 20) + '...');
+            } else {
+                console.log('⚠️ 历史页面没有找到认证token');
             }
             
             return headers;
@@ -821,8 +911,8 @@
         // 加载用户信息
         async function loadUserInfo() {
             try {
-                // 优先尝试认证API（真正的注册用户）
-                const authResponse = await fetch('/api/auth/profile', {
+                // 优先尝试认证API（真正的注册用户）- 使用修复版本
+                const authResponse = await fetch('/api/auth/profile-fixed', {
                     headers: getAuthHeaders()
                 });
                 
@@ -1006,38 +1096,61 @@
             historyContent.innerHTML = html;
         }
         
-        // 动态更新过滤标签
-        function updateFilterTabs() {
+        // 动态更新过滤标签 - 只显示活跃医生
+        async function updateFilterTabs() {
             const filterTabs = document.querySelector('.filter-tabs');
             
-            // 获取所有有数据的医生
-            const doctorsWithData = [...new Set(allSessions.map(session => session.doctor_name))];
-            console.log('有历史记录的医生:', doctorsWithData);
-            
-            // 重新生成过滤标签
-            let tabsHtml = '<button class="filter-tab active" onclick="filterSessions(\'all\')">全部</button>';
-            
-            // 按固定顺序添加医生标签（优先显示有数据的）
-            const allDoctors = ['zhang_zhongjing', 'ye_tianshi', 'li_dongyuan', 'zhu_danxi', 'liu_duzhou', 'zheng_qin_an'];
-            allDoctors.forEach(doctorKey => {
-                const doctor = doctorInfo[doctorKey];
-                if (doctor) {
-                    const hasData = doctorsWithData.includes(doctorKey);
-                    const className = hasData ? 'filter-tab' : 'filter-tab' + ' disabled';
-                    const title = hasData ? '' : ' title="暂无此医生的问诊记录"';
-                    tabsHtml += `<button class="${className}" onclick="filterSessions('${doctorKey}')"${title}>${doctor.name}</button>`;
+            try {
+                // 1. 获取活跃医生列表
+                const response = await fetch('/api/doctors/list', {
+                    headers: getAuthHeaders()
+                });
+                
+                const activeDoctorMap = {};
+                if (response.ok) {
+                    const doctorData = await response.json();
+                    if (doctorData.success && doctorData.doctors) {
+                        doctorData.doctors.forEach(doctor => {
+                            // 🔑 修复: API返回的医生都是活跃的，没有is_active字段
+                            activeDoctorMap[doctor.id] = doctor.name;
+                        });
+                        console.log('✅ 活跃医生列表:', activeDoctorMap);
+                    }
                 }
-            });
-            
-            tabsHtml += '<button class="filter-tab" onclick="filterSessions(\'recent\')">最近7天</button>';
-            
-            filterTabs.innerHTML = tabsHtml;
-            
-            // 恢复当前选中状态
-            const currentTab = filterTabs.querySelector(`[onclick="filterSessions('${currentFilter}')"]`);
-            if (currentTab) {
-                filterTabs.querySelector('.active').classList.remove('active');
-                currentTab.classList.add('active');
+                
+                // 2. 获取有历史记录的医生（只包含活跃医生）
+                const doctorsWithData = [...new Set(allSessions.map(session => session.doctor_name))];
+                const activeDoctorsWithData = doctorsWithData.filter(doctorKey => activeDoctorMap[doctorKey]);
+                
+                console.log('🔍 有记录的活跃医生:', activeDoctorsWithData);
+                
+                // 3. 重新生成过滤标签
+                let tabsHtml = '<button class="filter-tab active" onclick="filterSessions(\'all\')">全部</button>';
+                
+                // 只显示活跃且有历史记录的医生
+                activeDoctorsWithData.forEach(doctorKey => {
+                    const doctorName = activeDoctorMap[doctorKey];
+                    tabsHtml += `<button class="filter-tab" onclick="filterSessions('${doctorKey}')">${doctorName}</button>`;
+                });
+                
+                tabsHtml += '<button class="filter-tab" onclick="filterSessions(\'recent\')">最近7天</button>';
+                
+                filterTabs.innerHTML = tabsHtml;
+                
+                // 4. 恢复当前选中状态
+                const currentTab = filterTabs.querySelector(`[onclick="filterSessions('${currentFilter}')"]`);
+                if (currentTab) {
+                    filterTabs.querySelector('.active').classList.remove('active');
+                    currentTab.classList.add('active');
+                }
+                
+            } catch (error) {
+                console.error('❌ 更新医生过滤标签失败:', error);
+                
+                // fallback: 显示基础标签
+                let fallbackHtml = '<button class="filter-tab active" onclick="filterSessions(\'all\')">全部</button>';
+                fallbackHtml += '<button class="filter-tab" onclick="filterSessions(\'recent\')">最近7天</button>';
+                filterTabs.innerHTML = fallbackHtml;
             }
         }
         

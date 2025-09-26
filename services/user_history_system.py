@@ -358,20 +358,78 @@ class UserHistorySystem:
         
         return has_completion_keyword or is_short_confirmation
     
-    def get_user_sessions(self, user_id: str, limit: int = 20) -> List[Dict[str, Any]]:
-        """获取用户的会话历史"""
+    def map_device_to_user(self, real_user_id: str, device_user_id: str, device_fingerprint: str = None):
+        """建立设备用户ID到真实用户ID的映射"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         try:
             cursor.execute("""
+                INSERT OR IGNORE INTO user_device_mapping 
+                (real_user_id, device_user_id, device_fingerprint)
+                VALUES (?, ?, ?)
+            """, (real_user_id, device_user_id, device_fingerprint))
+            conn.commit()
+            
+            if cursor.rowcount > 0:
+                logger.info(f"✅ 建立设备映射: {real_user_id} -> {device_user_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ 建立设备映射失败: {e}")
+        finally:
+            conn.close()
+    
+    def get_user_sessions(self, user_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """获取用户的会话历史 - 支持跨设备同步"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            # 🔑 查找所有与此用户关联的设备user_id
+            related_user_ids = [user_id]  # 包含当前user_id
+            
+            # 1. 如果这是认证用户ID，查找所有映射的设备user_id
+            cursor.execute("""
+                SELECT device_user_id 
+                FROM user_device_mapping 
+                WHERE real_user_id = ?
+            """, (user_id,))
+            device_ids = cursor.fetchall()
+            related_user_ids.extend([row[0] for row in device_ids])
+            
+            # 2. 如果这是设备user_id，查找对应的认证user_id及其他设备
+            cursor.execute("""
+                SELECT real_user_id 
+                FROM user_device_mapping 
+                WHERE device_user_id = ?
+            """, (user_id,))
+            real_user_result = cursor.fetchone()
+            if real_user_result:
+                real_user_id = real_user_result[0]
+                related_user_ids.append(real_user_id)
+                
+                # 查找该真实用户的所有其他设备
+                cursor.execute("""
+                    SELECT device_user_id 
+                    FROM user_device_mapping 
+                    WHERE real_user_id = ? AND device_user_id != ?
+                """, (real_user_id, user_id))
+                other_devices = cursor.fetchall()
+                related_user_ids.extend([row[0] for row in other_devices])
+            
+            # 去重
+            related_user_ids = list(set(related_user_ids))
+            
+            # 构建查询条件
+            placeholders = ','.join(['?' for _ in related_user_ids])
+            cursor.execute(f"""
                 SELECT session_id, doctor_name, session_count, chief_complaint, 
-                       session_status, created_at, total_conversations
+                       session_status, created_at, total_conversations, user_id
                 FROM doctor_sessions 
-                WHERE user_id=? 
+                WHERE user_id IN ({placeholders})
                 ORDER BY last_updated DESC 
                 LIMIT ?
-            """, (user_id, limit))
+            """, related_user_ids + [limit])
             
             sessions = []
             for row in cursor.fetchall():
