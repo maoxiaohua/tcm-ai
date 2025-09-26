@@ -418,8 +418,35 @@ class ConversationStateManager {
         }
         
         try {
-            console.log('🌐 尝试从服务器恢复对话状态...');
+            console.log('🌐 尝试完整用户数据同步...');
             
+            // 首先尝试完整的用户数据同步
+            const syncData = await this.performFullUserSync(userId);
+            if (syncData && syncData.success) {
+                console.log('✅ 用户数据完整同步成功');
+                
+                // 从同步的数据中提取当前对话状态
+                const conversations = syncData.data?.conversations || [];
+                const currentConversation = conversations.find(conv => 
+                    conv.doctor_id === selectedDoctor && conv.user_id === userId
+                );
+                
+                if (currentConversation) {
+                    console.log('📋 找到匹配的对话状态');
+                    return {
+                        current_stage: currentConversation.current_stage,
+                        symptoms_collected: JSON.parse(currentConversation.symptoms_collected || '{}'),
+                        stage_history: JSON.parse(currentConversation.stage_history || '[]'),
+                        start_time: currentConversation.start_time,
+                        conversation_id: currentConversation.conversation_id
+                    };
+                }
+                
+                console.log('📋 未找到匹配的对话，但同步了其他数据');
+            }
+            
+            // 如果完整同步失败，回退到原有的API  
+            console.log('🔄 回退到单独的对话状态API...');
             const response = await fetch(`/api/conversation/status/${userId}/${selectedDoctor}`);
             if (!response.ok) {
                 throw new Error(`服务器响应失败: ${response.status}`);
@@ -925,6 +952,138 @@ class ConversationStateManager {
             isCompleted: this.currentState === this.STATES.COMPLETED,
             userId: this.getCurrentUserId()
         };
+    }
+
+    /**
+     * 执行完整用户数据同步
+     */
+    async performFullUserSync(userId) {
+        try {
+            console.log('🔄 执行完整用户数据同步...', userId);
+            
+            // 收集本地数据准备同步
+            const localData = this.collectLocalData(userId);
+            
+            const response = await fetch('/api/user-sync/full-sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': this.getAuthToken()
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    device_info: {
+                        fingerprint: this.getDeviceFingerprint(),
+                        user_agent: navigator.userAgent,
+                        timestamp: Date.now()
+                    },
+                    sync_data: localData,
+                    sync_type: 'full',
+                    client_timestamp: Date.now()
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`同步请求失败: ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('✅ 用户数据同步成功');
+                // 保存同步后的数据到本地
+                if (result.data) {
+                    this.applySyncedData(result.data);
+                }
+                return result;
+            } else if (result.conflicts && result.conflicts.length > 0) {
+                console.warn('⚠️ 检测到数据冲突，需要处理');
+                // 可以在这里添加冲突处理逻辑
+                return result;
+            } else {
+                console.error('❌ 数据同步失败:', result.message);
+                return null;
+            }
+        } catch (error) {
+            console.error('❌ 用户数据同步异常:', error);
+            return null;
+        }
+    }
+
+    /**
+     * 收集本地数据
+     */
+    collectLocalData(userId) {
+        const conversations = [];
+        
+        // 收集所有相关的localStorage数据
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(`conversation_state_${userId}_`)) {
+                try {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    const doctorId = key.split('_').pop();
+                    
+                    conversations.push({
+                        conversation_id: `conv_${userId}_${doctorId}`,
+                        user_id: userId,
+                        doctor_id: doctorId,
+                        current_stage: data.currentState,
+                        symptoms_collected: JSON.stringify(data.conversationData || {}),
+                        stage_history: JSON.stringify(data.stateHistory || []),
+                        start_time: new Date(data.startTime || Date.now()).toISOString(),
+                        last_activity: new Date().toISOString()
+                    });
+                } catch (error) {
+                    console.warn('解析本地对话数据失败:', key, error);
+                }
+            }
+        }
+
+        return {
+            conversations: conversations,
+            device_id: this.getDeviceFingerprint(),
+            last_updated: new Date().toISOString()
+        };
+    }
+
+    /**
+     * 应用同步后的数据
+     */
+    applySyncedData(syncedData) {
+        const conversations = syncedData.conversations || [];
+        
+        conversations.forEach(conv => {
+            const key = `conversation_state_${conv.user_id}_${conv.doctor_id}`;
+            const stateData = {
+                currentState: conv.current_stage,
+                stateHistory: JSON.parse(conv.stage_history || '[]'),
+                conversationData: JSON.parse(conv.symptoms_collected || '{}'),
+                startTime: new Date(conv.start_time).getTime()
+            };
+            
+            localStorage.setItem(key, JSON.stringify(stateData));
+            console.log('💾 更新本地对话状态:', key);
+        });
+    }
+
+    /**
+     * 获取设备指纹
+     */
+    getDeviceFingerprint() {
+        let fingerprint = localStorage.getItem('deviceFingerprint');
+        if (!fingerprint) {
+            fingerprint = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            localStorage.setItem('deviceFingerprint', fingerprint);
+        }
+        return fingerprint;
+    }
+
+    /**
+     * 获取认证token
+     */
+    getAuthToken() {
+        return localStorage.getItem('patientToken') || localStorage.getItem('authToken') || '';
     }
 }
 

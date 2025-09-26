@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>处方支付调试页面</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .button { padding: 10px 20px; margin: 10px; background: #007cba; color: white; border: none; cursor: pointer; }
+        .result { margin-top: 10px; padding: 10px; background: #f5f5f5; }
+    </style>
+</head>
+<body>
+    <h1>处方支付系统调试</h1>
+    
+    <div class="test-section">
+        <h2>测试数据</h2>
+        <textarea id="testContent" rows="10" cols="80">
+【辨证分析】
+根据您的症状描述，我认为您的病症属于气虚血瘀证，脾肾阳虚。
+
+【处方建议】
+方剂组成如下：
+
+人参 10g
+党参 15g
+白术 12g
+茯苓 15g
+甘草 6g
+当归 10g
+川芎 6g
+白芍 12g
+熟地 15g
+黄芪 20g
+干姜 6g
+
+【用法】
+上方水煎服，每日1剂，分2次温服。
+
+【方解】
+此方以人参、党参补气为君，白术、茯苓健脾为臣。
+        </textarea>
+    </div>
+    
+    <div class="test-section">
+        <h2>系统状态</h2>
+        <div id="systemStatus"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>测试操作</h2>
+        <button class="button" onclick="testExtractHerbs()">测试药材提取</button>
+        <button class="button" onclick="testUnpaidRender()">测试未支付渲染</button>
+        <button class="button" onclick="testPaidRender()">测试已支付渲染</button>
+        <button class="button" onclick="testPayment()">模拟支付流程</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>测试结果</h2>
+        <div id="testResults"></div>
+    </div>
+    
+    <script src="/static/js/prescription_payment_manager.js?v=20250925-001"></script>
+    <script>
+        // 显示系统状态
+        function showSystemStatus() {
+            const status = document.getElementById('systemStatus');
+            status.innerHTML = `
+                <p><strong>处方支付管理器:</strong> ${!!window.prescriptionPaymentManager}</p>
+                <p><strong>处方内容渲染器:</strong> ${!!window.prescriptionContentRenderer}</p>
+                <p><strong>处方支付管理器类型:</strong> ${typeof window.prescriptionPaymentManager}</p>
+                <p><strong>处方内容渲染器类型:</strong> ${typeof window.prescriptionContentRenderer}</p>
+                <p><strong>Window对象中的处方相关函数:</strong> ${Object.keys(window).filter(k => k.includes('prescription')).join(', ')}</p>
+            `;
+        }
+        
+        // 测试药材提取
+        function testExtractHerbs() {
+            const content = document.getElementById('testContent').value;
+            const herbs = window.prescriptionContentRenderer.extractHerbs(content);
+            
+            document.getElementById('testResults').innerHTML = `
+                <h3>药材提取结果</h3>
+                <p><strong>提取到的药材数量:</strong> ${herbs.length}</p>
+                <p><strong>药材列表:</strong></p>
+                <ul>
+                    ${herbs.map(herb => `<li>${herb.name}: ${herb.dosage}g</li>`).join('')}
+                </ul>
+                <p><strong>原始数据:</strong></p>
+                <pre>${JSON.stringify(herbs, null, 2)}</pre>
+            `;
+        }
+        
+        // 测试未支付渲染
+        function testUnpaidRender() {
+            const content = document.getElementById('testContent').value;
+            const rendered = window.prescriptionContentRenderer.renderUnpaidContent(content, 'test-123');
+            
+            document.getElementById('testResults').innerHTML = `
+                <h3>未支付渲染结果</h3>
+                <div style="border: 1px solid #ccc; padding: 15px;">
+                    ${rendered}
+                </div>
+            `;
+        }
+        
+        // 测试已支付渲染
+        function testPaidRender() {
+            const content = document.getElementById('testContent').value;
+            const rendered = window.prescriptionContentRenderer.renderPaidContent(content, 'test-123');
+            
+            document.getElementById('testResults').innerHTML = `
+                <h3>已支付渲染结果</h3>
+                <div style="border: 1px solid #ccc; padding: 15px;">
+                    ${rendered}
+                </div>
+            `;
+        }
+        
+        // 模拟支付流程
+        function testPayment() {
+            const prescriptionId = 'test-' + Date.now();
+            console.log('开始支付测试:', prescriptionId);
+            
+            // 模拟支付成功
+            window.prescriptionPaymentManager.handlePaymentSuccess(prescriptionId);
+            
+            // 检查支付状态
+            const isPaid = window.prescriptionPaymentManager.isPrescriptionPaid(prescriptionId);
+            
+            document.getElementById('testResults').innerHTML = `
+                <h3>支付流程测试</h3>
+                <p><strong>处方ID:</strong> ${prescriptionId}</p>
+                <p><strong>支付状态:</strong> ${isPaid ? '已支付' : '未支付'}</p>
+                <p><strong>localStorage检查:</strong> ${localStorage.getItem('prescription_paid_' + prescriptionId)}</p>
+            `;
+        }
+        
+        // 页面加载完成后显示状态
+        window.onload = function() {
+            setTimeout(() => {
+                showSystemStatus();
+            }, 500);
+        };
+    </script>
+</body>
+</html>

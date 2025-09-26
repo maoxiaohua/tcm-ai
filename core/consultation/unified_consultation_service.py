@@ -18,6 +18,7 @@ sys.path.append('/opt/tcm-ai')
 from core.doctor_system.tcm_doctor_personas import PersonalizedTreatmentGenerator
 from core.cache_system.intelligent_cache_system import IntelligentCacheSystem
 from core.prescription.prescription_checker import PrescriptionSafetyChecker
+from core.prescription.prescription_format_enforcer import get_prescription_enforcer
 from core.conversation.conversation_state_manager import conversation_state_manager, ConversationStage
 from core.conversation.conversation_analyzer import ConversationAnalyzer
 from config.settings import PATHS, AI_CONFIG
@@ -832,6 +833,14 @@ class UnifiedConsultationService:
     async def _post_process_response(self, ai_response: str, request: ConsultationRequest, ai_analysis=None) -> Dict[str, Any]:
         """后处理AI响应（增强版）"""
         try:
+            # 🔥 处方格式强制执行 (v2.9新增) - 确保处方包含具体剂量
+            try:
+                prescription_enforcer = get_prescription_enforcer()
+                ai_response = prescription_enforcer.enforce_prescription_format(ai_response)
+                logger.info("统一问诊服务：处方格式强制执行完成")
+            except Exception as e:
+                logger.error(f"统一问诊服务：处方格式强制执行失败: {e}")
+            
             # 基础安全检查
             safety_result = {"is_safe": True, "issues": []}
             

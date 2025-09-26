@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>处方支付状态调试工具</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .tool-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        
+        .tool-section h3 {
+            color: #34495e;
+            margin-top: 0;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px 10px 5px 0;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        .emergency-btn {
+            background: #e74c3c !important;
+        }
+        
+        .emergency-btn:hover {
+            background: #c0392b !important;
+        }
+        
+        .output {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 10px;
+        }
+        
+        .input-group {
+            margin: 10px 0;
+        }
+        
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100px;
+        }
+        
+        .status-indicator {
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        
+        .status-success {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .status-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .status-error {
+            background: #e74c3c;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 处方支付状态调试工具</h1>
+        <p style="text-align: center; color: #7f8c8d;">
+            专用于调试处方支付状态持久化问题，请在出现支付后仍显示锁定的情况下使用
+        </p>
+        
+        <!-- 基础检查工具 -->
+        <div class="tool-section">
+            <h3>📋 基础状态检查</h3>
+            <button onclick="checkBasicStatus()">检查localStorage支付记录</button>
+            <button onclick="runFullCheck()">运行完整状态检查</button>
+            <div id="basic-output" class="output" style="display: none;"></div>
+        </div>
+        
+        <!-- 高级调试工具 -->
+        <div class="tool-section">
+            <h3>🔍 高级调试分析</h3>
+            <button onclick="runDebugMatching()">详细匹配分析</button>
+            <button onclick="showPrescriptionInfo()">显示所有处方信息</button>
+            <div id="debug-output" class="output" style="display: none;"></div>
+        </div>
+        
+        <!-- 应急修复工具 -->
+        <div class="tool-section">
+            <h3>🚨 应急修复工具</h3>
+            <div class="input-group">
+                <label>强制解锁指定处方（输入处方序号）：</label>
+                <input type="number" id="prescriptionIndex" min="1" placeholder="如: 1">
+                <button class="emergency-btn" onclick="forceUnlock()">强制解锁</button>
+            </div>
+            <button class="emergency-btn" onclick="clearAllPayments()">清除所有支付记录</button>
+            <button onclick="refreshPage()">刷新页面</button>
+            <div id="emergency-output" class="output" style="display: none;"></div>
+        </div>
+        
+        <!-- 测试链接 -->
+        <div class="tool-section">
+            <h3>🔗 快速导航</h3>
+            <button onclick="window.open('/smart', '_blank')">打开智能问诊页面</button>
+            <button onclick="window.open('/static/index_smart_workflow.html', '_blank')">打开问诊页面（直接）</button>
+            <p style="color: #7f8c8d; font-size: 14px; margin-top: 10px;">
+                建议：先在问诊页面完成支付，然后返回此页面进行调试
+            </p>
+        </div>
+    </div>
+
+    <script src="/static/js/prescription_payment_manager.js?v=20250925-002"></script>
+    
+    <script>
+        function showOutput(elementId, content) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.textContent = content;
+        }
+        
+        function appendOutput(elementId, content) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.textContent += content + '\n';
+        }
+        
+        function checkBasicStatus() {
+            const output = [];
+            output.push('📋 localStorage支付记录检查:');
+            output.push('=' + '='.repeat(40));
+            
+            let recordCount = 0;
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('prescription_paid_')) {
+                    const value = localStorage.getItem(key);
+                    const prescriptionId = key.replace('prescription_paid_', '');
+                    output.push(`✅ ${prescriptionId}: ${value}`);
+                    recordCount++;
+                }
+            }
+            
+            if (recordCount === 0) {
+                output.push('❌ 没有找到任何支付记录');
+            } else {
+                output.push('');
+                output.push(`总计: ${recordCount} 个支付记录`);
+            }
+            
+            showOutput('basic-output', output.join('\n'));
+        }
+        
+        function runFullCheck() {
+            if (typeof window.checkAllPrescriptionStatus === 'function') {
+                console.log('🔍 运行完整状态检查...');
+                
+                // 捕获控制台输出
+                const originalLog = console.log;
+                const logs = [];
+                console.log = function(...args) {
+                    logs.push(args.join(' '));
+                    originalLog.apply(console, arguments);
+                };
+                
+                window.checkAllPrescriptionStatus();
+                
+                // 恢复控制台
+                console.log = originalLog;
+                
+                showOutput('basic-output', '完整检查已执行，查看控制台获取详细信息\n\n控制台输出预览:\n' + logs.slice(-20).join('\n'));
+            } else {
+                showOutput('basic-output', '❌ 检查函数未加载，请确保页面中包含prescription_payment_manager.js');
+            }
+        }
+        
+        function runDebugMatching() {
+            if (typeof window.debugPrescriptionMatching === 'function') {
+                console.log('🔍 运行详细调试分析...');
+                
+                const originalLog = console.log;
+                const logs = [];
+                console.log = function(...args) {
+                    logs.push(args.join(' '));
+                    originalLog.apply(console, arguments);
+                };
+                
+                const result = window.debugPrescriptionMatching();
+                
+                console.log = originalLog;
+                
+                let output = '详细调试分析已执行\n\n';
+                if (result) {
+                    output += `结果摘要:\n`;
+                    output += `- 处方数量: ${result.prescriptions}\n`;
+                    output += `- 支付记录: ${result.paidRecords}\n`;
+                    output += `- 自动修复: ${result.fixedCount}\n\n`;
+                }
+                output += '详细信息请查看控制台\n\n';
+                output += '控制台输出预览:\n' + logs.slice(-30).join('\n');
+                
+                showOutput('debug-output', output);
+            } else {
+                showOutput('debug-output', '❌ 调试函数未加载');
+            }
+        }
+        
+        function showPrescriptionInfo() {
+            const output = [];
+            output.push('📋 页面处方信息分析:');
+            output.push('=' + '='.repeat(40));
+            
+            const aiMessages = document.querySelectorAll('.message.ai');
+            let prescriptionCount = 0;
+            
+            aiMessages.forEach((messageEl, index) => {
+                const messageText = messageEl.querySelector('.message-text');
+                if (messageText && (messageText.innerHTML.includes('处方预览') || messageText.innerHTML.includes('🔓 解锁完整处方'))) {
+                    prescriptionCount++;
+                    const prescriptionId = messageEl.getAttribute('data-prescription-id');
+                    const hasOriginalContent = !!messageText.getAttribute('data-original-content');
+                    const isLocked = messageText.innerHTML.includes('🔓 解锁完整处方');
+                    
+                    output.push(`处方 #${prescriptionCount}:`);
+                    output.push(`  - ID: ${prescriptionId || '无'}`);
+                    output.push(`  - 状态: ${isLocked ? '🔒 锁定' : '🔓 已解锁'}`);
+                    output.push(`  - 原始内容: ${hasOriginalContent ? '有' : '无'}`);
+                    output.push('');
+                }
+            });
+            
+            if (prescriptionCount === 0) {
+                output.push('❌ 页面中没有发现处方内容');
+                output.push('请先到问诊页面生成处方，然后再进行调试');
+            } else {
+                output.push(`总计发现 ${prescriptionCount} 个处方`);
+            }
+            
+            showOutput('debug-output', output.join('\n'));
+        }
+        
+        function forceUnlock() {
+            const index = parseInt(document.getElementById('prescriptionIndex').value);
+            
+            if (!index || index < 1) {
+                showOutput('emergency-output', '❌ 请输入有效的处方序号（从1开始）');
+                return;
+            }
+            
+            if (typeof window.forceUnlockPrescription === 'function') {
+                const success = window.forceUnlockPrescription(index);
+                if (success) {
+                    showOutput('emergency-output', `✅ 已强制解锁处方 #${index}\n\n请刷新问诊页面查看效果`);
+                } else {
+                    showOutput('emergency-output', `❌ 强制解锁失败，处方序号 ${index} 可能不存在`);
+                }
+            } else {
+                showOutput('emergency-output', '❌ 强制解锁函数未加载');
+            }
+        }
+        
+        function clearAllPayments() {
+            if (confirm('⚠️  确定要清除所有支付记录吗？此操作不可撤销！')) {
+                let clearedCount = 0;
+                const keysToRemove = [];
+                
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('prescription_paid_')) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                keysToRemove.forEach(key => {
+                    localStorage.removeItem(key);
+                    clearedCount++;
+                });
+                
+                showOutput('emergency-output', `✅ 已清除 ${clearedCount} 个支付记录\n\n所有处方将重新显示为锁定状态`);
+            }
+        }
+        
+        function refreshPage() {
+            window.location.reload();
+        }
+        
+        // 页面加载时自动检查基础状态
+        window.addEventListener('load', function() {
+            setTimeout(checkBasicStatus, 1000);
+        });
+    </script>
+</body>
+</html>

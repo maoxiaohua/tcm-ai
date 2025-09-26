@@ -42,14 +42,68 @@
     <meta name="twitter:image" content="https://mxh0510.cn/static/tcm_share_card_enhanced.png">
     
     <!-- 版本标识: v1.2.4 更新时间: 2025-08-03 20:20 分享优化版 -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- 🔧 修复连接超时 - 使用异步加载和超时处理 -->
+    <script>
+        // 异步加载marked.js，避免CDN超时阻塞页面
+        (function() {
+            // 设置超时时间为5秒
+            const timeout = setTimeout(function() {
+                if (!window.marked) {
+                    console.warn('⚠️ marked.js CDN加载超时，使用本地降级方案');
+                    initializeMarkedFallback();
+                }
+            }, 5000);
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
+            script.async = true;
+            
+            script.onload = function() {
+                clearTimeout(timeout);
+                console.log('✅ marked.js CDN加载成功');
+            };
+            
+            script.onerror = function() {
+                clearTimeout(timeout);
+                console.warn('⚠️ marked.js CDN加载失败，使用本地降级方案');
+                initializeMarkedFallback();
+            };
+            
+            document.head.appendChild(script);
+            
+            // 降级方案：简单的Markdown解析器
+            function initializeMarkedFallback() {
+                window.marked = {
+                    parse: function(markdown) {
+                        if (!markdown) return '';
+                        
+                        return markdown
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **粗体**
+                            .replace(/\*(.*?)\*/g, '<em>$1</em>')              // *斜体*
+                            .replace(/`(.*?)`/g, '<code>$1</code>')           // `代码`
+                            .replace(/\n\n/g, '</p><p>')                       // 段落
+                            .replace(/\n/g, '<br>')                           // 换行
+                            .replace(/^/, '<p>')                              // 开始段落
+                            .replace(/$/, '</p>');                            // 结束段落
+                    }
+                };
+                console.log('✅ marked.js 本地降级方案已就绪');
+            }
+        })();
+    </script>
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     
     <!-- 统一认证管理器 -->
     <script src="/static/js/auth_manager.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    
+    <!-- 🔧 字体优化：预连接+超时+降级 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" 
+          rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    </noscript>
     <style>
         * {
             margin: 0;
@@ -105,7 +159,7 @@
             align-items: center;
         }
 
-        .history-btn, .new-chat-btn, .auth-btn {
+        .history-btn, .new-chat-btn, .auth-btn, .sync-btn {
             background: rgba(255,255,255,0.2);
             border: 1px solid rgba(255,255,255,0.3);
             color: white;
@@ -115,6 +169,27 @@
             font-size: 14px;
             transition: all 0.2s;
             white-space: nowrap;
+        }
+        
+        .sync-btn {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: rgba(34, 197, 94, 0.4);
+        }
+        
+        .sync-btn:hover {
+            background: rgba(34, 197, 94, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .sync-btn.syncing {
+            background: rgba(245, 101, 101, 0.2);
+            border-color: rgba(245, 101, 101, 0.4);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
 
         .history-btn:hover, .new-chat-btn:hover, .auth-btn:hover {
@@ -1861,6 +1936,10 @@
                     <p class="header-subtitle">传统中医 × 人工智能 - 专业版</p>
                 </div>
                 <div class="header-actions">
+                    <!-- 数据同步按钮 -->
+                    <button id="syncButton" class="sync-btn" onclick="triggerUserDataSync()" title="同步问诊记录">
+                        🔄 同步
+                    </button>
                     <!-- 未登录状态 -->
                     <div id="authButtons" style="display: flex; gap: 12px;">
                         <button class="auth-btn" onclick="showLoginModal()" title="用户登录">
@@ -2057,12 +2136,15 @@
                             }
                         }
                         
+                        // 🔧 修复specialty.split错误 - 确保specialty是字符串
+                        const specialtyStr = String(specialty || "中医");
+                        
                         doctors[doctorCode] = {
                             "name": doctor.name,
-                            "school": specialty.split('、')[0] || "中医",
+                            "school": specialtyStr.split('、')[0] || "中医",
                             "avatar": doctorAvatarMap[doctorCode] || "👨‍⚕️",
-                            "specialty": specialty,
-                            "introduction": doctor.introduction || `${doctor.name}医师，擅长${specialty}等疾病的诊治。`
+                            "specialty": specialtyStr,
+                            "introduction": doctor.introduction || `${doctor.name}医师，擅长${specialtyStr}等疾病的诊治。`
                         };
                     });
                     
@@ -2734,29 +2816,34 @@
                     内容长度: content.length
                 });
                 
-                if (window.prescriptionRenderer) {
-                    // 使用智能处方渲染器处理所有AI内容
-                    console.log('✅ 使用prescription_renderer处理内容');
-                    processedContent = window.prescriptionRenderer.renderContent(content, isPaid, prescriptionId);
-                } else {
-                    // 备用方案：检查是否有处方需要支付
-                    console.log('⚠️ prescription_renderer不存在，使用备用方案');
+                if (window.simplePrescriptionManager) {
+                    // 使用简化版处方管理器
+                    console.log('✅ 使用简化版处方管理器处理内容');
+                    processedContent = window.simplePrescriptionManager.processContent(content, prescriptionId);
+                } else if (window.prescriptionContentRenderer) {
+                    // 备用：使用原来的处方渲染器
+                    console.log('⚠️ 使用备用处方渲染器');
+                    processedContent = window.prescriptionContentRenderer.renderContent(content, prescriptionId);
                     
-                    if (prescriptionId && !isPaid) {
-                        // 有处方ID且未支付，需要隐藏处方内容并显示支付按钮
-                        console.log('🔒 检测到未支付处方，隐藏内容显示支付提示');
-                        processedContent = formatMessage(content.substring(0, 200) + '...\n\n【完整处方需要解锁】') + 
-                        `<div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center;">
-                            <div style="color: white; font-size: 16px; margin-bottom: 10px;">🔒 解锁完整处方</div>
-                            <button onclick="showPaymentModal('${prescriptionId}', 88.00)" 
-                                    style="background: #10b981; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold;">
-                                💳 确认处方并支付 ¥88
-                            </button>
-                        </div>`;
-                    } else {
-                        // 普通内容或已支付，正常格式化
-                        processedContent = formatMessage(content);
+                    // 🔧 保存原始内容用于支付后解锁
+                    if (prescriptionId && content) {
+                        // 将原始内容保存到即将创建的消息元素中
+                        setTimeout(() => {
+                            const messages = document.querySelectorAll('.message.ai');
+                            const lastMessage = messages[messages.length - 1];
+                            if (lastMessage) {
+                                const messageTextEl = lastMessage.querySelector('.message-text');
+                                if (messageTextEl && !messageTextEl.getAttribute('data-original-content')) {
+                                    messageTextEl.setAttribute('data-original-content', content);
+                                    console.log('✅ 已保存原始内容用于支付后解锁');
+                                }
+                            }
+                        }, 100);
                     }
+                } else {
+                    // 最终备用方案：直接格式化内容
+                    console.log('⚠️ 简化版处方管理器不存在，使用基础格式化');
+                    processedContent = formatMessage(content);
                 }
             }
             
@@ -3131,15 +3218,23 @@
                 
                 // 🔑 关键修复：处方检测和支付状态分离管理
                 const containsActualPrescription = containsPrescription(aiReply);
-                const isTemporaryAdvice = window.prescriptionRenderer ? 
-                    window.prescriptionRenderer.isTemporaryAdvice(aiReply) : false;
+                const isTemporaryAdvice = window.prescriptionContentRenderer ? 
+                    window.prescriptionContentRenderer.containsPrescription(aiReply) === false : false;
                 
                 // 智能判断是否显示点评 - 所有AI回复都可以点评
                 const shouldShowFeedback = true;
                 
-                // 处方相关状态管理
-                const prescriptionId = responseData.data?.prescription_id || null;
+                // 处方相关状态管理 - 修复处方ID为空的问题
+                let prescriptionId = responseData.data?.prescription_id || null;
                 const isPaid = responseData.data?.is_paid || false;
+                
+                // 🔧 如果API没有返回处方ID，但响应包含处方内容，则生成一个临时ID
+                if (!prescriptionId && responseData.reply && 
+                    (responseData.reply.includes('处方') || responseData.reply.includes('方剂') || 
+                     responseData.reply.includes('君药') || responseData.reply.includes('臣药'))) {
+                    prescriptionId = 'prescription_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    console.log('🆕 生成临时处方ID:', prescriptionId);
+                }
                 
                 console.log('🔍 前端处方状态分析:', {
                     containsActualPrescription: containsActualPrescription,
@@ -4163,8 +4258,8 @@ ${data.analysis_result}`;
             }
             
             // 使用处方渲染器的统一检测逻辑
-            if (window.prescriptionRenderer) {
-                return window.prescriptionRenderer.containsPrescription(text);
+            if (window.prescriptionContentRenderer) {
+                return window.prescriptionContentRenderer.containsPrescription(text);
             }
             
             // 备用检测逻辑（如果渲染器未加载）
@@ -4464,6 +4559,90 @@ ${data.analysis_result}`;
                 errorDiv.textContent = '网络错误，请检查网络连接';
                 errorDiv.style.display = 'block';
             }
+        }
+
+        // 触发用户数据同步
+        async function triggerUserDataSync() {
+            const syncButton = document.getElementById('syncButton');
+            const userId = getCurrentUserId();
+            
+            if (!userId || userId.startsWith('temp_user_') || userId.startsWith('device_')) {
+                showMessage('💡 请先登录账户以同步问诊记录', 'info');
+                return;
+            }
+            
+            // 更新按钮状态
+            syncButton.classList.add('syncing');
+            syncButton.textContent = '🔄 同步中...';
+            syncButton.disabled = true;
+            
+            try {
+                console.log('🔄 开始用户数据同步...', userId);
+                
+                if (window.conversationStateManager && window.conversationStateManager.performFullUserSync) {
+                    const result = await window.conversationStateManager.performFullUserSync(userId);
+                    
+                    if (result && result.success) {
+                        showMessage('✅ 问诊记录同步成功！现在可以在其他设备上访问您的问诊历史', 'success');
+                        
+                        // 更新UI显示同步状态
+                        setTimeout(() => {
+                            showSyncStatusIndicator('已同步', 'success');
+                        }, 500);
+                        
+                    } else if (result && result.conflicts && result.conflicts.length > 0) {
+                        showMessage('⚠️ 检测到数据冲突，需要手动处理', 'warning');
+                        console.warn('数据冲突:', result.conflicts);
+                        
+                    } else {
+                        showMessage('❌ 数据同步失败，请稍后重试', 'error');
+                    }
+                } else {
+                    // 回退到简单的状态保存
+                    if (window.conversationStateManager && window.conversationStateManager.syncStateToServer) {
+                        await window.conversationStateManager.syncStateToServer();
+                        showMessage('✅ 当前对话状态已保存到云端', 'success');
+                    }
+                }
+                
+            } catch (error) {
+                console.error('❌ 数据同步异常:', error);
+                showMessage('❌ 同步失败：' + error.message, 'error');
+            } finally {
+                // 恢复按钮状态
+                syncButton.classList.remove('syncing');
+                syncButton.textContent = '🔄 同步';
+                syncButton.disabled = false;
+            }
+        }
+
+        // 显示同步状态指示器
+        function showSyncStatusIndicator(message, type) {
+            const indicator = document.createElement('div');
+            indicator.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                background: ${type === 'success' ? '#10b981' : '#f59e0b'};
+                color: white;
+                padding: 12px 16px;
+                border-radius: 8px;
+                font-size: 14px;
+                z-index: 1002;
+                animation: slideIn 0.3s ease;
+            `;
+            indicator.textContent = `${type === 'success' ? '✅' : '⚠️'} ${message}`;
+            
+            document.body.appendChild(indicator);
+            
+            setTimeout(() => {
+                indicator.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    if (indicator.parentNode) {
+                        indicator.parentNode.removeChild(indicator);
+                    }
+                }, 300);
+            }, 3000);
         }
 
         // 退出登录
@@ -5361,13 +5540,39 @@ ${data.analysis_result}`;
         }
 
         // 显示支付模态框
+        // 获取处方内容的辅助函数
+        function getPrescriptionContent() {
+            // 从最新的AI消息中获取处方内容
+            const messages = document.querySelectorAll('.message');
+            let prescriptionContent = '';
+            
+            // 从后往前查找包含处方的AI消息
+            for (let i = messages.length - 1; i >= 0; i--) {
+                const message = messages[i];
+                const messageText = message.querySelector('.message-text');
+                
+                if (message.classList.contains('ai-message') && messageText) {
+                    const content = messageText.textContent || messageText.innerText || '';
+                    
+                    // 检查是否包含处方相关内容
+                    if (content.includes('处方') || content.includes('方剂') || content.includes('药材') || 
+                        content.includes('君药') || content.includes('臣药') || content.includes('佐药') || content.includes('使药')) {
+                        prescriptionContent = content;
+                        break;
+                    }
+                }
+            }
+            
+            return prescriptionContent;
+        }
+
         function showPaymentModal(prescriptionId, amount) {
             // 获取处方内容
             const prescriptionContent = getPrescriptionContent();
             let formattedContent = '';
             
-            if (prescriptionContent && window.prescriptionRenderer) {
-                formattedContent = window.prescriptionRenderer.formatForPaymentModal(prescriptionContent);
+            if (prescriptionContent && window.prescriptionContentRenderer) {
+                formattedContent = window.prescriptionContentRenderer.formatRegularContent(prescriptionContent);
             } else {
                 formattedContent = '<p class="no-content">正在加载处方内容...</p>';
             }
@@ -7021,8 +7226,19 @@ ${data.analysis_result}`;
                     body: JSON.stringify({
                         user_id: userId,
                         doctor_id: doctorKey,
-                        messages: messages,
-                        sync_type: 'history_upload'
+                        state_data: {
+                            messages: messages,
+                            sync_type: 'history_upload',
+                            currentState: 'active',
+                            conversationData: {
+                                messageCount: messages.length,
+                                lastActivity: new Date().toISOString()
+                            }
+                        },
+                        device_info: {
+                            userAgent: navigator.userAgent,
+                            timestamp: new Date().toISOString()
+                        }
                     })
                 });
                 
@@ -7270,9 +7486,9 @@ ${data.analysis_result}`;
             // 🆕 使用处方渲染器处理内容（移动端）
             let processedContent = content;
             if (sender === 'ai') {
-                if (window.prescriptionRenderer) {
-                    // 使用智能处方渲染器处理所有AI内容
-                    processedContent = window.prescriptionRenderer.renderContent(content, isPaid, prescriptionId);
+                if (window.prescriptionContentRenderer) {
+                    // 使用新的模块化处方渲染器（移动端）
+                    processedContent = window.prescriptionContentRenderer.renderContent(content, prescriptionId);
                 } else {
                     // 备用方案：使用格式化函数处理普通内容
                     processedContent = formatMessage(content);
@@ -7304,6 +7520,15 @@ ${data.analysis_result}`;
             
             messageDiv.innerHTML = messageContent;
             container.appendChild(messageDiv);
+            
+            // 🔧 为移动端保存原始内容用于支付后解锁
+            if (sender === 'ai' && prescriptionId && content && window.prescriptionContentRenderer) {
+                const messageTextEl = messageDiv.querySelector('.message-text');
+                if (messageTextEl && !messageTextEl.getAttribute('data-original-content')) {
+                    messageTextEl.setAttribute('data-original-content', content);
+                    console.log('✅ 移动端已保存原始内容用于支付后解锁');
+                }
+            }
             
             // 平滑滚动到底部
             setTimeout(() => {
@@ -7416,15 +7641,23 @@ ${data.analysis_result}`;
                 if (aiReply) {
                     // 🔑 关键修复：处方检测和支付状态分离管理（移动端）
                     const containsActualPrescription = containsPrescription(aiReply);
-                    const isTemporaryAdvice = window.prescriptionRenderer ? 
-                        window.prescriptionRenderer.isTemporaryAdvice(aiReply) : false;
+                    const isTemporaryAdvice = window.prescriptionContentRenderer ? 
+                        !window.prescriptionContentRenderer.containsPrescription(aiReply) : false;
                     
                     // 智能判断是否显示点评 - 所有AI回复都可以点评
                     const shouldShowFeedback = true;
                     
-                    // 处方相关状态管理
-                    const prescriptionId = data.data?.prescription_id || null;
+                    // 处方相关状态管理 - 修复处方ID为空的问题
+                    let prescriptionId = data.data?.prescription_id || null;
                     const isPaid = data.data?.is_paid || false;
+                    
+                    // 🔧 如果API没有返回处方ID，但响应包含处方内容，则生成一个临时ID
+                    if (!prescriptionId && data.reply && 
+                        (data.reply.includes('处方') || data.reply.includes('方剂') || 
+                         data.reply.includes('君药') || data.reply.includes('臣药'))) {
+                        prescriptionId = 'prescription_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                        console.log('🆕 移动端生成临时处方ID:', prescriptionId);
+                    }
                     
                     // 🚨 关键逻辑：完整处方且未付费时需要支付
                     const needsPayment = containsActualPrescription && !isTemporaryAdvice && !isPaid;
@@ -8022,22 +8255,24 @@ ${data.analysis_result}`;
 
     <!-- 处方渲染器样式和脚本 -->
     <link rel="stylesheet" href="/static/css/prescription_styles.css">
-    <script src="/static/js/prescription_renderer.js?v=20250916-010"></script>
+    <!-- 🎯 简化版处方支付管理系统 -->
+    <script src="/static/js/simple_prescription_manager.js?v=20250926-001"></script>
+    <!-- 备用：原处方支付管理系统 (暂时禁用，避免语法冲突) -->
+    <!-- <script src="/static/js/prescription_payment_manager.js?v=20250925-004"></script> -->
+    <!-- <script src="/static/js/prescription_debug_helper.js?v=20250925-004"></script> -->
+    <!-- <script src="/static/js/prescription_renderer.js?v=20250916-010"></script> -->
     <script>
-        // 🔧 调试：检查处方渲染器加载状态
+        // 🔧 调试：检查处方支付管理系统加载状态
         setTimeout(() => {
-            console.log('🔍 处方渲染器加载检查:', {
-                prescriptionRenderer: !!window.prescriptionRenderer,
-                PrescriptionRenderer: typeof PrescriptionRenderer,
-                windowKeys: Object.keys(window).filter(k => k.includes('prescription'))
+            console.log('🔍 处方支付系统加载检查:', {
+                simplePrescriptionManager: !!window.simplePrescriptionManager,
+                windowKeys: Object.keys(window).filter(k => k.includes('prescription') || k.includes('simple'))
             });
             
-            if (!window.prescriptionRenderer) {
-                console.error('❌ 处方渲染器未加载，尝试手动初始化...');
-                if (typeof PrescriptionRenderer !== 'undefined') {
-                    window.prescriptionRenderer = new PrescriptionRenderer();
-                    console.log('✅ 手动初始化处方渲染器成功');
-                }
+            if (window.simplePrescriptionManager) {
+                console.log('✅ 简化版处方支付管理系统加载成功');
+            } else {
+                console.error('❌ 简化版处方支付管理系统未正确加载');
             }
         }, 1000);
     </script>

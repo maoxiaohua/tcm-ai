@@ -11,6 +11,7 @@ from datetime import datetime
 
 from ..utils.common_utils import safe_execute, get_current_timestamp_iso
 from ..utils.text_utils import clean_ai_response_text, split_long_text, count_chinese_characters
+from ...core.prescription.prescription_format_enforcer import get_prescription_enforcer
 
 logger = logging.getLogger(__name__)
 
@@ -253,6 +254,14 @@ class LLMIntegrationProcessor:
         # 基础清理
         cleaned_response = clean_ai_response_text(response)
         
+        # 🔥 处方格式强制执行 (v2.9新增) - 确保AI回复包含具体剂量
+        try:
+            prescription_enforcer = get_prescription_enforcer()
+            cleaned_response = prescription_enforcer.enforce_prescription_format(cleaned_response)
+            logger.info("处方格式强制执行完成")
+        except Exception as e:
+            logger.error(f"处方格式强制执行失败: {e}")
+        
         # 根据类型进行特定处理
         if response_type == 'prescription_generation':
             cleaned_response = self._format_prescription_response(cleaned_response)
@@ -442,7 +451,14 @@ class LLMIntegrationProcessor:
     
     # 提示词模板
     def _get_tcm_diagnosis_template(self) -> str:
-        return """你是一位经验丰富的中医专家，请根据用户的症状描述和提供的信息，进行专业的中医诊疗分析。
+        # 获取处方格式提示（如果需要开处方的话）
+        try:
+            prescription_enforcer = get_prescription_enforcer()
+            format_prompt = prescription_enforcer.add_prescription_format_prompt()
+        except:
+            format_prompt = ""
+            
+        return f"""你是一位经验丰富的中医专家，请根据用户的症状描述和提供的信息，进行专业的中医诊疗分析。
 
 请按照以下步骤进行分析：
 1. 症状分析：分析用户描述的症状特点
@@ -450,14 +466,25 @@ class LLMIntegrationProcessor:
 3. 治疗方案：提供相应的治疗建议
 4. 生活调理：给出日常调理建议
 
+{format_prompt}
+
 请确保建议专业、实用，符合中医理论。"""
     
     def _get_prescription_template(self) -> str:
-        return """你是一位中医处方专家，请根据用户的症状和证型，开具适当的中药处方。
+        # 获取处方格式提示
+        try:
+            prescription_enforcer = get_prescription_enforcer()
+            format_prompt = prescription_enforcer.add_prescription_format_prompt()
+        except:
+            format_prompt = ""
+            
+        return f"""你是一位中医处方专家，请根据用户的症状和证型，开具适当的中药处方。
+
+{format_prompt}
 
 请包含以下内容：
 1. 证型分析：说明辨证思路
-2. 处方组成：列出具体药物和用量
+2. 处方组成：列出具体药物和用量（必须包含具体克数）
 3. 方解：解释处方组成原理
 4. 服用方法：详细说明煎煮和服用方法
 5. 注意事项：用药禁忌和注意事项

@@ -279,6 +279,29 @@ class PrescriptionRenderer {
     renderFullPrescription(content) {
         const parsedPrescription = this.parsePrescriptionContent(content);
         
+        console.log('🔍 renderFullPrescription 解析结果:', {
+            herbsCount: parsedPrescription.herbs.length,
+            herbs: parsedPrescription.herbs.map(h => `${h.name} ${h.dosage}g`)
+        });
+        
+        // 如果成功解析到药材，生成结构化的药材列表
+        let herbsListHtml = '';
+        if (parsedPrescription.herbs.length > 0) {
+            herbsListHtml = `
+                <div class="prescription-herbs-list" style="margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+                    <h4 style="color: #2d3748; margin-bottom: 15px; font-size: 16px;">📋 方剂组成 (共${parsedPrescription.herbs.length}味药材)</h4>
+                    <div class="herbs-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                        ${parsedPrescription.herbs.map(herb => `
+                            <div class="herb-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px;">
+                                <span class="herb-name" style="color: #2d3748; font-weight: 500;">${herb.name}</span>
+                                <span class="herb-dosage" style="color: #059669; font-weight: bold;">${herb.dosage}g</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
         return `
             <div class="prescription-full">
                 <div class="prescription-header">
@@ -286,6 +309,7 @@ class PrescriptionRenderer {
                     <span class="paid-status">已解锁查看</span>
                 </div>
                 <div class="prescription-content">
+                    ${herbsListHtml}
                     ${this.formatPrescriptionContent(parsedPrescription)}
                 </div>
                 <div class="prescription-actions">
@@ -418,24 +442,108 @@ class PrescriptionRenderer {
         const herbs = [];
         const lines = content.split('\n');
         
+        console.log('🔍 解析处方内容，总行数:', lines.length);
+        
         for (let line of lines) {
-            // 匹配药材和剂量：如"党参 15克"、"白术 12g"等
-            const herbMatch = line.match(/([^0-9]+)\s*(\d+)\s*[克g]/);
-            if (herbMatch) {
-                herbs.push({
-                    name: herbMatch[1].trim(),
-                    dosage: parseInt(herbMatch[2]),
-                    unit: 'g',
-                    line: line.trim()
-                });
+            const trimmedLine = line.trim();
+            if (!trimmedLine) continue;
+            
+            // 匹配药材和剂量的多种模式
+            const patterns = [
+                // 1. "党参 15克" "白术 12g"
+                /([^0-9\-\*]+)\s*(\d+)\s*[克g]/,
+                // 2. "党参：15克" "白术: 12g" 
+                /([^0-9\-\*：:]+)[：:]\s*(\d+)\s*[克g]/,
+                // 3. "- 党参 15克" "* 白术 12g"
+                /[\-\*•]\s*([^0-9\-\*]+)\s*(\d+)\s*[克g]/,
+                // 4. "人参 g" 这种没有具体剂量的格式（使用默认剂量）
+                /([^0-9\-\*]+)\s*[克g](?!\d)/,
+                // 5. 纯药材名称，后面跟着空格或其他字符
+                /^\s*[\-\*•]?\s*([一-龟\u4e00-\u9fff]{2,6})(?:\s|$|[，,。.])/
+            ];
+            
+            let matched = false;
+            for (let i = 0; i < patterns.length; i++) {
+                const herbMatch = trimmedLine.match(patterns[i]);
+                if (herbMatch) {
+                    const herbName = herbMatch[1].trim();
+                    let dosage = herbMatch[2] ? parseInt(herbMatch[2]) : null;
+                    
+                    // 如果没有找到剂量，根据常见药材设置默认剂量
+                    if (!dosage) {
+                        dosage = this.getDefaultDosage(herbName);
+                    }
+                    
+                    // 验证药材名称（排除非药材词汇）
+                    if (this.isValidHerbName(herbName)) {
+                        herbs.push({
+                            name: herbName,
+                            dosage: dosage,
+                            unit: 'g',
+                            line: trimmedLine,
+                            pattern_matched: i + 1
+                        });
+                        matched = true;
+                        console.log(`✅ 解析到药材: ${herbName} ${dosage}g (模式${i + 1})`);
+                    }
+                    break;
+                }
+            }
+            
+            if (!matched && trimmedLine.length > 1) {
+                console.log(`⚠️ 未能解析行: "${trimmedLine}"`);
             }
         }
+
+        console.log(`🔍 解析完成，共找到 ${herbs.length} 味药材:`, herbs.map(h => `${h.name} ${h.dosage}g`));
 
         return {
             herbs: herbs,
             originalContent: content,
             summary: this.extractPrescriptionSummary(content)
         };
+    }
+
+    /**
+     * 获取药材默认剂量
+     */
+    getDefaultDosage(herbName) {
+        const defaultDosages = {
+            '人参': 10, '党参': 15, '白术': 12, '茯苓': 15, '甘草': 6,
+            '当归': 10, '白芍': 12, '川芎': 6, '熟地': 15, '生地': 15,
+            '黄芪': 20, '白芥子': 10, '陈皮': 9, '半夏': 9, '干姜': 6,
+            '附子': 6, '肉桂': 3, '山药': 15, '泽泻': 12, '牡丹皮': 10,
+            '山茱萸': 12, '五味子': 6, '麦冬': 12, '知母': 10, '石膏': 30,
+            '黄芩': 10, '黄连': 6, '栀子': 10, '连翘': 12, '金银花': 15,
+            '板蓝根': 15, '桔梗': 6, '杏仁': 10, '枇杷叶': 10, '川贝母': 10,
+            '百合': 20, '远志': 6, '酸枣仁': 15, '龙骨': 20, '牡蛎': 20
+        };
+        return defaultDosages[herbName] || 12; // 默认12g
+    }
+
+    /**
+     * 验证是否为有效的药材名称
+     */
+    isValidHerbName(name) {
+        // 排除明显不是药材的词汇
+        const invalidWords = [
+            '处方', '方剂', '组成', '君药', '臣药', '佐药', '使药', '功效', '主治',
+            '用法', '用量', '禁忌', '注意', '方解', '按语', '加减', '如下', '建议',
+            '症状', '治疗', '疾病', '患者', '先生', '女士', '医生', '中医', '方法',
+            '效果', '作用', '配伍', '药材', '中药', '汤剂', '丸剂', '散剂'
+        ];
+        
+        if (invalidWords.includes(name)) {
+            return false;
+        }
+        
+        // 检查长度和字符
+        if (name.length < 2 || name.length > 6) {
+            return false;
+        }
+        
+        // 检查是否全部为中文字符
+        return /^[\u4e00-\u9fff]+$/.test(name);
     }
 
     /**
