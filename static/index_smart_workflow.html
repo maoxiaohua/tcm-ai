@@ -2300,7 +2300,7 @@
             
             // 检查userData存储
             const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            if (userData.id || userData.user_id) {
+            if (userData.id || userData.user_id || userData.global_user_id) {
                 realUser = userData;
                 console.log('🔑 从userData获取真实用户:', realUser);
             }
@@ -2308,7 +2308,7 @@
             // 检查currentUser存储（备选）
             if (!realUser) {
                 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-                if (currentUser.id || currentUser.user_id) {
+                if (currentUser.id || currentUser.user_id || currentUser.global_user_id) {
                     realUser = currentUser;
                     console.log('🔑 从currentUser获取真实用户:', realUser);
                 }
@@ -2316,9 +2316,12 @@
             
             // 如果找到真实用户
             if (realUser) {
-                const userId = realUser.id || realUser.user_id;
-                console.log('🔑 使用真实登录用户ID:', userId);
-                return `real_user_${userId}`; // 加前缀区分真实用户
+                // 🔑 修复：优先使用global_user_id，然后是user_id，最后是id
+                const userId = realUser.global_user_id || realUser.user_id || realUser.id;
+                if (userId && userId !== 'undefined' && userId !== null) {
+                    console.log('🔑 使用真实登录用户ID:', userId);
+                    return userId; // 直接返回用户ID，不加前缀避免混淆
+                }
             }
             
             // ⚠️ 访客模式 - 智能工作流程页面的临时用户ID
@@ -2722,6 +2725,24 @@
             if (Object.keys(doctors).length > 0 && !selectedDoctor) {
                 const firstDoctorKey = Object.keys(doctors)[0];
                 selectedDoctor = firstDoctorKey;
+            }
+            
+            // 🔑 修复：更新移动端医生显示
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                renderMobileDoctorCards();
+                
+                // 更新移动端当前医生信息
+                if (selectedDoctor && doctors[selectedDoctor]) {
+                    const doctor = doctors[selectedDoctor];
+                    const mobileDoctorAvatar = document.getElementById('mobileDoctorAvatar');
+                    const mobileDoctorName = document.getElementById('mobileDoctorName');
+                    const mobileDoctorDesc = document.getElementById('mobileDoctorDesc');
+                    
+                    if (mobileDoctorAvatar) mobileDoctorAvatar.textContent = doctor.avatar;
+                    if (mobileDoctorName) mobileDoctorName.textContent = doctor.name;
+                    if (mobileDoctorDesc) mobileDoctorDesc.textContent = doctor.school;
+                }
             }
         }
 
@@ -5264,10 +5285,12 @@ ${data.analysis_result}`;
                 const conversationSummary = extractConversationSummary();
                 
                 // 准备请求数据
+                // 🔑 修复：使用正确的用户ID映射，确保数据关联正确
+                const userId = getCurrentUserId(); // 使用统一的用户ID获取方式
                 const requestData = {
-                    patient_id: currentUser.id || currentUser.user_id || 'guest',
+                    patient_id: userId,
                     conversation_id: currentConversationId || generateConversationId(),
-                    patient_name: currentUser.username || currentUser.name || '患者',
+                    patient_name: currentUser.username || currentUser.display_name || currentUser.name || '患者',
                     patient_phone: currentUser.phone || '',
                     symptoms: conversationSummary.symptoms,
                     diagnosis: conversationSummary.diagnosis,
@@ -5294,6 +5317,9 @@ ${data.analysis_result}`;
                 console.log('处方创建响应:', result);
                 
                 if (result.success && result.prescription_id) {
+                    // 🔑 修复：处方创建成功后更新问诊状态为完成
+                    await updateConsultationStatus('completed', result.prescription_id);
+                    
                     // 处方创建成功，进入支付流程
                     hidePrescriptionModal();
                     showPaymentModal(result.prescription_id, 80.00);
@@ -6912,6 +6938,64 @@ ${data.analysis_result}`;
                 stopSessionSync();
             }
         };
+
+        // 🔑 更新问诊状态
+        async function updateConsultationStatus(status, prescriptionId = null) {
+            if (!currentUser || !userToken) return;
+            
+            try {
+                const userId = getCurrentUserId();
+                const payload = {
+                    patient_id: userId,
+                    status: status,
+                    prescription_id: prescriptionId,
+                    conversation_log: JSON.stringify(getAllMessages()),
+                    symptoms_analysis: JSON.stringify(extractConversationSummary()),
+                    updated_at: new Date().toISOString()
+                };
+                
+                console.log('更新问诊状态:', payload);
+                
+                const response = await fetch('/api/consultation/update-status', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('问诊状态更新成功:', result);
+                } else {
+                    console.error('问诊状态更新失败:', response.status);
+                }
+                
+            } catch (error) {
+                console.error('更新问诊状态失败:', error);
+            }
+        }
+        
+        // 🔑 获取所有消息用于保存完整对话历史
+        function getAllMessages() {
+            const messages = [];
+            const container = document.getElementById('messagesContainer');
+            if (container) {
+                container.querySelectorAll('.message').forEach(messageEl => {
+                    const isUser = messageEl.classList.contains('user');
+                    const textEl = messageEl.querySelector('.message-text');
+                    const timeEl = messageEl.querySelector('.message-time');
+                    
+                    if (textEl) {
+                        messages.push({
+                            sender: isUser ? 'user' : 'ai',
+                            content: textEl.textContent.trim(),
+                            time: timeEl ? timeEl.textContent : new Date().toLocaleTimeString(),
+                            timestamp: Date.now()
+                        });
+                    }
+                });
+            }
+            return messages;
+        }
 
         // 页面卸载时停止同步
         window.addEventListener('beforeunload', function() {

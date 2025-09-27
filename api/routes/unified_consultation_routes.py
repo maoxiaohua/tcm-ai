@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional, Any
 import logging
 import traceback
+import sqlite3
+from datetime import datetime
 
 # 导入统一问诊服务
 import sys
@@ -23,6 +25,12 @@ logger = logging.getLogger(__name__)
 
 # 创建路由器
 router = APIRouter(prefix="/api/consultation", tags=["unified-consultation"])
+
+def get_db_connection():
+    """获取数据库连接"""
+    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn.row_factory = sqlite3.Row
+    return conn
 
 # Pydantic模型
 class ChatMessage(BaseModel):
@@ -424,33 +432,88 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
         cursor = conn.cursor()
         
         # 1. 存储到 consultations 表（问诊主记录）
-        consultation_uuid = str(uuid.uuid4())
-        conversation_log = json.dumps({
-            "patient_query": request.message,
-            "ai_response": response.reply,
-            "conversation_id": request.conversation_id,
-            "conversation_history": request.conversation_history or [],
-            "stage": response.stage,
-            "confidence_score": response.confidence_score
-        })
-        
+        # 🔑 修复：先查找是否已存在相同conversation_id的记录
         cursor.execute("""
-            INSERT OR REPLACE INTO consultations (
-                uuid, patient_id, selected_doctor_id, conversation_log,
-                symptoms_analysis, tcm_syndrome, status,
-                created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            consultation_uuid,
-            user_id,
-            request.selected_doctor,
-            conversation_log,
-            json.dumps({"confidence_score": response.confidence_score, "stage": response.stage}),
-            json.dumps(response.prescription_data.get('syndrome', {}) if response.prescription_data else {}),
-            "completed" if response.contains_prescription else "in_progress",
-            datetime.now().isoformat(),
-            datetime.now().isoformat()
-        ))
+            SELECT uuid, conversation_log FROM consultations 
+            WHERE patient_id = ? AND conversation_log LIKE ?
+            ORDER BY created_at DESC LIMIT 1
+        """, (user_id, f'%"conversation_id": "{request.conversation_id}"%'))
+        
+        existing = cursor.fetchone()
+        
+        if existing:
+            # 更新现有记录，合并对话历史
+            existing_log = json.loads(existing[1]) if existing[1] else {}
+            conversation_history = existing_log.get('conversation_history', [])
+            
+            # 添加新的对话轮次
+            conversation_history.append({
+                "patient_query": request.message,
+                "ai_response": response.reply,
+                "timestamp": datetime.now().isoformat(),
+                "stage": response.stage
+            })
+            
+            updated_log = {
+                "conversation_id": request.conversation_id,
+                "conversation_history": conversation_history,
+                "current_stage": response.stage,
+                "confidence_score": response.confidence_score,
+                "last_query": request.message,
+                "last_response": response.reply
+            }
+            
+            cursor.execute("""
+                UPDATE consultations 
+                SET conversation_log = ?, 
+                    symptoms_analysis = ?,
+                    tcm_syndrome = ?,
+                    status = ?,
+                    updated_at = ?
+                WHERE uuid = ?
+            """, (
+                json.dumps(updated_log),
+                json.dumps({"confidence_score": response.confidence_score, "stage": response.stage}),
+                json.dumps(response.prescription_data.get('syndrome', {}) if response.prescription_data else {}),
+                "completed" if response.contains_prescription else "in_progress",
+                datetime.now().isoformat(),
+                existing[0]
+            ))
+            consultation_uuid = existing[0]
+        else:
+            # 创建新记录
+            consultation_uuid = str(uuid.uuid4())
+            conversation_log = json.dumps({
+                "conversation_id": request.conversation_id,
+                "conversation_history": [{
+                    "patient_query": request.message,
+                    "ai_response": response.reply,
+                    "timestamp": datetime.now().isoformat(),
+                    "stage": response.stage
+                }],
+                "current_stage": response.stage,
+                "confidence_score": response.confidence_score,
+                "last_query": request.message,
+                "last_response": response.reply
+            })
+            
+            cursor.execute("""
+                INSERT INTO consultations (
+                    uuid, patient_id, selected_doctor_id, conversation_log,
+                    symptoms_analysis, tcm_syndrome, status,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                consultation_uuid,
+                user_id,
+                request.selected_doctor,
+                conversation_log,
+                json.dumps({"confidence_score": response.confidence_score, "stage": response.stage}),
+                json.dumps(response.prescription_data.get('syndrome', {}) if response.prescription_data else {}),
+                "completed" if response.contains_prescription else "in_progress",
+                datetime.now().isoformat(),
+                datetime.now().isoformat()
+            ))
         
         # 2. 更新或创建 conversation_states 表（对话状态）
         cursor.execute("""
@@ -522,3 +585,78 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
     finally:
         if 'conn' in locals():
             conn.close()
+
+# 🔑 新增：更新问诊状态API
+class ConsultationUpdateRequest(BaseModel):
+    """问诊状态更新请求"""
+    patient_id: str
+    status: str  # 'completed', 'cancelled', 'in_progress'
+    prescription_id: Optional[int] = None
+    conversation_log: Optional[str] = None
+    symptoms_analysis: Optional[str] = None
+    updated_at: Optional[str] = None
+
+@router.post("/update-status")
+async def update_consultation_status(request: ConsultationUpdateRequest):
+    """更新问诊状态"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 查找最近的问诊记录
+        cursor.execute("""
+            SELECT id, uuid FROM consultations 
+            WHERE patient_id = ? AND status <> 'completed'
+            ORDER BY created_at DESC LIMIT 1
+        """, (request.patient_id,))
+        
+        consultation = cursor.fetchone()
+        if not consultation:
+            raise HTTPException(status_code=404, detail="未找到进行中的问诊记录")
+        
+        # 更新问诊记录
+        update_fields = ["status = ?", "updated_at = ?"]
+        update_values = [request.status, datetime.now().isoformat()]
+        
+        if request.conversation_log:
+            update_fields.append("conversation_log = ?")
+            update_values.append(request.conversation_log)
+        
+        if request.symptoms_analysis:
+            update_fields.append("symptoms_analysis = ?")
+            update_values.append(request.symptoms_analysis)
+        
+        update_values.append(consultation['id'])
+        
+        cursor.execute(f"""
+            UPDATE consultations 
+            SET {', '.join(update_fields)}
+            WHERE id = ?
+        """, update_values)
+        
+        # 如果有处方ID，关联到问诊记录
+        if request.prescription_id:
+            cursor.execute("""
+                UPDATE prescriptions 
+                SET consultation_id = ?
+                WHERE id = ?
+            """, (consultation['uuid'], request.prescription_id))
+        
+        conn.commit()
+        
+        logger.info(f"✅ 问诊状态更新成功: id={consultation['id']}, status={request.status}")
+        
+        return {
+            "success": True,
+            "message": "问诊状态更新成功",
+            "consultation_id": consultation['uuid'],
+            "status": request.status
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ 问诊状态更新失败: {e}")
+        raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
+    finally:
+        if 'conn' in locals():
+            conn.close()
+

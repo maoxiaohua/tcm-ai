@@ -1097,6 +1097,7 @@ from api.routes.database_management_routes import router as database_management_
 from api.routes.conversation_sync_routes import router as conversation_sync_router
 from api.routes.user_data_sync_routes import router as user_data_sync_router
 from api.routes.data_migration_routes import router as data_migration_router
+from api.routes.user_sessions_routes import router as user_sessions_router
 from api.routes.medical_knowledge_routes import router as medical_knowledge_router
 from api.routes.follow_up_routes import router as follow_up_router
 from api.routes.session_routes import router as session_router
@@ -2122,6 +2123,7 @@ app.include_router(database_management_router)
 app.include_router(conversation_sync_router)
 app.include_router(user_data_sync_router)
 app.include_router(data_migration_router)
+app.include_router(user_sessions_router)
 app.include_router(medical_knowledge_router)
 app.include_router(follow_up_router)
 app.include_router(session_router)

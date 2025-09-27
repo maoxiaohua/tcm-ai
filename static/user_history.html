@@ -1223,6 +1223,25 @@
             `;
         }
         
+        // 🔑 新增：更新历史记录显示
+        function updateHistoryDisplay() {
+            if (!allSessions || allSessions.length === 0) {
+                showEmptyState();
+                return;
+            }
+            
+            // 按医生分组
+            const sessionsByDoctor = groupSessionsByDoctor(allSessions);
+            
+            let html = '';
+            for (const [doctorName, sessions] of Object.entries(sessionsByDoctor)) {
+                html += renderDoctorGroup(doctorName, sessions);
+            }
+            
+            const historyContent = document.getElementById('historyContent');
+            historyContent.innerHTML = html;
+        }
+
         // 显示空状态
         function showEmptyState() {
             const historyContent = document.getElementById('historyContent');
@@ -1309,20 +1328,38 @@
         // 显示对话详情
         async function showConversationDetail(sessionId) {
             try {
-                const response = await fetch(`/api/user/conversation/${sessionId}`, {
-                    headers: getAuthHeaders()
-                });
-                if (response.ok) {
-                    const detail = await response.json();
-                    displayConversationDetail(detail);
-                } else {
-                    console.error('获取对话详情失败:', response.status, await response.text());
-                    alert('获取对话详情失败，请重试');
+                // 🔑 修复：从allSessions中直接获取详情，避免API不匹配问题
+                const sessionDetail = allSessions.find(s => s.session_id === sessionId);
+                if (!sessionDetail) {
+                    alert('未找到对话详情');
+                    return;
                 }
+                
+                // 🔑 修复：构建前端期望的数据格式
+                const detail = {
+                    session_id: sessionDetail.session_id,
+                    session_count: sessionDetail.session_count || 1,
+                    chief_complaint: sessionDetail.chief_complaint || extractChiefComplaint(sessionDetail.messages),
+                    message_count: sessionDetail.messages ? sessionDetail.messages.length : 0,
+                    diagnosis_summary: sessionDetail.diagnosis_summary || '待完善',
+                    prescription_given: sessionDetail.prescription_given || '暂未开方',
+                    created_at: sessionDetail.created_at,
+                    status: sessionDetail.status || 'completed'
+                };
+                
+                displayConversationDetail(detail);
             } catch (error) {
                 console.error('获取对话详情失败:', error);
                 alert('获取对话详情失败，请检查网络连接');
             }
+        }
+        
+        // 🔑 辅助函数：从消息中提取主诉
+        function extractChiefComplaint(messages) {
+            if (!messages || messages.length === 0) return '未记录';
+            // 获取第一条用户消息作为主诉
+            const firstUserMessage = messages.find(m => m.sender === 'user');
+            return firstUserMessage ? firstUserMessage.content.substring(0, 50) + '...' : '未记录';
         }
         
         // 显示对话详情模态框
@@ -1482,10 +1519,48 @@
             window.URL.revokeObjectURL(url);
         }
         
-        function clearHistory() {
+        async function clearHistory() {
             if (confirm('确定要清空所有问诊历史吗？此操作不可恢复！')) {
-                // 调用清空API
-                alert('清空功能开发中，敬请期待！');
+                try {
+                    console.log('🗑️ 开始清空历史记录...');
+                    
+                    const headers = getAuthHeaders();
+                    console.log('🔑 使用的请求头:', headers);
+                    
+                    const response = await fetch('/api/user/sessions/clear', {
+                        method: 'DELETE',
+                        headers: headers
+                    });
+                    
+                    console.log('📡 清空API响应状态:', response.status);
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log('✅ 清空API响应:', result);
+                        alert(result.message || '清空成功');
+                        
+                        // 清空本地显示
+                        allSessions = [];
+                        updateHistoryDisplay();
+                        updateStatistics({ total_sessions: 0, doctor_count: 0, usage_days: 0 });
+                        
+                        // 重新加载
+                        await loadSessionHistory();
+                    } else {
+                        const errorText = await response.text();
+                        console.error('❌ 清空API错误响应:', errorText);
+                        
+                        try {
+                            const error = JSON.parse(errorText);
+                            alert('清空失败: ' + (error.detail || error.message || '未知错误'));
+                        } catch {
+                            alert('清空失败: HTTP ' + response.status);
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ 清空历史记录异常:', error);
+                    alert('清空失败，请检查网络连接: ' + error.message);
+                }
             }
         }
         
