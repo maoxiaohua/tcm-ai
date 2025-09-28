@@ -8120,6 +8120,15 @@ ${data.analysis_result}`;
                                     isPaid: isPaid,
                                     hasActions: hasActions
                                 };
+                                
+                                // 🔧 关键修复：如果处方已支付，尝试获取并保存原始完整内容
+                                if (isPaid) {
+                                    const originalContent = messageEl.getAttribute('data-original-content');
+                                    if (originalContent) {
+                                        messageData.originalContent = originalContent;
+                                        console.log('💾 保存了已支付处方的原始内容');
+                                    }
+                                }
                             }
                         }
                         
@@ -8337,10 +8346,23 @@ ${data.analysis_result}`;
                     const isPaid = prescriptionData ? prescriptionData.isPaid : false;
                     const prescriptionId = prescriptionData ? prescriptionData.prescriptionId : null;
                     
+                    // 🔧 修复：对于已支付的处方，确保显示完整格式化内容而不是预览版本
+                    let displayContent = msg.content;
+                    if (isPaid && prescriptionData && msg.type === 'ai' && containsPrescription(msg.content)) {
+                        console.log('🔄 恢复已支付处方的完整格式，处方ID:', prescriptionId);
+                        // 清理可能存在的预览限制标记
+                        displayContent = msg.content
+                            .replace(/\*\*\*/g, '15')
+                            .replace(/解锁查看/g, '')
+                            .replace(/\+ \d+ 味药材/g, '')
+                            .replace(/方剂组成预览/g, '完整方剂组成')
+                            .replace(/预览/g, '完整');
+                    }
+                    
                     if (isMobile) {
-                        addMobileMessage(msg.type, msg.content, shouldShowFeedback, isPaid, prescriptionId);
+                        addMobileMessage(msg.type, displayContent, shouldShowFeedback, isPaid, prescriptionId);
                     } else {
-                        addMessageWithTime(msg.type, msg.content, msg.time, shouldShowFeedback, isPaid, prescriptionId);
+                        addMessageWithTime(msg.type, displayContent, msg.time, shouldShowFeedback, isPaid, prescriptionId);
                     }
                 });
                 
