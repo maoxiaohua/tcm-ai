@@ -1362,8 +1362,19 @@
         }
         
         function viewSession(sessionId) {
-            // 显示对话详情
-            showConversationDetail(sessionId);
+            // 🔑 新修复：重定向到主问诊页面并恢复完整对话（包括已解锁处方）
+            console.log('🔄 重定向到主问诊页面恢复对话:', sessionId);
+            
+            // 跳转到智能问诊页面并传递会话ID
+            const restoreUrl = `/smart?restore_session=${encodeURIComponent(sessionId)}`;
+            console.log('📍 恢复URL:', restoreUrl);
+            
+            // 新窗口打开或当前窗口跳转
+            if (confirm('是否在新窗口中查看完整的问诊对话（包括已解锁的处方内容）？\n\n点击"确定"新窗口打开，点击"取消"当前窗口跳转')) {
+                window.open(restoreUrl, '_blank');
+            } else {
+                window.location.href = restoreUrl;
+            }
         }
         
         // 显示对话详情

@@ -326,17 +326,15 @@ async def test_wechat_payment_success(order_no: str):
                 WHERE id = ?
             """, (order_dict['prescription_id'],))
             
-            # 🔑 新增：更新对应的问诊记录状态为已完成
+            # 🔑 修复：通过consultation_id更新对应的问诊记录状态为已完成
             cursor.execute("""
                 UPDATE consultations 
                 SET status = 'completed', 
                     updated_at = datetime('now')
-                WHERE patient_id = (
-                    SELECT patient_id FROM prescriptions WHERE id = ?
-                ) AND selected_doctor_id = (
-                    SELECT doctor_id FROM prescriptions WHERE id = ?
-                ) AND status = 'in_progress'
-            """, (order_dict['prescription_id'], order_dict['prescription_id']))
+                WHERE uuid = (
+                    SELECT consultation_id FROM prescriptions WHERE id = ?
+                )
+            """, (order_dict['prescription_id'],))
             
             # 更新对话状态为已完成
             cursor.execute("""
@@ -417,17 +415,15 @@ async def test_alipay_payment_success(order_no: str):
                 WHERE id = ?
             """, (order_dict['prescription_id'],))
             
-            # 🔑 新增：更新对应的问诊记录状态为已完成
+            # 🔑 修复：通过consultation_id更新对应的问诊记录状态为已完成
             cursor.execute("""
                 UPDATE consultations 
                 SET status = 'completed', 
                     updated_at = datetime('now')
-                WHERE patient_id = (
-                    SELECT patient_id FROM prescriptions WHERE id = ?
-                ) AND selected_doctor_id = (
-                    SELECT doctor_id FROM prescriptions WHERE id = ?
-                ) AND status = 'in_progress'
-            """, (order_dict['prescription_id'], order_dict['prescription_id']))
+                WHERE uuid = (
+                    SELECT consultation_id FROM prescriptions WHERE id = ?
+                )
+            """, (order_dict['prescription_id'],))
             
             # 更新对话状态为已完成
             cursor.execute("""

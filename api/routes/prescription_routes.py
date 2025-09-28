@@ -43,6 +43,54 @@ async def get_current_user_from_header(authorization: Optional[str] = Header(Non
         raise HTTPException(status_code=500, detail=f"认证系统错误: {str(e)}")
 
 # 具体路由必须在参数路由之前定义
+@router.get("/by-consultation/{consultation_id}")
+async def get_prescriptions_by_consultation(consultation_id: str):
+    """根据问诊ID获取相关处方"""
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # 查找该问诊对应的处方
+        cursor.execute("""
+            SELECT id, patient_id, conversation_id, doctor_id, ai_prescription, 
+                   doctor_prescription, diagnosis, symptoms, status, created_at,
+                   is_visible_to_patient, payment_status, prescription_fee
+            FROM prescriptions 
+            WHERE conversation_id = ?
+            ORDER BY created_at DESC
+        """, (consultation_id,))
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        prescriptions = []
+        for row in rows:
+            prescriptions.append({
+                "id": row['id'],
+                "patient_id": row['patient_id'],
+                "conversation_id": row['conversation_id'],
+                "doctor_id": row['doctor_id'],
+                "ai_prescription": row['ai_prescription'],
+                "doctor_prescription": row['doctor_prescription'],
+                "diagnosis": row['diagnosis'],
+                "symptoms": row['symptoms'],
+                "status": row['status'],
+                "created_at": row['created_at'],
+                "is_visible_to_patient": row['is_visible_to_patient'],
+                "payment_status": row['payment_status'],
+                "prescription_fee": row['prescription_fee']
+            })
+        
+        return {
+            "success": True,
+            "prescriptions": prescriptions,
+            "count": len(prescriptions)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"查询处方失败: {str(e)}")
+
 @router.get("/pending")
 async def get_pending_prescriptions(authorization: Optional[str] = Header(None)):
     """获取待审查处方列表 - 支持统一认证"""

@@ -249,6 +249,86 @@ async def get_service_status():
             "message": str(e)
         }
 
+# 新增：对话保存相关的数据模型
+class ConsultationSaveRequest(BaseModel):
+    """对话保存请求"""
+    consultation_id: str
+    patient_id: str
+    doctor_id: str
+    conversation_log: str  # JSON字符串格式的对话记录
+    status: str = "completed"
+    created_at: str
+    updated_at: str
+
+@router.post("/save")
+async def save_consultation(request: ConsultationSaveRequest):
+    """保存问诊对话到数据库"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 检查是否已存在相同的consultation_id
+        cursor.execute("""
+            SELECT uuid FROM consultations WHERE uuid = ?
+        """, (request.consultation_id,))
+        
+        existing = cursor.fetchone()
+        
+        if existing:
+            # 更新现有记录
+            cursor.execute("""
+                UPDATE consultations 
+                SET conversation_log = ?, 
+                    status = ?,
+                    updated_at = ?
+                WHERE uuid = ?
+            """, (
+                request.conversation_log,
+                request.status,
+                request.updated_at,
+                request.consultation_id
+            ))
+            logger.info(f"更新问诊记录: {request.consultation_id}")
+        else:
+            # 插入新记录
+            cursor.execute("""
+                INSERT INTO consultations (
+                    uuid, patient_id, selected_doctor_id,
+                    conversation_log, status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                request.consultation_id,
+                request.patient_id,
+                request.doctor_id,
+                request.conversation_log,
+                request.status,
+                request.created_at,
+                request.updated_at
+            ))
+            logger.info(f"新增问诊记录: {request.consultation_id}")
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "success": True,
+            "message": "问诊记录保存成功",
+            "data": {
+                "consultation_id": request.consultation_id,
+                "patient_id": request.patient_id,
+                "doctor_id": request.doctor_id,
+                "status": request.status
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"保存问诊记录失败: {e}")
+        logger.error(f"错误详情: {traceback.format_exc()}")
+        return {
+            "success": False,
+            "message": f"保存失败: {str(e)}"
+        }
+
 @router.get("/conversation/{conversation_id}/progress")
 async def get_conversation_progress(conversation_id: str):
     """获取对话进度信息"""
@@ -540,25 +620,56 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
         ))
         
         # 3. 如果有处方，存储到 prescriptions 表
+        logger.info(f"🔍 处方检查: contains_prescription={response.contains_prescription}, prescription_data={response.prescription_data is not None}")
         if response.contains_prescription and response.prescription_data:
-            prescription_uuid = response.prescription_data.get('prescription_id', str(uuid.uuid4()))
+            logger.info(f"💊 开始保存处方到数据库, prescription_data={response.prescription_data}")
+            # 提取处方内容和诊断信息
+            prescription_text = response.prescription_data.get('prescription', '')
+            if not prescription_text:
+                # 如果没有单独的prescription字段，尝试从完整数据中提取
+                prescription_text = json.dumps(response.prescription_data, ensure_ascii=False, indent=2)
+            
+            diagnosis_text = response.prescription_data.get('diagnosis', '')
+            syndrome_text = response.prescription_data.get('syndrome', '')
+            
+            logger.info(f"📝 处方文本长度: {len(prescription_text) if prescription_text else 0}")
+            
             cursor.execute("""
-                INSERT OR REPLACE INTO prescriptions (
-                    uuid, consultation_id, patient_id, doctor_id, 
-                    prescription_data, tcm_syndrome, status, 
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO prescriptions (
+                    patient_id, conversation_id, consultation_id, doctor_id, 
+                    ai_prescription, diagnosis, symptoms,
+                    status, created_at, is_visible_to_patient,
+                    payment_status, prescription_fee
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                prescription_uuid,
-                consultation_uuid,
                 user_id,
+                request.conversation_id,  # 对话ID
+                consultation_uuid,        # 问诊记录UUID
                 request.selected_doctor,
-                json.dumps(response.prescription_data),
-                json.dumps(response.prescription_data.get('syndrome', {})),
-                "pending_review",
+                prescription_text,
+                diagnosis_text + ('\n\n' + syndrome_text if syndrome_text else ''),
+                response.prescription_data.get('symptoms_summary', ''),
+                "patient_confirmed",  # 直接设为待支付状态
                 datetime.now().isoformat(),
-                datetime.now().isoformat()
+                0,  # 默认不可见，需支付解锁
+                "pending",  # 待支付
+                88.0  # 处方费用
             ))
+            
+            # 获取新创建的处方ID
+            prescription_id = cursor.lastrowid
+            logger.info(f"✅ 处方保存成功，prescription_id={prescription_id}")
+            
+            # 更新对话状态，标记已有处方
+            cursor.execute("""
+                UPDATE conversation_states 
+                SET has_prescription = 1,
+                    prescription_id = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE conversation_id = ?
+            """, (prescription_id, consultation_uuid))
+            
+            logger.info(f"✅ 对话状态更新完成，conversation_id={consultation_uuid}")
         
         # 4. 存储到 doctor_sessions 表（兼容历史记录系统）
         cursor.execute("""

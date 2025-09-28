@@ -541,12 +541,32 @@ ${content}
         try {
             console.log('🔧 开始重构处方内容:', prescriptionData);
             
+            // 🔑 新逻辑：检查ai_prescription是否为JSON元数据
+            let actualPrescriptionContent = '';
+            
+            if (prescriptionData.ai_prescription) {
+                try {
+                    const parsedPrescription = JSON.parse(prescriptionData.ai_prescription);
+                    if (parsedPrescription.has_prescription) {
+                        console.log('⚠️ 检测到AI处方字段存储的是元数据，不是实际内容');
+                        // 这种情况下，实际的处方内容应该从consultation_log中获取
+                        actualPrescriptionContent = '请查看完整对话记录获取详细处方信息';
+                    } else {
+                        actualPrescriptionContent = prescriptionData.ai_prescription;
+                    }
+                } catch (e) {
+                    // 如果解析失败，说明存储的是普通文本
+                    actualPrescriptionContent = prescriptionData.ai_prescription;
+                }
+            } else if (prescriptionData.doctor_prescription) {
+                actualPrescriptionContent = prescriptionData.doctor_prescription;
+            } else {
+                actualPrescriptionContent = '暂无处方信息';
+            }
+            
             // 提取诊断信息
             const diagnosis = prescriptionData.diagnosis || '暂无诊断信息';
             const symptoms = prescriptionData.symptoms || '暂无症状记录';
-            
-            // 提取处方信息（优先使用医生处方，回退到AI处方）
-            const prescription = prescriptionData.doctor_prescription || prescriptionData.ai_prescription || '暂无处方信息';
             
             // 重构完整的AI回复内容格式
             const reconstructedContent = `
@@ -558,7 +578,7 @@ ${content}
 
 📋 个性化处方方案
 
-${prescription}
+${actualPrescriptionContent}
 
 📖 煎服方法：
 水煎服，每日1剂，分2次温服。先用冷水浸泡30分钟，大火煮开后小火煎煮20分钟，取汁约200ml。
