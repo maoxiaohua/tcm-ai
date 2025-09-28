@@ -51,6 +51,12 @@ class SimplePrescriptionManager {
             hashId = this.generatePrescriptionId(content);
         }
 
+        // 🔑 建立哈希ID与真实处方ID的映射关系
+        if (window.lastRealPrescriptionId) {
+            this.storePrescriptionIdMapping(hashId, window.lastRealPrescriptionId);
+            window.lastRealPrescriptionId = null; // 清除临时变量
+        }
+        
         // 保存原始内容（使用哈希ID作为键）
         this.originalContent.set(hashId, content);
         
@@ -162,19 +168,177 @@ class SimplePrescriptionManager {
     }
 
     /**
-     * 标记为已支付
+     * 标记为已支付并提交审核
      */
     async markAsPaid(prescriptionId) {
+        try {
+            // 🔑 获取真实的数据库处方ID
+            const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
+            console.log(`🔍 处方ID映射: ${prescriptionId} -> ${realPrescriptionId}`);
+            
+            if (!realPrescriptionId) {
+                console.error('❌ 无法获取有效的处方ID');
+                this.localMarkAsPaid(prescriptionId);
+                return;
+            }
+            
+            // 🔑 新流程：调用后端支付确认API，启动审核流程
+            const response = await fetch('/api/prescription-review/payment-confirm', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prescription_id: realPrescriptionId,
+                    payment_amount: 88.0,
+                    payment_method: 'alipay'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log(`✅ 支付确认成功，已提交医生审核: ${prescriptionId}`);
+                console.log(`📋 审核状态: ${result.data.status}`);
+                console.log(`💡 提示: ${result.data.note}`);
+                
+                // 显示审核状态而不是直接解锁
+                this.showPendingReview(prescriptionId, result.data);
+            } else {
+                console.warn(`⚠️ 支付确认失败: ${result.message}`);
+                // 降级到本地标记（兼容性）
+                this.localMarkAsPaid(prescriptionId);
+            }
+        } catch (error) {
+            console.error('支付确认API调用失败:', error);
+            // 降级到本地标记（兼容性）
+            this.localMarkAsPaid(prescriptionId);
+        }
+    }
+    
+    /**
+     * 本地标记为已支付（降级方案）
+     */
+    localMarkAsPaid(prescriptionId) {
         // 1. 更新内存状态
         this.paymentStatus.set(prescriptionId, true);
         
         // 2. 保存到localStorage
         localStorage.setItem(`paid_${prescriptionId}`, 'true');
         
-        console.log(`✅ 处方已标记为已支付: ${prescriptionId}`);
+        console.log(`✅ 处方已本地标记为已支付: ${prescriptionId}`);
         
         // 3. 刷新页面显示
-        await this.refreshDisplay(prescriptionId);
+        this.refreshDisplay(prescriptionId);
+    }
+    
+    /**
+     * 显示待审核状态
+     */
+    showPendingReview(prescriptionId, reviewData) {
+        const elements = document.querySelectorAll(`[data-prescription-id="${prescriptionId}"]`);
+        elements.forEach(element => {
+            element.innerHTML = `
+                <div style="padding: 20px; background: linear-gradient(135deg, #fef3c7, #f59e0b); border-radius: 12px; text-align: center; border: 2px solid #d97706;">
+                    <div style="font-size: 24px; margin-bottom: 15px;">⏳</div>
+                    <h3 style="margin: 0 0 10px 0; color: #92400e;">处方正在审核中</h3>
+                    <p style="margin: 0 0 20px 0; color: #78350f; font-size: 14px;">
+                        ${reviewData.note || '处方已提交医生审核，请等待审核完成后配药'}
+                    </p>
+                    <div style="background: rgba(255,255,255,0.8); padding: 10px; border-radius: 6px; margin: 15px 0;">
+                        <p style="margin: 0; color: #b45309; font-weight: bold; font-size: 16px;">⚠️ 请勿配药</p>
+                        <p style="margin: 5px 0 0 0; color: #92400e; font-size: 12px;">等待医生审核完成</p>
+                    </div>
+                    <button onclick="window.simplePrescriptionManager.checkReviewStatus('${prescriptionId}')" 
+                            style="background: #059669; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                        🔄 检查审核状态
+                    </button>
+                </div>
+            `;
+        });
+    }
+    
+    /**
+     * 检查审核状态
+     */
+    async checkReviewStatus(prescriptionId) {
+        try {
+            const numericId = parseInt(prescriptionId.replace(/\D/g, '')) || 0;
+            const response = await fetch(`/api/prescription-review/status/${numericId}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                const data = result.data;
+                console.log(`📋 审核状态检查: ${data.status_description}`);
+                
+                if (data.is_reviewed) {
+                    // 审核完成，显示最终处方
+                    this.showReviewedPrescription(prescriptionId, data);
+                } else {
+                    // 仍在审核中
+                    alert(`🔍 审核状态更新：\n${data.status_description}\n\n请稍后再次检查。`);
+                }
+            } else {
+                alert('❌ 无法获取审核状态，请稍后重试');
+            }
+        } catch (error) {
+            console.error('检查审核状态失败:', error);
+            alert('❌ 网络错误，无法检查审核状态');
+        }
+    }
+    
+    /**
+     * 显示审核完成的处方
+     */
+    showReviewedPrescription(prescriptionId, reviewData) {
+        // 标记为已支付（审核完成）
+        this.paymentStatus.set(prescriptionId, true);
+        localStorage.setItem(`paid_${prescriptionId}`, 'true');
+        
+        // 刷新显示，此时会显示完整处方
+        this.refreshDisplay(prescriptionId);
+        
+        // 显示审核完成提示
+        const statusMessage = reviewData.is_modified 
+            ? '✅ 医生已审核并修改处方，可以配药' 
+            : '✅ 医生审核完成，可以配药';
+            
+        if (reviewData.doctor_notes) {
+            alert(`${statusMessage}\n\n医生备注：${reviewData.doctor_notes}`);
+        } else {
+            alert(statusMessage);
+        }
+    }
+    
+    /**
+     * 获取真实的数据库处方ID
+     */
+    getRealPrescriptionId(hashId) {
+        // 首先检查映射表
+        if (this.prescriptionIdMapping.has(hashId)) {
+            return this.prescriptionIdMapping.get(hashId);
+        }
+        
+        // 检查localStorage中是否存储了映射
+        const storedMapping = localStorage.getItem(`prescription_mapping_${hashId}`);
+        if (storedMapping) {
+            const realId = parseInt(storedMapping);
+            this.prescriptionIdMapping.set(hashId, realId);
+            return realId;
+        }
+        
+        // 尝试从哈希ID中提取数字（降级方案）
+        const numericId = parseInt(hashId.replace(/\D/g, ''));
+        return numericId || null;
+    }
+    
+    /**
+     * 存储处方ID映射关系
+     */
+    storePrescriptionIdMapping(hashId, realId) {
+        this.prescriptionIdMapping.set(hashId, realId);
+        localStorage.setItem(`prescription_mapping_${hashId}`, realId.toString());
+        console.log(`📋 存储处方ID映射: ${hashId} -> ${realId}`);
     }
 
     /**

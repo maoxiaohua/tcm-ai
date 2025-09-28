@@ -10,6 +10,8 @@ from typing import List, Dict, Optional, Any
 import logging
 import traceback
 import sqlite3
+import json
+import uuid
 from datetime import datetime
 
 # 导入统一问诊服务
@@ -92,7 +94,7 @@ async def unified_chat_endpoint(request: ChatMessage, http_request: Request):
         # 处理问诊
         response = await consultation_service.process_consultation(consultation_request)
         
-        # 🔑 新增：存储问诊记录到数据库以支持跨设备同步
+        # 🔑 存储问诊记录到数据库（唯一保存点，避免重复）
         await _store_consultation_record(real_user_id, request, response)
         
         # 构建响应数据
@@ -262,35 +264,28 @@ class ConsultationSaveRequest(BaseModel):
 
 @router.post("/save")
 async def save_consultation(request: ConsultationSaveRequest):
-    """保存问诊对话到数据库"""
+    """
+    保存问诊对话到数据库
+    注意：为避免重复保存，系统已在聊天过程中自动保存数据
+    此接口主要用于兼容性，不再执行实际的插入操作
+    """
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
         # 检查是否已存在相同的consultation_id
         cursor.execute("""
-            SELECT uuid FROM consultations WHERE uuid = ?
+            SELECT uuid, updated_at FROM consultations WHERE uuid = ?
         """, (request.consultation_id,))
         
         existing = cursor.fetchone()
         
         if existing:
-            # 更新现有记录
-            cursor.execute("""
-                UPDATE consultations 
-                SET conversation_log = ?, 
-                    status = ?,
-                    updated_at = ?
-                WHERE uuid = ?
-            """, (
-                request.conversation_log,
-                request.status,
-                request.updated_at,
-                request.consultation_id
-            ))
-            logger.info(f"更新问诊记录: {request.consultation_id}")
+            # 记录已存在，说明在聊天时已自动保存，无需重复操作
+            logger.info(f"问诊记录已存在，跳过重复保存: {request.consultation_id}")
+            message = "问诊记录已存在，数据已自动保存"
         else:
-            # 插入新记录
+            # 记录不存在，说明自动保存可能失败，这时才手动保存
             cursor.execute("""
                 INSERT INTO consultations (
                     uuid, patient_id, selected_doctor_id,
@@ -305,19 +300,87 @@ async def save_consultation(request: ConsultationSaveRequest):
                 request.created_at,
                 request.updated_at
             ))
-            logger.info(f"新增问诊记录: {request.consultation_id}")
+            logger.info(f"补充保存问诊记录: {request.consultation_id}")
+            message = "问诊记录已补充保存"
+        
+        # 🔑 关键修复：同步到doctor_sessions表，确保历史记录显示
+        try:
+            # 解析对话日志获取摘要信息
+            conversation_data = json.loads(request.conversation_log)
+            chief_complaint = "问诊咨询"
+            total_conversations = 0
+            
+            # 从conversation_history提取信息
+            if 'conversation_history' in conversation_data:
+                history = conversation_data['conversation_history']
+                if isinstance(history, list) and len(history) > 0:
+                    # 提取主诉（第一条用户消息）
+                    first_query = history[0].get('patient_query', '')
+                    if first_query:
+                        chief_complaint = first_query[:100] + ('...' if len(first_query) > 100 else '')
+                    total_conversations = len(history)
+            
+            # 检查doctor_sessions表是否已存在记录
+            cursor.execute("""
+                SELECT session_id FROM doctor_sessions WHERE session_id = ?
+            """, (request.consultation_id,))
+            
+            session_exists = cursor.fetchone()
+            
+            if session_exists:
+                # 更新doctor_sessions记录
+                cursor.execute("""
+                    UPDATE doctor_sessions 
+                    SET chief_complaint = ?,
+                        total_conversations = ?,
+                        session_status = ?,
+                        last_updated = ?
+                    WHERE session_id = ?
+                """, (
+                    chief_complaint,
+                    total_conversations,
+                    'completed' if request.status == 'completed' else 'active',
+                    request.updated_at,
+                    request.consultation_id
+                ))
+                logger.info(f"更新doctor_sessions记录: {request.consultation_id}")
+            else:
+                # 插入新的doctor_sessions记录
+                cursor.execute("""
+                    INSERT INTO doctor_sessions (
+                        session_id, user_id, doctor_name, session_count,
+                        chief_complaint, total_conversations, session_status,
+                        created_at, last_updated
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    request.consultation_id,
+                    request.patient_id,
+                    request.doctor_id,
+                    1,  # 默认为第1次问诊
+                    chief_complaint,
+                    total_conversations,
+                    'completed' if request.status == 'completed' else 'active',
+                    request.created_at,
+                    request.updated_at
+                ))
+                logger.info(f"新增doctor_sessions记录: {request.consultation_id}")
+            
+        except Exception as sync_error:
+            logger.warning(f"同步到doctor_sessions失败，但consultations已保存: {sync_error}")
+            # 不抛出异常，允许consultations保存成功
         
         conn.commit()
         conn.close()
         
         return {
             "success": True,
-            "message": "问诊记录保存成功",
+            "message": message,
             "data": {
                 "consultation_id": request.consultation_id,
                 "patient_id": request.patient_id,
                 "doctor_id": request.doctor_id,
-                "status": request.status
+                "status": request.status,
+                "note": "系统已在聊天过程中自动保存数据，避免重复记录"
             }
         }
         
@@ -512,12 +575,15 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
         cursor = conn.cursor()
         
         # 1. 存储到 consultations 表（问诊主记录）
-        # 🔑 修复：先查找是否已存在相同conversation_id的记录
+        # 🔑 修复：强化查重逻辑，避免重复记录
         cursor.execute("""
             SELECT uuid, conversation_log FROM consultations 
-            WHERE patient_id = ? AND conversation_log LIKE ?
+            WHERE patient_id = ? AND (
+                conversation_log LIKE ? OR 
+                (selected_doctor_id = ? AND ABS(strftime('%s', 'now') - strftime('%s', created_at)) < 3600)
+            )
             ORDER BY created_at DESC LIMIT 1
-        """, (user_id, f'%"conversation_id": "{request.conversation_id}"%'))
+        """, (user_id, f'%"conversation_id": "{request.conversation_id}"%', request.selected_doctor))
         
         existing = cursor.fetchone()
         
@@ -649,7 +715,7 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 prescription_text,
                 diagnosis_text + ('\n\n' + syndrome_text if syndrome_text else ''),
                 response.prescription_data.get('symptoms_summary', ''),
-                "patient_confirmed",  # 直接设为待支付状态
+                "ai_generated",  # AI生成状态，待患者支付
                 datetime.now().isoformat(),
                 0,  # 默认不可见，需支付解锁
                 "pending",  # 待支付
@@ -659,6 +725,12 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
             # 获取新创建的处方ID
             prescription_id = cursor.lastrowid
             logger.info(f"✅ 处方保存成功，prescription_id={prescription_id}")
+            
+            # 🔑 将处方ID添加到响应数据中，供前端使用
+            if response.prescription_data:
+                response.prescription_data['prescription_id'] = prescription_id
+                response.prescription_data['payment_status'] = 'pending'
+                response.prescription_data['review_status'] = 'ai_generated'
             
             # 更新对话状态，标记已有处方
             cursor.execute("""
@@ -770,4 +842,219 @@ async def update_consultation_status(request: ConsultationUpdateRequest):
     finally:
         if 'conn' in locals():
             conn.close()
+
+@router.get("/detail/{session_id}")
+async def get_conversation_detail(session_id: str):
+    """获取对话详细信息，用于详情弹窗显示"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 从consultations表获取完整对话记录
+        cursor.execute("""
+            SELECT c.uuid, c.patient_id, c.selected_doctor_id, c.conversation_log, 
+                   c.symptoms_analysis, c.tcm_syndrome, c.status, c.created_at, c.updated_at,
+                   p.id as prescription_id, p.ai_prescription, p.diagnosis, p.symptoms,
+                   p.payment_status, p.prescription_fee, p.is_visible_to_patient
+            FROM consultations c
+            LEFT JOIN prescriptions p ON c.uuid = p.consultation_id
+            WHERE c.uuid = ? OR EXISTS (
+                SELECT 1 FROM doctor_sessions ds 
+                WHERE ds.session_id = ? AND ds.user_id = c.patient_id 
+                AND ds.doctor_name = c.selected_doctor_id
+            )
+            ORDER BY c.created_at DESC
+            LIMIT 1
+        """, (session_id, session_id))
+        
+        result = cursor.fetchone()
+        if not result:
+            # 尝试从doctor_sessions表查找并获取对应的consultations记录
+            cursor.execute("""
+                SELECT ds.session_id, ds.user_id, ds.doctor_name, ds.chief_complaint,
+                       ds.session_status, ds.created_at, ds.last_updated,
+                       c.uuid, c.conversation_log, c.symptoms_analysis, c.tcm_syndrome,
+                       p.id as prescription_id, p.ai_prescription, p.diagnosis, p.symptoms,
+                       p.payment_status, p.prescription_fee
+                FROM doctor_sessions ds
+                LEFT JOIN consultations c ON ds.user_id = c.patient_id AND ds.doctor_name = c.selected_doctor_id
+                LEFT JOIN prescriptions p ON c.uuid = p.consultation_id
+                WHERE ds.session_id = ?
+                ORDER BY ds.created_at DESC
+                LIMIT 1
+            """, (session_id,))
+            
+            ds_result = cursor.fetchone()
+            if not ds_result:
+                return {
+                    "success": False,
+                    "message": "未找到对话记录"
+                }
+            
+            # 构建基于doctor_sessions的响应
+            conversation_data = {
+                "session_id": ds_result['session_id'],
+                "patient_id": ds_result['user_id'],
+                "doctor_id": ds_result['doctor_name'],
+                "chief_complaint": ds_result['chief_complaint'],
+                "status": ds_result['session_status'],
+                "created_at": ds_result['created_at'],
+                "updated_at": ds_result['last_updated'],
+                "conversation_history": [],
+                "symptoms_summary": ds_result['chief_complaint'] if ds_result['chief_complaint'] else "暂无详细症状记录",
+                "diagnosis": "基于主诉的初步评估",
+                "syndrome": "待进一步辨证",
+                "prescription": None,
+                "prescription_info": None
+            }
+            
+            # 如果有关联的完整consultation记录，使用更详细的信息
+            if ds_result['conversation_log']:
+                try:
+                    log_data = json.loads(ds_result['conversation_log'])
+                    conversation_data.update({
+                        "conversation_history": log_data.get('conversation_history', []),
+                        "symptoms_analysis": ds_result['symptoms_analysis'],
+                        "syndrome": ds_result['tcm_syndrome']
+                    })
+                except:
+                    pass
+        else:
+            # 解析conversation_log获取对话历史
+            conversation_history = []
+            symptoms_summary = ""
+            diagnosis = ""
+            syndrome = ""
+            
+            try:
+                if result['conversation_log']:
+                    log_data = json.loads(result['conversation_log'])
+                    conversation_history = log_data.get('conversation_history', [])
+                    
+                    # 提取患者症状描述（第一轮对话）
+                    if conversation_history:
+                        symptoms_summary = conversation_history[0].get('patient_query', '')
+                
+                # 解析症状分析
+                if result['symptoms_analysis']:
+                    symptoms_data = json.loads(result['symptoms_analysis'])
+                    # 可以从这里提取更多症状分析信息
+                
+                # 🔑 修复：从对话历史中提取实际的中医诊断信息
+                diagnosis_extracted = ""
+                syndrome_extracted = ""
+                
+                # 从AI回复中提取诊断和证候信息
+                for conv in conversation_history:
+                    ai_response = conv.get('ai_response', '')
+                    if ai_response:
+                        # 提取诊断信息
+                        if ('诊断' in ai_response or '证' in ai_response or '辨证' in ai_response) and not diagnosis_extracted:
+                            # 尝试提取诊断部分
+                            import re
+                            diagnosis_patterns = [
+                                r'诊断[：:](.*?)(?=[。\n]|证候|处方|$)',
+                                r'中医诊断[：:](.*?)(?=[。\n]|证候|处方|$)',
+                                r'([^。]*证[^。]*)',
+                                r'辨证[：:](.*?)(?=[。\n]|处方|$)'
+                            ]
+                            for pattern in diagnosis_patterns:
+                                match = re.search(pattern, ai_response, re.DOTALL)
+                                if match:
+                                    diagnosis_extracted = match.group(1).strip() if len(match.groups()) > 0 else match.group(0).strip()
+                                    break
+                        
+                        # 提取证候信息
+                        if ('证候' in ai_response or '证型' in ai_response) and not syndrome_extracted:
+                            syndrome_patterns = [
+                                r'证候[：:](.*?)(?=[。\n]|处方|$)',
+                                r'证型[：:](.*?)(?=[。\n]|处方|$)',
+                                r'([^。]*?证候[^。]*?)'
+                            ]
+                            for pattern in syndrome_patterns:
+                                match = re.search(pattern, ai_response, re.DOTALL)
+                                if match:
+                                    syndrome_extracted = match.group(1).strip() if len(match.groups()) > 0 else match.group(0).strip()
+                                    break
+                
+                # 解析存储的中医证候
+                if result['tcm_syndrome'] and not syndrome_extracted:
+                    try:
+                        syndrome_data = json.loads(result['tcm_syndrome'])
+                        if isinstance(syndrome_data, dict):
+                            syndrome_extracted = syndrome_data.get('syndrome', '') or json.dumps(syndrome_data, ensure_ascii=False)
+                        else:
+                            syndrome_extracted = str(syndrome_data)
+                    except:
+                        pass
+                
+                # 使用提取的信息或备用信息
+                diagnosis = diagnosis_extracted or result.get('diagnosis', '') or "基于患者症状的中医辨证分析"
+                syndrome = syndrome_extracted or "待进一步辨证分析"
+                
+            except json.JSONDecodeError as e:
+                logger.warning(f"解析conversation_log失败: {e}")
+            
+            # 构建响应数据
+            conversation_data = {
+                "session_id": result['uuid'],
+                "patient_id": result['patient_id'],
+                "doctor_id": result['selected_doctor_id'],
+                "chief_complaint": symptoms_summary[:100] + ('...' if len(symptoms_summary) > 100 else ''),
+                "status": result['status'],
+                "created_at": result['created_at'],
+                "updated_at": result['updated_at'],
+                "conversation_history": conversation_history,
+                "symptoms_summary": symptoms_summary,
+                "diagnosis": diagnosis,
+                "syndrome": syndrome,
+                "prescription": result['ai_prescription'] if result['ai_prescription'] else None,
+                "prescription_info": {
+                    "prescription_id": result['prescription_id'],
+                    "payment_status": result['payment_status'],
+                    "prescription_fee": result['prescription_fee'],
+                    "is_visible": result['is_visible_to_patient']
+                } if result['prescription_id'] else None
+            }
+        
+        conn.close()
+        
+        # 获取医生信息
+        doctor_names = {
+            "zhang_zhongjing": "张仲景",
+            "ye_tianshi": "叶天士", 
+            "li_dongyuan": "李东垣",
+            "zheng_qin_an": "郑钦安",
+            "liu_duzhou": "刘渡舟",
+            "zhu_danxi": "朱丹溪"
+        }
+        
+        conversation_data["doctor_name"] = doctor_names.get(conversation_data["doctor_id"], conversation_data["doctor_id"])
+        
+        # 计算问诊轮次
+        conversation_data["total_rounds"] = len(conversation_data["conversation_history"])
+        
+        # 计算问诊时长（如果有开始和结束时间）
+        try:
+            from datetime import datetime
+            start_time = datetime.fromisoformat(conversation_data["created_at"].replace('Z', '+00:00'))
+            end_time = datetime.fromisoformat(conversation_data["updated_at"].replace('Z', '+00:00'))
+            duration_minutes = int((end_time - start_time).total_seconds() / 60)
+            conversation_data["duration_minutes"] = duration_minutes
+        except:
+            conversation_data["duration_minutes"] = 0
+        
+        return {
+            "success": True,
+            "data": conversation_data,
+            "message": "获取对话详情成功"
+        }
+        
+    except Exception as e:
+        logger.error(f"获取对话详情失败: {e}")
+        logger.error(traceback.format_exc())
+        return {
+            "success": False,
+            "message": f"获取详情失败: {str(e)}"
+        }
 

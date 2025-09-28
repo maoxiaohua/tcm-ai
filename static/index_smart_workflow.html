@@ -2787,6 +2787,21 @@
             // 🚨 重要：智能工作流页面(index_smart_workflow.html)只使用登录用户数据
             // 这确保与游客页面的数据完全隔离
             
+            // 🔑 新增：检查URL参数中的用户ID（从历史页面跳转）
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlUserId = urlParams.get('user_id');
+            if (urlUserId && urlUserId !== 'anonymous') {
+                console.log('🔗 从URL参数获取用户ID:', urlUserId);
+                // 将URL用户ID存储到localStorage，确保后续使用
+                localStorage.setItem('currentUserId', urlUserId);
+                // 清理URL参数，避免刷新时重复处理
+                if (window.history && window.history.replaceState) {
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, newUrl);
+                }
+                return urlUserId;
+            }
+            
             // 🔑 优先使用真实登录用户信息 - 检查多个存储位置
             let realUser = null;
             
@@ -3931,6 +3946,13 @@
                 let prescriptionId = responseData.data?.prescription_id || null;
                 const isPaid = responseData.data?.is_paid || false;
                 
+                // 🔑 关键：如果有真实处方ID，存储映射关系
+                if (prescriptionId && responseData.data?.contains_prescription) {
+                    // 处方哈希ID将在简化处方管理器中生成，这里先记录真实ID
+                    window.lastRealPrescriptionId = prescriptionId;
+                    console.log(`📋 获取到真实处方ID: ${prescriptionId}`);
+                }
+                
                 // 🔧 如果API没有返回处方ID，但响应包含处方内容，则调用后端创建处方
                 if (!prescriptionId && responseData.reply && 
                     (responseData.reply.includes('处方') || responseData.reply.includes('方剂') || 
@@ -4541,6 +4563,9 @@ ${record.prescription_given}
                     await saveCurrentConversationToHistory();
                 }
                 
+                // 🔑 关键修复：完整清理所有存储机制
+                await clearAllConversationData(userId);
+                
                 // 清空当前对话显示
                 clearAllMessages();
                 
@@ -4559,6 +4584,80 @@ ${record.prescription_given}
             } catch (error) {
                 console.error('❌ 创建新对话失败:', error);
                 showMessage('创建新对话失败', 'error');
+            }
+        }
+        
+        // 🔑 新增：完整清理所有对话数据的函数
+        async function clearAllConversationData(userId) {
+            try {
+                if (!selectedDoctor) {
+                    console.log('⚠️ 没有选择医生，跳过数据清理');
+                    return;
+                }
+                
+                console.log(`🧹 开始清理用户 ${userId} 与医生 ${selectedDoctor} 的所有对话数据`);
+                
+                // 1. 清理localStorage中的医生历史记录
+                const historyKey = `tcm_doctor_history_${userId}_${selectedDoctor}`;
+                localStorage.removeItem(historyKey);
+                console.log(`🗑️ 清理localStorage医生历史记录: ${historyKey}`);
+                
+                // 2. 清理ChatGPT风格对话记录（当前对话）
+                if (currentConversationId) {
+                    const conversationKey = `conversation_${userId}_${currentConversationId}`;
+                    localStorage.removeItem(conversationKey);
+                    console.log(`🗑️ 清理ChatGPT对话记录: ${conversationKey}`);
+                }
+                
+                // 3. 清理对话索引中的相关记录
+                const indexKey = `conversation_index_${userId}`;
+                let index = JSON.parse(localStorage.getItem(indexKey) || '[]');
+                const originalLength = index.length;
+                index = index.filter(item => item.doctor !== selectedDoctor);
+                if (index.length !== originalLength) {
+                    localStorage.setItem(indexKey, JSON.stringify(index));
+                    console.log(`🗑️ 清理对话索引，删除了 ${originalLength - index.length} 条记录`);
+                }
+                
+                // 4. 清理消息容器的医生标记
+                const containers = ['messagesContainer', 'mobileMessagesContainer'];
+                containers.forEach(containerId => {
+                    const container = document.getElementById(containerId);
+                    if (container) {
+                        container.removeAttribute('data-current-doctor');
+                        console.log(`🗑️ 清理容器标记: ${containerId}`);
+                    }
+                });
+                
+                // 5. 清理服务端数据（可选，谨慎操作）
+                try {
+                    const response = await fetch('/api/conversation/clear', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            user_id: userId,
+                            doctor_id: selectedDoctor,
+                            clear_type: 'all'
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log(`✅ 服务端数据清理成功: ${result.message}`);
+                    } else {
+                        console.warn('⚠️ 服务端数据清理失败，但继续执行');
+                    }
+                } catch (error) {
+                    console.warn('⚠️ 服务端数据清理出错，但继续执行:', error);
+                }
+                
+                console.log('✅ 所有对话数据清理完成');
+                
+            } catch (error) {
+                console.error('❌ 清理对话数据失败:', error);
+                throw error;
             }
         }
         
@@ -8045,14 +8144,27 @@ ${data.analysis_result}`;
 
         // 增强消息发送，添加同步功能
         const originalAddMessage = addMessage;
+        const originalAddMobileMessage = addMobileMessage;
+        
         addMessage = function(sender, content, showFeedback = false) {
             originalAddMessage.call(this, sender, content, showFeedback);
             
-            // 同步新消息到服务器
-            if (currentUser && userToken) {
+            // 🔑 修复：只对用户消息和AI回复进行同步，跳过欢迎消息
+            if (currentUser && userToken && !content.includes('请详细描述您的症状')) {
                 setTimeout(() => {
                     syncSessionToServer();
                 }, 500); // 延迟500ms确保DOM更新完成
+            }
+        };
+        
+        addMobileMessage = function(sender, content, showFeedback = false, isPaid = false, prescriptionId = null) {
+            originalAddMobileMessage.call(this, sender, content, showFeedback, isPaid, prescriptionId);
+            
+            // 🔑 修复：只对用户消息和AI回复进行同步，跳过欢迎消息
+            if (currentUser && userToken && !content.includes('请详细描述您的症状')) {
+                setTimeout(() => {
+                    syncSessionToServer();
+                }, 500);
             }
         };
 
@@ -8391,16 +8503,20 @@ ${data.analysis_result}`;
             
             if (!messagesContainer) return;
             
-            // 检查是否需要清空消息容器
+            // 🔑 修复：检查是否需要清空消息容器，加强新对话检测
             const currentMessages = messagesContainer.querySelectorAll('.message');
+            const currentDoctorAttr = messagesContainer.getAttribute('data-current-doctor');
+            const isNewConversation = !currentConversationId || currentConversationId.length === 0;
+            
             const shouldClearMessages = currentMessages.length === 0 || 
-                                       !messagesContainer.getAttribute('data-current-doctor') ||
-                                       messagesContainer.getAttribute('data-current-doctor') !== doctorKey;
+                                       !currentDoctorAttr ||
+                                       currentDoctorAttr !== doctorKey ||
+                                       isNewConversation; // 新增：如果是新对话，强制清空
             
             if (shouldClearMessages) {
-                // 清空当前消息（只在切换医生或没有消息时）
+                // 清空当前消息（切换医生、没有消息、或新对话时）
                 messagesContainer.innerHTML = '';
-                console.log(`🧹 清空消息容器，准备加载${doctorKey}医生的历史记录`);
+                console.log(`🧹 清空消息容器，准备加载${doctorKey}医生的历史记录（isNewConversation: ${isNewConversation}）`);
             } else {
                 console.log(`⚡ 保持当前${doctorKey}医生的消息，跳过重新加载`);
                 // 如果是同一个医生且有消息，直接返回，不重新加载
@@ -8654,10 +8770,11 @@ ${data.analysis_result}`;
             const welcomeMessage = `您好！我是${doctor.name}，${doctor.school}传人。请详细描述您的症状，我将为您进行专业的中医分析。`;
             console.log(`添加${doctor.name}医生的欢迎消息`);
             
+            // 🔑 修复：使用原始函数而不是增强版本，避免触发数据保存
             if (isMobile) {
-                addMobileMessage('ai', welcomeMessage);
+                originalAddMobileMessage('ai', welcomeMessage);
             } else {
-                addMessage('ai', welcomeMessage);
+                originalAddMessage('ai', welcomeMessage);
             }
         }
         

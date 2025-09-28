@@ -987,45 +987,61 @@
         
         // 获取当前用户ID（兼容智能工作流页面）
         function getCurrentUserId() {
-            // 🔑 优先使用真实登录用户信息
-            let realUser = null;
+            // 🔑 修复：优先从认证用户信息获取真实用户ID
             
-            // 检查userData存储
+            // 1. 如果有认证用户信息（从API获取的），直接使用
+            if (currentUser && currentUser.user_id && currentUser.user_id !== 'anonymous') {
+                console.log('🔑 历史页面使用认证用户ID:', currentUser.user_id);
+                return currentUser.user_id;
+            }
+            
+            // 2. 检查userData存储（登录后的数据）
             try {
                 const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-                if (userData.id || userData.user_id || userData.global_user_id) {
-                    realUser = userData;
+                if (userData.global_user_id) {
+                    console.log('🔑 历史页面从userData获取用户ID:', userData.global_user_id);
+                    return userData.global_user_id;
                 }
-            } catch (e) {}
-            
-            // 检查currentUser存储（备选）
-            if (!realUser) {
-                try {
-                    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-                    if (currentUser.id || currentUser.user_id || currentUser.global_user_id) {
-                        realUser = currentUser;
-                    }
-                } catch (e) {}
+                if (userData.user_id && userData.user_id !== 'anonymous') {
+                    console.log('🔑 历史页面从userData获取用户ID:', userData.user_id);
+                    return userData.user_id;
+                }
+            } catch (e) {
+                console.warn('解析userData失败:', e);
             }
             
-            // 如果找到真实用户
-            if (realUser) {
-                const userId = realUser.global_user_id || realUser.user_id || realUser.id;
-                if (userId && userId !== 'undefined' && userId !== null) {
-                    console.log('🔑 历史页面获取到真实用户ID:', userId);
-                    return userId;
+            // 3. 检查currentUser存储（备选）
+            try {
+                const storedCurrentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                if (storedCurrentUser.global_user_id) {
+                    console.log('🔑 历史页面从currentUser获取用户ID:', storedCurrentUser.global_user_id);
+                    return storedCurrentUser.global_user_id;
                 }
+                if (storedCurrentUser.user_id && storedCurrentUser.user_id !== 'anonymous') {
+                    console.log('🔑 历史页面从currentUser获取用户ID:', storedCurrentUser.user_id);
+                    return storedCurrentUser.user_id;
+                }
+            } catch (e) {
+                console.warn('解析currentUser失败:', e);
             }
             
-            // 访客模式
+            // 4. 尝试从URL参数获取用户ID
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlUserId = urlParams.get('user_id');
+            if (urlUserId && urlUserId !== 'anonymous') {
+                console.log('🔑 历史页面从URL获取用户ID:', urlUserId);
+                return urlUserId;
+            }
+            
+            // 5. 访客模式 - 设备用户ID
             const smartUser = localStorage.getItem('currentUserId');
-            if (smartUser) {
+            if (smartUser && smartUser !== 'anonymous') {
                 console.log('🔄 历史页面使用访客用户ID:', smartUser);
                 return smartUser;
             }
             
-            // 没有找到任何用户ID
-            console.warn('⚠️ 历史页面无法获取用户ID');
+            // 6. 最后兜底：如果是anonymous用户，返回null强制使用token解析
+            console.warn('⚠️ 历史页面无法获取有效用户ID，将依赖服务端token解析');
             return null;
         }
         
@@ -1049,7 +1065,10 @@
                 
                 // 🔑 获取当前用户ID并添加到API请求中
                 const userId = getCurrentUserId();
-                const apiUrl = userId ? `/api/user/sessions?user_id=${encodeURIComponent(userId)}` : '/api/user/sessions';
+                // 修复：如果获取不到用户ID，让服务端从token解析
+                const apiUrl = (userId && userId !== 'anonymous') ? 
+                    `/api/user/sessions?user_id=${encodeURIComponent(userId)}` : 
+                    '/api/user/sessions';
                 
                 console.log('🔗 历史记录API URL:', apiUrl);
                 
@@ -1252,11 +1271,14 @@
                     <div class="session-footer">
                         <div class="conversation-count">${session.total_conversations || 0}轮对话</div>
                         <div class="session-actions">
-                            <button class="btn-detail" onclick="viewSession('${session.session_id}')" title="查看详情">
+                            <button class="btn-detail" onclick="showConversationDetail('${session.session_id}')" title="查看详情">
                                 📋 详情
                             </button>
-                            <div class="session-status ${session.session_status}">
-                                ${session.session_status === 'completed' ? '已完成' : '进行中'}
+                            <button class="btn-detail" onclick="viewSession('${session.session_id}')" title="恢复对话" style="margin-left: 5px;">
+                                💬 恢复
+                            </button>
+                            <div class="session-status ${session.status === 'completed' ? 'completed' : 'active'}">
+                                ${session.status === 'completed' ? '已完成' : '进行中'}
                             </div>
                         </div>
                     </div>
@@ -1380,29 +1402,153 @@
         // 显示对话详情
         async function showConversationDetail(sessionId) {
             try {
-                // 🔑 修复：从allSessions中直接获取详情，避免API不匹配问题
-                const sessionDetail = allSessions.find(s => s.session_id === sessionId);
-                if (!sessionDetail) {
-                    alert('未找到对话详情');
-                    return;
+                console.log('🔍 获取对话详情:', sessionId);
+                
+                // 显示加载状态
+                const loadingModal = createLoadingModal('正在加载对话详情...');
+                document.body.appendChild(loadingModal);
+                
+                // 🔑 从服务端获取完整的对话数据
+                const response = await fetch(`/api/consultation/detail/${sessionId}`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API调用失败: ${response.status}`);
                 }
                 
-                // 🔑 修复：构建前端期望的数据格式
-                const detail = {
-                    session_id: sessionDetail.session_id,
-                    session_count: sessionDetail.session_count || 1,
-                    chief_complaint: sessionDetail.chief_complaint || extractChiefComplaint(sessionDetail.messages),
-                    message_count: sessionDetail.messages ? sessionDetail.messages.length : 0,
-                    diagnosis_summary: sessionDetail.diagnosis_summary || '待完善',
-                    prescription_given: sessionDetail.prescription_given || '暂未开方',
-                    created_at: sessionDetail.created_at,
-                    status: sessionDetail.status || 'completed'
+                const result = await response.json();
+                console.log('📄 获取到的对话详情:', result);
+                
+                if (!result.success) {
+                    throw new Error(result.message || '获取对话详情失败');
+                }
+                
+                // 解析详细的对话数据
+                const conversationData = result.data;
+                const detail = await parseConversationDetail(conversationData, sessionId);
+                
+                // 移除加载状态
+                loadingModal.remove();
+                
+                // 显示详情弹窗
+                displayConversationDetail(detail);
+                
+            } catch (error) {
+                console.error('❌ 获取对话详情失败:', error);
+                
+                // 移除加载状态
+                const loadingModal = document.querySelector('.loading-modal');
+                if (loadingModal) loadingModal.remove();
+                
+                // 回退方案：使用本地数据
+                const sessionDetail = allSessions.find(s => s.session_id === sessionId);
+                if (sessionDetail) {
+                    console.log('🔄 使用本地数据显示基本信息');
+                    const basicDetail = {
+                        session_id: sessionDetail.session_id,
+                        doctor_name: sessionDetail.doctor_name,
+                        session_count: sessionDetail.session_count || 1,
+                        chief_complaint: sessionDetail.chief_complaint || '未记录',
+                        created_at: sessionDetail.created_at,
+                        status: sessionDetail.status || 'completed',
+                        conversation_history: [],
+                        diagnosis_summary: '无法获取详细诊断信息',
+                        prescription_content: '无法获取处方信息',
+                        error_message: `获取详情失败: ${error.message}`
+                    };
+                    displayConversationDetail(basicDetail);
+                } else {
+                    alert('获取对话详情失败，请重试');
+                }
+            }
+        }
+        
+        // 🔑 新增：创建加载状态模态框
+        function createLoadingModal(message) {
+            const modal = document.createElement('div');
+            modal.className = 'modal loading-modal';
+            modal.style.display = 'block';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 400px; text-align: center;">
+                    <div class="modal-body">
+                        <div class="spinner" style="margin: 20px auto;"></div>
+                        <p>${message}</p>
+                    </div>
+                </div>
+            `;
+            return modal;
+        }
+        
+        // 🔑 新增：解析完整的对话详情
+        async function parseConversationDetail(conversationData, sessionId) {
+            try {
+                let conversationHistory = [];
+                let chiefComplaint = '未记录';
+                let diagnosisSummary = '待完善';
+                let prescriptionContent = '暂未开方';
+                let patientSymptoms = [];
+                let doctorAnalysis = '';
+                
+                // 解析conversation_log
+                if (conversationData.conversation_log) {
+                    const logData = JSON.parse(conversationData.conversation_log);
+                    
+                    if (logData.conversation_history && Array.isArray(logData.conversation_history)) {
+                        conversationHistory = logData.conversation_history;
+                        
+                        // 提取患者症状描述（所有用户消息）
+                        conversationHistory.forEach(item => {
+                            if (item.patient_query) {
+                                patientSymptoms.push(item.patient_query);
+                            }
+                            if (item.ai_response) {
+                                // 提取医生的分析和诊断
+                                if (item.ai_response.includes('辨证') || item.ai_response.includes('诊断')) {
+                                    doctorAnalysis = item.ai_response;
+                                }
+                                // 提取处方内容
+                                if (item.ai_response.includes('处方') || item.ai_response.includes('方剂')) {
+                                    prescriptionContent = item.ai_response;
+                                }
+                            }
+                        });
+                        
+                        // 首次症状描述作为主诉
+                        if (patientSymptoms.length > 0) {
+                            chiefComplaint = patientSymptoms[0];
+                        }
+                        
+                        // 医生分析作为诊断摘要
+                        if (doctorAnalysis) {
+                            diagnosisSummary = doctorAnalysis;
+                        }
+                    }
+                }
+                
+                return {
+                    session_id: sessionId,
+                    doctor_name: conversationData.selected_doctor_id,
+                    session_count: 1,
+                    chief_complaint: chiefComplaint,
+                    created_at: conversationData.created_at,
+                    updated_at: conversationData.updated_at,
+                    status: conversationData.status || 'completed',
+                    conversation_history: conversationHistory,
+                    patient_symptoms: patientSymptoms,
+                    diagnosis_summary: diagnosisSummary,
+                    prescription_content: prescriptionContent,
+                    message_count: conversationHistory.length,
+                    total_patient_messages: patientSymptoms.length,
+                    has_prescription: prescriptionContent !== '暂未开方'
                 };
                 
-                displayConversationDetail(detail);
             } catch (error) {
-                console.error('获取对话详情失败:', error);
-                alert('获取对话详情失败，请检查网络连接');
+                console.error('解析对话数据失败:', error);
+                return {
+                    session_id: sessionId,
+                    error_message: '解析对话数据失败: ' + error.message
+                };
             }
         }
         
@@ -1420,48 +1566,346 @@
             modal.className = 'modal';
             modal.style.display = 'block';
             
+            // 格式化医生信息
             const doctorName = doctorInfo[detail.doctor_name]?.name || detail.doctor_name;
+            const doctorSchool = doctorInfo[detail.doctor_name]?.school || '中医';
+            
+            // 格式化时间信息
             const visitDate = new Date(detail.created_at).toLocaleString('zh-CN');
+            const updateDate = new Date(detail.updated_at).toLocaleString('zh-CN');
+            const duration = detail.duration_minutes ? `${detail.duration_minutes}分钟` : '无记录';
+            
+            // 处理症状信息
+            const symptomsText = detail.symptoms_summary || detail.chief_complaint || '患者未提供详细症状描述';
+            const shortenedSymptoms = symptomsText.length > 150 ? symptomsText.substring(0, 150) + '...' : symptomsText;
+            
+            // 🔑 修复：显示实际的诊断信息而不是模板内容
+            const diagnosisText = detail.diagnosis && detail.diagnosis !== '基于患者症状的中医辨证分析' 
+                ? detail.diagnosis 
+                : (detail.diagnosis_summary || '基于患者症状的中医辨证分析');
+            const syndromeText = detail.syndrome && detail.syndrome !== '待进一步辨证分析'
+                ? detail.syndrome 
+                : '待进一步辨证分析';
+            
+            // 处理处方信息
+            const prescriptionSection = detail.prescription ? `
+                <div class="detail-section prescription-section">
+                    <h3>🌿 中医处方</h3>
+                    <div class="prescription-content">
+                        <div class="prescription-text">${detail.prescription}</div>
+                        ${detail.prescription_info ? `
+                            <div class="prescription-meta">
+                                <div class="prescription-fee">
+                                    <span class="fee-label">处方费用:</span>
+                                    <span class="fee-amount">¥${detail.prescription_info.prescription_fee || '88.00'}</span>
+                                </div>
+                                <div class="payment-status ${detail.prescription_info.payment_status}">
+                                    ${detail.prescription_info.payment_status === 'paid' ? '✅ 已支付' : 
+                                      detail.prescription_info.payment_status === 'pending' ? '⏳ 待支付' : '❌ 未支付'}
+                                </div>
+                                <div class="prescription-visibility">
+                                    ${detail.prescription_info.is_visible ? '👁️ 患者可见' : '🔒 支付后可见'}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            ` : '<div class="detail-section"><h3>🌿 中医处方</h3><p class="no-prescription">本次问诊未开具处方</p></div>';
+            
+            // 处理对话历史
+            const conversationHistory = detail.conversation_history && detail.conversation_history.length > 0 ? 
+                detail.conversation_history.map((conv, index) => `
+                    <div class="conversation-turn">
+                        <div class="patient-message">
+                            <strong>患者 (第${index + 1}轮):</strong>
+                            <p>${conv.patient_query}</p>
+                        </div>
+                        <div class="doctor-message">
+                            <strong>${doctorName}:</strong>
+                            <p>${conv.ai_response}</p>
+                        </div>
+                        <div class="turn-timestamp">${new Date(conv.timestamp).toLocaleString('zh-CN')}</div>
+                    </div>
+                `).join('')
+                : '<p>暂无详细对话记录</p>';
             
             modal.innerHTML = `
-                <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
                     <div class="modal-header">
-                        <h2>📋 对话详情 - ${doctorName}</h2>
+                        <h2>📋 问诊详情 - ${doctorName} (${doctorSchool})</h2>
                         <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
                     </div>
-                    <div class="modal-body">
-                        <div class="detail-section">
-                            <h3>基本信息</h3>
+                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                        <!-- 基本信息卡片 -->
+                        <div class="detail-section info-card">
+                            <h3>📊 基本信息</h3>
                             <div class="detail-grid">
-                                <div><strong>就诊时间:</strong> ${visitDate}</div>
-                                <div><strong>就诊次数:</strong> 第${detail.session_count}次</div>
-                                <div><strong>主诉:</strong> ${detail.chief_complaint || '未记录'}</div>
-                                <div><strong>对话轮数:</strong> ${detail.message_count}轮</div>
+                                <div class="info-item">
+                                    <span class="info-label">开始时间:</span>
+                                    <span class="info-value">${visitDate}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">最后更新:</span>
+                                    <span class="info-value">${updateDate}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">问诊时长:</span>
+                                    <span class="info-value">${duration}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">对话轮次:</span>
+                                    <span class="info-value">${detail.total_rounds || 0}轮</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">问诊状态:</span>
+                                    <span class="info-value status-badge ${detail.status}">
+                                        ${detail.status === 'completed' ? '✅ 已完成' : 
+                                          detail.status === 'in_progress' ? '⏳ 进行中' : '❓ 未知'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                        
-                        <div class="detail-section">
-                            <h3>诊疗记录</h3>
+
+                        <!-- 患者症状描述 -->
+                        <div class="detail-section symptoms-section">
+                            <h3>🩺 患者症状描述</h3>
+                            <div class="symptoms-content">
+                                <div class="chief-complaint">
+                                    <h4>主诉：</h4>
+                                    <p>${detail.chief_complaint || '未记录主诉'}</p>
+                                </div>
+                                <div class="symptoms-detail">
+                                    <h4>详细症状：</h4>
+                                    <div class="symptoms-text">
+                                        <p class="symptoms-preview">${shortenedSymptoms}</p>
+                                        ${symptomsText.length > 150 ? `
+                                            <div class="symptoms-full" style="display: none;">
+                                                <p>${symptomsText}</p>
+                                            </div>
+                                            <button class="toggle-symptoms" onclick="toggleSymptomsDetail(this)">
+                                                查看完整症状描述
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 中医辨证内容 -->
+                        <div class="detail-section diagnosis-section">
+                            <h3>⚖️ 中医辨证分析</h3>
                             <div class="diagnosis-content">
-                                <p><strong>诊断摘要:</strong> ${detail.diagnosis_summary || '未记录'}</p>
-                                <p><strong>处方建议:</strong> ${detail.prescription_given || '未开方'}</p>
+                                <div class="diagnosis-item">
+                                    <h4>诊断结果：</h4>
+                                    <p>${diagnosisText}</p>
+                                </div>
+                                <div class="syndrome-item">
+                                    <h4>证候分析：</h4>
+                                    <p>${syndromeText}</p>
+                                </div>
                             </div>
                         </div>
-                        
-                        <div class="detail-section">
-                            <h3>对话状态</h3>
-                            <div class="status-info">
-                                <span class="session-status ${detail.session_status}">
-                                    ${detail.session_status === 'completed' ? '已完成' : '进行中'}
-                                </span>
+
+                        <!-- 处方内容 -->
+                        ${prescriptionSection}
+
+                        <!-- 对话记录 -->
+                        <div class="detail-section conversation-section">
+                            <h3>💬 完整对话记录</h3>
+                            <div class="conversation-history">
+                                ${conversationHistory}
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button class="btn-secondary" onclick="this.closest('.modal').remove()">关闭</button>
-                        <button class="btn-primary" onclick="exportConversation('${detail.session_id}')">📄 导出病历</button>
+                        <button class="btn-action" onclick="shareConversation('${detail.session_id}')">🔗 分享</button>
+                        <button class="btn-action" onclick="exportConversation('${detail.session_id}')">📄 导出</button>
+                        ${detail.prescription ? `
+                            <button class="btn-primary" onclick="viewPrescriptionDetail('${detail.session_id}')">💊 查看处方详情</button>
+                        ` : ''}
                     </div>
                 </div>
+
+                <style>
+                /* 详情弹窗样式增强 */
+                .detail-section {
+                    margin-bottom: 25px;
+                    padding: 20px;
+                    background: #f8f9ff;
+                    border-radius: 12px;
+                    border: 1px solid #e1e8f0;
+                }
+
+                .detail-section h3 {
+                    margin: 0 0 15px 0;
+                    color: #2c3e50;
+                    font-size: 18px;
+                    padding-bottom: 8px;
+                    border-bottom: 2px solid #667eea;
+                }
+
+                .detail-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 15px;
+                }
+
+                .info-item {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 5px;
+                }
+
+                .info-label {
+                    font-weight: bold;
+                    color: #666;
+                    font-size: 14px;
+                }
+
+                .info-value {
+                    color: #333;
+                    font-size: 16px;
+                }
+
+                .status-badge {
+                    padding: 4px 12px;
+                    border-radius: 20px;
+                    font-size: 14px;
+                    font-weight: bold;
+                }
+
+                .status-badge.completed {
+                    background: #d4edda;
+                    color: #155724;
+                }
+
+                .status-badge.in_progress {
+                    background: #fff3cd;
+                    color: #856404;
+                }
+
+                .symptoms-content h4, .diagnosis-content h4 {
+                    margin: 10px 0 8px 0;
+                    color: #2c3e50;
+                    font-size: 16px;
+                }
+
+                .symptoms-text p {
+                    line-height: 1.6;
+                    color: #444;
+                    background: white;
+                    padding: 15px;
+                    border-radius: 8px;
+                    border: 1px solid #e1e8f0;
+                }
+
+                .toggle-symptoms {
+                    background: #667eea;
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    margin-top: 10px;
+                    transition: background 0.3s;
+                }
+
+                .toggle-symptoms:hover {
+                    background: #5a67d8;
+                }
+
+                .prescription-content {
+                    background: white;
+                    padding: 15px;
+                    border-radius: 8px;
+                    border: 1px solid #e1e8f0;
+                }
+
+                .prescription-text {
+                    font-family: 'Courier New', monospace;
+                    line-height: 1.8;
+                    color: #2c3e50;
+                    margin-bottom: 15px;
+                    white-space: pre-wrap;
+                }
+
+                .prescription-meta {
+                    display: flex;
+                    gap: 20px;
+                    align-items: center;
+                    padding-top: 15px;
+                    border-top: 1px solid #e1e8f0;
+                    font-size: 14px;
+                }
+
+                .fee-amount {
+                    font-weight: bold;
+                    color: #e74c3c;
+                    font-size: 16px;
+                }
+
+                .payment-status.paid {
+                    color: #27ae60;
+                    font-weight: bold;
+                }
+
+                .payment-status.pending {
+                    color: #f39c12;
+                    font-weight: bold;
+                }
+
+                .no-prescription {
+                    color: #666;
+                    font-style: italic;
+                    text-align: center;
+                    padding: 20px;
+                }
+
+                .conversation-turn {
+                    margin-bottom: 20px;
+                    padding: 15px;
+                    background: white;
+                    border-radius: 8px;
+                    border: 1px solid #e1e8f0;
+                }
+
+                .patient-message, .doctor-message {
+                    margin-bottom: 10px;
+                }
+
+                .patient-message strong {
+                    color: #3498db;
+                }
+
+                .doctor-message strong {
+                    color: #27ae60;
+                }
+
+                .turn-timestamp {
+                    font-size: 12px;
+                    color: #888;
+                    text-align: right;
+                    margin-top: 10px;
+                    padding-top: 8px;
+                    border-top: 1px solid #f0f0f0;
+                }
+
+                .btn-action {
+                    background: #667eea;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    transition: background 0.3s;
+                    margin-left: 10px;
+                }
+
+                .btn-action:hover {
+                    background: #5a67d8;
+                }
+                </style>
             `;
             
             document.body.appendChild(modal);
@@ -1617,8 +2061,20 @@
         }
         
         function startNewConsultation() {
-            // 返回主页开始新问诊
-            window.location.href = '/';
+            // 🔑 修复：跳转到智能问诊页面并保持登录状态
+            console.log('🔄 开始新问诊，当前用户:', currentUser);
+            
+            // 确保用户认证信息完整传递
+            if (currentUser && currentUser.user_id) {
+                // 携带用户信息跳转到智能问诊页面
+                const smartUrl = `/smart?user_id=${encodeURIComponent(currentUser.user_id)}`;
+                console.log('📍 跳转URL:', smartUrl);
+                window.location.href = smartUrl;
+            } else {
+                // 如果没有用户信息，直接跳转到智能问诊页面
+                console.log('📍 无用户信息，直接跳转到智能问诊页面');
+                window.location.href = '/smart';
+            }
         }
         
         // ========== 设备管理功能 ==========
@@ -1720,6 +2176,243 @@
         // 刷新设备列表
         async function refreshDevices() {
             await loadDeviceList();
+        }
+        
+        // ========== 详情弹窗辅助函数 ==========
+        
+        // 切换症状详细描述显示
+        function toggleSymptomsDetail(button) {
+            const symptomsText = button.closest('.symptoms-text');
+            const preview = symptomsText.querySelector('.symptoms-preview');
+            const full = symptomsText.querySelector('.symptoms-full');
+            
+            if (full.style.display === 'none') {
+                preview.style.display = 'none';
+                full.style.display = 'block';
+                button.textContent = '收起症状描述';
+            } else {
+                preview.style.display = 'block';
+                full.style.display = 'none';
+                button.textContent = '查看完整症状描述';
+            }
+        }
+        
+        // 分享对话功能
+        async function shareConversation(sessionId) {
+            try {
+                // 生成分享链接
+                const shareUrl = `${window.location.origin}/shared/conversation/${sessionId}`;
+                
+                // 如果支持Web Share API，使用原生分享
+                if (navigator.share) {
+                    await navigator.share({
+                        title: 'TCM AI 问诊记录',
+                        text: '我想分享一个中医AI问诊记录',
+                        url: shareUrl
+                    });
+                } else {
+                    // 否则复制到剪贴板
+                    if (navigator.clipboard) {
+                        await navigator.clipboard.writeText(shareUrl);
+                        alert('分享链接已复制到剪贴板');
+                    } else {
+                        // 显示分享链接
+                        prompt('请复制下面的分享链接:', shareUrl);
+                    }
+                }
+            } catch (error) {
+                console.error('分享失败:', error);
+                if (error.name !== 'AbortError') {
+                    alert('分享失败，请重试');
+                }
+            }
+        }
+        
+        // 查看处方详情
+        async function viewPrescriptionDetail(sessionId) {
+            try {
+                const response = await fetch(`/api/prescription/detail/${sessionId}`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (!response.ok) {
+                    throw new Error('获取处方详情失败');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    showPrescriptionModal(result.data);
+                } else {
+                    alert('暂无处方详情或处方未支付');
+                }
+            } catch (error) {
+                console.error('获取处方详情失败:', error);
+                alert('获取处方详情失败，请重试');
+            }
+        }
+        
+        // 显示处方详情模态框
+        function showPrescriptionModal(prescriptionData) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.display = 'block';
+            
+            const paymentStatusText = {
+                'paid': '✅ 已支付',
+                'pending': '⏳ 待支付',
+                'failed': '❌ 支付失败'
+            };
+            
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 700px;">
+                    <div class="modal-header">
+                        <h2>💊 处方详情</h2>
+                        <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="prescription-detail">
+                            <div class="prescription-meta-info">
+                                <div class="meta-row">
+                                    <span class="meta-label">处方编号:</span>
+                                    <span class="meta-value">${prescriptionData.prescription_id}</span>
+                                </div>
+                                <div class="meta-row">
+                                    <span class="meta-label">开方医生:</span>
+                                    <span class="meta-value">${prescriptionData.doctor_name}</span>
+                                </div>
+                                <div class="meta-row">
+                                    <span class="meta-label">开方时间:</span>
+                                    <span class="meta-value">${new Date(prescriptionData.created_at).toLocaleString('zh-CN')}</span>
+                                </div>
+                                <div class="meta-row">
+                                    <span class="meta-label">支付状态:</span>
+                                    <span class="meta-value payment-status ${prescriptionData.payment_status}">
+                                        ${paymentStatusText[prescriptionData.payment_status] || '未知状态'}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div class="prescription-content-detail">
+                                <h3>🌿 药方配伍</h3>
+                                <div class="prescription-herbs">
+                                    ${prescriptionData.ai_prescription || '处方内容'}
+                                </div>
+                            </div>
+                            
+                            <div class="diagnosis-content-detail">
+                                <h3>⚖️ 诊断说明</h3>
+                                <div class="diagnosis-text">
+                                    ${prescriptionData.diagnosis || '暂无诊断说明'}
+                                </div>
+                            </div>
+                            
+                            ${prescriptionData.payment_status === 'pending' ? `
+                                <div class="payment-section">
+                                    <h3>💰 费用信息</h3>
+                                    <div class="fee-info">
+                                        <span class="fee-label">处方费用:</span>
+                                        <span class="fee-amount">¥${prescriptionData.prescription_fee || '88.00'}</span>
+                                    </div>
+                                    <button class="btn-primary pay-now-btn" onclick="proceedToPayment('${prescriptionData.prescription_id}')">
+                                        立即支付
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn-secondary" onclick="this.closest('.modal').remove()">关闭</button>
+                        <button class="btn-action" onclick="exportPrescription('${prescriptionData.prescription_id}')">📄 导出处方</button>
+                    </div>
+                </div>
+                
+                <style>
+                .prescription-detail .meta-row {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 10px;
+                    padding: 8px 0;
+                    border-bottom: 1px solid #f0f0f0;
+                }
+                
+                .meta-label {
+                    font-weight: bold;
+                    color: #666;
+                }
+                
+                .meta-value {
+                    color: #333;
+                }
+                
+                .prescription-herbs, .diagnosis-text {
+                    background: #f8f9ff;
+                    padding: 15px;
+                    border-radius: 8px;
+                    border: 1px solid #e1e8f0;
+                    line-height: 1.8;
+                    font-family: 'Microsoft YaHei', Arial, sans-serif;
+                    white-space: pre-wrap;
+                }
+                
+                .payment-section {
+                    margin-top: 20px;
+                    padding: 15px;
+                    background: #fff3cd;
+                    border-radius: 8px;
+                    border: 1px solid #ffeaa7;
+                }
+                
+                .fee-info {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 15px;
+                    font-size: 16px;
+                }
+                
+                .pay-now-btn {
+                    width: 100%;
+                    padding: 12px;
+                    font-size: 16px;
+                    font-weight: bold;
+                }
+                </style>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+        
+        // 处理支付
+        function proceedToPayment(prescriptionId) {
+            // 跳转到支付页面
+            window.location.href = `/payment?prescription_id=${prescriptionId}`;
+        }
+        
+        // 导出处方
+        async function exportPrescription(prescriptionId) {
+            try {
+                const response = await fetch(`/api/prescription/export/${prescriptionId}`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `处方_${prescriptionId}_${new Date().toISOString().split('T')[0]}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    throw new Error('导出失败');
+                }
+            } catch (error) {
+                console.error('导出处方失败:', error);
+                alert('导出失败，请重试');
+            }
         }
         
         // 点击模态框外部关闭

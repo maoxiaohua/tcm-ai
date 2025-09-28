@@ -316,15 +316,28 @@ async def test_wechat_payment_success(order_no: str):
         
         # 检查订单是否已经支付或刚刚更新成功
         if cursor.rowcount > 0 or order_dict['payment_status'] == 'paid':
-            # 更新处方状态为pending（进入医生审核流程）并解锁处方可见性
+            # 🔑 新流程：更新支付状态并提交医生审核（不直接解锁处方）
             cursor.execute("""
                 UPDATE prescriptions 
-                SET status = 'pending', 
-                    payment_status = 'paid',
-                    is_visible_to_patient = 1,
-                    visibility_unlock_time = datetime('now')
+                SET payment_status = 'paid',
+                    status = 'pending_review',
+                    confirmed_at = datetime('now')
                 WHERE id = ?
             """, (order_dict['prescription_id'],))
+            
+            # 自动提交给医生审核
+            cursor.execute("""
+                SELECT doctor_id, consultation_id FROM prescriptions WHERE id = ?
+            """, (order_dict['prescription_id'],))
+            prescription_info = cursor.fetchone()
+            
+            if prescription_info:
+                cursor.execute("""
+                    INSERT OR REPLACE INTO doctor_review_queue (
+                        prescription_id, doctor_id, consultation_id, 
+                        submitted_at, status, priority
+                    ) VALUES (?, ?, ?, datetime('now'), 'pending', 'normal')
+                """, (order_dict['prescription_id'], prescription_info['doctor_id'], prescription_info['consultation_id']))
             
             # 🔑 修复：通过consultation_id更新对应的问诊记录状态为已完成
             cursor.execute("""
@@ -405,15 +418,28 @@ async def test_alipay_payment_success(order_no: str):
         
         # 检查订单是否已经支付或刚刚更新成功
         if cursor.rowcount > 0 or order_dict['payment_status'] == 'paid':
-            # 更新处方状态为pending（进入医生审核流程）并解锁处方可见性
+            # 🔑 新流程：更新支付状态并提交医生审核（不直接解锁处方）
             cursor.execute("""
                 UPDATE prescriptions 
-                SET status = 'pending', 
-                    payment_status = 'paid',
-                    is_visible_to_patient = 1,
-                    visibility_unlock_time = datetime('now')
+                SET payment_status = 'paid',
+                    status = 'pending_review',
+                    confirmed_at = datetime('now')
                 WHERE id = ?
             """, (order_dict['prescription_id'],))
+            
+            # 自动提交给医生审核
+            cursor.execute("""
+                SELECT doctor_id, consultation_id FROM prescriptions WHERE id = ?
+            """, (order_dict['prescription_id'],))
+            prescription_info = cursor.fetchone()
+            
+            if prescription_info:
+                cursor.execute("""
+                    INSERT OR REPLACE INTO doctor_review_queue (
+                        prescription_id, doctor_id, consultation_id, 
+                        submitted_at, status, priority
+                    ) VALUES (?, ?, ?, datetime('now'), 'pending', 'normal')
+                """, (order_dict['prescription_id'], prescription_info['doctor_id'], prescription_info['consultation_id']))
             
             # 🔑 修复：通过consultation_id更新对应的问诊记录状态为已完成
             cursor.execute("""

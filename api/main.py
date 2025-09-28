@@ -1102,6 +1102,7 @@ from api.routes.medical_knowledge_routes import router as medical_knowledge_rout
 from api.routes.follow_up_routes import router as follow_up_router
 from api.routes.session_routes import router as session_router
 from api.routes.security_routes import router as security_router
+from api.routes.prescription_review_routes import router as prescription_review_router
 import faiss
 
 # 导入智能缓存系统
@@ -2128,6 +2129,7 @@ app.include_router(medical_knowledge_router)
 app.include_router(follow_up_router)
 app.include_router(session_router)
 app.include_router(security_router)
+app.include_router(prescription_review_router)
 
 # WebSocket实时同步路由
 from api.routes.websocket_sync_routes import router as websocket_sync_router
@@ -3950,29 +3952,34 @@ async def get_user_info_by_token(token: str):
             conn.close()
 
 @app.get("/api/user/sessions")
-async def get_user_sessions_api(request: Request, limit: int = 20):
+async def get_user_sessions_api(request: Request, limit: int = 20, user_id: str = None):
     """获取用户的问诊会话历史 - 支持跨设备同步"""
     if not USER_HISTORY_AVAILABLE:
         return {"success": False, "error": "用户历史系统不可用"}
     
     try:
-        # 🔑 优先获取认证用户ID，回退到设备指纹
-        user_id = None
+        # 🔑 修复：优先使用URL参数中的user_id，然后从token解析
+        final_user_id = None
         
-        # 1. 尝试从认证token获取用户ID
-        auth_header = request.headers.get('authorization')
-        if auth_header and auth_header.startswith('Bearer '):
-            token = auth_header.replace('Bearer ', '')
-            try:
-                auth_user_info = await get_user_info_by_token(token)
-                if auth_user_info and auth_user_info.get('user_id'):
-                    user_id = auth_user_info['user_id']
-                    logger.info(f"✅ 使用认证用户ID获取历史记录: {user_id}")
-            except:
-                pass
+        # 1. 如果URL提供了user_id且不是anonymous，直接使用
+        if user_id and user_id != 'anonymous':
+            final_user_id = user_id
+            logger.info(f"✅ 使用URL参数中的用户ID: {final_user_id}")
+        else:
+            # 2. 尝试从认证token获取用户ID
+            auth_header = request.headers.get('authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                token = auth_header.replace('Bearer ', '')
+                try:
+                    auth_user_info = await get_user_info_by_token(token)
+                    if auth_user_info and auth_user_info.get('user_id') and auth_user_info.get('user_id') != 'anonymous':
+                        final_user_id = auth_user_info['user_id']
+                        logger.info(f"✅ 从token解析出用户ID: {final_user_id}")
+                except Exception as e:
+                    logger.warning(f"Token解析失败: {e}")
         
-        # 2. 如果没有认证用户，回退到设备指纹
-        if not user_id:
+        # 3. 如果还是没有获取到有效用户ID，回退到设备指纹
+        if not final_user_id:
             # 🔧 直接创建实例避免导入问题
             from services.user_history_system import UserHistorySystem
             history_service = UserHistorySystem()
@@ -3983,15 +3990,16 @@ async def get_user_sessions_api(request: Request, limit: int = 20):
                 'accept_language': request.headers.get('accept-language', '')
             }
             device_fingerprint = history_service.generate_device_fingerprint(request_info)
-            user_id = history_service.register_or_get_user(device_fingerprint)
-            logger.info(f"⚠️ 使用设备指纹获取历史记录: {user_id}")
+            final_user_id = history_service.register_or_get_user(device_fingerprint)
+            logger.info(f"⚠️ 使用设备指纹获取历史记录: {final_user_id}")
         else:
             # 认证用户也需要创建服务实例
             from services.user_history_system import UserHistorySystem
             history_service = UserHistorySystem()
         
         # 获取会话历史
-        sessions = history_service.get_user_sessions(user_id, limit)
+        sessions = history_service.get_user_sessions(final_user_id, limit)
+        logger.info(f"📊 为用户 {final_user_id} 获取到 {len(sessions)} 条会话记录")
         
         # 计算统计信息
         doctor_names = set(session['doctor_name'] for session in sessions)
