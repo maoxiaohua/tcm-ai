@@ -257,18 +257,6 @@ class UnifiedConsultationService:
 请以专业、耐心、细致的态度进行问诊。
 """
     
-    def _build_message_context(self, request: ConsultationRequest, persona_prompt: str) -> List[Dict[str, str]]:
-        """构建消息上下文"""
-        messages = [{"role": "system", "content": persona_prompt}]
-        
-        # 添加对话历史
-        if request.conversation_history:
-            messages.extend(request.conversation_history)
-        
-        # 添加当前用户消息
-        messages.append({"role": "user", "content": request.message})
-        
-        return messages
     
     async def _call_ai_model(self, messages: List[Dict[str, str]]) -> str:
         """调用AI模型"""
@@ -993,14 +981,18 @@ class UnifiedConsultationService:
         
         messages.append({"role": "system", "content": system_content})
         
-        # 对话历史
+        # 🔧 修复：对话历史处理（确保类型安全）
         if request.conversation_history:
-            for turn in request.conversation_history[-10:]:  # 只保留最近10轮
-                if turn.get("role") in ["user", "assistant"]:
-                    messages.append({
-                        "role": turn["role"], 
-                        "content": turn["content"]
-                    })
+            # 确保conversation_history是列表类型
+            if isinstance(request.conversation_history, list):
+                for turn in request.conversation_history[-10:]:  # 只保留最近10轮
+                    if isinstance(turn, dict) and turn.get("role") in ["user", "assistant"]:
+                        messages.append({
+                            "role": turn["role"], 
+                            "content": turn["content"]
+                        })
+            else:
+                logger.warning(f"conversation_history类型错误: {type(request.conversation_history)}, 期望list")
         
         # 当前用户消息
         messages.append({"role": "user", "content": request.message})

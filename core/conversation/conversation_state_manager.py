@@ -312,8 +312,30 @@ class ConversationStateManager:
         if not state:
             return False
         
-        # 合并症状（去重）
-        all_symptoms = list(set(state.symptoms_collected + symptoms))
+        # 🔧 修复：确保类型安全的症状合并
+        # 确保state.symptoms_collected是列表
+        if not isinstance(state.symptoms_collected, list):
+            logger.warning(f"症状收集数据类型错误: {type(state.symptoms_collected)}, 重置为空列表")
+            state.symptoms_collected = []
+            
+        # 确保symptoms是列表
+        if not isinstance(symptoms, list):
+            logger.warning(f"传入症状参数类型错误: {type(symptoms)}, 尝试转换")
+            if isinstance(symptoms, dict):
+                symptoms = list(symptoms.keys()) if symptoms else []
+            else:
+                symptoms = []
+        
+        # 安全的症状合并（去重）
+        try:
+            all_symptoms = list(set(state.symptoms_collected + symptoms))
+        except TypeError as e:
+            logger.error(f"症状合并失败: {e}, 使用安全方式合并")
+            # 安全备用方案
+            existing_symptoms = state.symptoms_collected if isinstance(state.symptoms_collected, list) else []
+            new_symptoms = symptoms if isinstance(symptoms, list) else []
+            all_symptoms = list(set(existing_symptoms + new_symptoms))
+        
         state.symptoms_collected = all_symptoms
         state.last_activity = datetime.now()
         
