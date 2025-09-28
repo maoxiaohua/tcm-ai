@@ -41,26 +41,52 @@ async def get_current_user_from_header(authorization: Optional[str] = Header(Non
         raise HTTPException(status_code=401, detail=f"认证失败: {str(e)}")
 
 @router.get("/sessions")
-async def get_user_sessions(current_user = None):
+async def get_user_sessions(user_id: str = None):
     """获取用户的会话历史"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 🔑 简化版本：获取基础问诊记录
-        cursor.execute("""
-            SELECT 
-                c.uuid as session_id,
-                c.patient_id,
-                c.selected_doctor_id as doctor_name,
-                c.conversation_log,
-                c.status,
-                c.created_at,
-                c.updated_at
-            FROM consultations c
-            ORDER BY c.created_at DESC
-            LIMIT 50
-        """)
+        # 🔑 获取基础问诊记录，包含处方信息，支持按用户ID过滤
+        if user_id:
+            # 如果提供了用户ID，只返回该用户的记录
+            cursor.execute("""
+                SELECT 
+                    c.uuid as session_id,
+                    c.patient_id,
+                    c.selected_doctor_id as doctor_name,
+                    c.conversation_log,
+                    c.status,
+                    c.created_at,
+                    c.updated_at,
+                    p.id as prescription_id,
+                    p.status as prescription_status,
+                    p.payment_status
+                FROM consultations c
+                LEFT JOIN prescriptions p ON c.uuid = p.consultation_id
+                WHERE c.patient_id = ?
+                ORDER BY c.created_at DESC
+                LIMIT 50
+            """, (user_id,))
+        else:
+            # 如果没有提供用户ID，返回所有记录（向后兼容）
+            cursor.execute("""
+                SELECT 
+                    c.uuid as session_id,
+                    c.patient_id,
+                    c.selected_doctor_id as doctor_name,
+                    c.conversation_log,
+                    c.status,
+                    c.created_at,
+                    c.updated_at,
+                    p.id as prescription_id,
+                    p.status as prescription_status,
+                    p.payment_status
+                FROM consultations c
+                LEFT JOIN prescriptions p ON c.uuid = p.consultation_id
+                ORDER BY c.created_at DESC
+                LIMIT 50
+            """)
         
         sessions_data = cursor.fetchall()
         
@@ -78,8 +104,11 @@ async def get_user_sessions(current_user = None):
         sessions = []
         for row in sessions_data:
             try:
-                # 简化的主诉提取
+                # 提取主诉、诊断摘要等信息
                 chief_complaint = "问诊记录"
+                diagnosis_summary = "问诊记录"
+                prescription_given = "未知"
+                has_prescription = bool(row['prescription_id'])
                 message_count = 1
                 
                 # 尝试解析conversation_log
@@ -87,11 +116,39 @@ async def get_user_sessions(current_user = None):
                     try:
                         log_data = json.loads(row['conversation_log'])
                         if isinstance(log_data, dict):
-                            # 如果是对象格式
-                            if 'last_query' in log_data:
-                                chief_complaint = log_data['last_query'][:50]
-                            elif 'patient_query' in log_data:
-                                chief_complaint = log_data['patient_query'][:50]
+                            # 从conversation_history中提取信息
+                            conversation_history = log_data.get('conversation_history', [])
+                            if conversation_history and len(conversation_history) > 0:
+                                message_count = len(conversation_history)
+                                # 取第一条用户消息作为主诉
+                                for item in conversation_history:
+                                    if item.get('patient_query'):
+                                        chief_complaint = item['patient_query'][:50] + ("..." if len(item['patient_query']) > 50 else "")
+                                        break
+                                        
+                                # 提取诊断信息
+                                for item in conversation_history:
+                                    if item.get('ai_response'):
+                                        ai_response = item['ai_response']
+                                        if '证' in ai_response or '诊断' in ai_response:
+                                            import re
+                                            pattern = r'([^。]*?证[^。]*?)'
+                                            matches = re.findall(pattern, ai_response)
+                                            if matches:
+                                                diagnosis_summary = matches[0][:30] + ("..." if len(matches[0]) > 30 else "")
+                                        break
+                            else:
+                                # 备用方案：从顶层字段获取
+                                if 'last_query' in log_data:
+                                    chief_complaint = log_data['last_query'][:50] + ("..." if len(log_data['last_query']) > 50 else "")
+                                if 'last_response' in log_data:
+                                    response = log_data['last_response']
+                                    if '证' in response or '诊断' in response:
+                                        import re
+                                        pattern = r'([^。]*?证[^。]*?)'
+                                        matches = re.findall(pattern, response)
+                                        if matches:
+                                            diagnosis_summary = matches[0][:30] + ("..." if len(matches[0]) > 30 else "")
                         elif isinstance(log_data, list) and len(log_data) > 0:
                             # 如果是数组格式
                             first_item = log_data[0]
@@ -100,6 +157,15 @@ async def get_user_sessions(current_user = None):
                             message_count = len(log_data)
                     except:
                         pass
+                
+                # 处方状态
+                if has_prescription:
+                    if row['payment_status'] == 'paid':
+                        prescription_given = "已开处方（已支付）"
+                    elif row['prescription_status'] == 'pending':
+                        prescription_given = "已开处方（待支付）"
+                    else:
+                        prescription_given = "已开处方"
                 
                 session = {
                     "session_id": row['session_id'],
@@ -112,9 +178,9 @@ async def get_user_sessions(current_user = None):
                     "status": row['status'],
                     "created_at": row['created_at'],
                     "updated_at": row['updated_at'],
-                    "diagnosis_summary": "问诊记录",
-                    "prescription_given": "未知",
-                    "has_prescription": False
+                    "diagnosis_summary": diagnosis_summary,
+                    "prescription_given": prescription_given,
+                    "has_prescription": has_prescription
                 }
                 sessions.append(session)
                 
@@ -159,7 +225,7 @@ async def get_conversation_detail(session_id: str):
             LEFT JOIN doctors d ON (
                 (c.selected_doctor_id = 'jin_daifu' AND d.id = 1) OR
                 (c.selected_doctor_id = 'ye_tianshi' AND d.id = 2) OR
-                (c.selected_doctor_id = 'zhang_zhongjing' AND d.id = 2) OR
+                (c.selected_doctor_id = 'zhang_zhongjing' AND d.id = 4) OR
                 (c.selected_doctor_id = 'li_dongyuan' AND d.id = 3) OR
                 (c.selected_doctor_id = 'liu_duzhou' AND d.id = 5) OR
                 (c.selected_doctor_id = 'zheng_qin_an' AND d.id = 6)
@@ -179,18 +245,63 @@ async def get_conversation_detail(session_id: str):
         except json.JSONDecodeError:
             conversation_log = {}
         
+        # 提取更详细的对话信息
+        conversation_history = conversation_log.get('conversation_history', [])
+        chief_complaint = "未记录"
+        diagnosis_summary = "问诊记录"
+        prescription_given = "未知"
+        has_prescription = bool(row['prescription_id'])
+        
+        # 尝试从对话历史中提取更有意义的信息
+        if conversation_history and len(conversation_history) > 0:
+            # 取第一条用户消息作为主诉
+            for item in conversation_history:
+                if item.get('patient_query'):
+                    chief_complaint = item['patient_query'][:50] + "..." if len(item['patient_query']) > 50 else item['patient_query']
+                    break
+            
+            # 检查是否有AI给出的诊断
+            for item in conversation_history:
+                if item.get('ai_response'):
+                    ai_response = item['ai_response']
+                    if '证' in ai_response or '诊断' in ai_response:
+                        # 提取证候信息
+                        import re
+                        pattern = r'([^。]*?证[^。]*?)'
+                        matches = re.findall(pattern, ai_response)
+                        if matches:
+                            diagnosis_summary = matches[0][:30] + "..." if len(matches[0]) > 30 else matches[0]
+                    break
+        else:
+            # 备用方案：从顶层字段获取
+            if conversation_log.get('last_query'):
+                chief_complaint = conversation_log['last_query'][:50] + "..." if len(conversation_log['last_query']) > 50 else conversation_log['last_query']
+        
+        # 检查处方状态
+        if has_prescription:
+            if row['prescription_status'] == 'paid':
+                prescription_given = "已开处方（已支付）"
+            elif row['prescription_status'] == 'pending':
+                prescription_given = "已开处方（待支付）"
+            else:
+                prescription_given = "已开处方"
+        
         return {
             "success": True,
             "session_id": session_id,
             "doctor_name": row['doctor_display_name'] or row['selected_doctor_id'],
-            "conversation_history": conversation_log.get('conversation_history', []),
-            "chief_complaint": conversation_log.get('last_query', '未记录')[:50],
+            "conversation_history": conversation_history,
+            "chief_complaint": chief_complaint,
+            "diagnosis_summary": diagnosis_summary,
+            "prescription_given": prescription_given,
+            "has_prescription": has_prescription,
             "status": row['status'],
             "created_at": row['created_at'],
             "prescription": {
-                "exists": bool(row['prescription_id']),
+                "exists": has_prescription,
                 "content": row['ai_prescription'] if row['prescription_id'] else None,
-                "status": row['prescription_status'] if row['prescription_id'] else None
+                "status": row['prescription_status'] if row['prescription_id'] else None,
+                "prescription_id": row['prescription_id']
             }
         }
         

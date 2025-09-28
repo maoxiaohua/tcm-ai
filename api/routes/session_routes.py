@@ -33,17 +33,19 @@ async def update_session(request: SessionUpdateRequest, req: Request):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 确保表存在
+        # 确保表存在（使用实际的表结构）
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS user_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                session_data TEXT NOT NULL,
-                last_activity TEXT NOT NULL,
+                session_token TEXT PRIMARY KEY,
+                user_id TEXT,
+                role TEXT,
+                permissions TEXT,
+                created_at TEXT,
+                expires_at TEXT,
                 ip_address TEXT,
                 user_agent TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                last_activity TEXT,
+                is_active INTEGER DEFAULT 1
             )
         """)
         
@@ -54,9 +56,9 @@ async def update_session(request: SessionUpdateRequest, req: Request):
         
         # 检查是否已存在会话
         cursor.execute("""
-            SELECT id FROM user_sessions 
+            SELECT session_token FROM user_sessions 
             WHERE user_id = ? 
-            ORDER BY updated_at DESC LIMIT 1
+            ORDER BY last_activity DESC LIMIT 1
         """, (request.user_id,))
         
         existing = cursor.fetchone()
@@ -65,34 +67,34 @@ async def update_session(request: SessionUpdateRequest, req: Request):
             # 更新现有会话
             cursor.execute("""
                 UPDATE user_sessions 
-                SET session_data = ?, 
-                    last_activity = ?, 
+                SET last_activity = ?, 
                     ip_address = ?,
-                    user_agent = ?,
-                    updated_at = ?
-                WHERE id = ?
+                    user_agent = ?
+                WHERE session_token = ?
             """, (
-                json.dumps(request.session_data),
                 now,
                 ip_address,
                 user_agent,
-                now,
-                existing['id']
+                existing['session_token']
             ))
         else:
-            # 创建新会话
+            # 创建新会话token
+            import uuid
+            session_token = f"temp_{request.user_id}_{int(datetime.now().timestamp())}"
+            
             cursor.execute("""
                 INSERT INTO user_sessions 
-                (user_id, session_data, last_activity, ip_address, user_agent, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (session_token, user_id, role, last_activity, ip_address, user_agent, created_at, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
+                session_token,
                 request.user_id,
-                json.dumps(request.session_data),
+                "patient",  # 默认角色
                 now,
                 ip_address,
                 user_agent,
                 now,
-                now
+                1
             ))
         
         conn.commit()

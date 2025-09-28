@@ -169,19 +169,19 @@ def verify_admin_credentials(username: str, password: str) -> Optional[Dict]:
     return None
 
 def verify_patient_credentials(username: str, password: str) -> Optional[Dict]:
-    """验证患者凭据 - 返回固定用户ID解决跨设备数据丢失问题"""
+    """验证患者凭据 - 使用unified_users表确保数据一致性"""
     import hashlib
     
     # 硬编码账号映射到固定ID，确保跨设备一致性
     patient_accounts = {
         "patient": {
             "password": "patient123",
-            "fixed_id": "patient_001",  # 固定ID，确保跨设备一致
+            "fixed_id": "usr_20250920_fc25a1e356e4",  # 对应unified_users表中的patient用户
             "name": "测试患者001"
         },
         "test_patient": {
             "password": "test123", 
-            "fixed_id": "patient_test_001",
+            "fixed_id": "usr_20250920_ef2b6bd221ed",  # 对应unified_users表中的test_patient用户
             "name": "测试患者002"
         }
     }
@@ -189,7 +189,7 @@ def verify_patient_credentials(username: str, password: str) -> Optional[Dict]:
     if username in patient_accounts and patient_accounts[username]["password"] == password:
         account_info = patient_accounts[username]
         return {
-            "id": account_info["fixed_id"],  # 使用固定ID
+            "id": account_info["fixed_id"],  # 使用unified格式的ID
             "username": username,
             "role": "patient",
             "name": account_info["name"],
@@ -197,32 +197,47 @@ def verify_patient_credentials(username: str, password: str) -> Optional[Dict]:
             "device_count": get_patient_device_count(account_info["fixed_id"])
         }
     
-    # 检查数据库中的患者账号
+    # 🔑 修复：检查unified_users表中的患者账号
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute("""
-            SELECT user_id, password_hash, role, is_active 
-            FROM admin_accounts 
-            WHERE username = ? AND role = 'patient'
+            SELECT uu.global_user_id, uu.username, uu.display_name, uu.password_hash, ur.role_name
+            FROM unified_users uu
+            LEFT JOIN user_roles_new ur ON uu.global_user_id = ur.user_id AND ur.is_active = 1
+            WHERE uu.username = ? AND uu.account_status = 'active'
         """, (username,))
         
         row = cursor.fetchone()
         conn.close()
         
         if row:
-            user_id, password_hash, role, is_active = row
+            global_user_id, db_username, display_name, password_hash, role_name = row
             
-            if is_active:
-                input_hash = hashlib.sha256(password.encode()).hexdigest()
-                if input_hash == password_hash:
-                    return {
-                        "id": user_id,
-                        "username": username,
-                        "role": role,
-                        "name": "注册患者"
-                    }
+            # 简单密码验证（明文对比，如果是哈希则用哈希验证）
+            password_matches = False
+            if password_hash:
+                if ':' in password_hash:
+                    # 可能是哈希格式，尝试验证
+                    salt_hash = password_hash.split(':')
+                    if len(salt_hash) == 2:
+                        salt, stored_hash = salt_hash
+                        input_hash = hashlib.sha256((password + salt).encode()).hexdigest()
+                        password_matches = (input_hash == stored_hash)
+                else:
+                    # 明文密码对比
+                    password_matches = (password_hash == password)
+            
+            if password_matches:
+                return {
+                    "id": global_user_id,  # 🔑 返回unified格式的用户ID
+                    "username": db_username,
+                    "role": role_name.lower() if role_name else "patient",
+                    "name": display_name or db_username,
+                    "login_time": datetime.now().isoformat(),
+                    "device_count": get_patient_device_count(global_user_id)
+                }
     except Exception as e:
         print(f"Database patient auth error: {e}")
     

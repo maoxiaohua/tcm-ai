@@ -4891,6 +4891,7 @@ async def get_doctors_list(page: int = 1, per_page: int = 20):
                 if (doctor_id == 1 and default_doc['id'] == 'jin_daifu') or \
                    (doctor_id == 2 and default_doc['id'] == 'ye_tianshi') or \
                    (doctor_id == 3 and default_doc['id'] == 'li_dongyuan') or \
+                   (doctor_id == 4 and default_doc['id'] == 'zhang_zhongjing') or \
                    (doctor_id == 5 and default_doc['id'] == 'liu_duzhou') or \
                    (doctor_id == 6 and default_doc['id'] == 'zheng_qin_an') or \
                    (doctor_id == 7 and default_doc['id'] == 'zhu_danxi'):

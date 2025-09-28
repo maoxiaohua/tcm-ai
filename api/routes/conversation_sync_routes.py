@@ -186,13 +186,13 @@ async def get_conversation_history(user_id: str, doctor_id: Optional[str] = None
         
         consultation_records = cursor.fetchall()
         
-        # 🔑 修复：从consultations表获取实际的对话消息
+        # 🔑 修复：从consultations表获取实际的对话消息，转换为前端期望的格式
         messages = []
         try:
             if doctor_id:
                 # 获取特定医生的对话记录
                 cursor.execute("""
-                    SELECT conversation_log, created_at, updated_at 
+                    SELECT uuid, conversation_log, created_at, updated_at 
                     FROM consultations 
                     WHERE patient_id = ? AND selected_doctor_id = ?
                     ORDER BY created_at DESC LIMIT 20
@@ -200,7 +200,7 @@ async def get_conversation_history(user_id: str, doctor_id: Optional[str] = None
             else:
                 # 获取所有医生的对话记录
                 cursor.execute("""
-                    SELECT conversation_log, selected_doctor_id, created_at, updated_at 
+                    SELECT uuid, conversation_log, selected_doctor_id, created_at, updated_at 
                     FROM consultations 
                     WHERE patient_id = ?
                     ORDER BY created_at DESC LIMIT 20
@@ -209,32 +209,113 @@ async def get_conversation_history(user_id: str, doctor_id: Optional[str] = None
             consultation_logs = cursor.fetchall()
             
             for log_row in consultation_logs:
-                conversation_log = log_row[0]  # JSON string
+                conversation_log = log_row[1]  # JSON string
                 created_at = log_row[-2]  # 创建时间
                 
                 if conversation_log:
                     try:
                         log_data = json.loads(conversation_log)
-                        # 构建前端期望的消息格式
-                        if log_data.get('patient_query'):
+                        
+                        # 从conversation_history中提取消息
+                        if 'conversation_history' in log_data:
+                            conversation_history = log_data['conversation_history']
+                            if isinstance(conversation_history, list):
+                                for conv_item in conversation_history:
+                                    # 用户消息
+                                    if conv_item.get('patient_query'):
+                                        messages.append({
+                                            'type': 'user',
+                                            'content': conv_item['patient_query'],
+                                            'time': conv_item.get('timestamp', created_at),
+                                            'timestamp': conv_item.get('timestamp', created_at)
+                                        })
+                                    # AI回复
+                                    if conv_item.get('ai_response'):
+                                        ai_message = {
+                                            'type': 'ai',
+                                            'content': conv_item['ai_response'],
+                                            'time': conv_item.get('timestamp', created_at),
+                                            'timestamp': conv_item.get('timestamp', created_at)
+                                        }
+                                        
+                                        # 检查是否包含处方信息
+                                        if '处方' in conv_item['ai_response'] or '方剂' in conv_item['ai_response']:
+                                            # 查找对应的处方记录
+                                            cursor.execute("""
+                                                SELECT p.id, p.ai_prescription, p.status, p.payment_status,
+                                                       o.payment_status as order_payment_status
+                                                FROM prescriptions p
+                                                LEFT JOIN orders o ON p.id = o.prescription_id
+                                                WHERE p.consultation_id = ? 
+                                                ORDER BY p.created_at DESC LIMIT 1
+                                            """, (log_row[0],))  # uuid
+                                            
+                                            prescription_row = cursor.fetchone()
+                                            if prescription_row:
+                                                # 🔑 关键修复：检查处方表和订单表的支付状态
+                                                prescription_paid = prescription_row[3] == 'paid'
+                                                order_paid = prescription_row[4] == 'paid'
+                                                is_paid = prescription_paid or order_paid
+                                                
+                                                ai_message['prescriptionData'] = {
+                                                    'prescriptionId': prescription_row[0],
+                                                    'isPaid': is_paid,
+                                                    'hasActions': not is_paid
+                                                }
+                                                
+                                                print(f'📋 处方状态检查: prescription_id={prescription_row[0]}, prescription_paid={prescription_paid}, order_paid={order_paid}, final_paid={is_paid}')
+                                        
+                                        messages.append(ai_message)
+                        
+                        # 备用方案：直接从last_query和last_response获取
+                        elif log_data.get('last_query') and log_data.get('last_response'):
                             messages.append({
-                                'sender': 'user',
-                                'content': log_data['patient_query'],
-                                'timestamp': created_at,
-                                'doctor': log_data.get('conversation_id', 'unknown')
+                                'type': 'user',
+                                'content': log_data['last_query'],
+                                'time': created_at,
+                                'timestamp': created_at
                             })
-                        if log_data.get('ai_response'):
-                            messages.append({
-                                'sender': 'ai', 
-                                'content': log_data['ai_response'],
-                                'timestamp': created_at,
-                                'doctor': log_data.get('conversation_id', 'unknown')
-                            })
+                            
+                            ai_message = {
+                                'type': 'ai',
+                                'content': log_data['last_response'],
+                                'time': created_at,
+                                'timestamp': created_at
+                            }
+                            
+                            # 检查是否包含处方信息
+                            if '处方' in log_data['last_response'] or '方剂' in log_data['last_response']:
+                                cursor.execute("""
+                                    SELECT p.id, p.ai_prescription, p.status, p.payment_status,
+                                           o.payment_status as order_payment_status
+                                    FROM prescriptions p
+                                    LEFT JOIN orders o ON p.id = o.prescription_id
+                                    WHERE p.consultation_id = ? 
+                                    ORDER BY p.created_at DESC LIMIT 1
+                                """, (log_row[0],))
+                                
+                                prescription_row = cursor.fetchone()
+                                if prescription_row:
+                                    # 🔑 关键修复：检查处方表和订单表的支付状态
+                                    prescription_paid = prescription_row[3] == 'paid'
+                                    order_paid = prescription_row[4] == 'paid'
+                                    is_paid = prescription_paid or order_paid
+                                    
+                                    ai_message['prescriptionData'] = {
+                                        'prescriptionId': prescription_row[0],
+                                        'isPaid': is_paid,
+                                        'hasActions': not is_paid
+                                    }
+                                    
+                                    print(f'📋 备用方案处方状态检查: prescription_id={prescription_row[0]}, prescription_paid={prescription_paid}, order_paid={order_paid}, final_paid={is_paid}')
+                            
+                            messages.append(ai_message)
+                            
                     except json.JSONDecodeError:
                         continue
                         
         except Exception as e:
-            logger.error(f"获取对话消息失败: {e}")
+            print(f"获取对话消息失败: {e}")
             messages = []
         
         conn.close()

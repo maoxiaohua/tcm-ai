@@ -696,12 +696,8 @@
             
             <div class="filter-tabs">
                 <button class="filter-tab active" onclick="filterSessions('all')">全部</button>
+                <button class="filter-tab" onclick="filterSessions('jin_daifu')">金大夫</button>
                 <button class="filter-tab" onclick="filterSessions('zhang_zhongjing')">张仲景</button>
-                <button class="filter-tab" onclick="filterSessions('ye_tianshi')">叶天士</button>
-                <button class="filter-tab" onclick="filterSessions('li_dongyuan')">李东垣</button>
-                <button class="filter-tab" onclick="filterSessions('zhu_danxi')">朱丹溪</button>
-                <button class="filter-tab" onclick="filterSessions('liu_duzhou')">刘渡舟</button>
-                <button class="filter-tab" onclick="filterSessions('zheng_qin_an')">郑钦安</button>
                 <button class="filter-tab" onclick="filterSessions('recent')">最近7天</button>
             </div>
             
@@ -823,12 +819,7 @@
         function getEmojiForDoctor(doctorCode) {
             const emojiMap = {
                 'zhang_zhongjing': '🎯',
-                'ye_tianshi': '🌡️', 
-                'li_dongyuan': '🌱',
-                'zhu_danxi': '💧',
-                'liu_duzhou': '📚',
-                'zheng_qin_an': '☀️',
-                'jin_daifu': '⚕️'
+                'jin_daifu': '👨‍⚕️'
             };
             return emojiMap[doctorCode] || '👨‍⚕️';
         }
@@ -994,6 +985,50 @@
         }
         
         
+        // 获取当前用户ID（兼容智能工作流页面）
+        function getCurrentUserId() {
+            // 🔑 优先使用真实登录用户信息
+            let realUser = null;
+            
+            // 检查userData存储
+            try {
+                const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+                if (userData.id || userData.user_id || userData.global_user_id) {
+                    realUser = userData;
+                }
+            } catch (e) {}
+            
+            // 检查currentUser存储（备选）
+            if (!realUser) {
+                try {
+                    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                    if (currentUser.id || currentUser.user_id || currentUser.global_user_id) {
+                        realUser = currentUser;
+                    }
+                } catch (e) {}
+            }
+            
+            // 如果找到真实用户
+            if (realUser) {
+                const userId = realUser.global_user_id || realUser.user_id || realUser.id;
+                if (userId && userId !== 'undefined' && userId !== null) {
+                    console.log('🔑 历史页面获取到真实用户ID:', userId);
+                    return userId;
+                }
+            }
+            
+            // 访客模式
+            const smartUser = localStorage.getItem('currentUserId');
+            if (smartUser) {
+                console.log('🔄 历史页面使用访客用户ID:', smartUser);
+                return smartUser;
+            }
+            
+            // 没有找到任何用户ID
+            console.warn('⚠️ 历史页面无法获取用户ID');
+            return null;
+        }
+        
         // 加载会话历史（带重试机制）
         async function loadSessionHistory(retryCount = 0) {
             const maxRetries = 3;
@@ -1012,7 +1047,13 @@
             try {
                 console.log('正在加载会话历史，尝试次数:', retryCount + 1);
                 
-                const response = await fetch('/api/user/sessions', {
+                // 🔑 获取当前用户ID并添加到API请求中
+                const userId = getCurrentUserId();
+                const apiUrl = userId ? `/api/user/sessions?user_id=${encodeURIComponent(userId)}` : '/api/user/sessions';
+                
+                console.log('🔗 历史记录API URL:', apiUrl);
+                
+                const response = await fetch(apiUrl, {
                     method: 'GET',
                     headers: getAuthHeaders(),
                     timeout: 30000

@@ -230,14 +230,327 @@
         .main-content {
             display: flex;
             flex: 1;
-            overflow: hidden;
-            justify-content: center;
+            min-height: 0; /* 确保flex子元素可以正确缩小 */
             background: #f5f7fa;
         }
 
-        /* 内容容器 - 居中显示 */
+        /* ChatGPT风格的对话历史边栏 */
+        .conversation-sidebar {
+            width: 280px;
+            min-width: 280px;
+            background: #202123;
+            color: white;
+            display: none; /* 默认隐藏，避免影响原有布局 */
+            flex-direction: column;
+            border-right: 1px solid #565869;
+            position: fixed;
+            top: 70px; /* 留出header空间 */
+            left: 0;
+            height: calc(100vh - 70px);
+            z-index: 999;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .conversation-sidebar.show {
+            display: flex;
+            transform: translateX(0);
+        }
+
+        .conversation-sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #565869;
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            padding: 12px 16px;
+            background: #40414f;
+            color: white;
+            border: 1px solid #565869;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+        }
+
+        .new-chat-btn:hover {
+            background: #565869;
+        }
+
+        .conversation-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .conversation-item {
+            padding: 12px 16px;
+            margin: 4px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1.4;
+            transition: all 0.2s;
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .conversation-item:hover {
+            background: #40414f;
+        }
+
+        .conversation-item.active {
+            background: #40414f;
+        }
+
+        .conversation-item-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .conversation-item-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .conversation-item-title {
+            font-weight: 500;
+            margin-bottom: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .conversation-item-preview {
+            font-size: 12px;
+            color: #8e8ea0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .conversation-item-time {
+            font-size: 11px;
+            color: #565869;
+            position: absolute;
+            top: 4px;
+            right: 8px;
+        }
+
+        .conversation-item-actions {
+            opacity: 0;
+            position: absolute;
+            right: 8px;
+            bottom: 4px;
+            display: flex;
+            gap: 4px;
+            transition: opacity 0.2s;
+        }
+
+        .conversation-item:hover .conversation-item-actions {
+            opacity: 1;
+        }
+
+        .conversation-action-btn {
+            background: none;
+            border: none;
+            color: #8e8ea0;
+            cursor: pointer;
+            padding: 2px;
+            font-size: 12px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .conversation-action-btn:hover {
+            background: #565869;
+            color: white;
+        }
+
+        /* 对话列表项样式补充 - ChatGPT风格 */
+        .conversation-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 6px;
+        }
+
+        .conversation-title {
+            font-weight: 500;
+            color: #ececf1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            margin-right: 8px;
+        }
+
+        .conversation-delete {
+            background: none;
+            border: none;
+            color: #8e8ea0;
+            cursor: pointer;
+            padding: 2px 6px;
+            font-size: 16px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            opacity: 0;
+            margin-left: auto;
+        }
+
+        .conversation-item:hover .conversation-delete {
+            opacity: 1;
+        }
+
+        .conversation-delete:hover {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .conversation-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .conversation-doctor {
+            font-size: 12px;
+            color: #40a9ff;
+            font-weight: 500;
+        }
+
+        .conversation-time {
+            font-size: 11px;
+            color: #8e8ea0;
+        }
+
+        .conversation-meta {
+            font-size: 11px;
+            color: #565869;
+        }
+
+        .conversation-item-empty {
+            padding: 16px;
+            text-align: center;
+        }
+
+        /* 边栏收起按钮 */
+        .sidebar-toggle {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: #8e8ea0;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+
+        .sidebar-toggle:hover {
+            background: #40414f;
+            color: white;
+        }
+
+        /* 边栏折叠状态 */
+        .conversation-sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        
+        /* 对话历史触发按钮 */
+        .conversation-history-trigger {
+            position: fixed;
+            top: 80px;
+            left: 10px;
+            z-index: 998;
+            background: #40414f;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        
+        .conversation-history-trigger:hover {
+            background: #565869;
+            transform: translateX(2px);
+        }
+        
+        .conversation-history-trigger.hidden {
+            display: none;
+        }
+
+        /* 移动端响应式 */
+        @media (max-width: 768px) {
+            .conversation-sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                z-index: 1000;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                display: flex; /* 移动端总是显示flex */
+            }
+
+            .conversation-sidebar.mobile-open {
+                transform: translateX(0);
+            }
+
+            .conversation-sidebar.show {
+                display: flex; /* 确保移动端显示 */
+            }
+
+            .content-wrapper {
+                width: 100%;
+            }
+
+            .mobile-sidebar-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 999;
+                display: none;
+            }
+            
+            /* 隐藏桌面端触发按钮 */
+            .conversation-history-trigger {
+                display: none;
+            }
+            
+            /* 确保侧边栏在移动端正确显示 */
+            .main-content {
+                position: relative;
+            }
+        }
+
+            .mobile-sidebar-overlay.show {
+                display: block;
+            }
+        }
+
+        /* 内容容器 - 占据剩余空间 */
         .content-wrapper {
             display: flex;
+            flex: 1;
+            min-height: 0; /* 确保flex子元素可以正确缩小 */
             width: 100%;
             max-width: 1400px;
             background: white;
@@ -246,7 +559,7 @@
 
         /* 左侧栏 */
         .sidebar {
-            width: 320px;
+            width: 400px;
             background: white;
             border-right: 1px solid #e5e7eb;
             display: flex;
@@ -652,6 +965,7 @@
             flex: 1;
             display: flex;
             flex-direction: column;
+            min-height: 0; /* 确保flex子元素可以正确缩小 */
             background: white;
         }
 
@@ -920,6 +1234,11 @@
             .app-container {
                 position: relative;
                 overflow: hidden;
+            }
+            
+            /* 隐藏桌面端布局，避免与移动端布局冲突 */
+            .content-wrapper {
+                display: none !important;
             }
             
             /* 移动端页面容器 */
@@ -1824,6 +2143,49 @@
             background: linear-gradient(135deg, #10b981, #059669);
             color: white;
         }
+
+        /* ===== PC端布局强制修复 ===== */
+        @media (min-width: 769px) {
+            /* 确保桌面端布局正确 */
+            .app-container {
+                height: 100vh !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            
+            .main-content {
+                flex: 1 !important;
+                display: flex !important;
+                height: calc(100vh - 70px) !important; /* 减去header高度 */
+            }
+            
+            .content-wrapper {
+                flex: 1 !important;
+                display: flex !important;
+                max-height: 100% !important;
+            }
+            
+            .sidebar {
+                width: 400px !important;
+                flex-shrink: 0 !important;
+                height: 100% !important;
+                max-height: none !important; /* 移除可能的高度限制 */
+            }
+            
+            .chat-area {
+                flex: 1 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                height: 100% !important;
+                max-height: 100% !important;
+            }
+            
+            .messages-container {
+                flex: 1 !important;
+                overflow-y: auto !important;
+                height: 0 !important; /* 强制flex生效 */
+            }
+        }
     </style>
 </head>
 <body>
@@ -1872,10 +2234,10 @@
                         <button class="mobile-action-btn-small" onclick="openRegisterPage()" title="注册">
                             👤
                         </button>
-                        <button class="mobile-action-btn-small" onclick="openHistoryPage()" title="历史">
+                        <button class="mobile-action-btn-small" onclick="openMobileSidebar()" title="对话列表">
                             📋
                         </button>
-                        <button class="mobile-action-btn-small" onclick="startNewChat()" title="新对话">
+                        <button class="mobile-action-btn-small" onclick="createNewConversation()" title="新对话">
                             ✨
                         </button>
                     </div>
@@ -1941,18 +2303,43 @@
                     <button class="history-btn" onclick="window.location.href='/static/prescription_checker_v2.html'" title="处方安全检测" id="prescriptionCheckerBtn">
                         💊 处方检测
                     </button>
+                    <button class="history-btn" onclick="toggleConversationSidebar()" title="对话历史管理" id="conversationBtn">
+                        💬 对话历史
+                    </button>
                     <button class="history-btn" onclick="openHistoryPage()" title="查看问诊历史" id="historyBtn">
                         📋 历史记录
                     </button>
-                    <button class="new-chat-btn" onclick="startNewChat()">
+                    <button class="new-chat-btn" onclick="createNewConversation()">
                         ✨ 新对话
                     </button>
                 </div>
             </div>
         </header>
 
+        <!-- 对话历史触发按钮 -->
+        <button class="conversation-history-trigger" id="conversationHistoryTrigger" onclick="toggleConversationSidebar()" title="对话历史">
+            💬 对话
+        </button>
+
         <!-- 主内容区域 -->
         <div class="main-content">
+            <!-- ChatGPT风格的对话历史边栏 -->
+            <div class="conversation-sidebar" id="conversationSidebar">
+                <div class="conversation-sidebar-header">
+                    <button class="new-chat-btn" onclick="createNewConversation()">
+                        <span>✨</span>
+                        新对话
+                    </button>
+                    <button class="sidebar-toggle" onclick="toggleSidebar()">←</button>
+                </div>
+                <div class="conversation-list" id="conversationList">
+                    <!-- 对话列表将通过JavaScript动态生成 -->
+                </div>
+            </div>
+
+            <!-- 移动端边栏遮罩 -->
+            <div class="mobile-sidebar-overlay" id="mobileSidebarOverlay" onclick="closeMobileSidebar()"></div>
+
             <div class="content-wrapper">
                 <!-- 左侧栏 -->
                 <aside class="sidebar">
@@ -2087,11 +2474,7 @@
         const doctorAvatarMap = {
             "jin_daifu": "👨‍⚕️",
             "zhang_zhongjing": "🎯",
-            "ye_tianshi": "🌡️",
-            "li_dongyuan": "🌱",
-            "zhu_danxi": "💧",
-            "liu_duzhou": "📚",
-            "zheng_qin_an": "☀️"
+            "ye_tianshi": "🌿"
         };
         
         // 从API加载医生列表
@@ -2161,6 +2544,13 @@
                     "avatar": "🎯",
                     "specialty": "外感病、内伤杂病、急症",
                     "introduction": "伤寒派以《伤寒论》为理论基础，擅长六经辨证，治疗外感热病和内伤杂病。用药精准，方证对应。"
+                },
+                "ye_tianshi": {
+                    "name": "叶天士",
+                    "school": "温病派",
+                    "avatar": "🌿",
+                    "specialty": "温病、时令病证、内科杂症",
+                    "introduction": "温病派创始人，以《温热论》著称，擅长卫气营血辨证，治疗季节性疾病和内科疑难杂症。"
                 }
             };
             console.log('⚠️ 使用默认医生数据');
@@ -2215,6 +2605,9 @@
             await loadDoctors();
             renderDoctorCards();
             loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
+            
+            // 🔄 初始化ChatGPT风格对话管理系统
+            initConversationManager();
             
             // 设置默认医生 - 金大夫（经方大师）
             // 🔧 修复重复欢迎消息：跳过历史记录加载，因为loadConversationHistory已经处理了
@@ -2298,19 +2691,26 @@
             // 🔑 优先使用真实登录用户信息 - 检查多个存储位置
             let realUser = null;
             
-            // 检查userData存储
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            if (userData.id || userData.user_id || userData.global_user_id) {
-                realUser = userData;
-                console.log('🔑 从userData获取真实用户:', realUser);
-            }
-            
-            // 检查currentUser存储（备选）
-            if (!realUser) {
-                const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-                if (currentUser.id || currentUser.user_id || currentUser.global_user_id) {
+            // 🔑 修复：优先检查currentUser存储（更可靠）
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            if (currentUser.id || currentUser.user_id || currentUser.global_user_id) {
+                // 过滤掉临时用户ID，只使用真实登录用户
+                const userId = currentUser.global_user_id || currentUser.user_id || currentUser.id;
+                if (userId && !userId.startsWith('temp_user_') && !userId.startsWith('smart_user_') && userId !== 'anonymous') {
                     realUser = currentUser;
                     console.log('🔑 从currentUser获取真实用户:', realUser);
+                }
+            }
+            
+            // 检查userData存储（备选）
+            if (!realUser) {
+                const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+                if (userData.id || userData.user_id || userData.global_user_id) {
+                    const userId = userData.global_user_id || userData.user_id || userData.id;
+                    if (userId && userId !== 'anonymous') {
+                        realUser = userData;
+                        console.log('🔑 从userData获取真实用户:', realUser);
+                    }
                 }
             }
             
@@ -2327,14 +2727,41 @@
             // ⚠️ 访客模式 - 智能工作流程页面的临时用户ID
             const smartUser = localStorage.getItem('currentUserId');
             if (smartUser) {
-                console.log('🔄 使用临时访客用户ID:', smartUser);
+                console.log('🔄 使用已有临时访客用户ID:', smartUser);
                 return smartUser; // 已有smart_user_前缀
             }
             
-            // 🆕 生成新的访客用户ID
+            // 🔑 关键修复：检查是否有对话ID相关的用户信息
+            // 如果用户之前进行过问诊，尝试从对话ID中恢复用户ID
+            const allStorageKeys = Object.keys(localStorage);
+            const conversationKeys = allStorageKeys.filter(key => key.startsWith('conversationId_'));
+            
+            if (conversationKeys.length > 0) {
+                // 从对话ID key中提取用户ID（格式：conversationId_{userId}）
+                const existingUserId = conversationKeys[0].replace('conversationId_', '');
+                console.log('🔄 从对话ID恢复用户ID:', existingUserId);
+                localStorage.setItem('currentUserId', existingUserId);
+                return existingUserId;
+            }
+            
+            // 🔑 关键修复：检查历史记录键，尝试恢复用户ID
+            const historyKeys = allStorageKeys.filter(key => key.startsWith('tcm_doctor_history_'));
+            if (historyKeys.length > 0) {
+                // 从历史记录key中提取用户ID（格式：tcm_doctor_history_{userId}_{doctorId}）
+                const historyKey = historyKeys[0];
+                const parts = historyKey.split('_');
+                if (parts.length >= 4) {
+                    const existingUserId = parts.slice(3, -1).join('_'); // 处理用户ID中可能包含下划线的情况
+                    console.log('🔄 从历史记录恢复用户ID:', existingUserId);
+                    localStorage.setItem('currentUserId', existingUserId);
+                    return existingUserId;
+                }
+            }
+            
+            // 🆕 生成新的访客用户ID（只有在完全没有历史记录时）
             const newSmartId = 'smart_user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             localStorage.setItem('currentUserId', newSmartId);
-            console.log('🆕 生成新访客用户ID:', newSmartId);
+            console.log('🆕 生成全新访客用户ID:', newSmartId);
             return newSmartId;
         }
 
@@ -2989,6 +3416,11 @@
             // 自动保存当前医生的对话历史
             if (selectedDoctor) {
                 setTimeout(() => saveCurrentDoctorHistory(), 100); // 延迟100ms确保DOM更新完成
+                
+                // 🔄 自动更新ChatGPT风格对话管理系统
+                setTimeout(() => {
+                    updateConversationListAfterMessage();
+                }, 200);
             }
         }
 
@@ -3281,6 +3713,7 @@
                         message: message,
                         conversation_id: currentConversationId,
                         selected_doctor: selectedDoctor,
+                        patient_id: getCurrentUserId(), // 🔑 修复：添加用户ID
                         conversation_history: conversationHistory // 传递对话历史
                     }),
                 });
@@ -3332,12 +3765,55 @@
                 let prescriptionId = responseData.data?.prescription_id || null;
                 const isPaid = responseData.data?.is_paid || false;
                 
-                // 🔧 如果API没有返回处方ID，但响应包含处方内容，则生成一个临时ID
+                // 🔧 如果API没有返回处方ID，但响应包含处方内容，则调用后端创建处方
                 if (!prescriptionId && responseData.reply && 
                     (responseData.reply.includes('处方') || responseData.reply.includes('方剂') || 
                      responseData.reply.includes('君药') || responseData.reply.includes('臣药'))) {
-                    prescriptionId = 'prescription_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                    console.log('🆕 生成临时处方ID:', prescriptionId);
+                    
+                    // 🔑 关键修复：调用后端API创建处方并保存到数据库
+                    try {
+                        const userId = getCurrentUserId();
+                        const conversationId = currentConversationId || generateConversationId();
+                        
+                        const prescriptionData = {
+                            patient_id: userId,
+                            conversation_id: conversationId,
+                            patient_name: currentUser?.display_name || currentUser?.username || '用户',
+                            symptoms: (responseData.data?.symptoms_summary || '用户问诊'),
+                            diagnosis: (responseData.data?.diagnosis_summary || selectedDoctor + '医生诊断'),
+                            ai_prescription: responseData.reply
+                        };
+                        
+                        console.log('🔄 调用后端创建处方:', prescriptionData);
+                        
+                        const createResponse = await fetch('/api/prescription/create', {
+                            method: 'POST',
+                            headers: getAuthHeaders(),
+                            body: JSON.stringify(prescriptionData)
+                        });
+                        
+                        if (createResponse.ok) {
+                            const createResult = await createResponse.json();
+                            if (createResult.success) {
+                                prescriptionId = createResult.prescription_id;
+                                console.log('✅ 处方创建成功，ID:', prescriptionId);
+                            } else {
+                                console.warn('⚠️ 处方创建返回失败:', createResult.message);
+                                // 备用方案：使用临时ID
+                                prescriptionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                            }
+                        } else {
+                            console.warn('⚠️ 处方创建API调用失败:', createResponse.status);
+                            // 备用方案：使用临时ID
+                            prescriptionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                        }
+                    } catch (error) {
+                        console.error('❌ 处方创建异常:', error);
+                        // 备用方案：使用临时ID
+                        prescriptionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    }
+                    
+                    console.log('🆕 最终处方ID:', prescriptionId);
                 }
                 
                 console.log('🔍 前端处方状态分析:', {
@@ -3666,11 +4142,7 @@
             const doctorNames = {
                 'jin_daifu': '金大夫',
                 'zhang_zhongjing': '张仲景',
-                'ye_tianshi': '叶天士',
-                'li_dongyuan': '李东垣',
-                'zhu_danxi': '朱丹溪',
-                'liu_duzhou': '刘渡舟',
-                'zheng_qin_an': '郑钦安'
+                'ye_tianshi': '叶天士'
             };
             return doctorNames[doctorKey] || doctorKey || '医生';
         }
@@ -3876,6 +4348,491 @@ ${record.prescription_given}
                 if (inputContainer) {
                     inputContainer.classList.remove('show');
                 }
+            }
+        }
+
+        // ========== ChatGPT风格对话管理系统 ==========
+        
+        // 对话历史数据
+        let conversationHistory = [];
+        
+        // 初始化对话管理系统
+        function initConversationManager() {
+            loadConversationHistory();
+            renderConversationList();
+        }
+        
+        // 创建新对话（ChatGPT风格）
+        async function createNewConversation() {
+            try {
+                const userId = getCurrentUserId();
+                
+                // 如果当前有对话内容，先保存到历史记录
+                const isMobile = window.innerWidth <= 768;
+                const containerSelector = isMobile ? 'mobileMessagesContainer' : 'messagesContainer';
+                const messagesContainer = document.getElementById(containerSelector);
+                if (messagesContainer && messagesContainer.children.length > 0) {
+                    await saveCurrentConversationToHistory();
+                }
+                
+                // 清空当前对话显示
+                clearAllMessages();
+                
+                // 生成新的对话ID
+                generateConversationId();
+                
+                // 重置对话状态
+                resetConversationState();
+                
+                // 更新对话列表
+                renderConversationList();
+                
+                console.log('✅ 新对话创建成功');
+                showMessage('新对话已开始', 'success');
+                
+            } catch (error) {
+                console.error('❌ 创建新对话失败:', error);
+                showMessage('创建新对话失败', 'error');
+            }
+        }
+        
+        // 保存当前对话到历史记录
+        async function saveCurrentConversationToHistory() {
+            try {
+                const userId = getCurrentUserId();
+                if (!userId || !selectedDoctor) {
+                    return;
+                }
+                
+                // 从DOM中提取当前消息
+                const isMobile = window.innerWidth <= 768;
+                const containerSelector = isMobile ? 'mobileMessagesContainer' : 'messagesContainer';
+                const messagesContainer = document.getElementById(containerSelector);
+                
+                if (!messagesContainer || messagesContainer.children.length === 0) {
+                    return;
+                }
+                
+                // 提取消息内容
+                const extractedMessages = [];
+                const messageElements = messagesContainer.querySelectorAll('.message');
+                
+                messageElements.forEach((messageEl, index) => {
+                    const isUser = messageEl.classList.contains('user');
+                    const messageTextEl = messageEl.querySelector('.message-text');
+                    const content = messageTextEl ? messageTextEl.textContent.trim() : '';
+                    
+                    if (content) {
+                        extractedMessages.push({
+                            id: `msg_${Date.now()}_${index}`,
+                            sender: isUser ? 'user' : 'ai',
+                            content: content,
+                            timestamp: new Date().toISOString(),
+                            doctorKey: selectedDoctor
+                        });
+                    }
+                });
+                
+                if (extractedMessages.length === 0) {
+                    return;
+                }
+                
+                const conversation = {
+                    id: currentConversationId || generateConversationId(),
+                    title: generateConversationTitle(extractedMessages),
+                    doctor: selectedDoctor,
+                    doctorName: getDoctorDisplayName(selectedDoctor),
+                    messages: extractedMessages,
+                    createdAt: extractedMessages[0]?.timestamp || new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    messageCount: extractedMessages.length
+                };
+                
+                // 保存到localStorage
+                const storageKey = `conversation_${userId}_${conversation.id}`;
+                localStorage.setItem(storageKey, JSON.stringify(conversation));
+                
+                // 更新对话索引
+                await updateConversationIndex(userId, conversation);
+                
+                console.log('💾 对话已保存到历史记录:', conversation.title);
+                
+            } catch (error) {
+                console.error('❌ 保存对话历史失败:', error);
+            }
+        }
+        
+        // 更新对话索引
+        async function updateConversationIndex(userId, conversation) {
+            try {
+                const indexKey = `conversation_index_${userId}`;
+                let index = JSON.parse(localStorage.getItem(indexKey) || '[]');
+                
+                // 检查是否已存在
+                const existingIndex = index.findIndex(item => item.id === conversation.id);
+                
+                const indexItem = {
+                    id: conversation.id,
+                    title: conversation.title,
+                    doctor: conversation.doctor,
+                    doctorName: conversation.doctorName,
+                    createdAt: conversation.createdAt,
+                    updatedAt: conversation.updatedAt,
+                    messageCount: conversation.messageCount
+                };
+                
+                if (existingIndex >= 0) {
+                    // 更新现有记录
+                    index[existingIndex] = indexItem;
+                } else {
+                    // 添加新记录
+                    index.unshift(indexItem);
+                }
+                
+                // 保持最多50个对话记录
+                if (index.length > 50) {
+                    const removedItems = index.slice(50);
+                    index = index.slice(0, 50);
+                    
+                    // 清理被移除的对话数据
+                    removedItems.forEach(item => {
+                        const storageKey = `conversation_${userId}_${item.id}`;
+                        localStorage.removeItem(storageKey);
+                    });
+                }
+                
+                localStorage.setItem(indexKey, JSON.stringify(index));
+                conversationHistory = index;
+                
+            } catch (error) {
+                console.error('❌ 更新对话索引失败:', error);
+            }
+        }
+        
+        // 生成对话标题
+        function generateConversationTitle(messages) {
+            if (!messages || messages.length === 0) {
+                return '新对话';
+            }
+            
+            // 从第一条用户消息中提取关键词作为标题
+            const firstUserMessage = messages.find(msg => msg.sender === 'user' || msg.type === 'user');
+            if (firstUserMessage && firstUserMessage.content) {
+                let title = firstUserMessage.content.slice(0, 20);
+                if (firstUserMessage.content.length > 20) {
+                    title += '...';
+                }
+                return title;
+            }
+            
+            return `对话 ${new Date().toLocaleDateString()}`;
+        }
+        
+        // 加载对话历史列表
+        function loadConversationHistory() {
+            try {
+                const userId = getCurrentUserId();
+                if (!userId) return;
+                
+                const indexKey = `conversation_index_${userId}`;
+                conversationHistory = JSON.parse(localStorage.getItem(indexKey) || '[]');
+                
+                console.log(`📋 加载了${conversationHistory.length}个历史对话`);
+                
+            } catch (error) {
+                console.error('❌ 加载对话历史失败:', error);
+                conversationHistory = [];
+            }
+        }
+        
+        // 渲染对话列表
+        function renderConversationList() {
+            const listContainer = document.getElementById('conversationList');
+            if (!listContainer) return;
+            
+            if (conversationHistory.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="conversation-item-empty">
+                        <div style="text-align: center; padding: 20px; color: #9ca3af;">
+                            <div style="font-size: 24px; margin-bottom: 8px;">💬</div>
+                            <div style="font-size: 14px;">暂无历史对话</div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const currentId = currentConversationId;
+            
+            const listHTML = conversationHistory.map(conversation => {
+                const isActive = conversation.id === currentId;
+                const timeStr = formatConversationTime(conversation.updatedAt);
+                
+                return `
+                    <div class="conversation-item ${isActive ? 'active' : ''}" 
+                         onclick="loadConversation('${conversation.id}')"
+                         data-conversation-id="${conversation.id}">
+                        <div class="conversation-item-header">
+                            <div class="conversation-title">${conversation.title}</div>
+                            <button class="conversation-delete" 
+                                    onclick="event.stopPropagation(); deleteConversation('${conversation.id}')"
+                                    title="删除对话">
+                                ×
+                            </button>
+                        </div>
+                        <div class="conversation-info">
+                            <span class="conversation-doctor">${conversation.doctorName}</span>
+                            <span class="conversation-time">${timeStr}</span>
+                        </div>
+                        <div class="conversation-meta">
+                            ${conversation.messageCount} 条消息
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            listContainer.innerHTML = listHTML;
+        }
+        
+        // 格式化对话时间
+        function formatConversationTime(dateStr) {
+            try {
+                const date = new Date(dateStr);
+                const now = new Date();
+                const diffMs = now - date;
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                
+                if (diffDays === 0) {
+                    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                } else if (diffDays === 1) {
+                    return '昨天';
+                } else if (diffDays < 7) {
+                    return `${diffDays}天前`;
+                } else {
+                    return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+                }
+            } catch {
+                return '';
+            }
+        }
+        
+        // 加载指定对话
+        async function loadConversation(conversationId) {
+            try {
+                const userId = getCurrentUserId();
+                if (!userId) return;
+                
+                // 保存当前对话（如果有内容）
+                const isMobile = window.innerWidth <= 768;
+                const containerSelector = isMobile ? 'mobileMessagesContainer' : 'messagesContainer';
+                const messagesContainer = document.getElementById(containerSelector);
+                if (messagesContainer && messagesContainer.children.length > 0 && currentConversationId !== conversationId) {
+                    await saveCurrentConversationToHistory();
+                }
+                
+                // 从localStorage加载对话数据
+                const storageKey = `conversation_${userId}_${conversationId}`;
+                const conversationData = localStorage.getItem(storageKey);
+                
+                if (!conversationData) {
+                    showMessage('对话记录不存在', 'error');
+                    return;
+                }
+                
+                const conversation = JSON.parse(conversationData);
+                
+                // 清空当前显示
+                clearAllMessages();
+                
+                // 设置对话状态
+                currentConversationId = conversationId;
+                selectedDoctor = conversation.doctor;
+                
+                // 更新UI
+                updateDoctorSelection(conversation.doctor);
+                
+                // 重新渲染消息
+                conversation.messages.forEach(message => {
+                    const sender = message.sender || message.type; // 兼容新旧格式
+                    if (sender === 'user') {
+                        addMessage('user', message.content);
+                    } else if (sender === 'ai') {
+                        addMessage('ai', message.content, false, false, message.prescriptionData);
+                    }
+                });
+                
+                // 更新对话列表显示
+                renderConversationList();
+                
+                // 保存当前对话ID
+                const storageKeyConv = `conversationId_${userId}`;
+                localStorage.setItem(storageKeyConv, conversationId);
+                
+                console.log('✅ 对话加载成功:', conversation.title);
+                showMessage('对话已切换', 'success');
+                
+            } catch (error) {
+                console.error('❌ 加载对话失败:', error);
+                showMessage('加载对话失败', 'error');
+            }
+        }
+        
+        // 删除对话
+        async function deleteConversation(conversationId) {
+            if (!confirm('确定要删除这个对话吗？此操作不可恢复。')) {
+                return;
+            }
+            
+            try {
+                const userId = getCurrentUserId();
+                if (!userId) return;
+                
+                // 从localStorage删除对话数据
+                const storageKey = `conversation_${userId}_${conversationId}`;
+                localStorage.removeItem(storageKey);
+                
+                // 从索引中移除
+                const indexKey = `conversation_index_${userId}`;
+                let index = JSON.parse(localStorage.getItem(indexKey) || '[]');
+                index = index.filter(item => item.id !== conversationId);
+                localStorage.setItem(indexKey, JSON.stringify(index));
+                
+                // 更新内存中的历史记录
+                conversationHistory = index;
+                
+                // 如果删除的是当前对话，创建新对话
+                if (currentConversationId === conversationId) {
+                    clearAllMessages();
+                    generateConversationId();
+                    resetConversationState();
+                }
+                
+                // 重新渲染列表
+                renderConversationList();
+                
+                console.log('🗑️ 对话已删除:', conversationId);
+                showMessage('对话已删除', 'success');
+                
+            } catch (error) {
+                console.error('❌ 删除对话失败:', error);
+                showMessage('删除对话失败', 'error');
+            }
+        }
+        
+        // 重置对话状态
+        function resetConversationState() {
+            messages = [];
+            currentStage = 'initial_inquiry';
+            // 保持selectedDoctor不变，这样用户可以继续和同一个医生对话
+        }
+        
+        // 更新医生选择器显示
+        function updateDoctorSelection(doctorKey) {
+            const doctorSelector = document.getElementById('doctorSelector');
+            if (doctorSelector) {
+                doctorSelector.value = doctorKey;
+            }
+            
+            // 触发医生选择事件，但不生成新的对话ID
+            const originalConversationId = currentConversationId;
+            selectDoctor(doctorKey);
+            currentConversationId = originalConversationId;
+        }
+        
+        // 切换对话边栏显示/隐藏
+        function toggleConversationSidebar() {
+            const sidebar = document.getElementById('conversationSidebar');
+            const overlay = document.getElementById('mobileSidebarOverlay');
+            const trigger = document.getElementById('conversationHistoryTrigger');
+            
+            // 检查当前状态
+            const isShown = sidebar.classList.contains('show');
+            
+            if (isShown) {
+                // 隐藏侧边栏
+                sidebar.classList.remove('show');
+                sidebar.classList.add('collapsed');
+                overlay.style.display = 'none';
+                if (trigger) trigger.textContent = '💬 对话';
+            } else {
+                // 显示侧边栏
+                sidebar.classList.add('show');
+                sidebar.classList.remove('collapsed');
+                if (trigger) trigger.textContent = '← 关闭';
+                
+                // 移动端显示遮罩
+                if (window.innerWidth <= 768) {
+                    overlay.style.display = 'block';
+                }
+            }
+        }
+        
+        // 兼容原有的toggleSidebar函数
+        function toggleSidebar() {
+            toggleConversationSidebar();
+        }
+        
+        // 移动端边栏控制
+        function openMobileSidebar() {
+            const sidebar = document.getElementById('conversationSidebar');
+            const overlay = document.getElementById('mobileSidebarOverlay');
+            
+            sidebar.classList.add('show', 'mobile-open');
+            sidebar.classList.remove('collapsed');
+            overlay.style.display = 'block';
+        }
+        
+        function closeMobileSidebar() {
+            const sidebar = document.getElementById('conversationSidebar');
+            const overlay = document.getElementById('mobileSidebarOverlay');
+            const trigger = document.getElementById('conversationHistoryTrigger');
+            
+            sidebar.classList.remove('show', 'mobile-open');
+            sidebar.classList.add('collapsed');
+            overlay.style.display = 'none';
+            if (trigger) trigger.textContent = '💬 对话';
+        }
+        
+        // 消息发送后更新对话列表
+        async function updateConversationListAfterMessage() {
+            try {
+                // 重建messages数组（从DOM获取当前所有消息）
+                const messageElements = document.querySelectorAll('.message');
+                const currentMessages = [];
+                
+                messageElements.forEach(messageEl => {
+                    const isUser = messageEl.classList.contains('user');
+                    const textEl = messageEl.querySelector('.message-text');
+                    const timeEl = messageEl.querySelector('.message-time');
+                    const prescriptionData = messageEl.getAttribute('data-prescription-id');
+                    
+                    if (textEl) {
+                        const messageData = {
+                            type: isUser ? 'user' : 'ai',
+                            content: textEl.textContent.trim(),
+                            time: timeEl ? timeEl.textContent : new Date().toLocaleTimeString(),
+                            timestamp: new Date().toISOString()
+                        };
+                        
+                        if (prescriptionData) {
+                            messageData.prescriptionData = { prescriptionId: prescriptionData };
+                        }
+                        
+                        currentMessages.push(messageData);
+                    }
+                });
+                
+                // 更新全局messages数组
+                messages = currentMessages;
+                
+                // 如果有消息，自动保存当前对话
+                if (messages.length > 0) {
+                    await saveCurrentConversationToHistory();
+                    renderConversationList();
+                }
+                
+            } catch (error) {
+                console.error('❌ 更新对话列表失败:', error);
             }
         }
 
@@ -7250,8 +8207,25 @@ ${data.analysis_result}`;
             
             if (!messagesContainer) return;
             
-            // 清空当前消息
-            messagesContainer.innerHTML = '';
+            // 检查是否需要清空消息容器
+            const currentMessages = messagesContainer.querySelectorAll('.message');
+            const shouldClearMessages = currentMessages.length === 0 || 
+                                       !messagesContainer.getAttribute('data-current-doctor') ||
+                                       messagesContainer.getAttribute('data-current-doctor') !== doctorKey;
+            
+            if (shouldClearMessages) {
+                // 清空当前消息（只在切换医生或没有消息时）
+                messagesContainer.innerHTML = '';
+                console.log(`🧹 清空消息容器，准备加载${doctorKey}医生的历史记录`);
+            } else {
+                console.log(`⚡ 保持当前${doctorKey}医生的消息，跳过重新加载`);
+                // 如果是同一个医生且有消息，直接返回，不重新加载
+                messagesContainer.setAttribute('data-current-doctor', doctorKey);
+                return;
+            }
+            
+            // 标记当前医生
+            messagesContainer.setAttribute('data-current-doctor', doctorKey);
             
             // 移动端需要重置样式
             if (isMobile) {
@@ -7260,31 +8234,72 @@ ${data.analysis_result}`;
                 messagesContainer.style.justifyContent = 'flex-start';
             }
 
-            // 🚀 集成服务器同步：优先从服务器加载，然后fallback到localStorage
+            // 🔑 关键修复：智能加载策略 - 优先使用本地数据，避免云端空数据覆盖
             let messages = [];
             let loadedFromServer = false;
+            let loadedFromLocal = false;
             
-            // 1. 尝试从服务器加载对话历史
-            if (!userId.startsWith('temp_user_') && !userId.startsWith('device_')) {
+            // 1. 首先检查localStorage是否有数据
+            const historyKey = `tcm_doctor_history_${userId}_${doctorKey}`;
+            const storedHistory = localStorage.getItem(historyKey);
+            
+            if (storedHistory) {
                 try {
-                    console.log(`🌐 从服务器加载${doctorKey}医生的对话历史...`);
-                    const response = await fetch(`/api/conversation/history/${userId}?doctor_id=${doctorKey}`);
-                    if (response.ok) {
-                        const result = await response.json();
-                        if (result.success && result.data && result.data.messages) {
-                            messages = result.data.messages;
-                            loadedFromServer = true;
-                            console.log(`✅ 从服务器加载${doctorKey}医生的${messages.length}条对话历史`);
-                            showSyncNotification('已从云端恢复对话历史', 'server_restored');
-                        }
+                    const historyData = JSON.parse(storedHistory);
+                    if (historyData.messages && historyData.messages.length > 0) {
+                        messages = historyData.messages;
+                        loadedFromLocal = true;
+                        console.log(`📱 从localStorage加载${doctorKey}医生的${messages.length}条对话历史`);
+                        console.log(`🔍 调试: 本地消息=`, messages);
+                        
+                        // 立即渲染本地数据
+                        showSyncNotification('已从本地缓存恢复对话历史', 'local_restored');
                     }
                 } catch (error) {
-                    console.warn('服务器加载对话历史失败，使用本地缓存:', error);
+                    console.warn('解析本地历史记录失败:', error);
                 }
             }
             
-            // 2. 如果服务器加载失败，从localStorage加载
-            if (!loadedFromServer) {
+            // 2. 如果本地没有数据，再尝试从服务器加载
+            if (!loadedFromLocal && !userId.startsWith('temp_user_') && !userId.startsWith('device_')) {
+                try {
+                    console.log(`🌐 本地无数据，从服务器加载${doctorKey}医生的对话历史...`);
+                    console.log(`🔍 调试: 用户ID=${userId}, 医生ID=${doctorKey}`);
+                    const apiUrl = `/api/conversation/history/${userId}?doctor_id=${doctorKey}`;
+                    console.log(`🔍 调试: API URL=${apiUrl}`);
+                    
+                    const response = await fetch(apiUrl);
+                    console.log(`🔍 调试: 响应状态=${response.status}, OK=${response.ok}`);
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log(`🔍 调试: API响应=`, result);
+                        
+                        if (result.success && result.data && result.data.messages && result.data.messages.length > 0) {
+                            messages = result.data.messages;
+                            loadedFromServer = true;
+                            console.log(`✅ 从服务器加载${doctorKey}医生的${messages.length}条对话历史`);
+                            console.log(`🔍 调试: 加载的消息=`, messages);
+                            showSyncNotification('已从云端恢复对话历史', 'server_restored');
+                        } else {
+                            console.warn(`⚠️ 服务器返回空数据或格式不正确:`, result);
+                        }
+                    } else {
+                        console.error(`❌ API调用失败: ${response.status} ${response.statusText}`);
+                        const errorText = await response.text();
+                        console.error(`❌ 错误详情: ${errorText}`);
+                    }
+                } catch (error) {
+                    console.warn('服务器加载对话历史失败:', error);
+                }
+            } else if (loadedFromLocal) {
+                console.log(`📱 已从本地加载数据，跳过服务器查询`);
+            } else {
+                console.log(`⚠️ 跳过服务器加载，临时用户ID: ${userId}`);
+            }
+            
+            // 3. 最终检查：如果还是没有数据，则无历史记录
+            if (!loadedFromLocal && !loadedFromServer) {
                 const historyKey = `tcm_doctor_history_${userId}_${doctorKey}`;
                 const storedHistory = localStorage.getItem(historyKey);
                 
@@ -7333,10 +8348,11 @@ ${data.analysis_result}`;
                 console.log(`历史记录详情: 共${messages.length}条消息，第一条=${messages[0].time || '未知时间'}, 最后一条=${messages[messages.length-1].time || '未知时间'}`);
                 
                 // 🔄 如果从本地加载成功，异步同步到服务器
-                if (!loadedFromServer && !userId.startsWith('temp_user_') && !userId.startsWith('device_')) {
+                if (loadedFromLocal && !userId.startsWith('temp_user_') && !userId.startsWith('device_')) {
                     setTimeout(() => {
+                        console.log(`🔄 将本地数据同步到服务器...`);
                         syncLocalHistoryToServer(userId, doctorKey, messages);
-                    }, 1000);
+                    }, 2000); // 延迟2秒，确保页面渲染完成
                 }
             } else {
                 // 没有历史记录，显示欢迎消息
@@ -7733,6 +8749,7 @@ ${data.analysis_result}`;
                         message: message,
                         conversation_id: currentConversationId,
                         selected_doctor: selectedDoctor,
+                        patient_id: getCurrentUserId(), // 🔑 修复：添加用户ID
                         conversation_history: conversationHistory // 传递对话历史
                     }),
                     signal: controller.signal
@@ -7781,12 +8798,55 @@ ${data.analysis_result}`;
                     let prescriptionId = data.data?.prescription_id || null;
                     const isPaid = data.data?.is_paid || false;
                     
-                    // 🔧 如果API没有返回处方ID，但响应包含处方内容，则生成一个临时ID
+                    // 🔧 如果API没有返回处方ID，但响应包含处方内容，则调用后端创建处方
                     if (!prescriptionId && data.reply && 
                         (data.reply.includes('处方') || data.reply.includes('方剂') || 
                          data.reply.includes('君药') || data.reply.includes('臣药'))) {
-                        prescriptionId = 'prescription_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                        console.log('🆕 移动端生成临时处方ID:', prescriptionId);
+                        
+                        // 🔑 关键修复：调用后端API创建处方并保存到数据库（移动端）
+                        try {
+                            const userId = getCurrentUserId();
+                            const conversationId = currentConversationId || generateConversationId();
+                            
+                            const prescriptionData = {
+                                patient_id: userId,
+                                conversation_id: conversationId,
+                                patient_name: currentUser?.display_name || currentUser?.username || '用户',
+                                symptoms: (data.data?.symptoms_summary || '用户问诊'),
+                                diagnosis: (data.data?.diagnosis_summary || selectedDoctor + '医生诊断'),
+                                ai_prescription: data.reply
+                            };
+                            
+                            console.log('🔄 移动端调用后端创建处方:', prescriptionData);
+                            
+                            const createResponse = await fetch('/api/prescription/create', {
+                                method: 'POST',
+                                headers: getAuthHeaders(),
+                                body: JSON.stringify(prescriptionData)
+                            });
+                            
+                            if (createResponse.ok) {
+                                const createResult = await createResponse.json();
+                                if (createResult.success) {
+                                    prescriptionId = createResult.prescription_id;
+                                    console.log('✅ 移动端处方创建成功，ID:', prescriptionId);
+                                } else {
+                                    console.warn('⚠️ 移动端处方创建返回失败:', createResult.message);
+                                    // 备用方案：使用临时ID
+                                    prescriptionId = 'temp_mobile_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                                }
+                            } else {
+                                console.warn('⚠️ 移动端处方创建API调用失败:', createResponse.status);
+                                // 备用方案：使用临时ID
+                                prescriptionId = 'temp_mobile_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                            }
+                        } catch (error) {
+                            console.error('❌ 移动端处方创建异常:', error);
+                            // 备用方案：使用临时ID
+                            prescriptionId = 'temp_mobile_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                        }
+                        
+                        console.log('🆕 移动端最终处方ID:', prescriptionId);
                     }
                     
                     // 🚨 关键逻辑：完整处方且未付费时需要支付

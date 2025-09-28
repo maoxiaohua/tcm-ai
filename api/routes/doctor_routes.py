@@ -65,9 +65,11 @@ def get_current_doctor(authorization: str = Header(None)) -> Doctor:
             
             # 根据user_id映射到doctors表的ID
             user_id_to_doctor_id = {
-                "usr_20250920_575ba94095a7": 1,  # 张仲景 (zhangzhongjing)
-                "usr_20250920_9a6e8b898f1f": 2,  # 管理员可能是医生
-                "usr_20250920_c58e33b0839b": 3,  # 通用医生账户
+                "usr_20250920_575ba94095a7": 1,  # 金大夫 (jingdaifu) 
+                "usr_20250927_zhangzhongjing": 4,  # 张仲景 (zhangzhongjing)
+                "usr_20250920_4e7591213d67": 2,  # 叶天士 (yetianshi) - 创建对应的医生记录
+                "usr_20250920_9a6e8b898f1f": 1,  # 管理员 -> 金大夫
+                "usr_20250920_c58e33b0839b": 1,  # 通用医生账户 -> 金大夫
             }
             
             doctor_id = user_id_to_doctor_id.get(user_id, 1)  # 默认为1
@@ -621,10 +623,11 @@ async def get_doctor_list():
         # 医生ID到代码标识的映射(仅用于兼容老系统)
         doctor_id_mapping = {
             1: "jin_daifu",       # 金大夫使用独立人格
-            2: "zhang_zhongjing", # 张仲景医生
-            3: "li_dongyuan",
-            5: "liu_duzhou",
-            6: "zheng_qin_an"
+            2: "ye_tianshi",      # 叶天士医生
+            3: "li_dongyuan",     # 李东垣医生
+            4: "zhang_zhongjing", # 张仲景医生
+            5: "liu_duzhou",      # 刘渡舟医生
+            6: "zheng_qin_an"     # 郑钦安医生
         }
         
         for row in rows:
