@@ -4358,7 +4358,7 @@ ${record.prescription_given}
         
         // 初始化对话管理系统
         function initConversationManager() {
-            loadConversationHistory();
+            loadConversationIndex(); // 修复：使用正确的函数名
             renderConversationList();
         }
         
@@ -4528,8 +4528,8 @@ ${record.prescription_given}
             return `对话 ${new Date().toLocaleDateString()}`;
         }
         
-        // 加载对话历史列表
-        function loadConversationHistory() {
+        // 加载对话历史索引
+        function loadConversationIndex() {
             try {
                 const userId = getCurrentUserId();
                 if (!userId) return;
@@ -8710,7 +8710,11 @@ ${data.analysis_result}`;
             
             // 自动保存移动端对话历史
             if (selectedDoctor) {
-                setTimeout(() => saveCurrentDoctorHistory(), 200); // 延迟200ms确保DOM和滚动都完成
+                setTimeout(() => {
+                    saveCurrentDoctorHistory();
+                    // 🔄 自动更新ChatGPT风格对话管理系统
+                    updateConversationListAfterMessage();
+                }, 200); // 延迟200ms确保DOM和滚动都完成
             }
         }
 
@@ -8898,7 +8902,11 @@ ${data.analysis_result}`;
                 }
                 
                 // 保存移动端对话历史
-                setTimeout(() => saveCurrentDoctorHistory(), 100);
+                setTimeout(() => {
+                    saveCurrentDoctorHistory();
+                    // 🔄 自动更新ChatGPT风格对话管理系统
+                    updateConversationListAfterMessage();
+                }, 200);
 
             } catch (error) {
                 console.error('Mobile API Error:', error);

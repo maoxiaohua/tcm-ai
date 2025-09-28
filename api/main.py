@@ -4329,13 +4329,14 @@ async def register_with_email(request: Request):
         
         cursor.execute("""
             INSERT INTO users (
-                user_id, email, password_hash, nickname, registration_type, 
-                device_fingerprint, created_at, last_active, is_verified
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                user_id, device_fingerprint, nickname, registration_type, 
+                created_at, last_active, is_verified, email, password_hash,
+                role, is_active, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            user_id, email, password_hash, nickname or email.split('@')[0], 
-            'email', device_fingerprint, datetime.now().isoformat(), 
-            datetime.now().isoformat(), 1
+            user_id, device_fingerprint, nickname or email.split('@')[0], 'email',
+            datetime.now().isoformat(), datetime.now().isoformat(), 1,
+            email, password_hash, 'patient', 1, datetime.now().isoformat()
         ))
         
         conn.commit()
@@ -4346,6 +4347,8 @@ async def register_with_email(request: Request):
         
     except Exception as e:
         logger.error(f"邮箱注册失败: {e}")
+        if 'conn' in locals():
+            conn.close()
         return {"success": False, "error": "注册失败，请重试"}
 
 @app.post("/api/auth/register/username")
@@ -4369,26 +4372,37 @@ async def register_with_username(request: Request):
         if not password or len(password) < 6 or len(password) > 20:
             return {"success": False, "error": "密码长度为6-20位"}
         
-        # 检查用户名是否已存在
+        # 🔧 修复：检查用户名是否已存在（检查两个表）
         import sqlite3
         conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
         cursor = conn.cursor()
         
+        # 检查旧用户表
         cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,))
         existing_user = cursor.fetchone()
         
-        if existing_user:
+        # 检查新统一用户表
+        cursor.execute("SELECT global_user_id FROM unified_users WHERE username = ?", (username,))
+        existing_unified_user = cursor.fetchone()
+        
+        if existing_user or existing_unified_user:
             conn.close()
             return {"success": False, "error": "该用户名已被注册"}
         
         # 创建新用户
         import uuid
         import hashlib
+        import secrets
         from datetime import datetime
         
-        user_id = str(uuid.uuid4())
-        # 简单密码加密（生产环境应使用更安全的加密方式）
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        # 生成统一格式的用户ID
+        global_user_id = f"usr_{datetime.now().strftime('%Y%m%d')}_{secrets.token_hex(6)}"
+        user_id = str(uuid.uuid4())  # 兼容旧表格式
+        
+        # 生成加密密码
+        salt = secrets.token_hex(16)
+        password_hash = hashlib.sha256((password + salt).encode()).hexdigest()
+        salted_password_hash = f"{salt}:{password_hash}"
         
         # 生成设备指纹
         request_info = {
@@ -4401,25 +4415,50 @@ async def register_with_username(request: Request):
         fingerprint_data = f"{request_info.get('user_agent', '')}|{request_info.get('client_ip', '')}|{request_info.get('accept_language', '')}|{str(int(time.time() / 3600))}"
         device_fingerprint = hashlib.md5(fingerprint_data.encode('utf-8')).hexdigest()[:32]
         
+        # 🔧 修复：同时插入到两个用户表系统
+        
+        # 1. 插入到统一用户表（新系统）
+        cursor.execute("""
+            INSERT INTO unified_users (
+                global_user_id, username, display_name, password_hash, salt,
+                account_status, created_at, updated_at, registration_source, registration_ip
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            global_user_id, username, username, salted_password_hash, salt,
+            'active', datetime.now().isoformat(), datetime.now().isoformat(),
+            'web_register', request.client.host if request.client else 'unknown'
+        ))
+        
+        # 2. 插入到旧用户表（兼容性）
         cursor.execute("""
             INSERT INTO users (
-                user_id, username, password_hash, nickname, registration_type, 
-                device_fingerprint, created_at, last_active, is_verified
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                user_id, device_fingerprint, nickname, registration_type, 
+                created_at, last_active, is_verified, username, password_hash, 
+                role, is_active, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            user_id, username, password_hash, username, 
-            'username', device_fingerprint, datetime.now().isoformat(), 
-            datetime.now().isoformat(), 1
+            user_id, device_fingerprint, username, 'username',
+            datetime.now().isoformat(), datetime.now().isoformat(), 1,
+            username, salted_password_hash, 'patient', 1, datetime.now().isoformat()
         ))
+        
+        # 3. 创建用户角色（默认为患者）
+        cursor.execute("""
+            INSERT OR IGNORE INTO user_roles_new (
+                user_id, role_name, is_active
+            ) VALUES (?, ?, ?)
+        """, (global_user_id, 'patient', 1))
         
         conn.commit()
         conn.close()
         
-        logger.info(f"用户名注册成功: {username}")
+        logger.info(f"用户名注册成功: {username} (统一ID: {global_user_id})")
         return {"success": True, "message": "注册成功"}
         
     except Exception as e:
         logger.error(f"用户名注册失败: {e}")
+        if 'conn' in locals():
+            conn.close()
         return {"success": False, "error": "注册失败，请重试"}
 
 @app.get("/api/user/devices")

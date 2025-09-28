@@ -7,6 +7,7 @@
 import asyncio
 import json
 import logging
+import re
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime
@@ -979,6 +980,18 @@ class UnifiedConsultationService:
             system_content += thinking_prompt
             logger.info("🧠 思维库内容已集成到AI提示词中")
         
+        # 🔥 新增：构建增强的对话历史摘要，防止重复问询
+        if request.conversation_history and isinstance(request.conversation_history, list):
+            qa_summary = self._create_qa_summary(request.conversation_history)
+            if qa_summary:
+                system_content += f"""
+
+## 🚨 已收集信息摘要（严禁重复询问）
+{qa_summary}
+
+**重要提醒：以上信息患者已经提供，绝对不能再次询问相同问题！请基于已有信息进行深入分析或提出新的针对性问题。**
+"""
+        
         messages.append({"role": "system", "content": system_content})
         
         # 🔧 修复：对话历史处理（确保类型安全）
@@ -1026,6 +1039,137 @@ class UnifiedConsultationService:
         experience = expertise.get("experience_level", "主治医师")
         
         return f"专科: {specialization}, 经验: {experience}"
+    
+    def _create_qa_summary(self, conversation_history: List[Dict]) -> str:
+        """创建问答摘要，明确标记已收集的信息"""
+        if not conversation_history:
+            return ""
+        
+        # 分析已收集的信息
+        collected_info = {
+            "基本信息": [],
+            "主要症状": [],
+            "伴随症状": [],
+            "舌象脉象": [],
+            "病史病程": [],
+            "其他信息": []
+        }
+        
+        # 常见问诊关键词映射
+        question_patterns = {
+            "基本信息": ["年龄", "性别", "岁", "男", "女", "职业"],
+            "主要症状": ["主要", "主诉", "什么症状", "哪里不舒服", "什么问题"],
+            "病程时间": ["多久", "什么时候", "多长时间", "几天", "几周", "几月", "持续"],
+            "症状性质": ["什么样", "怎样", "如何", "程度", "严重", "轻重"],
+            "诱发因素": ["什么原因", "怎么引起", "诱发", "触发", "加重", "缓解"],
+            "伴随症状": ["还有", "其他", "伴有", "同时", "一起"],
+            "舌象": ["舌头", "舌象", "舌苔", "舌质", "舌色"],
+            "饮食": ["食欲", "吃饭", "饮食", "胃口", "消化"],
+            "睡眠": ["睡眠", "失眠", "多梦", "睡觉", "入睡"],
+            "大小便": ["大便", "小便", "二便", "排便", "尿"],
+            "既往病史": ["以前", "病史", "得过", "治疗过", "吃过药"]
+        }
+        
+        # 分析对话中的问答对
+        for i, turn in enumerate(conversation_history):
+            if turn.get("role") == "assistant":
+                # 分析医生问题
+                content = turn.get("content", "").strip()
+                
+                # 检查下一轮用户是否回答了
+                if i + 1 < len(conversation_history):
+                    next_turn = conversation_history[i + 1]
+                    if next_turn.get("role") == "user":
+                        user_response = next_turn.get("content", "").strip()
+                        
+                        # 分析回答了什么信息
+                        for category, keywords in question_patterns.items():
+                            if any(keyword in content for keyword in keywords):
+                                # 提取用户回答的关键信息
+                                if category == "基本信息":
+                                    if any(kw in user_response for kw in ["岁", "年龄"]):
+                                        age_match = re.search(r'(\d+)岁', user_response)
+                                        if age_match:
+                                            collected_info["基本信息"].append(f"年龄: {age_match.group(1)}岁")
+                                    if any(kw in user_response for kw in ["男", "女"]):
+                                        gender = "男" if "男" in user_response else "女"
+                                        collected_info["基本信息"].append(f"性别: {gender}")
+                                
+                                elif category == "病程时间":
+                                    time_patterns = [r'(\d+)(天|日)', r'(\d+)(周|星期)', r'(\d+)(月|个月)', r'(\d+)(年)']
+                                    for pattern in time_patterns:
+                                        match = re.search(pattern, user_response)
+                                        if match:
+                                            collected_info["病史病程"].append(f"病程: {match.group(1)}{match.group(2)}")
+                                
+                                elif category == "舌象":
+                                    if any(kw in user_response for kw in ["舌", "苔"]):
+                                        collected_info["舌象脉象"].append(f"舌象: {user_response[:50]}...")
+                                
+                                elif category == "饮食":
+                                    if any(kw in user_response for kw in ["食欲", "胃口", "吃"]):
+                                        collected_info["其他信息"].append(f"饮食: {user_response[:30]}...")
+                                
+                                elif category == "睡眠":
+                                    if any(kw in user_response for kw in ["睡", "眠"]):
+                                        collected_info["其他信息"].append(f"睡眠: {user_response[:30]}...")
+                                
+                                elif category == "大小便":
+                                    if any(kw in user_response for kw in ["便", "尿"]):
+                                        collected_info["其他信息"].append(f"二便: {user_response[:30]}...")
+        
+        # 同时从用户消息中直接提取症状信息
+        for turn in conversation_history:
+            if turn.get("role") == "user":
+                content = turn.get("content", "")
+                
+                # 提取症状
+                symptoms = self._extract_symptoms_for_summary(content)
+                for symptom in symptoms:
+                    if symptom not in [item.split(":")[1].strip() if ":" in item else item for item in collected_info["主要症状"]]:
+                        collected_info["主要症状"].append(f"症状: {symptom}")
+        
+        # 构建摘要
+        summary_parts = []
+        for category, items in collected_info.items():
+            if items:
+                unique_items = list(set(items))  # 去重
+                if unique_items:
+                    summary_parts.append(f"**{category}**: {', '.join(unique_items[:3])}")  # 最多显示3项
+        
+        if summary_parts:
+            return "\n".join(summary_parts)
+        
+        return ""
+    
+    def _extract_symptoms_for_summary(self, text: str) -> List[str]:
+        """为摘要提取症状信息"""
+        symptoms = []
+        
+        # 常见症状关键词
+        symptom_keywords = [
+            "头痛", "头晕", "胃痛", "腹痛", "咳嗽", "失眠", "便秘", "腹泻",
+            "乏力", "心慌", "胸闷", "恶心", "呕吐", "发热", "口干", "盗汗"
+        ]
+        
+        for keyword in symptom_keywords:
+            if keyword in text:
+                symptoms.append(keyword)
+        
+        # 提取描述性症状
+        patterns = [
+            r'(.{0,3})(痛|疼|酸|胀|闷)',
+            r'(拉肚子|腹泻|便秘|失眠|咳嗽)'
+        ]
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, text)
+            for match in matches:
+                symptom = ''.join(match).strip()
+                if len(symptom) > 1 and symptom not in symptoms:
+                    symptoms.append(symptom)
+        
+        return symptoms[:5]  # 最多返回5个症状
 
 # 全局服务实例
 _consultation_service = None

@@ -245,12 +245,11 @@ class UnifiedAccountManager:
                 # 分配默认角色
                 cursor.execute("""
                     INSERT INTO user_roles 
-                    (user_id, role_name, is_primary, assigned_by, assigned_at, assigned_reason)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (user_id, role, assigned_by, assigned_at)
+                    VALUES (?, ?, ?, ?)
                 """, (
-                    user_id, user_type.value.upper(), True,
-                    created_by, datetime.now().isoformat(),
-                    "账户创建时的默认角色分配"
+                    user_id, user_type.value.upper(),
+                    created_by, datetime.now().isoformat()
                 ))
                 
                 # 创建用户扩展配置
