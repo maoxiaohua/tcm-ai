@@ -424,7 +424,7 @@ async def review_prescription(
     try:
         # 检查处方是否存在且可审查
         cursor.execute("""
-            SELECT * FROM prescriptions WHERE id = ? AND status IN ('pending', 'doctor_reviewing')
+            SELECT * FROM prescriptions WHERE id = ? AND status IN ('pending', 'pending_review', 'doctor_reviewing')
         """, (prescription_id,))
         
         prescription = cursor.fetchone()
@@ -433,13 +433,16 @@ async def review_prescription(
         
         # 根据操作类型更新处方状态
         if request.action == "approve":
-            new_status = "approved"
+            new_status = "doctor_approved"
+            review_status = "approved"
             doctor_prescription = request.doctor_prescription or prescription[7]  # ai_prescription
         elif request.action == "reject":
-            new_status = "rejected"
+            new_status = "doctor_rejected"
+            review_status = "rejected"
             doctor_prescription = None
         elif request.action == "modify":
-            new_status = "approved"
+            new_status = "doctor_modified"
+            review_status = "modified"
             doctor_prescription = request.doctor_prescription
         else:
             raise HTTPException(status_code=400, detail="无效的操作类型")
@@ -448,9 +451,23 @@ async def review_prescription(
         cursor.execute("""
             UPDATE prescriptions 
             SET status = ?, doctor_id = ?, doctor_prescription = ?, doctor_notes = ?, 
-                reviewed_at = datetime('now'), version = version + 1
+                reviewed_at = datetime('now'), version = version + 1, review_status = ?
             WHERE id = ?
-        """, (new_status, current_doctor.id, doctor_prescription, request.doctor_notes, prescription_id))
+        """, (new_status, current_doctor.id, doctor_prescription, request.doctor_notes, review_status, prescription_id))
+        
+        # 🔑 更新审核队列状态
+        cursor.execute("""
+            UPDATE doctor_review_queue 
+            SET status = 'completed', completed_at = datetime('now')
+            WHERE prescription_id = ? AND status = 'pending'
+        """, (prescription_id,))
+        
+        # 🔑 添加审核历史记录
+        cursor.execute("""
+            INSERT INTO prescription_review_history 
+            (prescription_id, doctor_id, action, modified_prescription, doctor_notes, reviewed_at)
+            VALUES (?, ?, ?, ?, ?, datetime('now'))
+        """, (prescription_id, str(current_doctor.id), request.action, doctor_prescription, request.doctor_notes))
         
         # 记录变更历史（如果需要的话）
         if request.action == "modify":
@@ -462,6 +479,10 @@ async def review_prescription(
                   prescription[7], doctor_prescription, request.doctor_notes))
         
         conn.commit()
+        
+        # 🔑 审核完成后，同步状态到患者端
+        from api.routes.unified_consultation_routes import _sync_prescription_status_to_patient
+        await _sync_prescription_status_to_patient(prescription_id, new_status)
         
         return {
             "success": True,

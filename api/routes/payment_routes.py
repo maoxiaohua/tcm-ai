@@ -764,3 +764,145 @@ async def get_payment_statistics():
         raise HTTPException(status_code=500, detail=f"获取支付统计失败: {e}")
     finally:
         conn.close()
+
+async def _process_payment_success(prescription_id: int, order_no: str) -> dict:
+    """
+    🔑 处理支付成功后的完整流程
+    根据处方审核状态决定是否直接解锁或等待审核
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 🔑 检查处方当前状态
+        cursor.execute("""
+            SELECT status, review_status, is_visible_to_patient, doctor_id, consultation_id 
+            FROM prescriptions 
+            WHERE id = ?
+        """, (prescription_id,))
+        
+        prescription_info = cursor.fetchone()
+        if not prescription_info:
+            return {"success": False, "message": "处方不存在"}
+        
+        current_status, review_status, is_visible, doctor_id, consultation_id = prescription_info
+        
+        # 🔑 支付成功后的状态流转逻辑
+        if review_status == 'approved':
+            # 已审核通过，直接解锁处方
+            cursor.execute("""
+                UPDATE prescriptions 
+                SET payment_status = 'completed',
+                    is_visible_to_patient = 1,
+                    visibility_unlock_time = datetime('now')
+                WHERE id = ?
+            """, (prescription_id,))
+            
+            message = "支付成功，处方已解锁"
+            action = "prescription_unlocked"
+            
+        elif review_status in ['pending_review', None]:
+            # 未审核或审核中，更新支付状态但不解锁
+            cursor.execute("""
+                UPDATE prescriptions 
+                SET payment_status = 'paid',
+                    confirmed_at = datetime('now')
+                WHERE id = ?
+            """, (prescription_id,))
+            
+            # 🔑 确保在审核队列中
+            cursor.execute("""
+                SELECT COUNT(*) FROM doctor_review_queue 
+                WHERE prescription_id = ? AND status = 'pending'
+            """, (prescription_id,))
+            
+            queue_exists = cursor.fetchone()[0] > 0
+            
+            if not queue_exists and doctor_id and consultation_id:
+                cursor.execute("""
+                    INSERT INTO doctor_review_queue (
+                        prescription_id, doctor_id, consultation_id, 
+                        submitted_at, status, priority
+                    ) VALUES (?, ?, ?, datetime('now'), 'pending', 'high')
+                """, (prescription_id, doctor_id, consultation_id))
+            
+            message = "支付成功，处方正在医生审核中，请耐心等待"
+            action = "waiting_review"
+            
+        elif review_status == 'rejected':
+            # 审核拒绝，只更新支付状态
+            cursor.execute("""
+                UPDATE prescriptions 
+                SET payment_status = 'paid'
+                WHERE id = ?
+            """, (prescription_id,))
+            
+            message = "支付成功，但处方审核未通过，建议重新问诊"
+            action = "review_rejected"
+            
+        else:
+            # 其他状态，通用处理
+            cursor.execute("""
+                UPDATE prescriptions 
+                SET payment_status = 'paid'
+                WHERE id = ?
+            """, (prescription_id,))
+            
+            message = f"支付成功，处方状态：{review_status or '未知'}"
+            action = "status_updated"
+        
+        # 🔑 更新对话状态为已完成
+        cursor.execute("""
+            UPDATE consultations 
+            SET status = 'completed', 
+                updated_at = datetime('now')
+            WHERE uuid = (
+                SELECT consultation_id FROM prescriptions WHERE id = ?
+            )
+        """, (prescription_id,))
+        
+        cursor.execute("""
+            UPDATE conversation_states 
+            SET current_stage = 'completed',
+                has_prescription = 1,
+                is_active = 0,
+                updated_at = datetime('now')
+            WHERE user_id = (
+                SELECT patient_id FROM prescriptions WHERE id = ?
+            ) AND is_active = 1
+        """, (prescription_id,))
+        
+        conn.commit()
+        
+        return {
+            "success": True,
+            "message": message,
+            "action": action,
+            "prescription_id": prescription_id,
+            "order_no": order_no
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"处理支付成功流程失败: {str(e)}"
+        }
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@router.post("/process-success/{prescription_id}")
+async def process_payment_success(prescription_id: int):
+    """
+    🔑 统一的支付成功处理接口
+    前端可调用此接口来处理支付成功后的逻辑
+    """
+    try:
+        result = await _process_payment_success(prescription_id, f"DIRECT_{prescription_id}")
+        return result
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"处理失败: {str(e)}"
+        }

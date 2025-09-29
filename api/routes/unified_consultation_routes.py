@@ -685,7 +685,7 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
             datetime.now().isoformat()
         ))
         
-        # 3. 如果有处方，存储到 prescriptions 表
+        # 3. 如果有处方，存储到 prescriptions 表并自动提交审核
         logger.info(f"🔍 处方检查: contains_prescription={response.contains_prescription}, prescription_data={response.prescription_data is not None}")
         if response.contains_prescription and response.prescription_data:
             logger.info(f"💊 开始保存处方到数据库, prescription_data={response.prescription_data}")
@@ -705,8 +705,8 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                     patient_id, conversation_id, consultation_id, doctor_id, 
                     ai_prescription, diagnosis, symptoms,
                     status, created_at, is_visible_to_patient,
-                    payment_status, prescription_fee
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    payment_status, prescription_fee, review_status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 user_id,
                 request.conversation_id,  # 对话ID
@@ -715,22 +715,27 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 prescription_text,
                 diagnosis_text + ('\n\n' + syndrome_text if syndrome_text else ''),
                 response.prescription_data.get('symptoms_summary', ''),
-                "ai_generated",  # AI生成状态，待患者支付
+                "pending_review",  # 🔑 修改：等待医生审核
                 datetime.now().isoformat(),
-                0,  # 默认不可见，需支付解锁
+                0,  # 默认不可见，需审核通过后支付解锁
                 "pending",  # 待支付
-                88.0  # 处方费用
+                88.0,  # 处方费用
+                "pending_review"  # 🔑 新增：审核状态
             ))
             
             # 获取新创建的处方ID
             prescription_id = cursor.lastrowid
             logger.info(f"✅ 处方保存成功，prescription_id={prescription_id}")
             
+            # 🔑 自动提交到医生审核队列
+            await _submit_to_doctor_review_queue(cursor, prescription_id, request, consultation_uuid)
+            
             # 🔑 将处方ID添加到响应数据中，供前端使用
             if response.prescription_data:
                 response.prescription_data['prescription_id'] = prescription_id
                 response.prescription_data['payment_status'] = 'pending'
-                response.prescription_data['review_status'] = 'ai_generated'
+                response.prescription_data['review_status'] = 'pending_review'
+                response.prescription_data['requires_review'] = True  # 🔑 新增：标记需要审核
             
             # 更新对话状态，标记已有处方
             cursor.execute("""
@@ -764,6 +769,93 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
         
     except Exception as e:
         logger.error(f"❌ 存储问诊记录失败: {e}")
+        logger.error(traceback.format_exc())
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+async def _submit_to_doctor_review_queue(cursor, prescription_id: int, request: ChatMessage, consultation_uuid: str) -> None:
+    """
+    🔑 自动提交处方到医生审核队列
+    实现患者问诊后处方自动进入审核流程
+    """
+    try:
+        # 提交到医生审核队列
+        cursor.execute("""
+            INSERT INTO doctor_review_queue (
+                prescription_id, doctor_id, consultation_id, 
+                submitted_at, status, priority
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            prescription_id,
+            request.selected_doctor,  # AI医生ID，后续可由真实医生审核
+            consultation_uuid,
+            datetime.now().isoformat(),
+            'pending',  # 待审核
+            'normal'    # 正常优先级
+        ))
+        
+        logger.info(f"✅ 处方已提交到审核队列: prescription_id={prescription_id}, doctor={request.selected_doctor}")
+        
+    except Exception as e:
+        logger.error(f"❌ 提交审核队列失败: {e}")
+        # 不抛出异常，避免影响主流程，但记录错误
+        import traceback
+        logger.error(traceback.format_exc())
+
+async def _sync_prescription_status_to_patient(prescription_id: int, new_status: str) -> None:
+    """
+    🔑 医生审核后同步处方状态到患者端
+    实现医生审核结果的实时同步
+    """
+    try:
+        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
+        cursor = conn.cursor()
+        
+        # 根据审核结果更新患者端可见性
+        if new_status in ['doctor_approved', 'doctor_modified']:
+            # 审核通过，设置为支付等待状态
+            cursor.execute("""
+                UPDATE prescriptions 
+                SET is_visible_to_patient = 1,
+                    payment_status = 'pending',
+                    visibility_unlock_time = datetime('now')
+                WHERE id = ?
+            """, (prescription_id,))
+            
+            logger.info(f"✅ 处方审核通过，患者可支付解锁: prescription_id={prescription_id}")
+            
+        elif new_status == 'doctor_rejected':
+            # 审核拒绝，仍保持不可见
+            cursor.execute("""
+                UPDATE prescriptions 
+                SET is_visible_to_patient = 0,
+                    payment_status = 'rejected'
+                WHERE id = ?
+            """, (prescription_id,))
+            
+            logger.info(f"❌ 处方审核拒绝，患者不可见: prescription_id={prescription_id}")
+        
+        # 获取处方相关信息，用于通知患者
+        cursor.execute("""
+            SELECT patient_id, conversation_id 
+            FROM prescriptions 
+            WHERE id = ?
+        """, (prescription_id,))
+        
+        prescription_info = cursor.fetchone()
+        if prescription_info:
+            patient_id, conversation_id = prescription_info
+            
+            # TODO: 这里可以扩展为实时通知系统
+            # 比如WebSocket推送、短信通知等
+            logger.info(f"📱 处方状态已更新，患者 {patient_id} 将在下次刷新时看到更新")
+        
+        conn.commit()
+        
+    except Exception as e:
+        logger.error(f"❌ 同步处方状态到患者端失败: {e}")
+        import traceback
         logger.error(traceback.format_exc())
     finally:
         if 'conn' in locals():
@@ -1056,5 +1148,168 @@ async def get_conversation_detail(session_id: str):
         return {
             "success": False,
             "message": f"获取详情失败: {str(e)}"
+        }
+
+@router.get("/patient/history")
+async def get_patient_consultation_history(http_request: Request):
+    """
+    🔑 获取患者历史问诊内容，包括未支付状态的处方
+    支持跨设备同步和实时状态更新
+    """
+    try:
+        # 获取用户ID (优先认证用户，回退到URL参数或guest)
+        user_id = None
+        
+        # 1. 尝试从认证token获取
+        auth_header = http_request.headers.get('authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.replace('Bearer ', '')
+            try:
+                from api.main import get_user_info_by_token
+                auth_user_info = await get_user_info_by_token(token)
+                if auth_user_info and auth_user_info.get('user_id'):
+                    user_id = auth_user_info['user_id']
+            except:
+                pass
+        
+        # 2. 从URL参数获取
+        if not user_id:
+            user_id = http_request.query_params.get('user_id', 'guest')
+        
+        logger.info(f"📋 获取患者历史问诊: user_id={user_id}")
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 获取患者的完整问诊历史（包含处方状态）
+        cursor.execute("""
+            SELECT 
+                c.uuid, c.patient_id, c.selected_doctor_id, c.conversation_log,
+                c.symptoms_analysis, c.tcm_syndrome, c.status, c.created_at, c.updated_at,
+                p.id as prescription_id, p.ai_prescription, p.doctor_prescription, 
+                p.diagnosis, p.symptoms, p.status as prescription_status,
+                p.review_status, p.payment_status, p.prescription_fee, 
+                p.is_visible_to_patient, p.visibility_unlock_time, p.reviewed_at,
+                d.name as doctor_name, d.speciality as doctor_specialty
+            FROM consultations c
+            LEFT JOIN prescriptions p ON c.uuid = p.consultation_id
+            LEFT JOIN doctors d ON CAST(p.doctor_id AS INTEGER) = d.id
+            WHERE c.patient_id = ?
+            ORDER BY c.created_at DESC
+            LIMIT 50
+        """, (user_id,))
+        
+        rows = cursor.fetchall()
+        
+        # 构建历史记录数据
+        consultation_history = []
+        
+        for row in rows:
+            # 解析对话历史
+            conversation_history = []
+            try:
+                if row['conversation_log']:
+                    log_data = json.loads(row['conversation_log'])
+                    conversation_history = log_data.get('conversation_history', [])
+            except:
+                pass
+            
+            # 医生信息映射
+            doctor_names = {
+                "zhang_zhongjing": "张仲景",
+                "ye_tianshi": "叶天士", 
+                "li_dongyuan": "李东垣",
+                "zheng_qin_an": "郑钦安",
+                "liu_duzhou": "刘渡舟",
+                "zhu_danxi": "朱丹溪",
+                "jin_daifu": "金大夫"
+            }
+            
+            doctor_display_name = doctor_names.get(row['selected_doctor_id'], row['doctor_name'] or row['selected_doctor_id'])
+            
+            # 构建单条历史记录
+            consultation_record = {
+                "consultation_id": row['uuid'],
+                "doctor_id": row['selected_doctor_id'],
+                "doctor_name": doctor_display_name,
+                "doctor_specialty": row['doctor_specialty'] or "中医内科",
+                "created_at": row['created_at'],
+                "updated_at": row['updated_at'],
+                "consultation_status": row['status'],
+                "conversation_history": conversation_history,
+                "total_messages": len(conversation_history),
+                
+                # 处方信息
+                "has_prescription": bool(row['prescription_id']),
+                "prescription_info": None
+            }
+            
+            # 如果有处方，添加处方详情
+            if row['prescription_id']:
+                # 🔑 根据审核状态和支付状态决定处方可见性
+                is_prescription_visible = False
+                prescription_display_text = ""
+                prescription_action_required = ""
+                
+                if row['review_status'] == 'pending_review':
+                    prescription_display_text = "处方正在医生审核中，请耐心等待..."
+                    prescription_action_required = "waiting_review"
+                    
+                elif row['review_status'] == 'approved' and row['payment_status'] == 'pending':
+                    prescription_display_text = "处方审核通过，需要支付后查看完整内容"
+                    prescription_action_required = "payment_required"
+                    is_prescription_visible = bool(row['is_visible_to_patient'])
+                    
+                elif row['review_status'] == 'approved' and row['payment_status'] == 'completed':
+                    prescription_display_text = row['doctor_prescription'] or row['ai_prescription']
+                    prescription_action_required = "completed"
+                    is_prescription_visible = True
+                    
+                elif row['review_status'] == 'rejected':
+                    prescription_display_text = "处方审核未通过，建议重新问诊"
+                    prescription_action_required = "rejected"
+                    
+                else:
+                    # 默认情况（旧数据兼容）
+                    prescription_display_text = row['ai_prescription'] or "处方信息不完整"
+                    prescription_action_required = "unknown"
+                
+                consultation_record["prescription_info"] = {
+                    "prescription_id": row['prescription_id'],
+                    "status": row['prescription_status'],
+                    "review_status": row['review_status'],
+                    "payment_status": row['payment_status'],
+                    "prescription_fee": row['prescription_fee'] or 88.0,
+                    "is_visible": is_prescription_visible,
+                    "display_text": prescription_display_text,
+                    "action_required": prescription_action_required,
+                    "diagnosis": row['diagnosis'] or "",
+                    "symptoms": row['symptoms'] or "",
+                    "reviewed_at": row['reviewed_at'],
+                    "visibility_unlock_time": row['visibility_unlock_time']
+                }
+            
+            consultation_history.append(consultation_record)
+        
+        conn.close()
+        
+        logger.info(f"✅ 获取到 {len(consultation_history)} 条历史问诊记录")
+        
+        return {
+            "success": True,
+            "data": {
+                "consultation_history": consultation_history,
+                "total_count": len(consultation_history),
+                "user_id": user_id
+            },
+            "message": "历史记录获取成功"
+        }
+        
+    except Exception as e:
+        logger.error(f"获取患者历史问诊失败: {e}")
+        logger.error(traceback.format_exc())
+        return {
+            "success": False,
+            "message": f"获取历史记录失败: {str(e)}"
         }
 
