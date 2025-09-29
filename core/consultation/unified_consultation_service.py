@@ -307,8 +307,16 @@ class UnifiedConsultationService:
             
             # 提取处方数据（如果有）
             prescription_data = None
+            real_prescription_id = None
             if contains_prescription:
                 prescription_data = self._extract_prescription_data(ai_response)
+                # 🔑 关键修复：检测到处方时自动创建处方记录和审核队列
+                real_prescription_id = await self._create_prescription_record(request, ai_response, prescription_data)
+                if real_prescription_id and prescription_data:
+                    # 更新处方数据中的真实ID
+                    prescription_data["prescription_id"] = real_prescription_id
+                    prescription_data["status"] = "pending_review"  # 等待审核状态
+                    prescription_data["note"] = "处方已提交医生审核，审核通过后可配药"
             
             # 判断问诊阶段
             stage = self._determine_consultation_stage(ai_response, request.conversation_history or [])
@@ -381,6 +389,81 @@ class UnifiedConsultationService:
                 "payment_amount": 88.0
             }
         return None
+
+    async def _create_prescription_record(self, request: ConsultationRequest, ai_response: str, prescription_data: Dict) -> Optional[int]:
+        """创建处方记录并自动提交审核队列"""
+        import sqlite3
+        import json
+        
+        try:
+            # 医生ID映射
+            doctor_id_mapping = {
+                'zhang_zhongjing': 4,
+                'ye_tianshi': 2, 
+                'li_dongyuan': 3,
+                'zheng_qin_an': 6,
+                'liu_duzhou': 5,
+                'jin_daifu': 1
+            }
+            
+            doctor_id = doctor_id_mapping.get(request.selected_doctor, 1)
+            
+            # 连接数据库
+            conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+            cursor = conn.cursor()
+            
+            # 从conversation_history中提取症状和诊断
+            symptoms = "AI问诊症状分析"
+            diagnosis = "AI中医辨证诊断" 
+            
+            if request.conversation_history:
+                # 提取用户最后的症状描述
+                user_messages = [msg.get('content', '') for msg in request.conversation_history if msg.get('role') == 'user']
+                if user_messages:
+                    symptoms = user_messages[-1][:200]  # 截取最后症状描述
+            
+            # 创建处方记录
+            cursor.execute("""
+                INSERT INTO prescriptions (
+                    patient_id, conversation_id, doctor_id, patient_name,
+                    symptoms, diagnosis, ai_prescription, status, payment_status,
+                    is_visible_to_patient, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            """, (
+                request.patient_id,
+                request.conversation_id,
+                doctor_id,
+                request.patient_id,  # 使用patient_id作为姓名
+                symptoms,
+                diagnosis,
+                ai_response,  # 完整的AI回复作为处方内容
+                'pending_review',  # 🔑 关键：直接设为待审核状态
+                'pending',
+                0  # 患者暂时不可见，等审核通过后可见
+            ))
+            
+            prescription_id = cursor.lastrowid
+            
+            # 🔑 关键：自动提交到医生审核队列
+            cursor.execute("""
+                INSERT INTO doctor_review_queue (
+                    prescription_id, doctor_id, consultation_id,
+                    submitted_at, status, priority
+                ) VALUES (?, ?, ?, datetime('now'), 'pending', 'normal')
+            """, (prescription_id, str(doctor_id), request.conversation_id))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"✅ 处方自动创建并提交审核: prescription_id={prescription_id}, doctor_id={doctor_id}")
+            return prescription_id
+            
+        except Exception as e:
+            logger.error(f"创建处方记录失败: {e}")
+            if 'conn' in locals():
+                conn.rollback()
+                conn.close()
+            return None
     
     def _determine_consultation_stage(self, response: str, history: List[Dict]) -> str:
         """判断问诊阶段"""
@@ -846,9 +929,17 @@ class UnifiedConsultationService:
             # 使用分析结果
             contains_prescription = ai_analysis.has_prescription_keywords if ai_analysis else self._contains_prescription(ai_response)
             prescription_data = None
+            real_prescription_id = None
             
             if contains_prescription:
                 prescription_data = self._extract_prescription_data(ai_response)
+                # 🔑 关键修复：检测到处方时自动创建处方记录和审核队列
+                real_prescription_id = await self._create_prescription_record(request, ai_response, prescription_data)
+                if real_prescription_id and prescription_data:
+                    # 更新处方数据中的真实ID
+                    prescription_data["prescription_id"] = real_prescription_id
+                    prescription_data["status"] = "pending_review"  # 等待审核状态
+                    prescription_data["note"] = "处方已提交医生审核，审核通过后可配药"
             
             # 基于状态确定阶段
             stage = "inquiry"  # 默认

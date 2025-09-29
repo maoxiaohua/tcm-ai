@@ -84,12 +84,16 @@ async def confirm_payment(request: PaymentConfirmRequest):
         """, (request.prescription_id, request.payment_amount, request.payment_method))
         
         # 自动提交给医生审核 - 插入到医生工作队列
+        # 🔑 修复：将doctor_id从整数转换为字符串以匹配表结构
+        doctor_id_str = str(prescription['doctor_id']) if prescription['doctor_id'] else '1'
+        # 🔑 修复：处理consultation_id可能为空的情况
+        consultation_id = prescription['consultation_id'] or 'unknown'
         cursor.execute("""
             INSERT OR REPLACE INTO doctor_review_queue (
                 prescription_id, doctor_id, consultation_id, 
                 submitted_at, status, priority
             ) VALUES (?, ?, ?, datetime('now'), 'pending', 'normal')
-        """, (request.prescription_id, prescription['doctor_id'], prescription['consultation_id']))
+        """, (request.prescription_id, doctor_id_str, consultation_id))
         
         conn.commit()
         conn.close()

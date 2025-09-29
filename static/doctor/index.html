@@ -733,7 +733,7 @@
                                 <option value="pending" selected>待审查</option>
                                 <option value="today">今日已审查</option>
                                 <option value="approved">已通过</option>
-                                <option value="rejected">已拒绝</option>
+                                <option value="modified">已调整</option>
                                 <option value="high-risk">高风险</option>
                             </select>
                             <select id="timeFilter" onchange="handleFilterChange()" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
@@ -800,23 +800,62 @@
                 <div style="margin-top: 20px; text-align: right;">
                     <button class="btn btn-secondary" onclick="closePrescriptionModal()" style="margin-right: 10px;">取消</button>
                     <button class="btn" onclick="approvePrescription()" style="background: #10b981; margin-right: 10px;">✅ 通过</button>
-                    <button class="btn" onclick="showRejectForm()" style="background: #ef4444;">❌ 拒绝</button>
+                    <button class="btn" onclick="showModifyForm()" style="background: #f59e0b;">📝 调整处方</button>
                 </div>
                 
-                <!-- 拒绝原因输入 -->
-                <div id="rejectForm" style="display: none; margin-top: 15px; padding: 15px; background: #fef2f2; border-radius: 8px;">
-                    <label style="display: block; margin-bottom: 8px; color: #dc2626; font-weight: 500;">拒绝原因：</label>
-                    <textarea id="rejectReason" style="
-                        width: 100%;
-                        height: 80px;
-                        padding: 10px;
-                        border: 1px solid #fecaca;
-                        border-radius: 6px;
-                        resize: vertical;
-                    " placeholder="请详细说明拒绝的原因..."></textarea>
-                    <div style="margin-top: 10px; text-align: right;">
-                        <button class="btn btn-secondary" onclick="hideRejectForm()" style="margin-right: 10px;">取消</button>
-                        <button class="btn" onclick="rejectPrescription()" style="background: #ef4444;">确认拒绝</button>
+                <!-- 处方调整输入 - 表格化界面 -->
+                <div id="modifyForm" style="display: none; margin-top: 15px; padding: 20px; background: #fef3c7; border-radius: 8px;">
+                    <h4 style="color: #92400e; margin: 0 0 15px 0;">📝 处方调整</h4>
+                    
+                    <!-- 原方显示 -->
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; color: #92400e; font-weight: 500;">原AI处方：</label>
+                        <div id="originalPrescriptionDisplay" style="padding: 10px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; max-height: 150px; overflow-y: auto; font-size: 13px; color: #856404;"></div>
+                    </div>
+                    
+                    <!-- 药材表格编辑器 -->
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; color: #92400e; font-weight: 500;">调整药材配方：</label>
+                        <div style="background: white; border: 1px solid #fbbf24; border-radius: 6px; overflow: hidden;">
+                            <div style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #fbbf24; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 600; color: #495057;">药材配方表</span>
+                                <button type="button" onclick="addNewHerb()" style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px;">+ 添加药材</button>
+                            </div>
+                            <div style="max-height: 300px; overflow-y: auto;">
+                                <table id="herbTable" style="width: 100%; border-collapse: collapse;">
+                                    <thead style="background: #f8f9fa; position: sticky; top: 0;">
+                                        <tr>
+                                            <th style="padding: 8px; border-bottom: 1px solid #dee2e6; text-align: left; font-size: 12px; color: #495057;">药材名称</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #dee2e6; text-align: left; font-size: 12px; color: #495057;">用量(g)</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #dee2e6; text-align: left; font-size: 12px; color: #495057;">功效</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #dee2e6; text-align: center; font-size: 12px; color: #495057; width: 80px;">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="herbTableBody">
+                                        <!-- 药材行将在这里动态添加 -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 调整说明 -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 8px; color: #92400e; font-weight: 500;">调整说明：</label>
+                        <textarea id="modifyNotes" style="
+                            width: 100%;
+                            height: 80px;
+                            padding: 10px;
+                            border: 1px solid #fbbf24;
+                            border-radius: 6px;
+                            resize: vertical;
+                            font-size: 13px;
+                        " placeholder="请说明调整的原因和注意事项..."></textarea>
+                    </div>
+                    
+                    <div style="text-align: right;">
+                        <button class="btn btn-secondary" onclick="hideModifyForm()" style="margin-right: 10px;">取消</button>
+                        <button class="btn" onclick="submitModifiedPrescription()" style="background: #f59e0b;">确认调整</button>
                     </div>
                 </div>
             </div>
@@ -1951,8 +1990,8 @@
                                         <span style="font-weight: bold; color: #10b981;">${stats.approved} 个</span>
                                     </div>
                                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: white; border-radius: 8px; margin-bottom: 10px;">
-                                        <span style="color: #ef4444; font-weight: 600;">❌ 拒绝</span>
-                                        <span style="font-weight: bold; color: #ef4444;">${stats.rejected} 个</span>
+                                        <span style="color: #f59e0b; font-weight: 600;">📝 调整</span>
+                                        <span style="font-weight: bold; color: #f59e0b;">${stats.modified || 0} 个</span>
                                     </div>
                                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: white; border-radius: 8px;">
                                         <span style="color: #f59e0b; font-weight: 600;">⏳ 待审查</span>
@@ -2581,8 +2620,8 @@
                             <button class="btn quick-approve-btn" data-id="${prescription.id}" style="background: #10b981; padding: 6px 15px; font-size: 12px;">
                                 ✅ 快速通过
                             </button>
-                            <button class="btn quick-reject-btn" data-id="${prescription.id}" style="background: #ef4444; padding: 6px 15px; font-size: 12px;">
-                                ❌ 快速拒绝
+                            <button class="btn quick-modify-btn" data-id="${prescription.id}" style="background: #f59e0b; padding: 6px 15px; font-size: 12px;">
+                                📝 调整处方
                             </button>
                             <button class="btn view-detail-btn" data-id="${prescription.id}" style="background: #6b7280; padding: 6px 15px; font-size: 12px;">
                                 👁️ 查看详情
@@ -2630,12 +2669,12 @@
                 });
             });
 
-            // 快速拒绝按钮
-            document.querySelectorAll('.quick-reject-btn').forEach(btn => {
+            // 快速调整按钮
+            document.querySelectorAll('.quick-modify-btn').forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
                     const prescriptionId = this.dataset.id;
-                    quickReject(prescriptionId);
+                    modifyPrescription(prescriptionId);
                 });
             });
         }
@@ -2795,57 +2834,198 @@
             }
         }
 
-        // 显示拒绝表单
-        function showRejectForm() {
-            document.getElementById('rejectForm').style.display = 'block';
-            document.getElementById('rejectReason').focus();
+        // 显示处方调整表单 - 表格化版本
+        function showModifyForm() {
+            // 预填充原始处方内容
+            const originalContent = document.querySelector('#prescriptionDetailContent');
+            if (originalContent) {
+                const originalText = originalContent.textContent.trim();
+                document.getElementById('originalPrescriptionDisplay').textContent = originalText;
+                
+                // 解析原始处方中的药材信息并填充到表格
+                parseAndFillHerbTable(originalText);
+            }
+            
+            document.getElementById('modifyForm').style.display = 'block';
+        }
+        
+        // 解析处方文本并填充药材表格
+        function parseAndFillHerbTable(prescriptionText) {
+            const herbTableBody = document.getElementById('herbTableBody');
+            herbTableBody.innerHTML = ''; // 清空现有内容
+            
+            // 简单的药材解析正则表达式
+            const herbPattern = /([一-龟\u4e00-\u9fa5]{2,6})\s*(\d+)\s*[克g]/g;
+            let match;
+            let herbIndex = 0;
+            
+            while ((match = herbPattern.exec(prescriptionText)) !== null) {
+                const herbName = match[1];
+                const dosage = match[2];
+                addHerbRow(herbName, dosage, '', herbIndex++);
+            }
+            
+            // 如果没有找到药材，添加一个空行
+            if (herbIndex === 0) {
+                addHerbRow('', '', '', 0);
+            }
+        }
+        
+        // 添加药材行到表格
+        function addHerbRow(name = '', dosage = '', effect = '', index = null) {
+            const herbTableBody = document.getElementById('herbTableBody');
+            if (index === null) {
+                index = herbTableBody.children.length;
+            }
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">
+                    <input type="text" value="${name}" placeholder="药材名称" 
+                           style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 5px; font-size: 12px;"
+                           data-field="name" data-index="${index}">
+                </td>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">
+                    <input type="number" value="${dosage}" placeholder="用量" 
+                           style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 5px; font-size: 12px;"
+                           data-field="dosage" data-index="${index}" min="1" max="100">
+                </td>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">
+                    <input type="text" value="${effect}" placeholder="功效说明" 
+                           style="width: 100%; border: 1px solid #ced4da; border-radius: 4px; padding: 5px; font-size: 12px;"
+                           data-field="effect" data-index="${index}">
+                </td>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6; text-align: center;">
+                    <button type="button" onclick="removeHerbRow(this)" 
+                            style="background: #dc3545; color: white; border: none; padding: 3px 6px; border-radius: 3px; font-size: 11px;">删除</button>
+                </td>
+            `;
+            herbTableBody.appendChild(row);
+        }
+        
+        // 添加新药材
+        function addNewHerb() {
+            addHerbRow();
+        }
+        
+        // 删除药材行
+        function removeHerbRow(button) {
+            const row = button.closest('tr');
+            row.remove();
+        }
+        
+        // 收集表格中的药材数据
+        function collectHerbData() {
+            const herbTableBody = document.getElementById('herbTableBody');
+            const herbs = [];
+            
+            for (let row of herbTableBody.children) {
+                const nameInput = row.querySelector('[data-field="name"]');
+                const dosageInput = row.querySelector('[data-field="dosage"]');
+                const effectInput = row.querySelector('[data-field="effect"]');
+                
+                const name = nameInput.value.trim();
+                const dosage = dosageInput.value.trim();
+                const effect = effectInput.value.trim();
+                
+                if (name && dosage) {
+                    herbs.push({ name, dosage, effect });
+                }
+            }
+            
+            return herbs;
         }
 
-        // 隐藏拒绝表单
-        function hideRejectForm() {
-            document.getElementById('rejectForm').style.display = 'none';
-            document.getElementById('rejectReason').value = '';
+        // 隐藏处方调整表单
+        function hideModifyForm() {
+            document.getElementById('modifyForm').style.display = 'none';
+            document.getElementById('modifiedPrescription').value = '';
+            document.getElementById('modifyNotes').value = '';
         }
 
-        // 拒绝处方
-        async function rejectPrescription() {
+        // 提交调整后的处方 - 表格化版本
+        async function submitModifiedPrescription() {
             if (!currentPrescriptionId) return;
             
-            const reason = document.getElementById('rejectReason').value.trim();
-            if (!reason) {
-                alert('请填写拒绝原因');
+            const herbs = collectHerbData();
+            const notes = document.getElementById('modifyNotes').value.trim();
+            
+            if (herbs.length === 0) {
+                alert('请至少添加一味药材');
                 return;
             }
             
-            await reviewPrescription('reject', reason);
+            if (!notes) {
+                alert('请填写调整说明');
+                return;
+            }
+            
+            // 生成调整后的处方文本
+            const modifiedContent = generatePrescriptionText(herbs);
+            
+            await reviewPrescription('modify', notes, modifiedContent);
+            hideModifyForm();
+        }
+        
+        // 根据药材数据生成处方文本
+        function generatePrescriptionText(herbs) {
+            let prescriptionText = '【调整后处方】\n\n';
+            
+            herbs.forEach((herb, index) => {
+                prescriptionText += `${index + 1}. ${herb.name} ${herb.dosage}g`;
+                if (herb.effect) {
+                    prescriptionText += ` (${herb.effect})`;
+                }
+                prescriptionText += '\n';
+            });
+            
+            prescriptionText += '\n【用法用量】\n';
+            prescriptionText += '水煎服，每日一剂，分早晚两次服用。\n\n';
+            prescriptionText += '【注意事项】\n';
+            prescriptionText += '1. 请按照医嘱用药，不可随意增减剂量\n';
+            prescriptionText += '2. 服药期间忌食生冷、辛辣食物\n';
+            prescriptionText += '3. 如有不适请及时就医\n';
+            
+            return prescriptionText;
         }
 
-        // 审查处方
-        async function reviewPrescription(action, notes) {
+        // 审查处方 - 修复API端点
+        async function reviewPrescription(action, notes, modifiedPrescription = null) {
             const token = localStorage.getItem('doctorToken');
             if (!token || !currentPrescriptionId) return;
 
             try {
-                const response = await fetch(`/api/doctor/prescription/${currentPrescriptionId}/review`, {
-                    method: 'PUT',
+                // 🔑 修复：使用正确的新API端点
+                const requestBody = {
+                    prescription_id: currentPrescriptionId,
+                    doctor_id: getCurrentDoctorId(), // 获取当前医生ID
+                    action: action,
+                    doctor_notes: notes
+                };
+
+                // 如果是修改处方，添加修改后的内容
+                if (action === 'modify' && modifiedPrescription) {
+                    requestBody.modified_prescription = modifiedPrescription;
+                }
+
+                const response = await fetch('/api/prescription-review/doctor-review', {
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({
-                        action: action,
-                        doctor_notes: notes
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
                 const data = await response.json();
                 
-                if (response.ok) {
-                    alert(`处方${action === 'approve' ? '通过' : '拒绝'}成功`);
+                if (data.success) {
+                    const actionText = action === 'approve' ? '通过' : '修改';
+                    alert(`处方${actionText}成功`);
                     closePrescriptionModal();
                     await loadPrescriptionReviewData(); // 刷新数据
                 } else {
-                    alert(data.detail || '审查失败');
+                    alert(data.message || '审查失败');
                 }
             } catch (error) {
                 console.error('审查处方失败:', error);
@@ -2853,31 +3033,34 @@
             }
         }
 
-        // 快速通过
+        // 快速通过 - 修复API端点
         async function quickApprove(prescriptionId) {
             if (confirm('确认快速通过此处方吗？')) {
                 const token = localStorage.getItem('doctorToken');
                 if (!token) return;
 
                 try {
-                    const response = await fetch(`/api/doctor/prescription/${prescriptionId}/review`, {
-                        method: 'PUT',
+                    // 🔑 修复：使用正确的新API端点
+                    const response = await fetch('/api/prescription-review/doctor-review', {
+                        method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`
                         },
                         body: JSON.stringify({
+                            prescription_id: prescriptionId,
+                            doctor_id: getCurrentDoctorId(),
                             action: 'approve',
                             doctor_notes: '快速通过'
                         })
                     });
 
-                    if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
                         alert('处方已通过');
                         await loadPrescriptionReviewData();
                     } else {
-                        const data = await response.json();
-                        alert(data.detail || '操作失败');
+                        alert(data.message || '操作失败');
                     }
                 } catch (error) {
                     console.error('快速通过失败:', error);
@@ -2886,36 +3069,41 @@
             }
         }
 
-        // 快速拒绝
-        async function quickReject(prescriptionId) {
-            const reason = prompt('请输入拒绝原因：');
-            if (!reason) return;
+        // 🔧 删除快速拒绝功能，改为处方调整功能
+        async function modifyPrescription(prescriptionId) {
+            const modifiedContent = prompt('请输入调整后的处方内容：');
+            if (!modifiedContent) return;
+
+            const notes = prompt('请输入调整说明（可选）：') || '医生调整处方';
 
             const token = localStorage.getItem('doctorToken');
             if (!token) return;
 
             try {
-                const response = await fetch(`/api/doctor/prescription/${prescriptionId}/review`, {
-                    method: 'PUT',
+                const response = await fetch('/api/prescription-review/doctor-review', {
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
-                        action: 'reject',
-                        doctor_notes: reason
+                        prescription_id: prescriptionId,
+                        doctor_id: getCurrentDoctorId(),
+                        action: 'modify',
+                        modified_prescription: modifiedContent,
+                        doctor_notes: notes
                     })
                 });
 
-                if (response.ok) {
-                    alert('处方已拒绝');
+                const data = await response.json();
+                if (data.success) {
+                    alert('处方调整成功');
                     await loadPrescriptionReviewData();
                 } else {
-                    const data = await response.json();
-                    alert(data.detail || '操作失败');
+                    alert(data.message || '操作失败');
                 }
             } catch (error) {
-                console.error('快速拒绝失败:', error);
+                console.error('处方调整失败:', error);
                 alert('网络错误，请稍后重试');
             }
         }
@@ -2925,13 +3113,31 @@
             await loadPrescriptionReviewData();
         }
 
-        // 获取状态文本
+        // 获取当前医生ID
+        function getCurrentDoctorId() {
+            // 从localStorage获取医生信息
+            const doctorInfo = localStorage.getItem('doctorInfo');
+            if (doctorInfo) {
+                try {
+                    const doctor = JSON.parse(doctorInfo);
+                    return doctor.id || doctor.doctor_id || '1'; // 默认为1
+                } catch (e) {
+                    console.warn('解析医生信息失败:', e);
+                }
+            }
+            return '1'; // 默认医生ID
+        }
+
+        // 获取状态文本 - 更新状态映射
         function getStatusText(status) {
             const statusMap = {
                 'pending': '待审查',
+                'pending_review': '待审核',
+                'ai_generated': '待支付',
                 'doctor_reviewing': '审查中', 
+                'doctor_approved': '医生已通过',
+                'doctor_modified': '医生已调整',
                 'approved': '已通过',
-                'rejected': '已拒绝',
                 'patient_confirmed': '患者确认',
                 'paid': '已支付',
                 'completed': '已完成'
@@ -2999,9 +3205,9 @@
                         endpoint = '/api/doctor/approved-prescriptions';
                         title = '已通过处方列表';
                         break;
-                    case 'rejected':
-                        endpoint = '/api/doctor/rejected-prescriptions';
-                        title = '已拒绝处方列表';
+                    case 'modified':
+                        endpoint = '/api/doctor/modified-prescriptions';
+                        title = '已调整处方列表';
                         break;
                 }
                 

@@ -63,19 +63,19 @@ def get_current_doctor(authorization: str = Header(None)) -> Doctor:
         if result:
             user_id, username, display_name, role = result
             
-            # 根据user_id映射到doctors表的ID
+            # 根据user_id映射到doctors表的ID（字符串格式，匹配doctor_review_queue表）
             user_id_to_doctor_id = {
-                "usr_20250920_575ba94095a7": 1,  # 金大夫 (jingdaifu) 
-                "usr_20250927_zhangzhongjing": 4,  # 张仲景 (zhangzhongjing)
-                "usr_20250920_4e7591213d67": 2,  # 叶天士 (yetianshi) - 创建对应的医生记录
-                "usr_20250920_9a6e8b898f1f": 1,  # 管理员 -> 金大夫
-                "usr_20250920_c58e33b0839b": 1,  # 通用医生账户 -> 金大夫
+                "usr_20250920_575ba94095a7": "1",  # 金大夫 (jingdaifu) 
+                "usr_20250927_zhangzhongjing": "4",  # 张仲景 (zhangzhongjing)
+                "usr_20250920_4e7591213d67": "2",  # 叶天士 (yetianshi) - 创建对应的医生记录
+                "usr_20250920_9a6e8b898f1f": "1",  # 管理员 -> 金大夫
+                "usr_20250920_c58e33b0839b": "1",  # 通用医生账户 -> 金大夫
             }
             
-            doctor_id = user_id_to_doctor_id.get(user_id, 1)  # 默认为1
+            doctor_id = user_id_to_doctor_id.get(user_id, "1")  # 默认为"1"
             
-            # 从doctors表获取详细信息
-            cursor.execute("SELECT * FROM doctors WHERE id = ?", (doctor_id,))
+            # 从doctors表获取详细信息（转换回整数查询doctors表）
+            cursor.execute("SELECT * FROM doctors WHERE id = ?", (int(doctor_id),))
             row = cursor.fetchone()
             if row:
                 conn.close()
@@ -356,13 +356,15 @@ async def get_pending_prescriptions(current_doctor: Doctor = Depends(get_current
     cursor = conn.cursor()
     
     try:
+        # 🔑 修复：从doctor_review_queue表获取待审核处方，使用字符串类型的doctor_id
         cursor.execute("""
-            SELECT p.*, 
-                   CASE WHEN p.doctor_id = ? THEN 1 ELSE 0 END as is_assigned_to_me
+            SELECT p.*, q.submitted_at, q.priority,
+                   CASE WHEN q.doctor_id = ? THEN 1 ELSE 0 END as is_assigned_to_me
             FROM prescriptions p 
-            WHERE p.status IN ('pending', 'doctor_reviewing')
-            ORDER BY p.created_at ASC
-        """, (current_doctor.id,))
+            JOIN doctor_review_queue q ON p.id = q.prescription_id
+            WHERE q.status = 'pending' AND q.doctor_id = ?
+            ORDER BY q.priority DESC, q.submitted_at ASC
+        """, (str(current_doctor.id), str(current_doctor.id)))
         
         rows = cursor.fetchall()
         prescriptions = [dict(row) for row in rows]

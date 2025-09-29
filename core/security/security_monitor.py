@@ -428,21 +428,29 @@ class SecurityMonitor:
                       endpoint: str, status_code: int, response_time_ms: float,
                       user_id: Optional[str] = None, session_token: Optional[str] = None):
         """记录API访问日志"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            INSERT INTO api_access_log
-            (timestamp, ip_address, user_agent, method, endpoint, status_code,
-             response_time_ms, user_id, session_token)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            datetime.now().isoformat(), ip_address, user_agent, method,
-            endpoint, status_code, response_time_ms, user_id, session_token
-        ))
-        
-        conn.commit()
-        conn.close()
+        try:
+            # 🔑 修复：添加超时和错误处理，避免数据库锁定影响API性能
+            conn = sqlite3.connect(self.db_path, timeout=1.0)  # 1秒超时
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO api_access_log
+                (timestamp, ip_address, user_agent, method, endpoint, status_code,
+                 response_time_ms, user_id, session_token)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                datetime.now().isoformat(), ip_address, user_agent, method,
+                endpoint, status_code, response_time_ms, user_id, session_token
+            ))
+            
+            conn.commit()
+            conn.close()
+        except sqlite3.OperationalError as e:
+            # 数据库锁定时静默失败，不影响API正常运行
+            print(f"⚠️ API访问日志记录失败: {e}")
+        except Exception as e:
+            # 其他错误也不影响API
+            print(f"⚠️ 安全监控记录失败: {e}")
     
     def get_security_dashboard_data(self) -> Dict[str, Any]:
         """获取安全仪表板数据"""

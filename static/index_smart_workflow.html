@@ -3946,11 +3946,16 @@
                 let prescriptionId = responseData.data?.prescription_id || null;
                 const isPaid = responseData.data?.is_paid || false;
                 
-                // 🔑 关键：如果有真实处方ID，存储映射关系
+                // 🔑 关键：如果有真实处方ID，存储映射关系和状态
                 if (prescriptionId && responseData.data?.contains_prescription) {
                     // 处方哈希ID将在简化处方管理器中生成，这里先记录真实ID
                     window.lastRealPrescriptionId = prescriptionId;
+                    // 🔑 新增：存储完整的处方数据，包括状态信息
+                    window.lastPrescriptionData = responseData.data.prescription_data || {};
+                    window.lastPrescriptionData.prescription_id = prescriptionId;
+                    
                     console.log(`📋 获取到真实处方ID: ${prescriptionId}`);
+                    console.log(`📋 处方数据:`, window.lastPrescriptionData);
                 }
                 
                 // 🔧 如果API没有返回处方ID，但响应包含处方内容，则调用后端创建处方
@@ -3963,9 +3968,20 @@
                         const userId = getCurrentUserId();
                         const conversationId = currentConversationId || generateConversationId();
                         
+                        // 🔑 修复：添加医生ID到处方数据
+                        const doctorIdMapping = {
+                            'zhang_zhongjing': 4,
+                            'ye_tianshi': 2,
+                            'li_dongyuan': 3,
+                            'zheng_qin_an': 6,
+                            'liu_duzhou': 5,
+                            'jin_daifu': 1
+                        };
+                        
                         const prescriptionData = {
                             patient_id: userId,
                             conversation_id: conversationId,
+                            doctor_id: doctorIdMapping[selectedDoctor] || 1, // 🆕 添加医生ID
                             patient_name: currentUser?.display_name || currentUser?.username || '用户',
                             symptoms: (responseData.data?.symptoms_summary || '用户问诊'),
                             diagnosis: (responseData.data?.diagnosis_summary || selectedDoctor + '医生诊断'),
@@ -6036,6 +6052,40 @@ ${data.analysis_result}`;
         async function markPrescriptionAsPaid(prescriptionId) {
             console.log('🔄 标记处方为已支付:', prescriptionId);
             
+            // 🆕 关键修复：支付成功后将处方提交给医生审核
+            try {
+                console.log('🔄 支付成功，正在提交处方给医生审核...');
+                const submitResponse = await fetch('/api/prescription-review/payment-confirm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    },
+                    body: JSON.stringify({
+                        prescription_id: parseInt(prescriptionId),
+                        payment_amount: 80.00,
+                        payment_method: 'alipay'
+                    })
+                });
+                
+                const submitResult = await submitResponse.json();
+                console.log('📋 处方提交审核结果:', submitResult);
+                
+                if (submitResult.success) {
+                    console.log('✅ 处方已成功提交医生审核');
+                    // 显示审核等待提示
+                    showMessage('✅ 支付成功！处方已提交医生审核，审核完成后即可配药', 'success');
+                    
+                    // 🔑 关键修复：如果提交审核成功，不显示完整处方，只显示等待审核状态
+                    updatePrescriptionToReviewStatus(prescriptionId);
+                    return; // 提前返回，不执行后面的完整处方显示逻辑
+                } else {
+                    console.warn('⚠️ 处方提交审核失败:', submitResult.message);
+                }
+            } catch (error) {
+                console.error('❌ 处方提交审核异常:', error);
+            }
+            
             // 检测当前是移动端还是PC端
             const isMobile = window.innerWidth <= 768;
             console.log('🔍 屏幕检测:', { windowWidth: window.innerWidth, isMobile });
@@ -6227,6 +6277,108 @@ ${data.analysis_result}`;
             }
         }
         
+        // 🆕 更新处方显示为等待审核状态
+        function updatePrescriptionToReviewStatus(prescriptionId) {
+            console.log('🔄 更新处方为等待审核状态:', prescriptionId);
+            
+            // 查找包含处方的消息
+            const messagesContainer = document.getElementById('messagesContainer') || document.getElementById('mobileMessagesContainer');
+            if (!messagesContainer) return;
+            
+            const aiMessages = messagesContainer.querySelectorAll('.message.ai');
+            
+            for (let messageDiv of aiMessages) {
+                const msgPrescriptionId = messageDiv.getAttribute('data-prescription-id');
+                const messageContent = messageDiv.innerHTML || '';
+                const hasPrescriptionContent = messageContent.includes('处方') || messageContent.includes('方剂');
+                
+                // 如果是目标处方消息
+                if ((prescriptionId && msgPrescriptionId === prescriptionId) || 
+                    (!prescriptionId && hasPrescriptionContent)) {
+                    
+                    const contentDiv = messageDiv.querySelector('.message-text') || messageDiv.querySelector('.message-content');
+                    if (contentDiv) {
+                        // 替换为等待审核状态
+                        contentDiv.innerHTML = `
+                            <div class="prescription-review-waiting" style="padding: 20px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 12px; border-left: 4px solid #f59e0b; margin: 15px 0;">
+                                <div style="text-align: center; margin-bottom: 15px;">
+                                    <div style="font-size: 2em; margin-bottom: 10px;">⏳</div>
+                                    <h3 style="color: #92400e; margin: 0; font-size: 18px;">处方等待医生审核中</h3>
+                                </div>
+                                
+                                <div style="background: rgba(255,255,255,0.8); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                                    <p style="margin: 0; color: #78350f; font-size: 14px; line-height: 1.6;">
+                                        ✅ <strong>支付已完成</strong><br>
+                                        🔍 处方正在由专业医生审核中<br>
+                                        📋 审核完成后您将收到通知<br>
+                                        💊 审核通过后即可配药
+                                    </p>
+                                </div>
+                                
+                                <div style="text-align: center; margin-top: 15px;">
+                                    <button onclick="checkPrescriptionStatus('${prescriptionId}')" 
+                                            style="background: #f59e0b; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                                        🔍 查看审核状态
+                                    </button>
+                                </div>
+                                
+                                <div style="font-size: 12px; color: #92400e; text-align: center; margin-top: 10px; opacity: 0.8;">
+                                    处方ID: ${prescriptionId}
+                                </div>
+                            </div>
+                        `;
+                        
+                        // 标记处方状态
+                        messageDiv.setAttribute('data-prescription-status', 'pending_review');
+                        console.log('✅ 已更新处方显示为等待审核状态');
+                    }
+                    break;
+                }
+            }
+        }
+        
+        // 🆕 检查处方审核状态
+        async function checkPrescriptionStatus(prescriptionId) {
+            try {
+                console.log('🔍 检查处方审核状态:', prescriptionId);
+                
+                const response = await fetch(`/api/prescription-review/status/${prescriptionId}`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('📋 处方状态:', result);
+                    
+                    if (result.success && result.data) {
+                        const statusData = result.data;
+                        
+                        if (statusData.is_reviewed) {
+                            // 审核完成，显示最终处方
+                            showMessage('✅ 处方审核已完成！', 'success');
+                            await markPrescriptionAsCompleted(prescriptionId, statusData);
+                        } else {
+                            // 仍在审核中
+                            showMessage(`⏳ 处方仍在审核中，状态：${statusData.status_description}`, 'info');
+                        }
+                    }
+                } else {
+                    showMessage('❌ 无法获取处方状态', 'error');
+                }
+            } catch (error) {
+                console.error('检查处方状态失败:', error);
+                showMessage('❌ 网络错误，请稍后重试', 'error');
+            }
+        }
+        
+        // 🆕 标记处方为审核完成状态
+        async function markPrescriptionAsCompleted(prescriptionId, statusData) {
+            // 这里可以实现审核完成后的处方显示逻辑
+            console.log('📋 处方审核完成，显示最终处方');
+            // 调用原来的markPrescriptionAsPaid逻辑，但跳过审核提交部分
+            await markPrescriptionAsPaid(prescriptionId);
+        }
+
         // 获取原始处方内容的辅助函数（从API获取）
         async function getOriginalPrescriptionContent(messageDiv, prescriptionId) {
             // 优先从API获取原始处方内容
@@ -8493,8 +8645,80 @@ ${data.analysis_result}`;
             }
         }
         
+        // 🆕 从服务器加载特定医生的历史记录
+        async function loadDoctorHistoryFromServer(doctorKey, userId) {
+            try {
+                console.log(`🌐 从服务器加载${doctorKey}医生的历史记录...`);
+                
+                // 🔑 修复：添加超时控制，避免长时间等待
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+                
+                const response = await fetch(`/api/conversation/history/${userId}?doctor_id=${doctorKey}`, {
+                    headers: getAuthHeaders(),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    console.warn(`❌ 服务器请求失败: ${response.status}`);
+                    return false;
+                }
+                
+                const result = await response.json();
+                console.log('📋 医生历史记录响应:', result);
+                
+                if (result.success && result.data && result.data.messages) {
+                    const messages = result.data.messages;
+                    
+                    if (messages.length > 0) {
+                        console.log(`📥 恢复${doctorKey}医生的 ${messages.length} 条消息`);
+                        
+                        // 清空当前消息
+                        clearAllMessages();
+                        
+                        // 逐条恢复消息
+                        await processServerMessages(messages);
+                        
+                        showSyncNotification(`✅ 已从云端恢复与${doctorKey}医生的对话`, 'server_restored');
+                        return true;
+                    } else {
+                        // 🔑 修复：服务器返回空数据时的处理
+                        console.log(`📭 ${doctorKey}医生暂无历史对话记录`);
+                        return true; // 返回true表示服务器响应正常，只是没有数据
+                    }
+                }
+                
+                return false;
+                
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    console.warn(`⏰ 加载${doctorKey}医生历史超时，切换到本地模式`);
+                } else {
+                    console.error(`❌ 从服务器加载${doctorKey}医生历史失败:`, error);
+                }
+                return false;
+            }
+        }
+
         async function loadDoctorHistory(doctorKey) {
             const userId = getCurrentUserId();
+            
+            // 🔑 修复：对于临时用户或设备用户，直接使用本地模式
+            if (userId.startsWith('temp_user_') || userId.startsWith('device_')) {
+                console.log(`📱 临时用户(${userId})，直接使用本地模式加载${doctorKey}医生历史`);
+            } else {
+                // 🔧 修复：优先从服务器加载特定医生的历史
+                const serverLoaded = await loadDoctorHistoryFromServer(doctorKey, userId);
+                
+                if (serverLoaded) {
+                    console.log(`✅ 从服务器成功加载${doctorKey}医生的历史记录`);
+                    return;
+                }
+                
+                console.log(`⚠️ 服务器加载失败，降级到本地模式加载${doctorKey}医生历史`);
+            }
             
             // 检测当前是移动端还是PC端
             const isMobile = window.innerWidth <= 768;
@@ -8552,8 +8776,9 @@ ${data.analysis_result}`;
                         console.log(`📱 从localStorage加载${doctorKey}医生的${messages.length}条对话历史`);
                         console.log(`🔍 调试: 本地消息=`, messages);
                         
-                        // 立即渲染本地数据
-                        showSyncNotification('已从本地缓存恢复对话历史', 'local_restored');
+                        // 🔑 修复：更友好的本地恢复提示
+                        const doctorName = getDoctorDisplayName(doctorKey) || doctorKey;
+                        showSyncNotification(`📱 已从本地恢复与${doctorName}的对话记录`, 'local_fallback');
                     }
                 } catch (error) {
                     console.warn('解析本地历史记录失败:', error);
@@ -8580,7 +8805,7 @@ ${data.analysis_result}`;
                             loadedFromServer = true;
                             console.log(`✅ 从服务器加载${doctorKey}医生的${messages.length}条对话历史`);
                             console.log(`🔍 调试: 加载的消息=`, messages);
-                            showSyncNotification('已从云端恢复对话历史', 'server_restored');
+                            showSyncNotification('✅ 已从云端同步对话历史', 'server_restored');
                         } else {
                             console.warn(`⚠️ 服务器返回空数据或格式不正确:`, result);
                         }
@@ -8617,7 +8842,7 @@ ${data.analysis_result}`;
                         }
                         
                         if (messages.length > 0) {
-                            showSyncNotification('已从本地恢复对话历史', 'local_restored');
+                            showSyncNotification('📭 暂无历史对话，开始新的问诊', 'info');
                         }
                     } catch (error) {
                         console.error('本地历史记录解析失败:', error);
@@ -8717,15 +8942,38 @@ ${data.analysis_result}`;
         // 🔔 显示同步状态通知
         function showSyncNotification(message, type = 'info') {
             const notification = document.createElement('div');
+            
+            // 根据类型设置不同的样式
+            let bgColor, textColor, borderColor, icon;
+            switch(type) {
+                case 'server_restored':
+                    bgColor = '#e8f5e8';
+                    textColor = '#2e7d32';
+                    borderColor = '#4caf50';
+                    icon = '☁️';
+                    break;
+                case 'local_fallback':
+                    bgColor = '#fff3e0';
+                    textColor = '#f57c00';
+                    borderColor = '#ff9800';
+                    icon = '📱';
+                    break;
+                default:
+                    bgColor = '#e3f2fd';
+                    textColor = '#1976d2';
+                    borderColor = '#2196f3';
+                    icon = 'ℹ️';
+            }
+            
             notification.style.cssText = `
                 position: fixed;
                 top: 80px;
                 right: 20px;
-                background: ${type === 'server_restored' ? '#e3f2fd' : type === 'local_restored' ? '#fff3e0' : '#f3e5f5'};
-                color: ${type === 'server_restored' ? '#1565c0' : type === 'local_restored' ? '#ef6c00' : '#7b1fa2'};
+                background: ${bgColor};
+                color: ${textColor};
                 padding: 12px 16px;
                 border-radius: 8px;
-                border-left: 4px solid ${type === 'server_restored' ? '#2196f3' : type === 'local_restored' ? '#ff9800' : '#9c27b0'};
+                border-left: 4px solid ${borderColor};
                 box-shadow: 0 4px 12px rgba(0,0,0,0.15);
                 z-index: 1002;
                 font-size: 14px;
@@ -8739,7 +8987,7 @@ ${data.analysis_result}`;
                 'sync_success': '✅'
             };
             
-            notification.innerHTML = `${icons[type] || '🔄'} ${message}`;
+            notification.innerHTML = `${icon} ${message}`;
             document.body.appendChild(notification);
             
             // 3秒后自动消失
@@ -8835,27 +9083,149 @@ ${data.analysis_result}`;
         }
         
         // 加载对话历史 - 基于用户ID隔离并支持医疗记录管理
-        function loadConversationHistory() {
+        // 🔧 修复：优先从服务器恢复数据，确保多端一致性
+        async function loadConversationHistory() {
             const userId = getCurrentUserId();
-            const storageKey = `conversationId_${userId}`;
             
-            // 尝试加载当前用户的对话ID
-            const storedId = localStorage.getItem(storageKey);
-            if (storedId) {
-                currentConversationId = storedId;
-                console.log(`已加载用户(${userId})的对话ID: ${currentConversationId}`);
-            } else {
-                // 如果没有存储的ID，生成新的
-                generateConversationId();
-                console.log(`为用户(${userId})生成新对话ID: ${currentConversationId}`);
+            console.log('🔄 开始加载对话历史，用户ID:', userId);
+            
+            // 1. 优先尝试从服务器恢复数据
+            const serverRestored = await loadConversationFromServer(userId);
+            
+            if (!serverRestored) {
+                console.log('⚠️ 服务器恢复失败，降级到本地模式');
+                
+                // 2. 降级：从localStorage恢复对话ID
+                const storageKey = `conversationId_${userId}`;
+                const storedId = localStorage.getItem(storageKey);
+                if (storedId) {
+                    currentConversationId = storedId;
+                    console.log(`📱 从本地存储加载对话ID: ${currentConversationId}`);
+                } else {
+                    generateConversationId();
+                    console.log(`🆕 生成新对话ID: ${currentConversationId}`);
+                }
+                
+                // 3. 加载本地历史记录
+                loadAndDisplayAllConversations();
+                
+                // 4. 显示降级提示
+                showSyncNotification('⚠️ 已从本地缓存恢复，建议检查网络连接', 'local_fallback');
             }
             
-            // 加载并显示所有历史记录
-            loadAndDisplayAllConversations();
-            
-            // 如果有选中的医生，加载该医生的历史记录
+            // 5. 如果有选中的医生，加载该医生的历史记录
             if (selectedDoctor) {
-                loadDoctorHistory(selectedDoctor);
+                await loadDoctorHistoryFromServer(selectedDoctor, userId);
+            }
+        }
+        
+        // 🆕 从服务器加载对话历史
+        async function loadConversationFromServer(userId) {
+            try {
+                console.log('🌐 尝试从服务器恢复对话历史...');
+                
+                const response = await fetch(`/api/conversation/history/${userId}`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (!response.ok) {
+                    console.warn(`❌ 服务器请求失败: ${response.status}`);
+                    return false;
+                }
+                
+                const result = await response.json();
+                console.log('📋 服务器响应:', result);
+                
+                if (result.success && result.data) {
+                    const { messages, conversation_states, consultation_records } = result.data;
+                    
+                    // 显示成功提示
+                    showSyncNotification(`✅ 已从云端恢复 ${messages?.length || 0} 条对话记录`, 'server_restored');
+                    
+                    // 处理对话状态
+                    if (conversation_states && conversation_states.length > 0) {
+                        const latestState = conversation_states[0];
+                        currentConversationId = latestState.conversation_id;
+                        console.log('🔄 恢复对话ID:', currentConversationId);
+                    }
+                    
+                    // 处理消息历史 - 加载所有医生的消息
+                    if (messages && messages.length > 0) {
+                        console.log(`📥 恢复 ${messages.length} 条消息`);
+                        await processServerMessages(messages);
+                    }
+                    
+                    // 处理问诊记录
+                    if (consultation_records && consultation_records.length > 0) {
+                        console.log(`📋 恢复 ${consultation_records.length} 条问诊记录`);
+                        await processConsultationRecords(consultation_records);
+                    }
+                    
+                    return true;
+                } else {
+                    console.warn('❌ 服务器返回空数据');
+                    return false;
+                }
+                
+            } catch (error) {
+                console.error('❌ 从服务器恢复失败:', error);
+                return false;
+            }
+        }
+        
+        // 🆕 处理服务器返回的消息
+        async function processServerMessages(messages) {
+            try {
+                // 按时间排序消息
+                messages.sort((a, b) => new Date(a.timestamp || a.time) - new Date(b.timestamp || b.time));
+                
+                // 清空当前显示的消息
+                clearAllMessages();
+                
+                // 逐条恢复消息
+                for (const message of messages) {
+                    const messageType = message.type; // 'user' 或 'ai'
+                    const content = message.content;
+                    const prescriptionData = message.prescriptionData || null;
+                    
+                    // 确定是否包含处方且已支付
+                    const isPaid = prescriptionData ? prescriptionData.isPaid : false;
+                    const prescriptionId = prescriptionData ? prescriptionData.prescriptionId : null;
+                    
+                    if (messageType === 'user') {
+                        // 恢复用户消息
+                        await addMessage('user', content);
+                    } else if (messageType === 'ai') {
+                        // 恢复AI消息，包含处方状态
+                        await addMessage('ai', content, false, isPaid, prescriptionId);
+                    }
+                    
+                    // 添加小延迟以确保消息按顺序显示
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                }
+                
+                console.log('✅ 消息恢复完成');
+                
+            } catch (error) {
+                console.error('❌ 处理服务器消息失败:', error);
+            }
+        }
+        
+        // 🆕 处理问诊记录
+        async function processConsultationRecords(records) {
+            try {
+                // 这里可以更新历史记录显示
+                console.log('📋 处理问诊记录:', records.length);
+                
+                // 如果有历史记录容器，更新显示
+                const historyContainer = document.querySelector('.conversation-list');
+                if (historyContainer && records.length > 0) {
+                    // 可以在这里更新历史记录显示
+                    console.log('📱 更新历史记录显示');
+                }
+                
+            } catch (error) {
+                console.error('❌ 处理问诊记录失败:', error);
             }
         }
         

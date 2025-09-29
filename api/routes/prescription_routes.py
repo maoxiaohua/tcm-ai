@@ -215,6 +215,7 @@ class CreatePrescriptionRequest(BaseModel):
     """创建处方请求"""
     patient_id: str
     conversation_id: str
+    doctor_id: Optional[int] = None  # 🆕 添加医生ID字段
     patient_name: Optional[str] = None
     patient_phone: Optional[str] = None
     symptoms: Optional[str] = None
@@ -242,12 +243,13 @@ async def create_prescription(request: CreatePrescriptionRequest):
         # 插入处方记录
         cursor.execute("""
             INSERT INTO prescriptions (
-                patient_id, conversation_id, patient_name, patient_phone,
+                patient_id, conversation_id, doctor_id, patient_name, patient_phone,
                 symptoms, diagnosis, ai_prescription, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             request.patient_id,
             request.conversation_id, 
+            request.doctor_id,  # 🆕 添加医生ID
             request.patient_name,
             request.patient_phone,
             request.symptoms,

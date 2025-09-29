@@ -69,11 +69,76 @@ class SimplePrescriptionManager {
         
         console.log(`🔍 处方内容处理: 哈希ID=${hashId}, 数据库ID=${dbId}, 检查ID=${checkId}, 已支付=${isPaid}`);
 
-        if (isPaid) {
-            return this.renderPaidContent(content, hashId);
+        // 🔑 关键修复：正确检查处方状态
+        const prescriptionStatus = await this.checkPrescriptionStatus(dbId);
+        console.log(`📋 处方状态检查: ID=${dbId}, 状态=${prescriptionStatus}`);
+
+        // 根据处方状态决定显示内容（优先考虑审核状态）
+        if (prescriptionStatus === 'pending_review') {
+            return this.renderReviewPendingContent(content, hashId);
+        } else if (prescriptionStatus === 'doctor_approved' || prescriptionStatus === 'doctor_modified') {
+            return this.renderApprovedContent(content, hashId, prescriptionStatus);
+        } else if (isPaid) {
+            // 已支付但状态未知，检查服务器状态
+            return this.renderReviewPendingContent(content, hashId);
         } else {
             return this.renderUnpaidContent(content, hashId);
         }
+    }
+
+    /**
+     * 检查处方状态（从服务器获取实时状态）
+     */
+    async checkPrescriptionStatus(prescriptionId) {
+        if (!prescriptionId) return null;
+        
+        // 先检查全局处方数据
+        if (window.lastPrescriptionData && window.lastPrescriptionData.prescription_id == prescriptionId) {
+            return window.lastPrescriptionData.status || null;
+        }
+        
+        // 从服务器获取实时状态
+        try {
+            const response = await fetch(`/api/prescription-review/status/${prescriptionId}`);
+            const data = await response.json();
+            
+            if (data.success && data.data) {
+                console.log(`🔍 从服务器获取处方状态: ${prescriptionId} -> ${data.data.status}`);
+                return data.data.status;
+            }
+        } catch (error) {
+            console.warn(`⚠️ 获取处方状态失败: ${prescriptionId}`, error);
+        }
+        
+        return null;
+    }
+
+    /**
+     * 渲染等待审核状态的处方内容
+     */
+    renderReviewPendingContent(content, hashId) {
+        const safeContent = this.stripPrescriptionContent(content);
+        
+        return `
+            ${safeContent}
+            <div class="prescription-review-pending" data-prescription-id="${hashId}">
+                <div style="padding: 20px; background: linear-gradient(135deg, #fef3c7, #f59e0b); border-radius: 12px; text-align: center; border: 2px solid #d97706; margin: 15px 0;">
+                    <div style="font-size: 24px; margin-bottom: 15px;">⏳</div>
+                    <h3 style="margin: 0 0 10px 0; color: #92400e;">处方正在审核中</h3>
+                    <p style="margin: 0 0 20px 0; color: #78350f; font-size: 14px;">
+                        处方已提交医生审核，审核通过后即可配药
+                    </p>
+                    <div style="background: rgba(255,255,255,0.8); padding: 10px; border-radius: 6px; margin: 15px 0;">
+                        <p style="margin: 0; color: #b45309; font-weight: bold; font-size: 16px;">⚠️ 请勿配药</p>
+                        <p style="margin: 5px 0 0 0; color: #92400e; font-size: 12px;">等待医生审核完成</p>
+                    </div>
+                    <button onclick="window.simplePrescriptionManager.checkReviewStatus('${hashId}')" 
+                            style="background: #059669; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                        🔍 查看审核状态
+                    </button>
+                </div>
+            </div>
+        `;
     }
 
     /**
@@ -198,12 +263,27 @@ class SimplePrescriptionManager {
             const result = await response.json();
             
             if (result.success) {
-                console.log(`✅ 支付确认成功，已提交医生审核: ${prescriptionId}`);
-                console.log(`📋 审核状态: ${result.data.status}`);
-                console.log(`💡 提示: ${result.data.note}`);
-                
-                // 显示审核状态而不是直接解锁
-                this.showPendingReview(prescriptionId, result.data);
+                // 🔑 修复：处理不同的响应状态
+                if (result.status === 'already_paid') {
+                    console.log(`✅ 处方已支付，刷新显示状态: ${prescriptionId}`);
+                    // 支付成功后刷新显示（会自动检查审核状态）
+                    await this.refreshDisplay(prescriptionId);
+                } else if (result.data) {
+                    console.log(`✅ 支付确认成功，已提交医生审核: ${prescriptionId}`);
+                    console.log(`📋 审核状态: ${result.data.status}`);
+                    console.log(`💡 提示: ${result.data.note}`);
+                    
+                    // 显示审核状态而不是直接解锁
+                    this.showPendingReview(prescriptionId, result.data);
+                } else {
+                    console.log(`✅ 支付确认成功: ${prescriptionId}`);
+                    // 没有具体数据，使用默认审核状态
+                    this.showPendingReview(prescriptionId, {
+                        prescription_id: realPrescriptionId,
+                        status: "pending_review",
+                        note: "处方正在等待医生审核，审核完成后即可配药"
+                    });
+                }
             } else {
                 console.warn(`⚠️ 支付确认失败: ${result.message}`);
                 // 降级到本地标记（兼容性）
@@ -259,31 +339,20 @@ class SimplePrescriptionManager {
     }
     
     /**
-     * 检查审核状态
+     * 检查审核状态并刷新显示
      */
     async checkReviewStatus(prescriptionId) {
+        console.log(`🔄 检查审核状态: ${prescriptionId}`);
         try {
-            const numericId = parseInt(prescriptionId.replace(/\D/g, '')) || 0;
-            const response = await fetch(`/api/prescription-review/status/${numericId}`);
-            const result = await response.json();
+            // 直接刷新显示，会自动检查最新状态
+            await this.refreshDisplay(prescriptionId);
+            console.log(`✅ 审核状态检查完成: ${prescriptionId}`);
             
-            if (result.success) {
-                const data = result.data;
-                console.log(`📋 审核状态检查: ${data.status_description}`);
-                
-                if (data.is_reviewed) {
-                    // 审核完成，显示最终处方
-                    this.showReviewedPrescription(prescriptionId, data);
-                } else {
-                    // 仍在审核中
-                    alert(`🔍 审核状态更新：\n${data.status_description}\n\n请稍后再次检查。`);
-                }
-            } else {
-                alert('❌ 无法获取审核状态，请稍后重试');
-            }
+            // 显示提示信息
+            alert('🔄 状态已更新！如审核完成将显示最终处方。');
         } catch (error) {
-            console.error('检查审核状态失败:', error);
-            alert('❌ 网络错误，无法检查审核状态');
+            console.error(`❌ 检查审核状态失败: ${prescriptionId}`, error);
+            alert('❌ 检查审核状态失败，请稍后重试');
         }
     }
     
@@ -308,6 +377,20 @@ class SimplePrescriptionManager {
         } else {
             alert(statusMessage);
         }
+    }
+    
+    /**
+     * 检查处方状态（本地检查）
+     */
+    checkPrescriptionStatus(prescriptionId) {
+        if (!prescriptionId) return null;
+        
+        // 检查全局处方数据
+        if (window.lastPrescriptionData && window.lastPrescriptionData.prescription_id == prescriptionId) {
+            return window.lastPrescriptionData.status || null;
+        }
+        
+        return null;
     }
     
     /**
@@ -347,6 +430,8 @@ class SimplePrescriptionManager {
     renderUnpaidContent(content, prescriptionId) {
         // 提取基本信息（不含具体剂量）
         const diagnosis = this.extractDiagnosis(content);
+        // 🔑 新增：获取真实处方ID用于显示
+        const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
         
         return `
             <div class="prescription-locked" data-prescription-id="${prescriptionId}">
@@ -356,6 +441,12 @@ class SimplePrescriptionManager {
                         <p style="margin: 0; color: #374151; line-height: 1.6;">${diagnosis}</p>
                     </div>
                 ` : ''}
+                
+                <!-- 🔑 新增：处方ID显示 -->
+                <div style="margin-bottom: 15px; padding: 10px; background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; text-align: center;">
+                    <span style="color: #0369a1; font-size: 12px; font-weight: 500;">处方编号：</span>
+                    <span style="color: #1e40af; font-weight: bold; font-family: monospace;">#${realPrescriptionId || prescriptionId}</span>
+                </div>
                 
                 <div style="padding: 20px; background: linear-gradient(135deg, #fef3c7, #fbbf24); border-radius: 12px; text-align: center; border: 2px solid #f59e0b;">
                     <div style="font-size: 24px; margin-bottom: 15px;">🔒</div>
@@ -375,16 +466,153 @@ class SimplePrescriptionManager {
     }
 
     /**
+     * 渲染审核待处理内容（等待医生审核）
+     */
+    renderReviewPendingContent(content, prescriptionId) {
+        // 提取基本信息（不含具体剂量）
+        const diagnosis = this.extractDiagnosis(content);
+        // 🔑 新增：获取真实处方ID用于显示
+        const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
+        
+        return `
+            <div class="prescription-review-pending" data-prescription-id="${prescriptionId}">
+                ${diagnosis ? `
+                    <div style="margin-bottom: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                        <h4 style="color: #1e40af; margin: 0 0 10px 0;">🩺 中医诊断分析</h4>
+                        <p style="margin: 0; color: #374151; line-height: 1.6;">${diagnosis}</p>
+                    </div>
+                ` : ''}
+                
+                <!-- 🔑 新增：处方ID显示 -->
+                <div style="margin-bottom: 15px; padding: 10px; background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; text-align: center;">
+                    <span style="color: #0369a1; font-size: 12px; font-weight: 500;">处方编号：</span>
+                    <span style="color: #1e40af; font-weight: bold; font-family: monospace;">#${realPrescriptionId || prescriptionId}</span>
+                </div>
+                
+                <div style="padding: 20px; background: linear-gradient(135deg, #fef3c7, #f59e0b); border-radius: 12px; text-align: center; border: 2px solid #d97706;">
+                    <div style="font-size: 24px; margin-bottom: 15px;">⏳</div>
+                    <h3 style="margin: 0 0 10px 0; color: #92400e;">处方正在审核中</h3>
+                    <p style="margin: 0 0 20px 0; color: #78350f; font-size: 14px;">
+                        处方已提交医生审核，审核完成后即可配药
+                    </p>
+                    <div style="background: rgba(255,255,255,0.8); padding: 10px; border-radius: 6px; margin: 15px 0;">
+                        <p style="margin: 0; color: #b45309; font-weight: bold; font-size: 16px;">⚠️ 请勿配药</p>
+                        <p style="margin: 5px 0 0 0; color: #92400e; font-size: 12px;">等待医生审核完成</p>
+                    </div>
+                    <button onclick="window.simplePrescriptionManager.checkReviewStatus('${prescriptionId}')" 
+                            style="background: #059669; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                        🔄 检查审核状态
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * 渲染医生审核完成的处方内容（分层显示）
+     */
+    renderApprovedContent(content, prescriptionId, status) {
+        const diagnosis = this.extractDiagnosis(content);
+        const herbs = this.extractHerbs(content);
+        const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
+        
+        // 获取医生修改的处方（如果有）
+        let finalPrescription = '';
+        if (window.lastPrescriptionData && window.lastPrescriptionData.prescription_id == realPrescriptionId) {
+            finalPrescription = window.lastPrescriptionData.final_prescription || content;
+        } else {
+            finalPrescription = content;
+        }
+        
+        // 提取最终处方的药材信息
+        const finalHerbs = this.extractHerbs(finalPrescription);
+        
+        return `
+            <div class="prescription-approved" data-prescription-id="${prescriptionId}">
+                <!-- 🔑 处方ID和状态显示 -->
+                <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 2px solid #22c55e; border-radius: 12px; text-align: center;">
+                    <div style="margin-bottom: 10px;">
+                        <span style="color: #0369a1; font-size: 12px; font-weight: 500;">处方编号：</span>
+                        <span style="color: #1e40af; font-weight: bold; font-family: monospace;">#${realPrescriptionId || prescriptionId}</span>
+                    </div>
+                    <div style="color: #059669; font-weight: bold; font-size: 16px;">
+                        ✅ ${status === 'doctor_modified' ? '医生已调整处方' : '医生审核通过'} - 可以配药
+                    </div>
+                </div>
+
+                ${diagnosis ? `
+                <!-- 🩺 中医诊断分析 -->
+                <div style="margin-bottom: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h4 style="color: #1e40af; margin: 0 0 10px 0; font-size: 16px;">🩺 中医诊断分析</h4>
+                    <div style="color: #1e3a8a; line-height: 1.5; font-size: 14px;">${diagnosis}</div>
+                </div>
+                ` : ''}
+
+                <!-- 💊 最终处方配方 -->
+                <div style="margin: 20px 0; padding: 20px; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-radius: 12px; border: 2px solid #22c55e;">
+                    <h4 style="color: #166534; margin: 0 0 15px 0; font-size: 18px;">💊 最终处方配方 (共${finalHerbs.length}味药材)</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                        ${finalHerbs.map(herb => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: white; border-radius: 8px; border: 1px solid #22c55e; font-size: 14px; box-shadow: 0 2px 4px rgba(34,197,94,0.1);">
+                                <span style="font-weight: 600; color: #166534;">${herb.name}</span>
+                                <span style="background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${herb.dosage}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <!-- 医生备注（如果有修改） -->
+                    ${status === 'doctor_modified' && window.lastPrescriptionData && window.lastPrescriptionData.doctor_notes ? `
+                        <div style="margin-top: 15px; padding: 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px;">
+                            <h5 style="color: #856404; margin: 0 0 8px 0; font-size: 14px;">👨‍⚕️ 医生调整说明：</h5>
+                            <div style="color: #856404; font-size: 13px; line-height: 1.4;">${window.lastPrescriptionData.doctor_notes}</div>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- 📋 用法用量和注意事项 -->
+                <div style="margin: 15px 0; padding: 15px; background: #fef3c7; border-radius: 8px; border: 1px solid #f59e0b;">
+                    <h5 style="color: #92400e; margin: 0 0 10px 0; font-size: 14px;">📋 煎服方法</h5>
+                    <ul style="margin: 0; color: #92400e; font-size: 13px; line-height: 1.5;">
+                        <li>每日一剂，水煎服，分早晚两次温服</li>
+                        <li>煎煮前浸泡30分钟，武火煮沸后文火煎30分钟</li>
+                        <li>建议饭后半小时服用</li>
+                    </ul>
+                </div>
+
+                <!-- ⚠️ 注意事项 -->
+                <div style="margin: 15px 0; padding: 12px; background: #fecaca; border-radius: 6px; border: 1px solid #ef4444;">
+                    <h5 style="color: #dc2626; margin: 0 0 8px 0; font-size: 13px;">⚠️ 重要提醒</h5>
+                    <ul style="margin: 0; color: #dc2626; font-size: 12px; line-height: 1.4;">
+                        <li>本处方仅供参考，建议中医师面诊确认</li>
+                        <li>如有不适请立即停药并咨询医生</li>
+                        <li>孕妇、哺乳期妇女请谨慎使用</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
      * 渲染已支付内容（显示完整处方）
+     * @deprecated 使用 renderApprovedContent 替代
      */
     renderPaidContent(content, prescriptionId) {
         // 提取药材信息
         const herbs = this.extractHerbs(content);
+        // 🔑 新增：获取真实处方ID用于显示
+        const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
         
         let herbsHtml = '';
         if (herbs.length > 0) {
             herbsHtml = `
                 <div style="margin: 20px 0; padding: 20px; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-radius: 12px; border: 2px solid #22c55e;">
+                    <!-- 🔑 新增：处方ID显示 -->
+                    <div style="margin-bottom: 15px; padding: 10px; background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; text-align: center;">
+                        <span style="color: #0369a1; font-size: 12px; font-weight: 500;">处方编号：</span>
+                        <span style="color: #1e40af; font-weight: bold; font-family: monospace;">#${realPrescriptionId || prescriptionId}</span>
+                        <span style="color: #059669; font-size: 12px; margin-left: 10px;">✅ 已完成审核</span>
+                    </div>
+                    
                     <h4 style="color: #166534; margin: 0 0 15px 0; font-size: 18px;">✅ 完整处方配方 (共${herbs.length}味药材)</h4>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
                         ${herbs.map(herb => `
@@ -456,11 +684,24 @@ class SimplePrescriptionManager {
             console.log(`📄 原始内容检查: ${prescriptionId} -> ${originalContent ? '存在' : '不存在'}`);
             
             if (originalContent) {
-                // 重新检查支付状态并渲染相应内容
+                // 🔑 修复：正确检查处方状态
                 const isPaid = await this.isPaid(prescriptionId);
-                const newContent = isPaid ? 
-                    this.renderPaidContent(originalContent, prescriptionId) :
-                    this.renderUnpaidContent(originalContent, prescriptionId);
+                const prescriptionStatus = await this.checkPrescriptionStatus(prescriptionId);
+                
+                let newContent;
+                if (prescriptionStatus === 'pending_review') {
+                    // 等待审核状态
+                    newContent = this.renderReviewPendingContent(originalContent, prescriptionId);
+                } else if (prescriptionStatus === 'doctor_approved' || prescriptionStatus === 'doctor_modified') {
+                    // 审核完成状态
+                    newContent = this.renderApprovedContent(originalContent, prescriptionId, prescriptionStatus);
+                } else if (isPaid) {
+                    // 已支付但状态未知，显示等待审核
+                    newContent = this.renderReviewPendingContent(originalContent, prescriptionId);
+                } else {
+                    // 未支付
+                    newContent = this.renderUnpaidContent(originalContent, prescriptionId);
+                }
                 
                 // 创建新元素并替换
                 const tempDiv = document.createElement('div');
@@ -478,25 +719,41 @@ class SimplePrescriptionManager {
                 console.log(`🔍 元素HTML内容:`, elementHTML);
             }
         }
-        
-        // 如果没有找到元素，尝试查找整个消息容器
-        if (elements.length === 0) {
-            console.log(`⚠️ 未找到处方元素，尝试查找消息容器...`);
-            const messageElements = document.querySelectorAll('.message.ai');
-            for (const msgElement of messageElements) {
-                const textElement = msgElement.querySelector('.message-text');
-                if (textElement && textElement.innerHTML.includes(prescriptionId)) {
-                    const originalContent = this.originalContent.get(prescriptionId);
-                    if (originalContent) {
-                        const isPaid = await this.isPaid(prescriptionId);
-                        const newContent = isPaid ? 
-                            this.renderPaidContent(originalContent, prescriptionId) :
-                            this.renderUnpaidContent(originalContent, prescriptionId);
-                        textElement.innerHTML = newContent;
-                        console.log(`✅ 通过消息容器刷新处方显示: ${prescriptionId}, 支付状态: ${isPaid}`);
-                    }
-                }
+    }
+
+    /**
+     * 检查审核状态
+     */
+    async checkReviewStatus(prescriptionId) {
+        try {
+            const realId = this.getRealPrescriptionId(prescriptionId);
+            if (!realId) {
+                console.warn('⚠️ 无法获取处方ID，无法检查审核状态');
+                return;
             }
+
+            const response = await fetch(`/api/prescription-review/status/${realId}`);
+            const result = await response.json();
+
+            if (result.success) {
+                const status = result.data.status;
+                const note = result.data.note || '状态检查完成';
+                
+                console.log(`📋 审核状态: ${status}`);
+                
+                if (status === 'completed' || status === 'doctor_approved') {
+                    // 审核完成，刷新页面或重新渲染
+                    alert('处方审核已完成！页面将刷新显示最新状态。');
+                    window.location.reload();
+                } else {
+                    alert(`处方审核状态: ${status}\n${note}`);
+                }
+            } else {
+                alert('检查审核状态失败，请稍后重试');
+            }
+        } catch (error) {
+            console.error('检查审核状态失败:', error);
+            alert('检查审核状态失败，请稍后重试');
         }
     }
 
