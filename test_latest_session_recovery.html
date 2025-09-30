@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最新会话恢复测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .test-section { background: #f8f9fa; padding: 20px; margin: 10px 0; border-radius: 8px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .warning { background: #fff3cd; color: #856404; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .simulated-container { border: 2px solid #ddd; min-height: 200px; padding: 20px; border-radius: 8px; background: white; }
+        .message { margin: 10px 0; padding: 15px; border-radius: 8px; }
+        .message.ai { background: #f0f8ff; border-left: 4px solid #007bff; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; font-size: 12px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 最新会话处方恢复测试</h1>
+        
+        <div class="test-section info">
+            <h3>🔍 测试目标</h3>
+            <p>验证修改后的恢复系统是否只恢复<strong>最近一次问诊会话</strong>的处方，而不是所有历史处方。</p>
+            <ul>
+                <li>✅ 只显示最新consultation_id/conversation_id的处方</li>
+                <li>✅ 过滤掉历史问诊会话的处方</li>
+                <li>✅ 正确识别会话边界</li>
+                <li>✅ 保持历史记录在单独区域</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 数据分析</h3>
+            <button onclick="analyzeData()">🔍 分析处方数据</button>
+            <div id="dataAnalysis"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 模拟最新会话恢复</h3>
+            <button onclick="simulateLatestSessionRecovery()">▶️ 模拟最新会话恢复</button>
+            <button onclick="simulateAllPrescriptionsRecovery()">📋 对比：恢复所有处方</button>
+            <button onclick="clearResults()">🗑️ 清除结果</button>
+            
+            <h4>恢复结果：</h4>
+            <div id="recoveryResults" class="simulated-container">
+                <p style="color: #666; text-align: center;">等待测试...</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 测试日志</h3>
+            <div id="testLogs"></div>
+        </div>
+    </div>
+
+    <script>
+        let logContainer = document.getElementById('testLogs');
+        
+        function log(message, type = 'info') {
+            console.log(message);
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.innerHTML = `<small>${new Date().toLocaleTimeString()}</small> - ${message}`;
+            logContainer.appendChild(div);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 模拟最新会话过滤逻辑
+        function getLatestConsultationPrescriptions(prescriptions) {
+            if (!prescriptions || prescriptions.length === 0) {
+                return [];
+            }
+            
+            // 按创建时间排序，找出最新的处方记录
+            const sortedPrescriptions = prescriptions.sort((a, b) => 
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+            
+            // 获取最新处方的consultation_id或conversation_id作为会话标识
+            const latestPrescription = sortedPrescriptions[0];
+            const latestConsultationId = latestPrescription.consultation_id || latestPrescription.conversation_id;
+            
+            if (!latestConsultationId) {
+                log('⚠️ 最新处方没有consultation_id，返回最新的单个处方', 'warning');
+                return [latestPrescription];
+            }
+            
+            // 获取最新一次问诊会话的所有处方
+            const latestSessionPrescriptions = prescriptions.filter(p => 
+                (p.consultation_id === latestConsultationId) || 
+                (p.conversation_id === latestConsultationId && !p.consultation_id)
+            );
+            
+            log(`🔍 最新问诊会话ID: ${latestConsultationId}`, 'info');
+            log(`📋 该会话包含 ${latestSessionPrescriptions.length} 个处方`, 'info');
+            log(`🕐 会话时间: ${latestPrescription.created_at}`, 'info');
+            
+            return latestSessionPrescriptions;
+        }
+
+        // 分析处方数据
+        async function analyzeData() {
+            log('🔍 开始分析处方数据...', 'info');
+            const analysisDiv = document.getElementById('dataAnalysis');
+            
+            try {
+                const userId = 'usr_20250920_5741e17a78e8';
+                const response = await fetch(`/api/prescription/patient/${userId}/prescriptions`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.prescriptions && result.prescriptions.length > 0) {
+                    const allPrescriptions = result.prescriptions;
+                    const latestSessionPrescriptions = getLatestConsultationPrescriptions(allPrescriptions);
+                    
+                    // 统计不同会话的处方
+                    const consultationGroups = {};
+                    allPrescriptions.forEach(p => {
+                        const sessionId = p.consultation_id || p.conversation_id || 'unknown';
+                        if (!consultationGroups[sessionId]) {
+                            consultationGroups[sessionId] = [];
+                        }
+                        consultationGroups[sessionId].push(p);
+                    });
+                    
+                    const sessionCount = Object.keys(consultationGroups).length;
+                    
+                    analysisDiv.innerHTML = `
+                        <h4>📊 数据分析结果：</h4>
+                        <ul>
+                            <li><strong>总处方数:</strong> ${allPrescriptions.length}</li>
+                            <li><strong>问诊会话数:</strong> ${sessionCount}</li>
+                            <li><strong>最新会话处方数:</strong> ${latestSessionPrescriptions.length}</li>
+                            <li><strong>最新会话ID:</strong> ${latestSessionPrescriptions[0]?.consultation_id || latestSessionPrescriptions[0]?.conversation_id}</li>
+                        </ul>
+                        
+                        <h5>📋 各会话详情：</h5>
+                        <pre>${JSON.stringify(consultationGroups, null, 2)}</pre>
+                    `;
+                    
+                    log(`✅ 分析完成 - 总计 ${allPrescriptions.length} 个处方，分布在 ${sessionCount} 个会话中`, 'success');
+                    
+                } else {
+                    analysisDiv.innerHTML = '<div class="error">❌ 未获取到有效的处方数据</div>';
+                    log('❌ 未获取到有效的处方数据', 'error');
+                }
+                
+            } catch (error) {
+                analysisDiv.innerHTML = `<div class="error">❌ ${error.message}</div>`;
+                log(`❌ 数据分析失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 模拟最新会话恢复
+        async function simulateLatestSessionRecovery() {
+            log('🎯 开始模拟最新会话恢复...', 'info');
+            const container = document.getElementById('recoveryResults');
+            
+            try {
+                const userId = 'usr_20250920_5741e17a78e8';
+                const response = await fetch(`/api/prescription/patient/${userId}/prescriptions`);
+                const result = await response.json();
+                
+                if (result.success && result.prescriptions && result.prescriptions.length > 0) {
+                    const allPrescriptions = result.prescriptions;
+                    const latestSessionPrescriptions = getLatestConsultationPrescriptions(allPrescriptions);
+                    
+                    container.innerHTML = `
+                        <h4>🎯 最新会话恢复结果：</h4>
+                        <p><strong>恢复策略:</strong> 只恢复最新一次问诊会话的处方</p>
+                        <p><strong>总处方数:</strong> ${allPrescriptions.length} | <strong>恢复处方数:</strong> ${latestSessionPrescriptions.length}</p>
+                        <hr>
+                    `;
+                    
+                    latestSessionPrescriptions.forEach((prescription, index) => {
+                        const messageHtml = `
+                            <div class="message ai" style="margin: 10px 0;">
+                                <h5>💊 处方 ${index + 1} (ID: ${prescription.id})</h5>
+                                <p><strong>状态:</strong> ${prescription.status} | <strong>支付:</strong> ${prescription.payment_status}</p>
+                                <p><strong>创建时间:</strong> ${prescription.created_at}</p>
+                                <p><strong>会话ID:</strong> ${prescription.consultation_id || prescription.conversation_id}</p>
+                            </div>
+                        `;
+                        container.insertAdjacentHTML('beforeend', messageHtml);
+                    });
+                    
+                    log(`✅ 最新会话恢复成功 - 恢复了 ${latestSessionPrescriptions.length} 个处方`, 'success');
+                    
+                } else {
+                    container.innerHTML = '<div class="error">❌ 未获取到有效的处方数据</div>';
+                    log('❌ 未获取到有效的处方数据', 'error');
+                }
+                
+            } catch (error) {
+                container.innerHTML = `<div class="error">❌ ${error.message}</div>`;
+                log(`❌ 最新会话恢复失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 对比：恢复所有处方
+        async function simulateAllPrescriptionsRecovery() {
+            log('📋 开始模拟恢复所有处方...', 'info');
+            const container = document.getElementById('recoveryResults');
+            
+            try {
+                const userId = 'usr_20250920_5741e17a78e8';
+                const response = await fetch(`/api/prescription/patient/${userId}/prescriptions`);
+                const result = await response.json();
+                
+                if (result.success && result.prescriptions && result.prescriptions.length > 0) {
+                    const allPrescriptions = result.prescriptions;
+                    
+                    container.innerHTML = `
+                        <h4>📋 所有处方恢复结果（对比）：</h4>
+                        <p><strong>恢复策略:</strong> 恢复所有历史处方</p>
+                        <p><strong>总处方数:</strong> ${allPrescriptions.length}</p>
+                        <hr>
+                    `;
+                    
+                    allPrescriptions.forEach((prescription, index) => {
+                        const messageHtml = `
+                            <div class="message ai" style="margin: 10px 0; opacity: 0.7;">
+                                <h5>💊 处方 ${index + 1} (ID: ${prescription.id})</h5>
+                                <p><strong>状态:</strong> ${prescription.status} | <strong>支付:</strong> ${prescription.payment_status}</p>
+                                <p><strong>创建时间:</strong> ${prescription.created_at}</p>
+                                <p><strong>会话ID:</strong> ${prescription.consultation_id || prescription.conversation_id}</p>
+                            </div>
+                        `;
+                        container.insertAdjacentHTML('beforeend', messageHtml);
+                    });
+                    
+                    log(`📋 所有处方恢复完成 - 恢复了 ${allPrescriptions.length} 个处方`, 'info');
+                    
+                } else {
+                    container.innerHTML = '<div class="error">❌ 未获取到有效的处方数据</div>';
+                    log('❌ 未获取到有效的处方数据', 'error');
+                }
+                
+            } catch (error) {
+                container.innerHTML = `<div class="error">❌ ${error.message}</div>`;
+                log(`❌ 所有处方恢复失败: ${error.message}`, 'error');
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('recoveryResults').innerHTML = '<p style="color: #666; text-align: center;">等待测试...</p>';
+            document.getElementById('dataAnalysis').innerHTML = '';
+            document.getElementById('testLogs').innerHTML = '';
+            log('🗑️ 已清除测试结果', 'info');
+        }
+
+        // 页面加载时自动显示说明
+        window.addEventListener('load', () => {
+            log('🎯 最新会话处方恢复测试工具已加载', 'success');
+            log('💡 点击\"分析处方数据\"了解数据结构，然后对比两种恢复策略的效果', 'info');
+        });
+    </script>
+</body>
+</html>

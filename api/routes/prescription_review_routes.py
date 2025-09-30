@@ -218,15 +218,19 @@ async def doctor_review_prescription(request: DoctorReviewRequest):
                 "message": "处方不在待审核状态"
             }
         
-        # 更新处方状态
+        # 🔑 修复：调整处方状态管理逻辑
         if request.action == "approve":
             new_status = "doctor_approved"
             message = "处方审核通过"
+            # 只有通过时才完成审核队列
+            queue_completed = True
         elif request.action == "modify":
             if not request.modified_prescription:
                 raise HTTPException(status_code=400, detail="修改处方时必须提供修改后的处方内容")
-            new_status = "doctor_modified"
-            message = "处方已修改"
+            # 🔑 修复：调整处方时保持pending_review状态，不标记为完成
+            new_status = "pending_review"  # 保持待审核状态
+            message = "处方已调整，等待最终审核"
+            queue_completed = False  # 不完成审核队列，等待医生最终批准
         else:
             raise HTTPException(status_code=400, detail="无效的审核操作")
         
@@ -234,12 +238,12 @@ async def doctor_review_prescription(request: DoctorReviewRequest):
         if request.action == "modify":
             cursor.execute("""
                 UPDATE prescriptions 
-                SET status = ?, 
-                    doctor_prescription = ?,
+                SET doctor_prescription = ?,
                     doctor_notes = ?,
                     reviewed_at = datetime('now')
                 WHERE id = ?
-            """, (new_status, request.modified_prescription, request.doctor_notes, request.prescription_id))
+            """, (request.modified_prescription, request.doctor_notes, request.prescription_id))
+            # 🔑 修复：调整时不改变状态，保持pending_review
         else:
             cursor.execute("""
                 UPDATE prescriptions 
@@ -249,12 +253,13 @@ async def doctor_review_prescription(request: DoctorReviewRequest):
                 WHERE id = ?
             """, (new_status, request.doctor_notes, request.prescription_id))
         
-        # 更新审核队列
-        cursor.execute("""
-            UPDATE doctor_review_queue 
-            SET status = 'completed', completed_at = datetime('now')
-            WHERE prescription_id = ?
-        """, (request.prescription_id,))
+        # 🔑 修复：只有approve时才完成审核队列
+        if queue_completed:
+            cursor.execute("""
+                UPDATE doctor_review_queue 
+                SET status = 'completed', completed_at = datetime('now')
+                WHERE prescription_id = ?
+            """, (request.prescription_id,))
         
         # 记录审核历史
         cursor.execute("""
@@ -277,7 +282,9 @@ async def doctor_review_prescription(request: DoctorReviewRequest):
                 "prescription_id": request.prescription_id,
                 "status": new_status,
                 "action": request.action,
-                "reviewed_at": datetime.now().isoformat()
+                "reviewed_at": datetime.now().isoformat(),
+                "queue_completed": queue_completed,
+                "can_approve_again": request.action == "modify"  # 调整后可以再次审批
             }
         }
         
@@ -310,10 +317,14 @@ async def get_prescription_review_status(prescription_id: int):
         """, (prescription_id,))
         
         result = cursor.fetchone()
-        if not result:
-            raise HTTPException(status_code=404, detail="处方不存在")
-        
         conn.close()
+        
+        if not result:
+            return {
+                "success": False,
+                "message": f"处方ID {prescription_id} 不存在",
+                "error_code": "PRESCRIPTION_NOT_FOUND"
+            }
         
         # 生成状态描述
         status_descriptions = {
@@ -336,7 +347,8 @@ async def get_prescription_review_status(prescription_id: int):
                 "final_prescription": result['doctor_prescription'] or result['ai_prescription'],
                 "created_at": result['created_at'],
                 "reviewed_at": result['reviewed_at'],
-                "submitted_at": result['submitted_at']
+                "submitted_at": result['submitted_at'],
+                "has_doctor_modifications": bool(result['doctor_prescription'])  # 是否有医生调整
             }
         }
         

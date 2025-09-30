@@ -341,36 +341,59 @@ class UnifiedConsultationService:
     
     def _contains_prescription(self, text: str) -> bool:
         """检查是否包含完整处方（非临时建议）"""
-        # 明确的处方关键词
-        prescription_keywords = [
-            '处方如下', '方剂组成', '药物组成', '具体方药',
-            '方解', '君药', '臣药', '佐药', '使药',
-            '处方方案', '治疗方案', '用药方案',
-            '【君药】', '【臣药】', '【佐药】', '【使药】'
+        # 🔑 关键修复：更严格的处方检测逻辑，避免信息不完整时给出处方
+        
+        # 不完整信息的关键词（这些表示需要继续问诊）
+        incomplete_info_keywords = [
+            '请补充', '需要了解', '建议进一步', '完善信息', '详细描述',
+            '待确认', '若您能提供', '请描述', '请上传', '暂拟', '初步考虑',
+            '补充舌象', '舌象信息', '脉象信息', '上传舌象', '提供舌象',
+            '有无汗出', '是否有胸闷', '二便情况', '既往病史', '慢性疾病',
+            '以便更精准', '进一步判断', '更准确的', '待详诊', '暂时建议',
+            '初步处方', '临时方案', '请问', '您是否', '是否伴有', '可否描述'
         ]
         
-        # 临时建议关键词（这些不算完整处方）
-        temporary_keywords = [
-            '初步处方建议', '待确认', '若您能提供', '请补充',
-            '需要了解', '建议进一步', '完善信息后', '详细描述',
-            '暂拟方药', '初步考虑', '待详诊后', '待补充',
-            '补充舌象', '舌象信息后', '脉象信息后', '上传舌象',
-            '提供舌象', '确认处方', '后确认', '暂拟处方'
-        ]
-        
-        # 如果包含临时建议关键词，不认为是完整处方
-        if any(keyword in text for keyword in temporary_keywords):
+        # 🔑 如果包含不完整信息关键词，绝对不认为是完整处方
+        if any(keyword in text for keyword in incomplete_info_keywords):
+            logger.info("🚨 检测到需要补充信息的关键词，不生成处方")
             return False
-            
-        # 检查是否包含处方关键词
-        has_prescription_keywords = any(keyword in text for keyword in prescription_keywords)
         
-        # 检查是否包含具体剂量信息
+        # 明确的完整处方关键词
+        complete_prescription_keywords = [
+            '处方如下', '最终处方', '完整处方', '确定处方',
+            '方剂组成', '具体方药', '治疗方案确定',
+            '【君药】', '【臣药】', '【佐药】', '【使药】',
+            '君药：', '臣药：', '佐药：', '使药：'
+        ]
+        
+        # 检查是否包含明确的完整处方关键词
+        has_complete_prescription = any(keyword in text for keyword in complete_prescription_keywords)
+        
+        # 检查是否包含具体剂量信息（至少3个药物有剂量）
         import re
-        has_dosage_pattern = bool(re.search(r'\d+[克g]\s*[，,]', text)) or bool(re.search(r'[\u4e00-\u9fa5]+\s*\d+[克g]', text))
+        dosage_matches = re.findall(r'[\u4e00-\u9fa5]+\s*\d+[克g]', text)
+        has_sufficient_dosage = len(dosage_matches) >= 3
         
-        # 只有同时包含处方关键词和具体剂量才认为是完整处方
-        return has_prescription_keywords and has_dosage_pattern
+        # 检查是否包含完整的辨证分析结论（而非追问）
+        has_definitive_diagnosis = any(keyword in text for keyword in [
+            '辨证结论', '证型为', '诊断为', '属于', '辨证：', '病机：'
+        ]) and not any(keyword in text for keyword in [
+            '暂定', '初步', '可能', '疑似', '待确认'
+        ])
+        
+        # 🔑 只有同时满足以下条件才认为是完整处方：
+        # 1. 包含明确的完整处方关键词
+        # 2. 有足够的药物剂量信息（至少3个）
+        # 3. 有明确的诊断结论
+        # 4. 不包含任何需要补充信息的关键词
+        result = (has_complete_prescription and has_sufficient_dosage and has_definitive_diagnosis)
+        
+        if result:
+            logger.info("✅ 检测到完整处方")
+        else:
+            logger.info("⏳ 未检测到完整处方，继续问诊")
+            
+        return result
     
     def _extract_prescription_data(self, text: str) -> Optional[Dict]:
         """提取处方数据"""
@@ -383,7 +406,7 @@ class UnifiedConsultationService:
                 "extracted_at": datetime.now().isoformat(),
                 "source": "ai_generated",
                 # 前端需要的关键字段
-                "prescription_id": str(uuid.uuid4()),  # 生成临时处方ID
+                "prescription_id": "temp_" + str(uuid.uuid4())[:8],  # 生成临时处方ID，待数据库插入后更新
                 "is_paid": False,  # 默认未付费，需要支付
                 "payment_required": True,
                 "payment_amount": 88.0
@@ -933,6 +956,20 @@ class UnifiedConsultationService:
             
             if contains_prescription:
                 prescription_data = self._extract_prescription_data(ai_response)
+                # 🔑 修复：如果prescription_data为None但我们知道有处方，强制创建prescription_data
+                if prescription_data is None:
+                    import uuid
+                    prescription_data = {
+                        "has_prescription": True,
+                        "extracted_at": datetime.now().isoformat(),
+                        "source": "ai_generated",
+                        "prescription_id": "temp_" + str(uuid.uuid4())[:8],
+                        "is_paid": False,
+                        "payment_required": True,
+                        "payment_amount": 88.0
+                    }
+                    logger.info(f"🔧 强制创建prescription_data，contains_prescription={contains_prescription}")
+                
                 # 🔑 关键修复：检测到处方时自动创建处方记录和审核队列
                 real_prescription_id = await self._create_prescription_record(request, ai_response, prescription_data)
                 if real_prescription_id and prescription_data:

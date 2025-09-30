@@ -1103,6 +1103,7 @@ from api.routes.follow_up_routes import router as follow_up_router
 from api.routes.session_routes import router as session_router
 from api.routes.security_routes import router as security_router
 from api.routes.prescription_review_routes import router as prescription_review_router
+from api.routes.prescription_structured_edit_routes import router as prescription_structured_edit_router
 import faiss
 
 # 导入智能缓存系统
@@ -2130,6 +2131,7 @@ app.include_router(follow_up_router)
 app.include_router(session_router)
 app.include_router(security_router)
 app.include_router(prescription_review_router)
+app.include_router(prescription_structured_edit_router)
 
 # WebSocket实时同步路由
 from api.routes.websocket_sync_routes import router as websocket_sync_router

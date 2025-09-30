@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>处方状态恢复测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { margin: 5px; padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #log { background: #f8f9fa; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>处方状态恢复测试页面</h1>
+    
+    <div class="test-section">
+        <h2>📋 测试用户信息</h2>
+        <div id="userInfo" class="info">
+            <strong>测试用户ID:</strong> usr_20250920_5741e17a78e8<br>
+            <strong>测试用户名:</strong> maoxiaohua<br>
+            <strong>预期处方数量:</strong> 2个 (ID: 120, 121)<br>
+            <strong>预期状态:</strong> pending_review (已支付，等待审核)
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🧪 测试操作</h2>
+        <button onclick="testAPIConnection()">1. 测试API连接</button>
+        <button onclick="fetchPrescriptions()">2. 获取用户处方</button>
+        <button onclick="testRestoreFunction()">3. 测试恢复函数</button>
+        <button onclick="clearLog()">清空日志</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>📊 测试结果</h2>
+        <div id="results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>📝 详细日志</h2>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        const TEST_USER_ID = 'usr_20250920_5741e17a78e8';
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('log');
+            const color = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#6c757d';
+            logDiv.innerHTML += `<div style="color: ${color}; margin: 2px 0;">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function addResult(message, type) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testAPIConnection() {
+            log('🔗 测试API连接...', 'info');
+            try {
+                const response = await fetch('/api/prescription/statistics/status');
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ API连接成功', 'success');
+                    addResult('✅ API连接测试通过', 'success');
+                    return true;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                log(`❌ API连接失败: ${error.message}`, 'error');
+                addResult(`❌ API连接失败: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function fetchPrescriptions() {
+            log(`📋 获取用户 ${TEST_USER_ID} 的处方列表...`, 'info');
+            try {
+                const response = await fetch(`/api/prescription/patient/${TEST_USER_ID}/prescriptions`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                log(`📊 API响应: ${JSON.stringify(data, null, 2)}`, 'info');
+                
+                if (data.success && data.prescriptions) {
+                    const prescriptions = data.prescriptions;
+                    log(`✅ 成功获取 ${prescriptions.length} 个处方`, 'success');
+                    
+                    let resultMessage = `✅ 成功获取 ${prescriptions.length} 个处方：<br>`;
+                    prescriptions.forEach(p => {
+                        resultMessage += `&nbsp;&nbsp;• 处方ID: ${p.id}, 状态: ${p.status}, 支付: ${p.payment_status}<br>`;
+                        log(`📝 处方 ${p.id}: status=${p.status}, payment=${p.payment_status}`, 'info');
+                    });
+                    
+                    addResult(resultMessage, 'success');
+                    
+                    // 验证预期数据
+                    const pendingReviewPrescriptions = prescriptions.filter(p => 
+                        p.status === 'pending_review' && p.payment_status === 'paid'
+                    );
+                    
+                    if (pendingReviewPrescriptions.length > 0) {
+                        log(`🎯 发现 ${pendingReviewPrescriptions.length} 个需要恢复的处方`, 'success');
+                        addResult(`🎯 发现 ${pendingReviewPrescriptions.length} 个待恢复处方 (等待审核状态)`, 'info');
+                        return prescriptions;
+                    } else {
+                        log('⚠️ 没有发现需要恢复的处方 (pending_review + paid)', 'error');
+                        addResult('⚠️ 没有发现需要恢复的处方', 'error');
+                    }
+                } else {
+                    throw new Error('API返回格式不正确');
+                }
+            } catch (error) {
+                log(`❌ 获取处方失败: ${error.message}`, 'error');
+                addResult(`❌ 获取处方失败: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testRestoreFunction() {
+            log('🔄 测试处方状态恢复函数...', 'info');
+            
+            // 模拟恢复函数逻辑
+            try {
+                const response = await fetch(`/api/prescription/patient/${TEST_USER_ID}/prescriptions`);
+                const result = await response.json();
+                
+                if (result.success && result.prescriptions && result.prescriptions.length > 0) {
+                    const prescriptions = result.prescriptions;
+                    let restoredCount = 0;
+                    
+                    log('🔍 开始处理处方恢复...', 'info');
+                    
+                    for (const prescription of prescriptions) {
+                        const prescriptionId = prescription.id;
+                        const status = prescription.status;
+                        const paymentStatus = prescription.payment_status;
+                        
+                        log(`📋 处理处方ID ${prescriptionId}: status=${status}, payment=${paymentStatus}`, 'info');
+                        
+                        if (paymentStatus === 'paid' && status === 'pending_review') {
+                            log(`⏳ 处方 ${prescriptionId} 符合恢复条件 (已支付 + 等待审核)`, 'success');
+                            restoredCount++;
+                        } else if (status === 'doctor_approved' || status === 'doctor_modified') {
+                            log(`✅ 处方 ${prescriptionId} 已审核完成`, 'success');
+                            restoredCount++;
+                        } else {
+                            log(`ℹ️ 处方 ${prescriptionId} 不需要恢复 (状态: ${status})`, 'info');
+                        }
+                    }
+                    
+                    if (restoredCount > 0) {
+                        log(`🎉 恢复函数测试成功！应该恢复 ${restoredCount} 个处方状态`, 'success');
+                        addResult(`🎉 恢复函数测试成功！应该恢复 ${restoredCount} 个处方状态`, 'success');
+                        
+                        // 提供实际页面测试链接
+                        addResult(`
+                            <strong>📱 实际测试步骤：</strong><br>
+                            1. 在新标签页中打开: <a href="/smart" target="_blank">/smart</a><br>
+                            2. 使用用户名 <code>maoxiaohua</code> 登录<br>
+                            3. 页面加载完成后，应该自动显示 ${restoredCount} 个"等待医生审核"的处方<br>
+                            4. 检查浏览器控制台是否有恢复日志
+                        `, 'info');
+                    } else {
+                        log('❌ 没有找到需要恢复的处方', 'error');
+                        addResult('❌ 恢复函数测试失败：没有找到需要恢复的处方', 'error');
+                    }
+                } else {
+                    throw new Error('无法获取处方数据进行测试');
+                }
+            } catch (error) {
+                log(`❌ 恢复函数测试失败: ${error.message}`, 'error');
+                addResult(`❌ 恢复函数测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 页面加载时自动运行基础测试
+        window.addEventListener('load', async () => {
+            log('🚀 页面加载完成，开始自动测试...', 'info');
+            await testAPIConnection();
+            await fetchPrescriptions();
+        });
+    </script>
+</body>
+</html>

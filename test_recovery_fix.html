@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>处方恢复修复验证</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .test-section { background: #f8f9fa; padding: 20px; margin: 10px 0; border-radius: 8px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .simulated-container { border: 2px solid #ddd; min-height: 200px; padding: 20px; border-radius: 8px; background: white; }
+        .message { margin: 10px 0; padding: 15px; border-radius: 8px; }
+        .message.ai { background: #f0f8ff; border-left: 4px solid #007bff; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 处方恢复修复验证工具</h1>
+        
+        <div class="test-section info">
+            <h3>🎯 测试目标</h3>
+            <p>验证修复后的 <code>restorePrescriptionStatesFromServer()</code> 函数能正确：</p>
+            <ul>
+                <li>从服务器API获取用户的3个处方记录</li>
+                <li>为每个已审核的处方创建相应的UI消息</li>
+                <li>正确显示处方内容和状态</li>
+                <li>处理用户ID验证和容器检查</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>📡 API测试</h3>
+            <button onclick="testAPI()">🔍 测试API接口</button>
+            <div id="apiResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎭 模拟UI恢复</h3>
+            <button onclick="simulateRecovery()">▶️ 模拟处方恢复</button>
+            <button onclick="clearSimulation()">🗑️ 清除模拟</button>
+            
+            <h4>模拟消息容器：</h4>
+            <div id="simulatedMessagesContainer" class="simulated-container">
+                <p style="color: #666; text-align: center;">等待模拟恢复...</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 测试日志</h3>
+            <div id="testLogs"></div>
+        </div>
+    </div>
+
+    <script>
+        let logContainer = document.getElementById('testLogs');
+        
+        function log(message, type = 'info') {
+            console.log(message);
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.innerHTML = `<small>${new Date().toLocaleTimeString()}</small> - ${message}`;
+            logContainer.appendChild(div);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        async function testAPI() {
+            log('🚀 开始测试API接口...', 'info');
+            const resultsDiv = document.getElementById('apiResults');
+            
+            try {
+                const userId = 'usr_20250920_5741e17a78e8';
+                log(`📡 请求用户 ${userId} 的处方列表...`, 'info');
+                
+                const response = await fetch(`/api/prescription/patient/${userId}/prescriptions`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                log(`✅ API调用成功，返回 ${result.prescriptions?.length || 0} 个处方`, 'success');
+                
+                resultsDiv.innerHTML = `
+                    <h4>📋 API响应结果：</h4>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+                
+                if (result.prescriptions && result.prescriptions.length > 0) {
+                    result.prescriptions.forEach((p, i) => {
+                        log(`📋 处方 ${i+1}: ID=${p.id}, status=${p.status}, payment=${p.payment_status}`, 'info');
+                    });
+                } else {
+                    log('⚠️ 未找到处方数据', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ API测试失败: ${error.message}`, 'error');
+                resultsDiv.innerHTML = `<div class="error">❌ ${error.message}</div>`;
+            }
+        }
+
+        async function simulateRecovery() {
+            log('🎭 开始模拟处方恢复...', 'info');
+            const container = document.getElementById('simulatedMessagesContainer');
+            
+            try {
+                // 模拟获取用户ID
+                const userId = 'usr_20250920_5741e17a78e8';
+                log(`👤 模拟用户ID: ${userId}`, 'info');
+                
+                // 模拟API调用
+                log('📡 模拟API调用...', 'info');
+                const response = await fetch(`/api/prescription/patient/${userId}/prescriptions`);
+                const result = await response.json();
+                
+                if (result.success && result.prescriptions && result.prescriptions.length > 0) {
+                    const prescriptions = result.prescriptions;
+                    let restoredCount = 0;
+                    
+                    log(`🔄 开始处理 ${prescriptions.length} 个处方...`, 'info');
+                    
+                    // 清空容器
+                    container.innerHTML = '';
+                    
+                    for (const prescription of prescriptions) {
+                        const prescriptionId = prescription.id;
+                        const status = prescription.status;
+                        const paymentStatus = prescription.payment_status;
+                        
+                        log(`🔄 处理处方ID ${prescriptionId}: status=${status}, payment=${paymentStatus}`, 'info');
+                        
+                        // 检查是否已存在
+                        const existingMsg = container.querySelector(`[data-prescription-id="${prescriptionId}"]`);
+                        
+                        if ((status === 'doctor_approved' || status === 'doctor_modified') && !existingMsg) {
+                            // 创建审核完成消息
+                            const finalPrescription = prescription.doctor_prescription || prescription.ai_prescription;
+                            const messageHtml = `
+                                <div class="message ai" data-prescription-id="${prescriptionId}">
+                                    <h4>✅ 医生审核通过 (处方ID: ${prescriptionId})</h4>
+                                    <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                        <strong>📋 最终处方：</strong>
+                                        <div style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; line-height: 1.4;">
+                                            ${finalPrescription ? finalPrescription.substring(0, 500) + (finalPrescription.length > 500 ? '...' : '') : '处方内容获取中...'}
+                                        </div>
+                                    </div>
+                                    ${prescription.doctor_notes ? `<p><strong>医生备注:</strong> ${prescription.doctor_notes}</p>` : ''}
+                                    <small>状态: ${status === 'doctor_modified' ? '医生已调整' : '审核通过'} | 创建时间: ${new Date(prescription.created_at).toLocaleString()}</small>
+                                </div>
+                            `;
+                            
+                            container.insertAdjacentHTML('beforeend', messageHtml);
+                            log(`✅ 创建了处方 ${prescriptionId} 的审核完成消息`, 'success');
+                            restoredCount++;
+                        } else if (paymentStatus === 'paid' && status === 'pending_review' && !existingMsg) {
+                            // 创建等待审核消息
+                            const messageHtml = `
+                                <div class="message ai" data-prescription-id="${prescriptionId}">
+                                    <h4>⏳ 处方等待医生审核中 (处方ID: ${prescriptionId})</h4>
+                                    <p>✅ 支付已完成<br>🔍 处方正在由专业医生审核中<br>📋 审核完成后您将收到通知</p>
+                                    <small>创建时间: ${new Date(prescription.created_at).toLocaleString()}</small>
+                                </div>
+                            `;
+                            
+                            container.insertAdjacentHTML('beforeend', messageHtml);
+                            log(`✅ 创建了处方 ${prescriptionId} 的等待审核消息`, 'success');
+                            restoredCount++;
+                        } else {
+                            log(`ℹ️ 处方 ${prescriptionId} 无需恢复或已存在`, 'info');
+                        }
+                    }
+                    
+                    if (restoredCount > 0) {
+                        log(`🎉 模拟恢复完成！成功恢复 ${restoredCount} 个处方状态`, 'success');
+                    } else {
+                        log('ℹ️ 没有需要恢复的处方', 'info');
+                    }
+                } else {
+                    log('⚠️ 未获取到有效的处方数据', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ 模拟恢复失败: ${error.message}`, 'error');
+            }
+        }
+
+        function clearSimulation() {
+            const container = document.getElementById('simulatedMessagesContainer');
+            container.innerHTML = '<p style="color: #666; text-align: center;">等待模拟恢复...</p>';
+            log('🗑️ 已清除模拟结果', 'info');
+        }
+
+        // 页面加载时自动显示说明
+        window.addEventListener('load', () => {
+            log('🔧 处方恢复修复验证工具已加载', 'success');
+            log('💡 点击"测试API接口"验证数据获取，然后点击"模拟处方恢复"查看UI恢复效果', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -619,8 +619,19 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 WHERE uuid = ?
             """, (
                 json.dumps(updated_log),
-                json.dumps({"confidence_score": response.confidence_score, "stage": response.stage}),
-                json.dumps(response.prescription_data.get('syndrome', {}) if response.prescription_data else {}),
+                json.dumps({
+                    "confidence_score": response.confidence_score, 
+                    "stage": response.stage,
+                    "symptoms": _extract_symptoms_from_conversation(request.message, response.reply),
+                    "main_symptoms": _extract_main_symptoms(request.message),
+                    "additional_symptoms": _extract_additional_symptoms(response.reply)
+                }),
+                json.dumps({
+                    "syndrome": response.prescription_data.get('syndrome') if response.prescription_data else None,
+                    "diagnosis": _extract_diagnosis_from_reply(response.reply),
+                    "pattern": _extract_tcm_pattern(response.reply),
+                    "treatment_principle": _extract_treatment_principle(response.reply)
+                }),
                 _determine_consultation_status(response),
                 datetime.now().isoformat(),
                 existing[0]
@@ -654,8 +665,19 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 user_id,
                 request.selected_doctor,
                 conversation_log,
-                json.dumps({"confidence_score": response.confidence_score, "stage": response.stage}),
-                json.dumps(response.prescription_data.get('syndrome', {}) if response.prescription_data else {}),
+                json.dumps({
+                    "confidence_score": response.confidence_score, 
+                    "stage": response.stage,
+                    "symptoms": _extract_symptoms_from_conversation(request.message, response.reply),
+                    "main_symptoms": _extract_main_symptoms(request.message),
+                    "additional_symptoms": _extract_additional_symptoms(response.reply)
+                }),
+                json.dumps({
+                    "syndrome": response.prescription_data.get('syndrome') if response.prescription_data else None,
+                    "diagnosis": _extract_diagnosis_from_reply(response.reply),
+                    "pattern": _extract_tcm_pattern(response.reply),
+                    "treatment_principle": _extract_treatment_principle(response.reply)
+                }),
                 _determine_consultation_status(response),
                 datetime.now().isoformat(),
                 datetime.now().isoformat()
@@ -1181,25 +1203,55 @@ async def get_patient_consultation_history(http_request: Request):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 获取患者的完整问诊历史（包含处方状态）
+        # 🔑 修复：获取患者的完整问诊历史，避免重复记录
+        # 先获取唯一的consultations，然后单独查询最新的prescription
         cursor.execute("""
-            SELECT 
+            SELECT DISTINCT
                 c.uuid, c.patient_id, c.selected_doctor_id, c.conversation_log,
-                c.symptoms_analysis, c.tcm_syndrome, c.status, c.created_at, c.updated_at,
-                p.id as prescription_id, p.ai_prescription, p.doctor_prescription, 
-                p.diagnosis, p.symptoms, p.status as prescription_status,
-                p.review_status, p.payment_status, p.prescription_fee, 
-                p.is_visible_to_patient, p.visibility_unlock_time, p.reviewed_at,
-                d.name as doctor_name, d.speciality as doctor_specialty
+                c.symptoms_analysis, c.tcm_syndrome, c.status, c.created_at, c.updated_at
             FROM consultations c
-            LEFT JOIN prescriptions p ON c.uuid = p.consultation_id
-            LEFT JOIN doctors d ON CAST(p.doctor_id AS INTEGER) = d.id
             WHERE c.patient_id = ?
             ORDER BY c.created_at DESC
             LIMIT 50
         """, (user_id,))
         
-        rows = cursor.fetchall()
+        consultation_rows = cursor.fetchall()
+        
+        # 构建带处方信息的完整数据
+        rows = []
+        for c_row in consultation_rows:
+            # 为每个consultation获取最新的prescription信息
+            cursor.execute("""
+                SELECT 
+                    p.id as prescription_id, p.ai_prescription, p.doctor_prescription, 
+                    p.diagnosis, p.symptoms, p.status as prescription_status,
+                    p.review_status, p.payment_status, p.prescription_fee, 
+                    p.is_visible_to_patient, p.visibility_unlock_time, p.reviewed_at,
+                    d.name as doctor_name, d.speciality as doctor_specialty
+                FROM prescriptions p
+                LEFT JOIN doctors d ON CAST(p.doctor_id AS INTEGER) = d.id
+                WHERE p.consultation_id = ?
+                ORDER BY p.created_at DESC
+                LIMIT 1
+            """, (c_row['uuid'],))
+            
+            p_row = cursor.fetchone()
+            
+            # 合并consultation和prescription数据
+            combined_row = dict(c_row)
+            if p_row:
+                combined_row.update(dict(p_row))
+            else:
+                # 没有处方时，填充空值
+                combined_row.update({
+                    'prescription_id': None, 'ai_prescription': None, 'doctor_prescription': None,
+                    'diagnosis': None, 'symptoms': None, 'prescription_status': None,
+                    'review_status': None, 'payment_status': None, 'prescription_fee': None,
+                    'is_visible_to_patient': None, 'visibility_unlock_time': None, 'reviewed_at': None,
+                    'doctor_name': None, 'doctor_specialty': None
+                })
+            
+            rows.append(combined_row)
         
         # 构建历史记录数据
         consultation_history = []
@@ -1313,6 +1365,129 @@ async def get_patient_consultation_history(http_request: Request):
             "message": f"获取历史记录失败: {str(e)}"
         }
 
+
+# 🆕 信息提取辅助函数
+def _extract_symptoms_from_conversation(patient_message: str, ai_response: str) -> str:
+    """从对话中提取症状信息"""
+    try:
+        # 从患者消息中提取主要症状
+        symptoms = []
+        
+        # 常见症状关键词
+        symptom_keywords = [
+            '头痛', '头晕', '头胀', '耳鸣', '失眠', '多梦', '心悸', '胸闷', 
+            '气短', '乏力', '疲倦', '烦躁', '发热', '恶寒', '咳嗽', '咳痰',
+            '腹痛', '腹胀', '便秘', '腹泻', '恶心', '呕吐', '食欲不振', 
+            '口干', '口苦', '尿频', '尿急', '腰痛', '关节痛', '肌肉痛'
+        ]
+        
+        for keyword in symptom_keywords:
+            if keyword in patient_message:
+                symptoms.append(keyword)
+        
+        # 提取血压等数值信息
+        import re
+        bp_match = re.search(r'血压.*?(\d+/\d+)', patient_message)
+        if bp_match:
+            symptoms.append(f"血压{bp_match.group(1)}")
+            
+        return '、'.join(symptoms) if symptoms else patient_message[:100]
+        
+    except Exception as e:
+        logger.warning(f"提取症状失败: {e}")
+        return patient_message[:100]
+
+def _extract_main_symptoms(patient_message: str) -> str:
+    """提取主要症状"""
+    # 简化版：取患者描述的前50字作为主症
+    return patient_message[:50] + "..." if len(patient_message) > 50 else patient_message
+
+def _extract_additional_symptoms(ai_response: str) -> str:
+    """从AI回复中提取额外识别的症状"""
+    try:
+        import re
+        # 查找AI分析中的症状描述
+        pattern = r'症状.*?[:：](.*?)(?:[。\n]|$)'
+        match = re.search(pattern, ai_response)
+        if match:
+            return match.group(1).strip()
+        
+        # 查找伴随症状
+        pattern = r'伴随.*?[:：](.*?)(?:[。\n]|$)'
+        match = re.search(pattern, ai_response)
+        if match:
+            return match.group(1).strip()
+            
+        return ""
+    except Exception as e:
+        logger.warning(f"提取伴随症状失败: {e}")
+        return ""
+
+def _extract_diagnosis_from_reply(ai_response: str) -> str:
+    """从AI回复中提取诊断信息"""
+    try:
+        import re
+        # 查找诊断相关信息
+        patterns = [
+            r'诊断[:：](.*?)(?:[。\n]|$)',
+            r'辨证[:：](.*?)(?:[。\n]|$)',
+            r'证型[:：](.*?)(?:[。\n]|$)',
+            r'属于(.*?)证',
+            r'考虑为(.*?)(?:[。\n]|$)'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, ai_response)
+            if match:
+                return match.group(1).strip()
+                
+        return ""
+    except Exception as e:
+        logger.warning(f"提取诊断失败: {e}")
+        return ""
+
+def _extract_tcm_pattern(ai_response: str) -> str:
+    """提取中医证型"""
+    try:
+        import re
+        patterns = [
+            r'证型.*?[:：](.*?)(?:[。\n]|$)',
+            r'辨证.*?[:：](.*?)(?:[。\n]|$)',
+            r'(.*?)证候',
+            r'属(.*?)型'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, ai_response)
+            if match:
+                return match.group(1).strip()
+                
+        return ""
+    except Exception as e:
+        logger.warning(f"提取证型失败: {e}")
+        return ""
+
+def _extract_treatment_principle(ai_response: str) -> str:
+    """提取治则治法"""
+    try:
+        import re
+        patterns = [
+            r'治则.*?[:：](.*?)(?:[。\n]|$)',
+            r'治法.*?[:：](.*?)(?:[。\n]|$)',
+            r'治疗原则.*?[:：](.*?)(?:[。\n]|$)',
+            r'以(.*?)为法',
+            r'当(.*?)治之'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, ai_response)
+            if match:
+                return match.group(1).strip()
+                
+        return ""
+    except Exception as e:
+        logger.warning(f"提取治法失败: {e}")
+        return ""
 
 def _determine_consultation_status(response) -> str:
     """

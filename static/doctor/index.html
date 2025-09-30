@@ -3069,43 +3069,36 @@
             }
         }
 
-        // 🔧 删除快速拒绝功能，改为处方调整功能
+        // 🔧 改进：使用结构化处方编辑器进行处方调整
         async function modifyPrescription(prescriptionId) {
-            const modifiedContent = prompt('请输入调整后的处方内容：');
-            if (!modifiedContent) return;
-
-            const notes = prompt('请输入调整说明（可选）：') || '医生调整处方';
-
-            const token = localStorage.getItem('doctorToken');
-            if (!token) return;
-
-            try {
-                const response = await fetch('/api/prescription-review/doctor-review', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        prescription_id: prescriptionId,
-                        doctor_id: getCurrentDoctorId(),
-                        action: 'modify',
-                        modified_prescription: modifiedContent,
-                        doctor_notes: notes
-                    })
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    alert('处方调整成功');
-                    await loadPrescriptionReviewData();
-                } else {
-                    alert(data.message || '操作失败');
+            // 🔑 重要改进：打开结构化处方编辑器，而不是简单的prompt输入
+            const editorUrl = `/prescription_structured_editor.html?prescription_id=${prescriptionId}`;
+            
+            // 在新窗口中打开结构化编辑器
+            const editorWindow = window.open(
+                editorUrl, 
+                'prescription_editor', 
+                'width=1200,height=800,scrollbars=yes,resizable=yes,menubar=no,toolbar=no'
+            );
+            
+            if (!editorWindow) {
+                // 如果弹窗被阻止，提供备用方案
+                if (confirm('弹窗被阻止，是否在当前页面打开编辑器？')) {
+                    window.location.href = editorUrl;
                 }
-            } catch (error) {
-                console.error('处方调整失败:', error);
-                alert('网络错误，请稍后重试');
+                return;
             }
+            
+            // 监听编辑器窗口关闭，刷新处方列表
+            const checkClosed = setInterval(() => {
+                if (editorWindow.closed) {
+                    clearInterval(checkClosed);
+                    console.log('📝 结构化编辑器已关闭，刷新处方列表');
+                    loadPrescriptionReviewData();
+                }
+            }, 1000);
+            
+            console.log(`🔧 打开结构化处方编辑器: ${editorUrl}`);
         }
 
         // 刷新处方列表
