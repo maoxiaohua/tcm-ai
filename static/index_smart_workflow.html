@@ -2716,6 +2716,11 @@
             window.clearCurrentUserData = clearCurrentUserData;
             window.switchUserContext = switchUserContext;
             
+            // 🔄 启动实时同步检查机制
+            setTimeout(() => {
+                startPrescriptionStatusPolling();
+            }, 5000); // 页面加载5秒后启动
+            
             // 🔗 添加页面级用户管理控制
             addUserManagementControls();
             
@@ -6330,6 +6335,11 @@ ${data.analysis_result}`;
                         
                         // 标记处方状态
                         messageDiv.setAttribute('data-prescription-status', 'pending_review');
+                        messageDiv.setAttribute('data-prescription-id', prescriptionId);
+                        
+                        // 🔑 关键修复：同步状态到localStorage，确保刷新后能恢复
+                        syncPrescriptionStatusToStorage(prescriptionId, 'pending_review');
+                        
                         console.log('✅ 已更新处方显示为等待审核状态');
                     }
                     break;
@@ -6337,7 +6347,44 @@ ${data.analysis_result}`;
             }
         }
         
-        // 🆕 检查处方审核状态
+        // 🆕 同步处方状态到本地存储
+        function syncPrescriptionStatusToStorage(prescriptionId, status) {
+            try {
+                const userId = getCurrentUserId();
+                const storageKey = `prescription_status_${userId}`;
+                let prescriptionStatuses = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                
+                prescriptionStatuses[prescriptionId] = {
+                    status: status,
+                    timestamp: Date.now(),
+                    lastUpdated: new Date().toISOString()
+                };
+                
+                localStorage.setItem(storageKey, JSON.stringify(prescriptionStatuses));
+                console.log('💾 已同步处方状态到本地存储:', prescriptionId, status);
+                
+            } catch (error) {
+                console.error('❌ 同步处方状态失败:', error);
+            }
+        }
+        
+        // 🆕 从本地存储获取处方状态
+        function getPrescriptionStatusFromStorage(prescriptionId) {
+            try {
+                const userId = getCurrentUserId();
+                const storageKey = `prescription_status_${userId}`;
+                const prescriptionStatuses = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                
+                const statusData = prescriptionStatuses[prescriptionId];
+                return statusData ? statusData.status : null;
+                
+            } catch (error) {
+                console.error('❌ 获取处方状态失败:', error);
+                return null;
+            }
+        }
+        
+        // 🆕 检查处方审核状态 - 增强实时同步
         async function checkPrescriptionStatus(prescriptionId) {
             try {
                 console.log('🔍 检查处方审核状态:', prescriptionId);
@@ -6357,6 +6404,9 @@ ${data.analysis_result}`;
                             // 审核完成，显示最终处方
                             showMessage('✅ 处方审核已完成！', 'success');
                             await markPrescriptionAsCompleted(prescriptionId, statusData);
+                            
+                            // 🔑 同步状态更新到本地存储
+                            syncPrescriptionStatusToStorage(prescriptionId, 'approved');
                         } else {
                             // 仍在审核中
                             showMessage(`⏳ 处方仍在审核中，状态：${statusData.status_description}`, 'info');
@@ -6368,6 +6418,69 @@ ${data.analysis_result}`;
             } catch (error) {
                 console.error('检查处方状态失败:', error);
                 showMessage('❌ 网络错误，请稍后重试', 'error');
+            }
+        }
+        
+        // 🆕 启动实时同步检查机制
+        function startPrescriptionStatusPolling() {
+            const userId = getCurrentUserId();
+            const storageKey = `prescription_status_${userId}`;
+            
+            // 每30秒检查一次处方状态
+            setInterval(async () => {
+                try {
+                    const prescriptionStatuses = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                    
+                    // 检查所有待审核的处方
+                    for (const [prescriptionId, statusData] of Object.entries(prescriptionStatuses)) {
+                        if (statusData.status === 'pending_review') {
+                            // 检查是否已过期（超过24小时不再检查）
+                            const hoursAgo = (Date.now() - statusData.timestamp) / (1000 * 60 * 60);
+                            if (hoursAgo < 24) {
+                                await checkPrescriptionStatusSilently(prescriptionId);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.warn('定期检查处方状态失败:', error);
+                }
+            }, 30000); // 30秒检查一次
+            
+            console.log('✅ 已启动处方状态实时同步检查');
+        }
+        
+        // 🆕 静默检查处方状态（不显示UI提示）
+        async function checkPrescriptionStatusSilently(prescriptionId) {
+            try {
+                const response = await fetch(`/api/prescription-review/status/${prescriptionId}`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    if (result.success && result.data && result.data.is_reviewed) {
+                        // 审核完成，自动更新界面
+                        console.log('🔔 检测到处方审核完成:', prescriptionId);
+                        showMessage('🔔 您有处方审核完成，正在更新显示...', 'success');
+                        
+                        await markPrescriptionAsCompleted(prescriptionId, result.data);
+                        syncPrescriptionStatusToStorage(prescriptionId, 'approved');
+                        
+                        // 播放通知音效（如果可能）
+                        if ('Audio' in window) {
+                            try {
+                                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFAg+ltryxnkpBSl+zPLZizEIGGS57OObTgwKT6fh8LZnHgg2jdXzzn8vBSF0xe/ekkILElyx5+2rWRUGPJPY88p9KwUme8rx2o4yBxZiturjpVITC0ml4e+3aB4GMIzU8tGAMgUfcsLu45hEDBFYrOLtrVwWBDqU2fLIfSwGJHfH8N+QQAoUXrTp6qtWFAg+ltrzxnkpBSl+zPLZizEIGGS56+OcTgwKT6fh8LZnHgg2jdT0z4AuBSJ0xe/gkkILElyx5+2rWRUGPJPY88p9KwUme8rx2o4yBxZiturjpVITC0ml4e+3aB4GMIzU8tGAMgUfcsLu45hEDBFYrOLtrVwWBDqU2fLIfSwGJHfH8N+QQAoUXrTp6qtWFAg+ltrzxnkpBSl+zPLZizEIGGS56+OcTgwKT6fh8LZnHgg2jdT0z4AuBSJ0xe/gkkILElyx5+2rWRUGPJPY88p9KwUme8rx2o4yBxZiturjpVITC0ml4e+3aB4GMIzU8tGAMgUfcsLu45hEDBFYrOLtrVwWBDqU2fLIfSwGJHfH8N+QQAoUXrTp6qtWFAg+ltrzxnkpBSl+zPLZizEIGGS56+OcTgwKT6fh8LZnHgg2jdT0z4AuBSJ0xe/gkkILElyx5+2rWRUGPJPY88p9KwUme8rx2o4yBxZiturjpVITC0ml4e+3aB4=');
+                                audio.volume = 0.3;
+                                audio.play();
+                            } catch (e) {
+                                // 忽略音效播放错误
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('静默检查处方状态失败:', prescriptionId, error);
             }
         }
         
@@ -9198,6 +9311,18 @@ ${data.analysis_result}`;
                     } else if (messageType === 'ai') {
                         // 恢复AI消息，包含处方状态
                         await addMessage('ai', content, false, isPaid, prescriptionId);
+                        
+                        // 🔑 关键修复：如果是已支付但等待审核的处方，更新显示状态
+                        if (isPaid && prescriptionId) {
+                            // 检查本地存储的处方状态
+                            const localStatus = getPrescriptionStatusFromStorage(prescriptionId);
+                            if (localStatus === 'pending_review') {
+                                setTimeout(() => {
+                                    updatePrescriptionToReviewStatus(prescriptionId);
+                                    console.log('🔄 已恢复处方等待审核状态:', prescriptionId);
+                                }, 100);
+                            }
+                        }
                     }
                     
                     // 添加小延迟以确保消息按顺序显示

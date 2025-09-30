@@ -621,7 +621,7 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 json.dumps(updated_log),
                 json.dumps({"confidence_score": response.confidence_score, "stage": response.stage}),
                 json.dumps(response.prescription_data.get('syndrome', {}) if response.prescription_data else {}),
-                "completed" if response.contains_prescription else "in_progress",
+                _determine_consultation_status(response),
                 datetime.now().isoformat(),
                 existing[0]
             ))
@@ -656,7 +656,7 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 conversation_log,
                 json.dumps({"confidence_score": response.confidence_score, "stage": response.stage}),
                 json.dumps(response.prescription_data.get('syndrome', {}) if response.prescription_data else {}),
-                "completed" if response.contains_prescription else "in_progress",
+                _determine_consultation_status(response),
                 datetime.now().isoformat(),
                 datetime.now().isoformat()
             ))
@@ -759,7 +759,7 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
             user_id,
             request.selected_doctor,
             request.message[:100] if request.message else "问诊咨询",  # 截取前100字符作为主诉
-            "completed" if response.contains_prescription else "active",
+            "active" if _determine_consultation_status(response) in ['in_progress', 'pending_payment', 'pending_review'] else "completed",
             datetime.now().isoformat(),
             datetime.now().isoformat()
         ))
@@ -1312,4 +1312,22 @@ async def get_patient_consultation_history(http_request: Request):
             "success": False,
             "message": f"获取历史记录失败: {str(e)}"
         }
+
+
+def _determine_consultation_status(response) -> str:
+    """
+    🔑 根据问诊回复确定问诊状态，修复历史记录重复问题
+    """
+    if response.contains_prescription:
+        # 包含处方时，应该是等待患者支付/医生审核状态，而不是完成状态
+        if hasattr(response, 'prescription_data') and response.prescription_data:
+            payment_status = response.prescription_data.get('payment_status', 'pending')
+            if payment_status == 'paid':
+                return 'pending_review'  # 已支付，等待医生审核
+            else:
+                return 'pending_payment'  # 等待患者支付
+        else:
+            return 'pending_payment'  # 默认等待支付
+    else:
+        return 'in_progress'  # 仍在问诊中
 
