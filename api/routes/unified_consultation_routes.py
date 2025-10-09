@@ -137,14 +137,14 @@ async def unified_chat_endpoint(request: ChatMessage, http_request: Request):
         )
 
 @router.post("/chat-legacy", response_model=Dict[str, Any])
-async def legacy_chat_endpoint(request: ChatMessage):
+async def legacy_chat_endpoint(request: ChatMessage, http_request: Request):
     """
     兼容原系统的问诊接口
     返回格式与原chat_with_ai完全兼容
     """
     try:
         # 调用统一问诊处理
-        unified_response = await unified_chat_endpoint(request)
+        unified_response = await unified_chat_endpoint(request, http_request)
         
         if unified_response.success:
             # 返回原系统兼容的格式

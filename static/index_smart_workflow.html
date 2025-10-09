@@ -1242,6 +1242,20 @@
             display: none;
         }
         
+        /* 强制显示移动端容器在小屏幕上 */
+        @media (max-width: 768px) {
+            .mobile-page-container {
+                display: flex !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                position: relative !important;
+                width: 200% !important;
+                height: 100vh !important;
+                z-index: 999 !important;
+                overflow: hidden !important;
+            }
+        }
+        
         /* 响应式设计 */
         @media (max-width: 1440px) {
             .content-wrapper {
@@ -1258,6 +1272,65 @@
             /* 隐藏桌面端布局，避免与移动端布局冲突 */
             .content-wrapper {
                 display: none !important;
+            }
+            
+            /* 移动端消息样式优化 */
+            .mobile-messages-container .message {
+                margin-bottom: 16px;
+                display: flex;
+                align-items: flex-end;
+                gap: 8px;
+                width: 100%;
+                clear: both;
+            }
+            
+            .mobile-messages-container .message.user {
+                justify-content: flex-end;
+                flex-direction: row-reverse;
+            }
+            
+            .mobile-messages-container .message-content {
+                max-width: 80%;
+                padding: 12px 16px;
+                border-radius: 18px;
+                word-wrap: break-word;
+                line-height: 1.4;
+                display: block;
+            }
+            
+            .mobile-messages-container .message.user .message-content {
+                background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+                color: white;
+                border-bottom-right-radius: 6px;
+            }
+            
+            .mobile-messages-container .message.ai .message-content {
+                background: white;
+                color: #374151;
+                border: 1px solid #e5e7eb;
+                border-bottom-left-radius: 6px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            
+            .mobile-messages-container .message-avatar {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                flex-shrink: 0;
+            }
+            
+            .mobile-messages-container .message.user .message-avatar {
+                background: #3b82f6;
+                color: white;
+            }
+            
+            .mobile-messages-container .message.ai .message-avatar {
+                background: #f3f4f6;
+                color: #6b7280;
             }
             
             /* 移动端页面容器 */
@@ -1368,9 +1441,10 @@
                 flex: 1;
                 background: white;
                 border-radius: 20px 20px 0 0;
-                padding: 24px 16px 120px 16px; /* 增加底部内边距避免被遮挡 */
+                padding: 24px 16px 30px 16px; /* 优化底部内边距 */
                 overflow-y: auto;
                 -webkit-overflow-scrolling: touch; /* iOS平滑滚动 */
+                max-height: calc(100vh - 160px); /* 限制最大高度，避免溢出 */
             }
             
             .mobile-doctors-title {
@@ -1382,60 +1456,93 @@
             }
             
             .mobile-doctors-grid {
-                display: grid;
-                grid-template-columns: 1fr;
-                gap: 16px;
+                display: block; /* 改为block提高兼容性 */
+                width: 100%;
+            }
+            
+            /* 如果浏览器支持Grid，则使用Grid布局 */
+            @supports (display: grid) {
+                .mobile-doctors-grid {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 16px;
+                }
             }
             
             .mobile-doctor-card {
                 background: white;
                 border: 2px solid #e5e7eb;
                 border-radius: 12px;
-                padding: 20px;
+                padding: 16px;
                 cursor: pointer;
                 transition: all 0.2s;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                margin-bottom: 8px; /* 增加卡片间距 */
+                min-height: 120px; /* 确保卡片最小高度 */
             }
             
             .mobile-doctor-card:hover,
-            .mobile-doctor-card:active {
+            .mobile-doctor-card:active,
+            .mobile-doctor-card.selected {
                 border-color: #3b82f6;
-                background: #eff6ff;
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+                transform: translateY(-1px);
+                box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
+            }
+            
+            .mobile-doctor-card.selected .mobile-doctor-avatar {
+                background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+                color: white;
             }
             
             .mobile-doctor-info {
                 display: flex;
-                align-items: center;
+                align-items: flex-start;
                 margin-bottom: 12px;
+                gap: 12px;
             }
             
             .mobile-doctor-avatar {
-                font-size: 2.5rem;
-                margin-right: 16px;
+                font-size: 2.2rem;
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 50px;
+                height: 50px;
+                background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+                border-radius: 50%;
+                border: 2px solid #3b82f6;
+            }
+            
+            .mobile-doctor-details {
+                flex: 1;
             }
             
             .mobile-doctor-details h3 {
-                font-size: 1.1rem;
+                font-size: 1.05rem;
                 font-weight: 600;
                 color: #374151;
-                margin-bottom: 4px;
+                margin: 0 0 4px 0;
+                line-height: 1.3;
             }
             
             .mobile-doctor-details .school {
-                font-size: 0.85rem;
+                font-size: 0.8rem;
                 color: #6b7280;
+                margin: 0;
             }
             
             .mobile-doctor-specialty {
-                font-size: 0.9rem;
+                font-size: 0.85rem;
                 color: #4b5563;
                 line-height: 1.4;
+                margin-top: 8px;
             }
             
             .mobile-doctor-specialty strong {
                 color: #374151;
+                font-weight: 500;
             }
             
             /* 聊天页面 */
@@ -1445,6 +1552,8 @@
                 display: flex;
                 flex-direction: column;
                 background: white;
+                position: relative;
+                overflow: hidden;
             }
             
             .mobile-chat-header {
@@ -1496,10 +1605,15 @@
             
             .mobile-messages-container {
                 flex: 1;
-                padding: 16px;
+                padding: 16px 12px;
                 overflow-y: auto;
+                overflow-x: hidden;
                 background: #f9fafb;
                 -webkit-overflow-scrolling: touch;
+                min-height: 0;
+                display: block;
+                position: relative;
+                scroll-behavior: smooth;
             }
             
             .mobile-input-container {
@@ -1507,69 +1621,89 @@
                 background: white;
                 border-top: 1px solid #e5e7eb;
                 flex-shrink: 0;
+                box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
+                position: relative; /* 恢复相对定位 */
+                z-index: 10;
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
             }
 
             .mobile-input-helper {
-                display: flex;
+                display: flex !important;
                 align-items: center;
                 gap: 8px;
-                margin-bottom: 8px;
+                margin-bottom: 10px;
                 padding: 0 4px;
                 flex-wrap: wrap;
+                min-height: 40px;
+                width: 100%;
+                visibility: visible !important;
+                opacity: 1 !important;
             }
 
             .mobile-guidance-trigger {
-                background: linear-gradient(135deg, #28a745, #20c997);
+                background: linear-gradient(135deg, #10b981, #059669);
                 color: white;
                 border: none;
-                padding: 6px 12px;
-                border-radius: 16px;
+                padding: 8px 12px;
+                border-radius: 18px;
                 font-size: 12px;
+                font-weight: 500;
                 cursor: pointer;
                 transition: all 0.2s ease;
                 flex-shrink: 0;
+                box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
             }
 
-            .mobile-guidance-trigger:hover {
+            .mobile-guidance-trigger:hover,
+            .mobile-guidance-trigger:active {
                 transform: translateY(-1px);
-                box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
             }
 
             .mobile-upload-trigger {
-                background: linear-gradient(135deg, #007bff, #0056b3);
+                background: linear-gradient(135deg, #3b82f6, #2563eb);
                 color: white;
                 border: none;
-                padding: 6px 12px;
-                border-radius: 16px;
+                padding: 8px 12px;
+                border-radius: 18px;
                 font-size: 12px;
+                font-weight: 500;
                 cursor: pointer;
                 transition: all 0.2s ease;
                 flex-shrink: 0;
                 display: flex;
                 align-items: center;
                 gap: 4px;
+                box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
             }
 
-            .mobile-upload-trigger:hover {
+            .mobile-upload-trigger:hover,
+            .mobile-upload-trigger:active {
                 transform: translateY(-1px);
-                box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
             }
 
             .mobile-upload-trigger.has-file {
-                background: linear-gradient(135deg, #28a745, #20c997);
+                background: linear-gradient(135deg, #10b981, #059669);
+                box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
             }
 
             .mobile-helper-text {
                 font-size: 11px;
                 color: #6b7280;
                 flex: 1;
-                min-width: 100px;
+                min-width: 120px;
+                text-align: right;
             }
             
             .mobile-input-wrapper {
                 display: flex;
                 gap: 8px;
                 align-items: flex-end;
+                width: 100%;
+                margin-top: 8px;
             }
             
             .mobile-input-wrapper textarea {
@@ -1583,19 +1717,38 @@
                 min-height: 44px;
                 -webkit-appearance: none;
                 -webkit-border-radius: 20px;
+                line-height: 1.4;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             }
             
             .mobile-send-btn {
                 width: 44px;
                 height: 44px;
-                background: #3b82f6;
+                background: linear-gradient(135deg, #3b82f6, #2563eb);
                 color: white;
                 border: none;
                 border-radius: 50%;
                 font-size: 1.2rem;
                 cursor: pointer;
-                transition: background 0.2s;
+                transition: all 0.2s ease;
                 flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+            }
+            
+            .mobile-send-btn:hover,
+            .mobile-send-btn:active {
+                transform: translateY(-1px) scale(1.05);
+                box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+            }
+            
+            .mobile-send-btn:disabled {
+                background: #9ca3af;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
             }
             
             .mobile-send-btn:hover {
@@ -1640,6 +1793,32 @@
             .new-chat-btn {
                 padding: 6px 12px;
                 font-size: 0.8rem;
+            }
+            
+            /* 移动端消息优化 */
+            .mobile-messages-container {
+                padding: 12px 8px;
+            }
+            
+            .mobile-input-container {
+                padding: 8px 12px;
+            }
+            
+            .mobile-input-wrapper textarea {
+                font-size: 15px;
+            }
+            
+            .message.ai .message-content,
+            .message.user .message-content {
+                max-width: 85%;
+                padding: 10px 14px;
+                font-size: 14px;
+            }
+            
+            .message-avatar {
+                width: 28px;
+                height: 28px;
+                font-size: 12px;
             }
             
             .sidebar {
@@ -2285,7 +2464,8 @@
                             onkeydown="handleMobileKeyPress(event)"
                             oninput="adjustMobileTextareaHeight()"
                             onfocus="ensureMobileInputVisible()"
-                            ontouchstart="ensureMobileInputVisible()"
+                            onblur="handleMobileInputBlur()"
+                            style="resize: none; outline: none;"
                         ></textarea>
                         <button class="mobile-send-btn" id="mobileSendBtn" onclick="sendMobileMessage()">→</button>
                     </div>
@@ -9899,8 +10079,27 @@ ${data.analysis_result}`;
 
         // 移动端渲染医生卡片 - 已简化，移除AI推荐功能
         function renderMobileDoctorCards() {
+            console.log('👥 渲染移动端医生卡片');
             const container = document.getElementById('mobileDoctorsGrid');
+            if (!container) {
+                console.error('❌ 未找到移动端医生容器 mobileDoctorsGrid');
+                return;
+            }
+            
+            // 清空容器
             container.innerHTML = '';
+            
+            // 强制显示容器
+            container.style.display = 'block';
+            container.style.visibility = 'visible';
+            container.style.opacity = '1';
+            
+            console.log('🔍 医生对象:', doctors);
+            console.log('🔍 容器状态:', {
+                display: getComputedStyle(container).display,
+                visibility: getComputedStyle(container).visibility,
+                opacity: getComputedStyle(container).opacity
+            });
             
             // 直接使用默认医生列表
             Object.entries(doctors).forEach(([key, doctor]) => {
@@ -9954,6 +10153,9 @@ ${data.analysis_result}`;
             }
 
             const messageContent = `
+                <div class="message-avatar">
+                    ${sender === 'user' ? '👤' : '🏥'}
+                </div>
                 <div class="message-content">
                     <div class="message-text">${processedContent}</div>
                     ${sender === 'ai' && showFeedback ? `
@@ -10242,32 +10444,61 @@ ${data.analysis_result}`;
         }
         
         
-        // 移动端输入框焦点处理
+        // 移动端输入框焦点处理（简化版）
         function ensureMobileInputVisible() {
-            const input = document.getElementById('mobileMessageInput');
             const container = document.getElementById('mobileMessagesContainer');
-            const inputContainer = document.querySelector('.mobile-input-container');
             
-            if (container) {
-                // 滚动消息容器到底部，确保输入框区域可见
-                container.scrollTop = container.scrollHeight;
-            }
-            
-            if (inputContainer) {
-                // 确保输入容器可见
-                setTimeout(() => {
-                    inputContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                }, 200);
-            }
+            // 简单滚动到底部，不做过多干预
+            setTimeout(() => {
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            }, 100);
+        }
+        
+        // 软键盘收起处理（简化版）
+        function handleMobileInputBlur() {
+            // 仅做最小必要的清理
+            setTimeout(() => {
+                const container = document.getElementById('mobileMessagesContainer');
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            }, 200);
         }
 
+        // 删除视口监听器，避免过多干预
+        
         // 页面加载时初始化移动端
         document.addEventListener('DOMContentLoaded', function() {
+            // 调试：检查移动端检测
+            const isMobile = window.innerWidth <= 768;
+            const mobileContainer = document.getElementById('mobilePageContainer');
+            console.log('🔍 移动端检测:', {
+                windowWidth: window.innerWidth,
+                isMobile: isMobile,
+                mobileContainer: mobileContainer,
+                containerDisplay: mobileContainer ? getComputedStyle(mobileContainer).display : 'not found'
+            });
             if (window.innerWidth <= 768) {
-                renderMobileDoctorCards();
+                console.log('✅ 初始化移动端界面');
+                
+                // 强制显示移动端容器
+                const mobileContainer = document.getElementById('mobilePageContainer');
+                if (mobileContainer) {
+                    mobileContainer.style.display = 'flex';
+                    console.log('✅ 强制显示移动端容器');
+                }
+                
+                // 延迟渲染医生卡片，确保 DOM 完全加载
+                setTimeout(() => {
+                    renderMobileDoctorCards();
+                }, 500);
+                
                 // 移动端不设置默认医生，让用户主动选择
                 // setMobileDefaultDoctor('zhang_zhongjing');
-                
+            } else {
+                console.log('🖥️ 桌面端模式');
             }
         });
         
