@@ -1249,10 +1249,11 @@
                 visibility: visible !important;
                 opacity: 1 !important;
                 position: relative !important;
-                width: 200% !important;
+                width: 100% !important;  /* 🔧 修复: 从200%改为100%，避免内容被推到屏幕外 */
                 height: 100vh !important;
                 z-index: 999 !important;
-                overflow: hidden !important;
+                overflow-x: hidden !important;  /* 🔧 修复: 防止横向滚动 */
+                overflow-y: auto !important;
             }
         }
         
@@ -2644,24 +2645,43 @@
         let userToken = null;
 
         // 医生数据（动态加载）
-        let doctors = {};
-        
+        // 🔑 Chrome浏览器兼容性修复：立即初始化默认医生数据，确保页面加载时医生列表可用
+        // 后续会通过API异步更新为完整的医生列表
+        // 🔧 修复：使用全局变量（window.doctors），确保在所有script标签中都能访问
+        let doctors = window.doctors = {
+            "jin_daifu": {
+                "name": "金大夫",
+                "school": "经方大师",
+                "avatar": "👨‍⚕️",
+                "specialty": "经方应用、疑难杂症、综合诊疗",
+                "introduction": "经方大师，深通古典医学，擅长运用经典方剂解决现代疑难杂症，临床经验丰富。"
+            },
+            "zhang_zhongjing": {
+                "name": "张仲景",
+                "school": "伤寒派",
+                "avatar": "🎯",
+                "specialty": "外感病、内伤杂病、急症",
+                "introduction": "伤寒派以《伤寒论》为理论基础，擅长六经辨证，治疗外感热病和内伤杂病。用药精准，方证对应。"
+            }
+        };
+
         // 医生默认头像映射（用于API返回的医生数据）
         const doctorAvatarMap = {
             "jin_daifu": "👨‍⚕️",
-            "zhang_zhongjing": "🎯",
-            "ye_tianshi": "🌿"
+            "zhang_zhongjing": "🎯"
         };
         
-        // 从API加载医生列表
+        // 从API加载医生列表（异步更新）
         async function loadDoctors() {
             try {
+                console.log('🔄 [API] 开始从API加载完整医生列表...');
                 const response = await fetch('/api/doctors/list');
                 const result = await response.json();
-                
-                if (result.success && result.doctors) {
-                    // 转换为前端需要的格式
-                    doctors = {};
+
+                if (result.success && result.doctors && result.doctors.length > 0) {
+                    console.log('✅ [API] API返回医生数据:', result.doctors.length, '位医生');
+                    // 转换为前端需要的格式（覆盖默认数据）
+                    const newDoctors = {};
                     result.doctors.forEach(doctor => {
                         const doctorCode = doctor.doctor_code;
                         
@@ -2679,7 +2699,7 @@
                         // 🔧 修复specialty.split错误 - 确保specialty是字符串
                         const specialtyStr = String(specialty || "中医");
                         
-                        doctors[doctorCode] = {
+                        newDoctors[doctorCode] = {
                             "name": doctor.name,
                             "school": specialtyStr.split('、')[0] || "中医",
                             "avatar": doctorAvatarMap[doctorCode] || "👨‍⚕️",
@@ -2687,26 +2707,31 @@
                             "introduction": doctor.introduction || `${doctor.name}医师，擅长${specialtyStr}等疾病的诊治。`
                         };
                     });
-                    
-                    console.log('✅ 医生列表加载成功:', Object.keys(doctors).length, '位医生');
-                    
+
+                    // 用API数据覆盖默认数据
+                    doctors = window.doctors = newDoctors;
+                    console.log('✅ [API] 医生列表更新成功:', Object.keys(doctors).length, '位医生');
+
                     // 更新医生选择器
                     updateDoctorSelector();
                 } else {
-                    console.error('❌ 医生列表加载失败:', result.message);
-                    // 使用默认医生数据作为备选
-                    loadDefaultDoctors();
+                    console.warn('⚠️ [API] API返回数据为空，继续使用默认医生数据');
+                    // 保持使用已初始化的默认医生数据，不做任何改变
                 }
             } catch (error) {
-                console.error('❌ 加载医生列表异常:', error);
-                // 使用默认医生数据作为备选
-                loadDefaultDoctors();
+                console.error('❌ [API] 加载医生列表异常:', error);
+                console.log('⚠️ [API] 继续使用默认医生数据');
+                // 保持使用已初始化的默认医生数据，不做任何改变
             }
         }
         
-        // 加载默认医生数据（备选方案）
+        // 🔑 注意：此函数已废弃，因为默认医生数据已在初始化时加载
+        // 保留此函数仅为兼容旧代码，实际不再使用
         function loadDefaultDoctors() {
-            doctors = {
+            console.log('⚠️ [DEPRECATED] loadDefaultDoctors被调用，但默认数据已在初始化时加载');
+            // 如果doctors为空，则重新加载
+            if (Object.keys(doctors).length === 0) {
+                doctors = window.doctors = {
                 "jin_daifu": {
                     "name": "金大夫",
                     "school": "经方大师", 
@@ -2716,20 +2741,14 @@
                 },
                 "zhang_zhongjing": {
                     "name": "张仲景",
-                    "school": "伤寒派", 
+                    "school": "伤寒派",
                     "avatar": "🎯",
                     "specialty": "外感病、内伤杂病、急症",
                     "introduction": "伤寒派以《伤寒论》为理论基础，擅长六经辨证，治疗外感热病和内伤杂病。用药精准，方证对应。"
-                },
-                "ye_tianshi": {
-                    "name": "叶天士",
-                    "school": "温病派",
-                    "avatar": "🌿",
-                    "specialty": "温病、时令病证、内科杂症",
-                    "introduction": "温病派创始人，以《温热论》著称，擅长卫气营血辨证，治疗季节性疾病和内科疑难杂症。"
                 }
-            };
-            console.log('⚠️ 使用默认医生数据');
+                };
+                console.log('⚠️ [DEPRECATED] 重新加载默认医生数据');
+            }
         }
 
         // 初始化应用
@@ -2881,10 +2900,50 @@
             }, 5000);
             
             // 🔧 先加载医生列表，再渲染医生卡片
+            console.log('🔄 [DEBUG] 开始加载医生列表...');
             await loadDoctors();
+            console.log('✅ [DEBUG] 医生列表加载完成，doctors对象:', doctors);
+            console.log('✅ [DEBUG] doctors对象键:', Object.keys(doctors));
+
             renderDoctorCards();
+
+            // 🔑 Chrome浏览器兼容性修复：确保移动端医生卡片在数据加载完成后渲染
+            const isMobile = window.innerWidth <= 768;
+            console.log('🔍 [DEBUG] 设备检测:', {
+                windowWidth: window.innerWidth,
+                isMobile: isMobile
+            });
+
+            if (isMobile) {
+                console.log('✅ [DEBUG] 移动端模式 - 准备渲染医生卡片');
+                console.log('✅ [DEBUG] 调用renderMobileDoctorCards之前，doctors:', doctors);
+                renderMobileDoctorCards();
+
+                // 🔧 Chrome修复：延迟再次渲染，确保DOM完全ready
+                setTimeout(function() {
+                    console.log('🔄 [Chrome修复] 延迟1秒后再次渲染医生卡片');
+                    const grid = document.getElementById('mobileDoctorsGrid');
+                    if (grid && grid.children.length === 0) {
+                        console.warn('⚠️ [Chrome修复] 医生卡片为空，重新渲染');
+                        renderMobileDoctorCards();
+
+                        // 再延迟2秒检查
+                        setTimeout(function() {
+                            if (grid.children.length === 0) {
+                                console.error('❌ [Chrome修复] 第2次渲染后仍为空，最后尝试');
+                                renderMobileDoctorCards();
+                            } else {
+                                console.log('✅ [Chrome修复] 第1次延迟渲染成功');
+                            }
+                        }, 2000);
+                    } else {
+                        console.log('✅ [Chrome修复] 医生卡片已正常渲染');
+                    }
+                }, 1000);
+            }
+
             loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
-            
+
             // 🔄 初始化ChatGPT风格对话管理系统
             initConversationManager();
             
@@ -10079,34 +10138,47 @@ ${data.analysis_result}`;
 
         // 移动端渲染医生卡片 - 已简化，移除AI推荐功能
         function renderMobileDoctorCards() {
-            console.log('👥 渲染移动端医生卡片');
+            console.log('👥 [DEBUG] 渲染移动端医生卡片 - 开始');
+            console.log('👥 [DEBUG] doctors对象:', doctors);
+            console.log('👥 [DEBUG] doctors对象键数量:', Object.keys(doctors).length);
+
             const container = document.getElementById('mobileDoctorsGrid');
             if (!container) {
-                console.error('❌ 未找到移动端医生容器 mobileDoctorsGrid');
+                console.error('❌ [DEBUG] 未找到移动端医生容器 mobileDoctorsGrid');
                 return;
             }
-            
+
+            console.log('✅ [DEBUG] 找到容器 mobileDoctorsGrid');
+
             // 清空容器
             container.innerHTML = '';
-            
+
             // 强制显示容器
             container.style.display = 'block';
             container.style.visibility = 'visible';
             container.style.opacity = '1';
-            
-            console.log('🔍 医生对象:', doctors);
-            console.log('🔍 容器状态:', {
+
+            console.log('🔍 [DEBUG] 容器状态:', {
                 display: getComputedStyle(container).display,
                 visibility: getComputedStyle(container).visibility,
                 opacity: getComputedStyle(container).opacity
             });
-            
+
+            // 检查医生数据
+            if (Object.keys(doctors).length === 0) {
+                console.error('❌ [DEBUG] doctors对象为空！尝试加载默认医生数据');
+                loadDefaultDoctors();
+            }
+
             // 直接使用默认医生列表
+            let cardCount = 0;
             Object.entries(doctors).forEach(([key, doctor]) => {
+                console.log(`📋 [DEBUG] 创建医生卡片: ${key} - ${doctor.name}`);
+
                 const card = document.createElement('div');
                 card.className = 'mobile-doctor-card';
                 card.onclick = () => selectMobileDoctor(key, doctor);
-                
+
                 card.innerHTML = `
                     <div class="mobile-doctor-info">
                         <div class="mobile-doctor-avatar">${doctor.avatar}</div>
@@ -10119,9 +10191,13 @@ ${data.analysis_result}`;
                         <strong>擅长：</strong>${doctor.specialty}
                     </div>
                 `;
-                
+
                 container.appendChild(card);
+                cardCount++;
             });
+
+            console.log(`✅ [DEBUG] 移动端医生卡片渲染完成，共${cardCount}张卡片`);
+            console.log(`✅ [DEBUG] 容器子元素数量:`, container.children.length);
         }
 
         // 添加移动端医生切换按钮 - AI推荐医生功能已移除
@@ -10470,6 +10546,8 @@ ${data.analysis_result}`;
         // 删除视口监听器，避免过多干预
         
         // 页面加载时初始化移动端
+        // 🔑 Chrome浏览器兼容性修复：移动端初始化已整合到 initializeApp() 中
+        // 这样可以确保在医生数据加载完成后再渲染，避免竞态条件
         document.addEventListener('DOMContentLoaded', function() {
             // 调试：检查移动端检测
             const isMobile = window.innerWidth <= 768;
@@ -10482,21 +10560,16 @@ ${data.analysis_result}`;
             });
             if (window.innerWidth <= 768) {
                 console.log('✅ 初始化移动端界面');
-                
+
                 // 强制显示移动端容器
                 const mobileContainer = document.getElementById('mobilePageContainer');
                 if (mobileContainer) {
                     mobileContainer.style.display = 'flex';
                     console.log('✅ 强制显示移动端容器');
                 }
-                
-                // 延迟渲染医生卡片，确保 DOM 完全加载
-                setTimeout(() => {
-                    renderMobileDoctorCards();
-                }, 500);
-                
-                // 移动端不设置默认医生，让用户主动选择
-                // setMobileDefaultDoctor('zhang_zhongjing');
+
+                // 🔑 移动端医生卡片渲染已移至 initializeApp()，确保在数据加载完成后执行
+                // 不再使用 setTimeout 延迟渲染，避免 Chrome 浏览器的时序问题
             } else {
                 console.log('🖥️ 桌面端模式');
             }
@@ -11444,6 +11517,116 @@ ${data.analysis_result}`;
                 return false;
             }
         }
+    </script>
+
+    <!-- 🔧 Chrome移动版调试面板 -->
+    <div id="chromeDebugPanel" style="display: none; position: fixed; top: 10px; left: 10px; right: 10px; background: rgba(0,0,0,0.95); color: #0f0; padding: 15px; border-radius: 8px; z-index: 99999; max-height: 300px; overflow-y: auto; font-size: 11px; font-family: monospace; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <strong style="color: #4fc3f7;">🔍 Chrome调试日志</strong>
+            <button onclick="document.getElementById('chromeDebugPanel').style.display='none'" style="background: #f44336; color: white; border: none; padding: 2px 8px; border-radius: 4px; font-size: 10px; cursor: pointer;">关闭</button>
+        </div>
+        <div id="chromeDebugLog"></div>
+    </div>
+    <button id="chromeDebugBtn" onclick="document.getElementById('chromeDebugPanel').style.display='block'" style="position: fixed; bottom: 80px; right: 20px; background: #2196f3; color: white; border: none; padding: 10px 15px; border-radius: 50%; z-index: 99998; box-shadow: 0 2px 8px rgba(0,0,0,0.3); font-size: 16px; cursor: pointer; display: none;">🐛</button>
+
+    <script>
+        // 🔧 Chrome移动版调试工具
+        (function() {
+            const isMobile = window.innerWidth <= 768;
+            const isChrome = /Chrome/.test(navigator.userAgent);
+
+            // 只在移动端Chrome显示调试按钮
+            if (isMobile && isChrome) {
+                document.getElementById('chromeDebugBtn').style.display = 'block';
+            }
+
+            // 调试日志函数
+            window.debugLog = function(msg, type = 'info') {
+                const logDiv = document.getElementById('chromeDebugLog');
+                if (!logDiv) return;
+
+                const time = new Date().toLocaleTimeString();
+                const color = type === 'error' ? '#f44' : type === 'success' ? '#4f4' : type === 'warn' ? '#fa0' : '#0f0';
+                logDiv.innerHTML += `<div style="color: ${color}; margin: 2px 0;">[${time}] ${msg}</div>`;
+                logDiv.scrollTop = logDiv.scrollHeight;
+                console.log(`[DEBUG] ${msg}`);
+            };
+
+            // 页面加载完成后检查
+            document.addEventListener('DOMContentLoaded', function() {
+                if (!isMobile || !isChrome) return;
+
+                debugLog('✓ 页面加载完成', 'success');
+                debugLog(`屏幕尺寸: ${window.innerWidth}x${window.innerHeight}`, 'info');
+                debugLog(`User Agent: ${navigator.userAgent.substring(0, 80)}...`, 'info');
+
+                // 检查医生数据
+                setTimeout(function() {
+                    try {
+                        debugLog('🔄 开始执行延迟检查...', 'info');
+                        debugLog(`doctors对象: ${typeof window.doctors}, 键数: ${Object.keys(window.doctors || {}).length}`, 'info');
+
+                        // 检查容器
+                        const mobileContainer = document.getElementById('mobilePageContainer');
+                        const doctorsGrid = document.getElementById('mobileDoctorsGrid');
+
+                    if (mobileContainer) {
+                        const styles = getComputedStyle(mobileContainer);
+                        debugLog(`mobilePageContainer - display: ${styles.display}, visibility: ${styles.visibility}`, styles.display === 'none' ? 'error' : 'success');
+                    } else {
+                        debugLog('❌ 未找到mobilePageContainer', 'error');
+                    }
+
+                    if (doctorsGrid) {
+                        const styles = getComputedStyle(doctorsGrid);
+                        const children = doctorsGrid.children.length;
+                        debugLog(`mobileDoctorsGrid - 子元素数: ${children}, display: ${styles.display}`, children > 0 ? 'success' : 'warn');
+
+                        if (children === 0) {
+                            debugLog('⚠️ 医生卡片容器为空！尝试手动渲染...', 'warn');
+                            // 🔧 Chrome修复：多次重试渲染，每次间隔500ms
+                            let retryCount = 0;
+                            const maxRetries = 5;
+                            const retryRender = function() {
+                                retryCount++;
+                                debugLog(`🔄 第${retryCount}次尝试渲染医生卡片...`, 'warn');
+
+                                if (typeof renderMobileDoctorCards === 'function') {
+                                    renderMobileDoctorCards();
+
+                                    // 检查是否渲染成功
+                                    setTimeout(function() {
+                                        const newChildren = doctorsGrid.children.length;
+                                        if (newChildren > 0) {
+                                            debugLog(`✓ 渲染成功！医生卡片数: ${newChildren}`, 'success');
+                                        } else if (retryCount < maxRetries) {
+                                            debugLog(`❌ 第${retryCount}次渲染失败，继续重试...`, 'error');
+                                            setTimeout(retryRender, 500);
+                                        } else {
+                                            debugLog(`❌ 已达最大重试次数(${maxRetries})，渲染失败`, 'error');
+                                            debugLog(`请点击页面刷新或联系技术支持`, 'error');
+                                        }
+                                    }, 100);
+                                }
+                            };
+                            retryRender();
+                        }
+                    } else {
+                        debugLog('❌ 未找到mobileDoctorsGrid', 'error');
+                    }
+
+                        // 检查按钮
+                        const backBtn = document.querySelector('.mobile-back-btn');
+                        const guidanceBtn = document.querySelector('.mobile-guidance-trigger');
+                        debugLog(`按钮检测 - 返回: ${!!backBtn}, 指导: ${!!guidanceBtn}`, backBtn && guidanceBtn ? 'success' : 'warn');
+
+                    } catch (error) {
+                        debugLog(`❌ 检查过程出错: ${error.message}`, 'error');
+                        debugLog(`错误堆栈: ${error.stack}`, 'error');
+                    }
+                }, 1000);
+            });
+        })();
     </script>
 </body>
 </html>

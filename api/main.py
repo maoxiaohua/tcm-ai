@@ -4801,6 +4801,36 @@ async def smart_workflow():
         </html>
         """)
 
+@app.get("/chrome-test")
+async def chrome_test():
+    """Chrome浏览器兼容性测试页面"""
+    from fastapi.responses import Response
+    try:
+        with open("/opt/tcm-ai/static/chrome_test.html", "r", encoding="utf-8") as f:
+            content = f.read()
+            response = Response(content=content, media_type="text/html")
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
+    except FileNotFoundError:
+        return HTMLResponse("<h1>测试页面未找到</h1>")
+
+@app.get("/simple-test")
+async def simple_mobile_test():
+    """简化版移动端测试页面"""
+    from fastapi.responses import Response
+    try:
+        with open("/opt/tcm-ai/static/simple_mobile_test.html", "r", encoding="utf-8") as f:
+            content = f.read()
+            response = Response(content=content, media_type="text/html")
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
+    except FileNotFoundError:
+        return HTMLResponse("<h1>测试页面未找到</h1>")
+
 @app.get("/doctor-dashboard")
 @app.get("/doctor_dashboard.html")
 async def doctor_dashboard():
@@ -4902,22 +4932,22 @@ async def get_doctors_list(page: int = 1, per_page: int = 20):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # 计算总数
-        cursor.execute("SELECT COUNT(*) FROM doctors WHERE status = 'active'")
+        # 计算总数 - 只统计金大夫(ID=1)和张仲景(ID=4)
+        cursor.execute("SELECT COUNT(*) FROM doctors WHERE status = 'active' AND id IN (1, 4)")
         total = cursor.fetchone()[0]
         
-        # 分页查询
+        # 分页查询 - 只返回金大夫(ID=1)和张仲景(ID=4)
         offset = (page - 1) * per_page
         cursor.execute("""
             SELECT id, name, license_no, speciality, hospital, created_at
-            FROM doctors 
-            WHERE status = 'active' 
-            ORDER BY 
-                CASE 
-                    WHEN id IN (1, 2, 3, 5, 6, 7) THEN 0 
-                    ELSE 1 
-                END,
-                id ASC
+            FROM doctors
+            WHERE status = 'active' AND id IN (1, 4)
+            ORDER BY
+                CASE
+                    WHEN id = 1 THEN 0
+                    WHEN id = 4 THEN 1
+                    ELSE 2
+                END
             LIMIT ? OFFSET ?
         """, (per_page, offset))
         

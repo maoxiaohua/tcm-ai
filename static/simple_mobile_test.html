@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简化版移动端测试</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .doctor-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .doctor-card:active {
+            transform: scale(0.98);
+            border-color: #667eea;
+        }
+        .doctor-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .avatar {
+            font-size: 32px;
+            margin-right: 12px;
+        }
+        .doctor-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .school {
+            color: #666;
+            font-size: 14px;
+        }
+        .specialty {
+            color: #667eea;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+        #log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI 中医智能问诊</h1>
+        <p class="subtitle">传统中医 × 人工智能</p>
+
+        <h2 style="font-size: 16px; margin-bottom: 12px;">👨‍⚕️ 中医师团队</h2>
+
+        <!-- 方法1：直接HTML硬编码 -->
+        <div id="hardcodedDoctors">
+            <div class="doctor-card" onclick="selectDoctor('jin_daifu', '金大夫')">
+                <div class="doctor-info">
+                    <div class="avatar">👨‍⚕️</div>
+                    <div>
+                        <div class="doctor-name">金大夫</div>
+                        <div class="school">经方大师</div>
+                    </div>
+                </div>
+                <div class="specialty">擅长：经方应用、疑难杂症、综合诊疗</div>
+            </div>
+
+            <div class="doctor-card" onclick="selectDoctor('zhang_zhongjing', '张仲景')">
+                <div class="doctor-info">
+                    <div class="avatar">🎯</div>
+                    <div>
+                        <div class="doctor-name">张仲景</div>
+                        <div class="school">伤寒派</div>
+                    </div>
+                </div>
+                <div class="specialty">擅长：外感病、内伤杂病、急症</div>
+            </div>
+        </div>
+
+        <!-- 方法2：JavaScript动态生成 -->
+        <h2 style="font-size: 16px; margin: 20px 0 12px;">JavaScript动态生成：</h2>
+        <div id="jsDoctors"></div>
+
+        <div id="log"></div>
+    </div>
+
+    <script>
+        function log(msg) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div>[${time}] ${msg}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(msg);
+        }
+
+        function selectDoctor(code, name) {
+            log(`✓ 点击医生: ${name} (${code})`);
+            alert(`您选择了: ${name}\n\n医生代码: ${code}\n\n在实际页面中，这里会跳转到问诊界面。`);
+        }
+
+        // 页面信息
+        log(`浏览器: ${navigator.userAgent.substring(0, 50)}...`);
+        log(`屏幕: ${window.innerWidth}x${window.innerHeight}`);
+        log(`Chrome: ${/Chrome/.test(navigator.userAgent)}`);
+
+        // JavaScript动态生成医生卡片
+        const doctors = {
+            "jin_daifu": {
+                "name": "金大夫",
+                "school": "经方大师",
+                "avatar": "👨‍⚕️",
+                "specialty": "经方应用、疑难杂症、综合诊疗"
+            },
+            "zhang_zhongjing": {
+                "name": "张仲景",
+                "school": "伤寒派",
+                "avatar": "🎯",
+                "specialty": "外感病、内伤杂病、急症"
+            }
+        };
+
+        log(`医生数据对象键数: ${Object.keys(doctors).length}`);
+
+        const jsContainer = document.getElementById('jsDoctors');
+
+        Object.entries(doctors).forEach(([key, doctor]) => {
+            log(`创建医生卡片: ${doctor.name}`);
+
+            const card = document.createElement('div');
+            card.className = 'doctor-card';
+            card.onclick = function() {
+                selectDoctor(key, doctor.name);
+            };
+
+            card.innerHTML = `
+                <div class="doctor-info">
+                    <div class="avatar">${doctor.avatar}</div>
+                    <div>
+                        <div class="doctor-name">${doctor.name}</div>
+                        <div class="school">${doctor.school}</div>
+                    </div>
+                </div>
+                <div class="specialty">擅长：${doctor.specialty}</div>
+            `;
+
+            jsContainer.appendChild(card);
+        });
+
+        log(`✓ JavaScript医生卡片渲染完成，共${jsContainer.children.length}张`);
+    </script>
+</body>
+</html>
