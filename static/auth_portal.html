@@ -1084,15 +1084,47 @@
                     
                     // 使用统一认证管理器保存登录状态
                     if (data.user && data.session && data.session.session_id) {
-                        // 使用authManager统一保存
-                        window.authManager.saveLoginState(data.user, data.session.session_id, remember);
-                        
-                        // 如果是患者，设置固定用户ID到对话状态管理器
-                        if (data.user.primary_role === 'patient' && window.conversationStateManager) {
-                            window.conversationStateManager.setCurrentUserId(data.user.id, data.user);
+                        // 使用authManager统一保存(带安全检查)
+                        if (typeof window.authManager !== 'undefined' && window.authManager) {
+                            try {
+                                window.authManager.saveLoginState(data.user, data.session.session_id, remember);
+                                console.log('✅ authManager保存登录状态成功');
+                            } catch (error) {
+                                console.warn('⚠️ authManager调用失败,使用降级方案:', error.message);
+                                // 降级方案:手动保存token
+                                localStorage.setItem('session_token', data.session.session_id);
+                                localStorage.setItem('currentUser', JSON.stringify(data.user));
+                                document.cookie = `session_token=${data.session.session_id}; path=/; max-age=86400; samesite=strict`;
+                                if (data.user.primary_role) {
+                                    localStorage.setItem(`${data.user.primary_role}Token`, data.session.session_id);
+                                }
+                            }
+                        } else {
+                            // authManager不可用,直接使用降级方案
+                            console.warn('⚠️ authManager不可用,使用降级方案保存登录状态');
+                            localStorage.setItem('session_token', data.session.session_id);
+                            localStorage.setItem('currentUser', JSON.stringify(data.user));
+                            document.cookie = `session_token=${data.session.session_id}; path=/; max-age=86400; samesite=strict`;
+                            if (data.user.primary_role) {
+                                localStorage.setItem(`${data.user.primary_role}Token`, data.session.session_id);
+                            }
                         }
-                        
-                        console.log('✅ 用户登录成功，已保存固定ID:', data.user.id);
+
+                        // 如果是患者,设置固定用户ID到对话状态管理器(如果存在)
+                        if (data.user.primary_role === 'patient') {
+                            if (typeof window.conversationStateManager !== 'undefined' && window.conversationStateManager) {
+                                try {
+                                    window.conversationStateManager.setCurrentUserId(data.user.id, data.user);
+                                    console.log('✅ conversationStateManager设置用户ID成功:', data.user.id);
+                                } catch (error) {
+                                    console.warn('⚠️ conversationStateManager调用失败,忽略:', error.message);
+                                }
+                            } else {
+                                console.log('ℹ️ conversationStateManager不可用,跳过(登录页面不需要)');
+                            }
+                        }
+
+                        console.log('✅ 用户登录成功,已保存固定ID:', data.user.id);
                     }
 
                     console.log('🔄 准备跳转，redirect_url:', data.redirect_url);
