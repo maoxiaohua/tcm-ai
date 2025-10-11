@@ -9412,16 +9412,16 @@ ${data.analysis_result}`;
             
             // 3. 渲染加载的对话历史
             if (messages.length > 0) {
-                // 恢复历史消息
-                messages.forEach(msg => {
+                // 恢复历史消息 - 使用for...of支持async/await
+                for (const msg of messages) {
                     // 对于AI消息，检测是否包含处方以决定是否显示评价系统
                     const shouldShowFeedback = msg.type === 'ai' && containsPrescription(msg.content);
-                    
+
                     // 检查是否有处方数据
                     const prescriptionData = msg.prescriptionData;
                     const isPaid = prescriptionData ? prescriptionData.isPaid : false;
                     const prescriptionId = prescriptionData ? prescriptionData.prescriptionId : null;
-                    
+
                     // 🔧 修复：对于已支付的处方，确保显示完整格式化内容而不是预览版本
                     let displayContent = msg.content;
                     if (isPaid && prescriptionData && msg.type === 'ai' && containsPrescription(msg.content)) {
@@ -9434,13 +9434,13 @@ ${data.analysis_result}`;
                             .replace(/方剂组成预览/g, '完整方剂组成')
                             .replace(/预览/g, '完整');
                     }
-                    
+
                     if (isMobile) {
                         await addMobileMessage(msg.type, displayContent, shouldShowFeedback, isPaid, prescriptionId);
                     } else {
                         addMessageWithTime(msg.type, displayContent, msg.time, shouldShowFeedback, isPaid, prescriptionId);
                     }
-                });
+                }
                 
                 // 如果有历史记录，显示详细信息
                 console.log(`历史记录详情: 共${messages.length}条消息，第一条=${messages[0].time || '未知时间'}, 最后一条=${messages[messages.length-1].time || '未知时间'}`);
