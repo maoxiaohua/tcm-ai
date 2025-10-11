@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>PC端功能测试</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .test-item { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .pass { background: #d4edda; }
+        .fail { background: #f8d7da; }
+        button { margin: 5px; padding: 8px 16px; }
+    </style>
+</head>
+<body>
+    <h1>PC端功能测试</h1>
+    <div id="results"></div>
+
+    <!-- 加载核心脚本 -->
+    <script src="/static/js/auth_manager.js"></script>
+    <script src="/static/js/simple_prescription_manager.js?v=20250926-001"></script>
+
+    <script>
+        const results = [];
+
+        function addResult(name, passed, details) {
+            results.push({ name, passed, details });
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            const container = document.getElementById('results');
+            container.innerHTML = results.map(r => `
+                <div class="test-item ${r.passed ? 'pass' : 'fail'}">
+                    <strong>${r.passed ? '✅' : '❌'} ${r.name}</strong><br>
+                    <small>${r.details}</small>
+                </div>
+            `).join('');
+        }
+
+        // 等待脚本加载
+        setTimeout(() => {
+            // 测试1: authManager存在
+            addResult(
+                'authManager对象',
+                typeof window.authManager !== 'undefined',
+                `typeof window.authManager = ${typeof window.authManager}`
+            );
+
+            // 测试2: simplePrescriptionManager存在
+            addResult(
+                'simplePrescriptionManager对象',
+                typeof window.simplePrescriptionManager !== 'undefined',
+                `typeof window.simplePrescriptionManager = ${typeof window.simplePrescriptionManager}`
+            );
+
+            // 测试3: 兼容层存在
+            addResult(
+                'prescriptionContentRenderer兼容层',
+                typeof window.prescriptionContentRenderer !== 'undefined',
+                `typeof window.prescriptionContentRenderer = ${typeof window.prescriptionContentRenderer}`
+            );
+
+            // 测试4: renderContent方法存在
+            addResult(
+                'renderContent方法',
+                typeof window.prescriptionContentRenderer?.renderContent === 'function',
+                `typeof renderContent = ${typeof window.prescriptionContentRenderer?.renderContent}`
+            );
+
+            // 测试5: containsPrescription方法存在
+            addResult(
+                'containsPrescription方法',
+                typeof window.prescriptionContentRenderer?.containsPrescription === 'function',
+                `typeof containsPrescription = ${typeof window.prescriptionContentRenderer?.containsPrescription}`
+            );
+
+            // 测试6: authManager关键方法
+            const authMethods = ['getCurrentUser', 'getToken', 'isLoggedIn'];
+            authMethods.forEach(method => {
+                addResult(
+                    `authManager.${method}`,
+                    typeof window.authManager?.[method] === 'function',
+                    `typeof authManager.${method} = ${typeof window.authManager?.[method]}`
+                );
+            });
+
+            // 测试7: 测试containsPrescription功能
+            try {
+                const testText = "处方如下：党参15g";
+                const result = window.prescriptionContentRenderer.containsPrescription(testText);
+                addResult(
+                    'containsPrescription功能测试',
+                    result === true,
+                    `测试文本包含"处方如下" → 返回 ${result}`
+                );
+            } catch (e) {
+                addResult(
+                    'containsPrescription功能测试',
+                    false,
+                    `错误: ${e.message}`
+                );
+            }
+
+        }, 500);
+
+        // 添加手动测试按钮
+        setTimeout(() => {
+            const container = document.getElementById('results');
+            container.innerHTML += `
+                <div style="margin-top: 20px; padding: 20px; background: #f0f0f0;">
+                    <h3>手动测试</h3>
+                    <button onclick="testLogin()">测试登录函数</button>
+                    <button onclick="testDoctors()">测试医生列表函数</button>
+                    <button onclick="testHistory()">测试历史记录函数</button>
+                    <div id="manualResults" style="margin-top: 10px;"></div>
+                </div>
+            `;
+        }, 600);
+
+        function testLogin() {
+            const result = document.getElementById('manualResults');
+            if (typeof performLogin === 'function') {
+                result.innerHTML = '✅ performLogin函数存在';
+            } else {
+                result.innerHTML = '❌ performLogin函数不存在';
+            }
+        }
+
+        function testDoctors() {
+            const result = document.getElementById('manualResults');
+            if (typeof loadDoctors === 'function') {
+                result.innerHTML = '✅ loadDoctors函数存在';
+            } else if (typeof fetchDoctors === 'function') {
+                result.innerHTML = '✅ fetchDoctors函数存在';
+            } else {
+                result.innerHTML = '❌ 医生列表函数不存在';
+            }
+        }
+
+        function testHistory() {
+            const result = document.getElementById('manualResults');
+            if (typeof loadDoctorHistory === 'function') {
+                result.innerHTML = '✅ loadDoctorHistory函数存在';
+            } else {
+                result.innerHTML = '❌ loadDoctorHistory函数不存在';
+            }
+        }
+    </script>
+</body>
+</html>

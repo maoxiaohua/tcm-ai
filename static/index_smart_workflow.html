@@ -4289,8 +4289,12 @@
                 }
                 
                 // 🔧 如果API没有返回处方ID，但响应包含处方内容，则调用后端创建处方
-                if (!prescriptionId && responseData.reply && 
-                    (responseData.reply.includes('处方') || responseData.reply.includes('方剂') || 
+                // 🚨 重要修复：禁用前端创建处方逻辑，避免与后端重复创建
+                // 后端unified_consultation_routes.py已经在_store_consultation_record中创建处方
+                // 前端只需要使用后端返回的prescription_id即可
+                /*
+                if (!prescriptionId && responseData.reply &&
+                    (responseData.reply.includes('处方') || responseData.reply.includes('方剂') ||
                      responseData.reply.includes('君药') || responseData.reply.includes('臣药'))) {
                     
                     // 🔑 关键修复：调用后端API创建处方并保存到数据库
@@ -4346,10 +4350,11 @@
                         // 备用方案：使用临时ID
                         prescriptionId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
                     }
-                    
+
                     console.log('🆕 最终处方ID:', prescriptionId);
                 }
-                
+                */
+
                 console.log('🔍 前端处方状态分析:', {
                     containsActualPrescription: containsActualPrescription,
                     isTemporaryAdvice: isTemporaryAdvice,
@@ -10512,16 +10517,20 @@ ${data.analysis_result}`;
                     let prescriptionId = data.data?.prescription_id || null;
                     const isPaid = data.data?.is_paid || false;
                     
+                    // 🚨 重要修复：禁用移动端前端创建处方逻辑，避免与后端重复创建
+                    // 后端unified_consultation_routes.py已经在_store_consultation_record中创建处方
+                    // 移动端只需要使用后端返回的prescription_id即可
+                    /*
                     // 🔧 如果API没有返回处方ID，但响应包含处方内容，则调用后端创建处方
-                    if (!prescriptionId && data.reply && 
-                        (data.reply.includes('处方') || data.reply.includes('方剂') || 
+                    if (!prescriptionId && data.reply &&
+                        (data.reply.includes('处方') || data.reply.includes('方剂') ||
                          data.reply.includes('君药') || data.reply.includes('臣药'))) {
-                        
+
                         // 🔑 关键修复：调用后端API创建处方并保存到数据库（移动端）
                         try {
                             const userId = getCurrentUserId();
                             const conversationId = currentConversationId || generateConversationId();
-                            
+
                             const prescriptionData = {
                                 patient_id: userId,
                                 conversation_id: conversationId,
@@ -10530,15 +10539,15 @@ ${data.analysis_result}`;
                                 diagnosis: (data.data?.diagnosis_summary || selectedDoctor + '医生诊断'),
                                 ai_prescription: data.reply
                             };
-                            
+
                             console.log('🔄 移动端调用后端创建处方:', prescriptionData);
-                            
+
                             const createResponse = await fetch('/api/prescription/create', {
                                 method: 'POST',
                                 headers: getAuthHeaders(),
                                 body: JSON.stringify(prescriptionData)
                             });
-                            
+
                             if (createResponse.ok) {
                                 const createResult = await createResponse.json();
                                 if (createResult.success) {
@@ -10559,7 +10568,7 @@ ${data.analysis_result}`;
                             // 备用方案：使用临时ID
                             prescriptionId = 'temp_mobile_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
                         }
-                        
+
                         console.log('🆕 移动端最终处方ID:', prescriptionId);
 
                         // 🔑 关键：设置全局变量供simplePrescriptionManager使用
@@ -10569,6 +10578,7 @@ ${data.analysis_result}`;
                             console.log('📋 [移动端] 设置处方数据:', { prescriptionId, prescriptionData: window.lastPrescriptionData });
                         }
                     }
+                    */
 
                     // 🚨 关键逻辑：完整处方且未付费时需要支付
                     const needsPayment = containsActualPrescription && !isTemporaryAdvice && !isPaid;
