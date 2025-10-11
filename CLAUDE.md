@@ -181,7 +181,37 @@ pytest -m regression
 # 医疗安全测试
 pytest tests/test_medical_diagnosis_safety.py
 pytest tests/test_symptom_fabrication_fix.py
+
+# 🔑 关键功能测试 (防止破坏现有功能)
+python tests/test_critical_features.py
 ```
+
+### 🛡️ 开发安全防护 ⚠️ 重要
+**问题背景**: 反复出现"修A坏B"的情况，如修复移动端→破坏PC端
+
+**解决方案**: 建立自动化检查系统
+
+```bash
+# 1. 修改代码后，提交前运行检查
+bash scripts/pre_deploy_check.sh
+
+# 2. Git提交（自动触发检查）
+git commit -m "xxx"  # 自动运行26项检查
+
+# 3. 紧急跳过检查（不推荐）
+git commit --no-verify -m "紧急修复"
+```
+
+**检查内容**（26项）:
+- ✅ 文件完整性（4项）
+- ✅ 脚本加载状态（3项）
+- ✅ 关键函数存在（5项）
+- ✅ 异步函数正确性（3项）
+- ✅ 兼容层完整性（4项）
+- ✅ API端点配置（4项）
+- ✅ 语法完整性（try-catch匹配）
+
+**详细文档**: 参见 `DEVELOPMENT_SAFETY.md`
 
 ### 系统监控
 ```bash
