@@ -7,7 +7,7 @@
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     
     <!-- 统一认证管理器 -->
-    <script src="/static/js/auth_manager.js"></script>
+    <script src="/static/js/auth_manager.js?v=20251011001"></script>
     
     <style>
         * {
@@ -1205,7 +1205,7 @@
                 if (registerResult.success) {
                     showSuccess('🎉 注册成功！欢迎加入TCM AI！');
                     setTimeout(() => {
-                        window.location.href = '/';
+                        window.location.href = '/login';
                     }, 1500);
                 } else {
                     showError(registerResult.error || '注册失败，请重试');
@@ -1686,7 +1686,7 @@
                 if (registerResult.success) {
                     showSuccess('🎉 注册成功！欢迎加入TCM AI！');
                     setTimeout(() => {
-                        window.location.href = '/';
+                        window.location.href = '/login';
                     }, 1500);
                 } else {
                     showFieldError('registerNickname', registerResult.error || '注册失败，请重试');
@@ -1769,7 +1769,7 @@
                 if (result.success) {
                     showSuccess('🎉 注册成功！欢迎加入TCM AI！');
                     setTimeout(() => {
-                        window.location.href = '/';
+                        window.location.href = '/login';
                     }, 1500);
                 } else {
                     showFieldError('registerEmailNickname', result.error || '注册失败');
@@ -1847,7 +1847,7 @@
                 if (result.success) {
                     showSuccess('🎉 注册成功！欢迎加入TCM AI！');
                     setTimeout(() => {
-                        window.location.href = '/';
+                        window.location.href = '/login';
                     }, 1500);
                 } else {
                     showFieldError('registerUsernameConfirm', result.error || '注册失败');
