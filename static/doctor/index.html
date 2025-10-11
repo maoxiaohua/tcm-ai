@@ -2437,18 +2437,28 @@
         }
 
         // 点击导航项时在移动端自动关闭菜单
-        function showSection(sectionId) {
+        function showSection(sectionId, event) {
             // 原有逻辑
             document.querySelectorAll('.content-section').forEach(section => {
                 section.classList.remove('active');
             });
-            
+
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
             });
 
-            document.getElementById(sectionId).classList.add('active');
-            event.target.closest('.nav-item').classList.add('active');
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
+
+            // 只有当event存在时才尝试添加active类到导航项
+            if (event && event.target) {
+                const navItem = event.target.closest('.nav-item');
+                if (navItem) {
+                    navItem.classList.add('active');
+                }
+            }
 
             // 移动端关闭菜单
             if (window.innerWidth <= 768) {
@@ -2821,7 +2831,8 @@
         // 关闭处方详情模态框
         function closePrescriptionModal() {
             document.getElementById('prescriptionDetailModal').style.display = 'none';
-            hideRejectForm();
+            // 隐藏所有表单
+            hideModifyForm();
             currentPrescriptionId = null;
         }
 
