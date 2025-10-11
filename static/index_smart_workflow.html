@@ -1248,12 +1248,7 @@
                 display: flex !important;
                 visibility: visible !important;
                 opacity: 1 !important;
-                position: relative !important;
-                width: 100% !important;  /* 🔧 修复: 从200%改为100%，避免内容被推到屏幕外 */
-                height: 100vh !important;
                 z-index: 999 !important;
-                overflow-x: hidden !important;  /* 🔧 修复: 防止横向滚动 */
-                overflow-y: auto !important;
             }
         }
         
@@ -1269,25 +1264,41 @@
                 position: relative;
                 overflow: hidden;
             }
-            
-            /* 隐藏桌面端布局，避免与移动端布局冲突 */
-            .content-wrapper {
+
+            /* 隐藏桌面端布局，避免与移动端布局冲突 - 增强优先级 */
+            .content-wrapper,
+            .content-wrapper > *,
+            .main-content > .content-wrapper {
                 display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                position: absolute !important;
+                left: -9999px !important;
+                width: 0 !important;
+                height: 0 !important;
+                overflow: hidden !important;
             }
             
             /* 移动端消息样式优化 */
             .mobile-messages-container .message {
                 margin-bottom: 16px;
-                display: flex;
+                display: flex !important;
                 align-items: flex-end;
                 gap: 8px;
                 width: 100%;
                 clear: both;
             }
-            
+
+            /* 用户消息：右对齐 */
             .mobile-messages-container .message.user {
-                justify-content: flex-end;
-                flex-direction: row-reverse;
+                justify-content: flex-end !important;
+                flex-direction: row-reverse !important;
+            }
+
+            /* AI消息：左对齐 */
+            .mobile-messages-container .message.ai {
+                justify-content: flex-start !important;
+                flex-direction: row !important;
             }
             
             .mobile-messages-container .message-content {
@@ -2942,6 +2953,11 @@
                 }, 1000);
             }
 
+            // 🔑 新增：登录用户从数据库恢复历史记录
+            if (hasRealUser) {
+                await syncHistoryFromDatabase();
+            }
+
             loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
 
             // 🔄 初始化ChatGPT风格对话管理系统
@@ -3297,6 +3313,70 @@
             } catch (error) {
                 console.error('❌ 保存到服务器失败:', error);
                 // 不影响正常流程，只记录错误
+            }
+        }
+
+        /**
+         * 🔄 从数据库同步历史记录到本地
+         * 在页面加载时调用，确保即使localStorage被清除也能恢复历史
+         */
+        async function syncHistoryFromDatabase() {
+            try {
+                const userId = getCurrentUserId();
+                if (!userId || !userToken) {
+                    console.log('📝 非登录用户，跳过数据库同步');
+                    return;
+                }
+
+                console.log('🔄 开始从数据库同步历史记录...');
+
+                const response = await fetch('/api/consultation/history', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${userToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    console.warn('⚠️ 获取历史记录失败:', response.status);
+                    return;
+                }
+
+                const result = await response.json();
+
+                if (result.success && result.consultations && result.consultations.length > 0) {
+                    console.log(`✅ 从数据库获取到 ${result.consultations.length} 条历史记录`);
+
+                    // 将数据库记录转换为localStorage格式并保存
+                    result.consultations.forEach(consultation => {
+                        try {
+                            const messages = JSON.parse(consultation.conversation_log || '[]');
+                            if (messages.length > 0) {
+                                const historyKey = `tcm_doctor_history_${userId}_${consultation.selected_doctor_id}`;
+                                const dataToSave = {
+                                    messages: messages,
+                                    lastUpdated: consultation.updated_at || consultation.created_at,
+                                    doctor: consultation.selected_doctor_id,
+                                    version: '2.1',
+                                    syncedFromDB: true
+                                };
+                                localStorage.setItem(historyKey, JSON.stringify(dataToSave));
+                                console.log(`💾 已同步医生 ${consultation.selected_doctor_id} 的历史记录`);
+                            }
+                        } catch (err) {
+                            console.warn('⚠️ 解析历史记录失败:', err);
+                        }
+                    });
+
+                    console.log('✅ 历史记录同步完成');
+                } else {
+                    console.log('📝 数据库中暂无历史记录');
+                }
+
+            } catch (error) {
+                console.error('❌ 从数据库同步历史记录失败:', error);
+                // 不影响正常流程
             }
         }
 
@@ -4343,8 +4423,13 @@
 
         // 打开病历记录页面
         function openHistoryPage() {
-            // 跳转到用户历史页面
-            window.open('/history', '_blank');
+            // 移动端在当前窗口打开，避免被浏览器阻止
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                window.location.href = '/history';
+            } else {
+                window.open('/history', '_blank');
+            }
         }
 
         // 显示病历记录模态框
@@ -9351,7 +9436,7 @@ ${data.analysis_result}`;
                     }
                     
                     if (isMobile) {
-                        addMobileMessage(msg.type, displayContent, shouldShowFeedback, isPaid, prescriptionId);
+                        await addMobileMessage(msg.type, displayContent, shouldShowFeedback, isPaid, prescriptionId);
                     } else {
                         addMessageWithTime(msg.type, displayContent, msg.time, shouldShowFeedback, isPaid, prescriptionId);
                     }
@@ -10205,20 +10290,30 @@ ${data.analysis_result}`;
         //     // AI推荐医生功能已移除，不再需要切换按钮
         // }
 
-        // 移动端添加消息
-        function addMobileMessage(sender, content, showFeedback = false, isPaid = false, prescriptionId = null) {
+        // 移动端添加消息 (改为async以支持处方管理器)
+        async function addMobileMessage(sender, content, showFeedback = false, isPaid = false, prescriptionId = null) {
             const container = document.getElementById('mobileMessagesContainer');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
-            
-            // 🆕 使用处方渲染器处理内容（移动端）
+
+            // 🔍 调试：打印class名
+            console.log('📝 [addMobileMessage] sender:', sender, 'className:', messageDiv.className);
+
+            // 🆕 使用简化版处方管理器处理内容（移动端）
             let processedContent = content;
             if (sender === 'ai') {
-                if (window.prescriptionContentRenderer) {
-                    // 使用新的模块化处方渲染器（移动端）
-                    processedContent = window.prescriptionContentRenderer.renderContent(content, prescriptionId);
+                if (window.simplePrescriptionManager) {
+                    // 🔑 使用简化版处方管理器的异步processContent方法
+                    try {
+                        processedContent = await window.simplePrescriptionManager.processContent(content, prescriptionId);
+                        console.log('✅ [移动端] 处方内容已通过simplePrescriptionManager处理');
+                    } catch (error) {
+                        console.error('❌ [移动端] 处方内容处理失败:', error);
+                        processedContent = formatMessage(content);
+                    }
                 } else {
                     // 备用方案：使用格式化函数处理普通内容
+                    console.warn('⚠️ [移动端] simplePrescriptionManager未加载，使用备用方案');
                     processedContent = formatMessage(content);
                 }
             }
@@ -10250,8 +10345,40 @@ ${data.analysis_result}`;
             `;
             
             messageDiv.innerHTML = messageContent;
+
+            // 🔧 强制设置inline样式，确保移动端显示正确
+            messageDiv.style.display = 'flex';
+            messageDiv.style.alignItems = 'flex-end';
+            messageDiv.style.gap = '8px';
+            messageDiv.style.width = '100%';
+            messageDiv.style.marginBottom = '16px';
+
+            if (sender === 'user') {
+                messageDiv.style.justifyContent = 'flex-end';
+                messageDiv.style.flexDirection = 'row-reverse';
+                console.log('✅ [addMobileMessage] 用户消息 - 强制右对齐');
+            } else if (sender === 'ai') {
+                messageDiv.style.justifyContent = 'flex-start';
+                messageDiv.style.flexDirection = 'row';
+                console.log('✅ [addMobileMessage] AI消息 - 强制左对齐');
+            }
+
+            // 🔍 添加DEBUG标签（在消息div外面，不影响保存）
+            const debugLabel = document.createElement('div');
+            debugLabel.style.cssText = 'font-size: 9px; color: #999; padding: 2px 8px; background: #f0f0f0; border-radius: 3px; margin-bottom: 4px;';
+            debugLabel.textContent = `DEBUG: ${sender} | ${messageDiv.className} | flex:${messageDiv.style.flexDirection}`;
+            messageDiv.insertBefore(debugLabel, messageDiv.firstChild);
+
             container.appendChild(messageDiv);
-            
+
+            // 🔍 调试：检查应用的样式
+            setTimeout(() => {
+                const computedStyle = window.getComputedStyle(messageDiv);
+                console.log('📝 [addMobileMessage] computed justify-content:', computedStyle.justifyContent);
+                console.log('📝 [addMobileMessage] computed flex-direction:', computedStyle.flexDirection);
+                console.log('📝 [addMobileMessage] computed display:', computedStyle.display);
+            }, 100);
+
             // 🔧 为移动端保存原始内容用于支付后解锁
             if (sender === 'ai' && prescriptionId && content && window.prescriptionContentRenderer) {
                 const messageTextEl = messageDiv.querySelector('.message-text');
@@ -10434,11 +10561,18 @@ ${data.analysis_result}`;
                         }
                         
                         console.log('🆕 移动端最终处方ID:', prescriptionId);
+
+                        // 🔑 关键：设置全局变量供simplePrescriptionManager使用
+                        if (prescriptionId && data.data?.contains_prescription) {
+                            window.lastRealPrescriptionId = prescriptionId;
+                            window.lastPrescriptionData = data.data.prescription_data || {};
+                            console.log('📋 [移动端] 设置处方数据:', { prescriptionId, prescriptionData: window.lastPrescriptionData });
+                        }
                     }
-                    
+
                     // 🚨 关键逻辑：完整处方且未付费时需要支付
                     const needsPayment = containsActualPrescription && !isTemporaryAdvice && !isPaid;
-                    
+
                     console.log('🔍 移动端即将添加AI消息:', {
                         aiReply: aiReply.substring(0, 100) + '...',
                         shouldShowFeedback,
@@ -10448,10 +10582,10 @@ ${data.analysis_result}`;
                         isPaid,
                         prescriptionId
                     });
-                    
+
                     // 🔑 关键修复：根据处方状态决定显示模式
-                    addMobileMessage('ai', aiReply, shouldShowFeedback, isPaid, prescriptionId);
-                    
+                    await addMobileMessage('ai', aiReply, shouldShowFeedback, isPaid, prescriptionId);
+
                     // 记录诊断阶段
                     if (shouldShowFeedback) {
                         console.log('移动端检测到处方内容，显示点评功能，处方ID:', prescriptionId, '支付状态:', isPaid);
@@ -10459,12 +10593,12 @@ ${data.analysis_result}`;
                         console.log('移动端普通对话，不显示点评');
                     }
                 } else {
-                    addMobileMessage('ai', '抱歉，我现在无法回答您的问题，请稍后再试。');
+                    await addMobileMessage('ai', '抱歉，我现在无法回答您的问题，请稍后再试。');
                 }
                 
-                // 保存移动端对话历史
+                // 保存移动端对话历史 - 同时保存到localStorage和数据库
                 setTimeout(() => {
-                    saveCurrentDoctorHistory();
+                    saveCurrentDoctorHistory(); // localStorage（内部会调用saveConversationToServer保存到数据库）
                     // 🔄 自动更新ChatGPT风格对话管理系统
                     updateConversationListAfterMessage();
                 }, 200);
@@ -10494,8 +10628,8 @@ ${data.analysis_result}`;
                 } else {
                     errorMsg = `连接失败: ${error.message}`;
                 }
-                
-                addMobileMessage('ai', errorMsg);
+
+                await addMobileMessage('ai', errorMsg);
             } finally {
                 sendBtn.disabled = false;
             }

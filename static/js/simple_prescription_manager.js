@@ -758,6 +758,19 @@ class SimplePrescriptionManager {
     }
 
     /**
+     * 移除处方详细内容，只保留诊断信息
+     */
+    stripPrescriptionContent(content) {
+        // 移除具体药材剂量信息
+        let stripped = content.replace(/[\u4e00-\u9fff]{2,4}\s*\d+\s*[克g]/g, '***');
+
+        // 移除方剂组成部分
+        stripped = stripped.replace(/方剂组成[\s\S]*?(?=\n\n|\n【|$)/g, '方剂组成(需解锁查看)');
+
+        return stripped;
+    }
+
+    /**
      * 提取诊断信息
      */
     extractDiagnosis(content) {

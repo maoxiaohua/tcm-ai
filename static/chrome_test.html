@@ -2,245 +2,140 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrome兼容性测试</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>移动端消息对齐测试</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
             padding: 20px;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .test-card {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: #f5f5f5;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 8px;
         }
-        .status {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        .status.pass { background: #4caf50; color: white; }
-        .status.fail { background: #f44336; color: white; }
-        button {
-            background: #2196f3;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            margin: 5px;
-            cursor: pointer;
-        }
-        .doctor-card {
+
+        .mobile-messages-container {
             background: white;
-            padding: 15px;
-            margin: 10px 0;
+            padding: 16px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            cursor: pointer;
         }
-        #log {
-            background: #000;
-            color: #0f0;
-            padding: 10px;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 12px;
-            max-height: 300px;
-            overflow-y: auto;
-            margin-top: 20px;
+
+        .mobile-messages-container .message {
+            margin-bottom: 16px;
+            display: flex !important;
+            align-items: flex-end;
+            gap: 8px;
+            width: 100%;
+            clear: both;
+        }
+
+        /* 用户消息：右对齐 */
+        .mobile-messages-container .message.user {
+            justify-content: flex-end !important;
+            flex-direction: row-reverse !important;
+        }
+
+        /* AI消息：左对齐 */
+        .mobile-messages-container .message.ai {
+            justify-content: flex-start !important;
+            flex-direction: row !important;
+        }
+
+        .mobile-messages-container .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .mobile-messages-container .message.user .message-avatar {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .mobile-messages-container .message.ai .message-avatar {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .mobile-messages-container .message-content {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            line-height: 1.4;
+            display: block;
+        }
+
+        .mobile-messages-container .message.user .message-content {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border-bottom-right-radius: 6px;
+        }
+
+        .mobile-messages-container .message.ai .message-content {
+            background: white;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+            border-bottom-left-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
     </style>
 </head>
 <body>
-    <h1>🔍 Chrome移动版兼容性测试</h1>
+    <h2>移动端消息对齐测试</h2>
 
-    <div class="test-card">
-        <h3>浏览器信息</h3>
-        <p id="userAgent"></p>
-        <p id="browserInfo"></p>
-    </div>
-
-    <div class="test-card">
-        <h3>基础功能测试</h3>
-        <div>
-            <span id="jsStatus" class="status">检测中...</span> JavaScript执行
+    <div class="mobile-messages-container" id="mobileMessagesContainer">
+        <!-- AI消息 -->
+        <div class="message ai">
+            <div class="message-avatar">🏥</div>
+            <div class="message-content">
+                <div class="message-text">您好！我是医生，请描述您的症状。</div>
+            </div>
         </div>
-        <div>
-            <span id="domStatus" class="status">检测中...</span> DOM操作
+
+        <!-- 用户消息 -->
+        <div class="message user">
+            <div class="message-avatar">👤</div>
+            <div class="message-content">
+                <div class="message-text">我最近头痛，感觉很不舒服。</div>
+            </div>
         </div>
-        <div>
-            <span id="eventStatus" class="status">检测中...</span> 事件绑定
+
+        <!-- AI消息 -->
+        <div class="message ai">
+            <div class="message-avatar">🏥</div>
+            <div class="message-content">
+                <div class="message-text">头痛持续多久了？有其他症状吗？</div>
+            </div>
         </div>
-        <div>
-            <span id="fetchStatus" class="status">检测中...</span> Fetch API
+
+        <!-- 用户消息 -->
+        <div class="message user">
+            <div class="message-avatar">👤</div>
+            <div class="message-content">
+                <div class="message-text">大概三天了，还有点发热。</div>
+            </div>
         </div>
     </div>
-
-    <div class="test-card">
-        <h3>医生数据测试</h3>
-        <button onclick="testDoctorsData()">加载医生数据</button>
-        <div id="doctorsContainer"></div>
-    </div>
-
-    <div class="test-card">
-        <h3>按钮测试</h3>
-        <button onclick="testButtonClick('inline')">内联onclick测试</button>
-        <button id="eventListenerBtn">addEventListener测试</button>
-    </div>
-
-    <div id="log"></div>
 
     <script>
-        // 日志函数
-        function log(msg, type = 'info') {
-            const logDiv = document.getElementById('log');
-            const time = new Date().toLocaleTimeString();
-            const color = type === 'error' ? '#f44' : type === 'success' ? '#4f4' : '#0f0';
-            logDiv.innerHTML += `<div style="color: ${color}">[${time}] ${msg}</div>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
-            console.log(msg);
+        function addTestMessage() {
+            const container = document.getElementById('mobileMessagesContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user';
+            messageDiv.innerHTML = `
+                <div class="message-avatar">👤</div>
+                <div class="message-content">
+                    <div class="message-text">这是动态添加的测试消息（3秒后出现）</div>
+                </div>
+            `;
+            container.appendChild(messageDiv);
         }
 
-        // 设置状态
-        function setStatus(id, pass) {
-            const el = document.getElementById(id);
-            el.className = pass ? 'status pass' : 'status fail';
-            el.textContent = pass ? '✓ 通过' : '✗ 失败';
-        }
-
-        // 测试1: JavaScript执行
-        try {
-            log('✓ JavaScript执行正常', 'success');
-            setStatus('jsStatus', true);
-        } catch (e) {
-            log('✗ JavaScript执行失败: ' + e.message, 'error');
-            setStatus('jsStatus', false);
-        }
-
-        // 浏览器信息
-        document.getElementById('userAgent').textContent = 'User Agent: ' + navigator.userAgent;
-        const isChrome = /Chrome/.test(navigator.userAgent);
-        const isMobile = /Mobile|Android/.test(navigator.userAgent);
-        document.getElementById('browserInfo').textContent =
-            `Chrome: ${isChrome}, Mobile: ${isMobile}, Screen: ${window.innerWidth}x${window.innerHeight}`;
-
-        // 测试2: DOM操作
-        document.addEventListener('DOMContentLoaded', function() {
-            log('✓ DOMContentLoaded事件触发', 'success');
-
-            try {
-                const testDiv = document.createElement('div');
-                testDiv.textContent = 'DOM测试';
-                log('✓ DOM操作正常', 'success');
-                setStatus('domStatus', true);
-            } catch (e) {
-                log('✗ DOM操作失败: ' + e.message, 'error');
-                setStatus('domStatus', false);
-            }
-
-            // 测试3: 事件绑定
-            try {
-                const btn = document.getElementById('eventListenerBtn');
-                btn.addEventListener('click', function() {
-                    log('✓ addEventListener点击成功', 'success');
-                    alert('addEventListener正常工作！');
-                });
-                log('✓ 事件绑定正常', 'success');
-                setStatus('eventStatus', true);
-            } catch (e) {
-                log('✗ 事件绑定失败: ' + e.message, 'error');
-                setStatus('eventStatus', false);
-            }
-
-            // 测试4: Fetch API
-            testFetchAPI();
-        });
-
-        // 测试按钮点击
-        function testButtonClick(type) {
-            log(`✓ 内联onclick工作正常 (${type})`, 'success');
-            alert(`内联onclick工作正常！类型: ${type}`);
-        }
-
-        // 测试Fetch API
-        async function testFetchAPI() {
-            try {
-                log('开始测试Fetch API...', 'info');
-                const response = await fetch('/api/doctors/list');
-                const data = await response.json();
-                log('✓ Fetch API正常，返回数据: ' + JSON.stringify(data).substring(0, 100), 'success');
-                setStatus('fetchStatus', true);
-            } catch (e) {
-                log('✗ Fetch API失败: ' + e.message, 'error');
-                setStatus('fetchStatus', false);
-            }
-        }
-
-        // 测试医生数据
-        async function testDoctorsData() {
-            log('开始加载医生数据...', 'info');
-            const container = document.getElementById('doctorsContainer');
-            container.innerHTML = '<p>加载中...</p>';
-
-            try {
-                // 方法1: 使用内联数据
-                const inlineDoctors = {
-                    "jin_daifu": {
-                        "name": "金大夫",
-                        "school": "经方大师",
-                        "avatar": "👨‍⚕️"
-                    },
-                    "zhang_zhongjing": {
-                        "name": "张仲景",
-                        "school": "伤寒派",
-                        "avatar": "🎯"
-                    }
-                };
-
-                log('✓ 内联医生数据加载成功', 'success');
-                container.innerHTML = '';
-
-                Object.entries(inlineDoctors).forEach(([key, doctor]) => {
-                    log(`创建医生卡片: ${doctor.name}`, 'info');
-                    const card = document.createElement('div');
-                    card.className = 'doctor-card';
-                    card.innerHTML = `
-                        <div style="font-size: 24px;">${doctor.avatar}</div>
-                        <div><strong>${doctor.name}</strong></div>
-                        <div style="color: #666;">${doctor.school}</div>
-                    `;
-                    card.onclick = function() {
-                        log(`✓ 点击医生: ${doctor.name}`, 'success');
-                        alert(`您选择了: ${doctor.name}`);
-                    };
-                    container.appendChild(card);
-                });
-
-                log(`✓ 成功渲染 ${Object.keys(inlineDoctors).length} 位医生`, 'success');
-
-                // 方法2: 测试API
-                log('尝试从API加载医生数据...', 'info');
-                const response = await fetch('/api/doctors/list');
-                const result = await response.json();
-
-                if (result.success) {
-                    log(`✓ API返回 ${result.doctors.length} 位医生`, 'success');
-                } else {
-                    log('✗ API返回失败', 'error');
-                }
-
-            } catch (e) {
-                log('✗ 医生数据加载失败: ' + e.message, 'error');
-                container.innerHTML = '<p style="color: red;">加载失败: ' + e.message + '</p>';
-            }
-        }
-
-        log('页面加载完成', 'success');
+        setTimeout(addTestMessage, 3000);
     </script>
 </body>
 </html>
