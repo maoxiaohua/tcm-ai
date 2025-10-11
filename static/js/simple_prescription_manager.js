@@ -1047,6 +1047,36 @@ ${actualPrescriptionContent}
 // 全局初始化
 window.simplePrescriptionManager = new SimplePrescriptionManager();
 
+// 🔑 兼容性适配器：提供prescriptionContentRenderer接口
+// 这样PC端代码无需修改就能继续工作
+window.prescriptionContentRenderer = {
+    /**
+     * 同步渲染方法（PC端使用）
+     * 注意：内部实际是异步的，但返回Promise让调用者自己决定是否await
+     */
+    renderContent: function(content, prescriptionId) {
+        console.log('📞 [兼容层] renderContent被调用:', { prescriptionId });
+        // 返回Promise，调用者可以await或直接使用
+        return window.simplePrescriptionManager.processContent(content, prescriptionId);
+    },
+
+    /**
+     * 检查是否包含处方内容
+     */
+    containsPrescription: function(content) {
+        return window.simplePrescriptionManager.containsPrescription(content);
+    },
+
+    /**
+     * 格式化常规内容
+     */
+    formatRegularContent: function(content) {
+        return window.simplePrescriptionManager.formatNormalContent(content);
+    }
+};
+
+console.log('✅ prescriptionContentRenderer兼容层已创建');
+
 // 页面加载完成后检查支付状态和跨设备同步
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(async () => {

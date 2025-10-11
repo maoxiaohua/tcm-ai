@@ -3865,9 +3865,9 @@
                     console.log('✅ 使用简化版处方管理器处理内容');
                     processedContent = await window.simplePrescriptionManager.processContent(content, prescriptionId);
                 } else if (window.prescriptionContentRenderer) {
-                    // 备用：使用原来的处方渲染器
-                    console.log('⚠️ 使用备用处方渲染器');
-                    processedContent = window.prescriptionContentRenderer.renderContent(content, prescriptionId);
+                    // 备用：使用原来的处方渲染器（兼容层）
+                    console.log('⚠️ 使用备用处方渲染器（兼容层）');
+                    processedContent = await window.prescriptionContentRenderer.renderContent(content, prescriptionId);
                     
                     // 🔧 保存原始内容用于支付后解锁
                     if (prescriptionId && content) {
