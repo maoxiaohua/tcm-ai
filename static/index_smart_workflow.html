@@ -2953,11 +2953,10 @@
                 }, 1000);
             }
 
-            // 🔑 新增：登录用户从数据库恢复历史记录
-            if (hasRealUser) {
-                await syncHistoryFromDatabase();
-            }
+            // 🔑 修复：所有用户（包括访客）都尝试从数据库恢复历史记录
+            await syncHistoryFromDatabase();
 
+            // 🔑 如果数据库没有记录，再从localStorage加载
             loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
 
             // 🔄 初始化ChatGPT风格对话管理系统
@@ -3319,22 +3318,26 @@
         /**
          * 🔄 从数据库同步历史记录到本地
          * 在页面加载时调用，确保即使localStorage被清除也能恢复历史
+         * 🔑 安全修复：使用getCurrentUserId()确保每个用户有唯一ID
          */
         async function syncHistoryFromDatabase() {
             try {
+                // 🔑 安全修复：使用getCurrentUserId()函数获取唯一的用户ID
+                // 该函数会为访客生成唯一的smart_user_ID，确保数据隔离
                 const userId = getCurrentUserId();
-                if (!userId || !userToken) {
-                    console.log('📝 非登录用户，跳过数据库同步');
+
+                if (!userId) {
+                    console.warn('⚠️ 无法获取用户ID，跳过数据库同步');
                     return;
                 }
 
-                console.log('🔄 开始从数据库同步历史记录...');
+                console.log('🔄 开始从数据库同步历史记录...用户ID:', userId);
 
-                const response = await fetch('/api/consultation/history', {
+                // 🔑 修复：使用正确的API端点，不需要认证
+                const response = await fetch(`/api/consultation/patient/history?user_id=${userId}`, {
                     method: 'GET',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${userToken}`
+                        'Content-Type': 'application/json'
                     }
                 });
 
@@ -3345,27 +3348,99 @@
 
                 const result = await response.json();
 
-                if (result.success && result.consultations && result.consultations.length > 0) {
-                    console.log(`✅ 从数据库获取到 ${result.consultations.length} 条历史记录`);
+                // 🔑 修复：使用正确的数据结构
+                if (result.success && result.data && result.data.consultation_history && result.data.consultation_history.length > 0) {
+                    const consultations = result.data.consultation_history;
+                    console.log(`✅ 从数据库获取到 ${consultations.length} 条历史记录`);
 
-                    // 将数据库记录转换为localStorage格式并保存
-                    result.consultations.forEach(consultation => {
+                    // 🔑 恢复最近的一条对话到聊天窗口
+                    const latestConsultation = consultations[0];
+                    if (latestConsultation && latestConsultation.conversation_history && latestConsultation.conversation_history.length > 0) {
+                        console.log('🔄 恢复最近的对话:', latestConsultation.consultation_id);
+
+                        // 清空当前对话
+                        const chatMessages = document.getElementById('chatMessages');
+                        if (chatMessages) {
+                            chatMessages.innerHTML = '';
+                        }
+
+                        // 🔑 设置当前对话ID和医生
+                        if (typeof generateConversationId === 'function') {
+                            window.currentConversationId = latestConsultation.consultation_id;
+                        }
+
+                        // 设置当前医生
+                        if (latestConsultation.doctor_id && typeof selectDoctor === 'function') {
+                            selectDoctor(latestConsultation.doctor_id);
+                        }
+
+                        // 恢复对话消息到UI
+                        latestConsultation.conversation_history.forEach(turn => {
+                            try {
+                                // 添加患者消息
+                                if (turn.patient_query) {
+                                    if (typeof addMessage === 'function') {
+                                        addMessage('user', turn.patient_query);
+                                    }
+                                }
+
+                                // 添加AI回复
+                                if (turn.ai_response) {
+                                    if (typeof addMessage === 'function') {
+                                        addMessage('ai', turn.ai_response);
+                                    }
+                                }
+                            } catch (err) {
+                                console.warn('⚠️ 恢复消息失败:', err);
+                            }
+                        });
+
+                        console.log('✅ 最近对话已恢复到UI');
+                    }
+
+                    // 🔑 关键修复：将所有历史记录保存到localStorage，每条consultation独立保存
+                    // 不再按医生覆盖，而是保存完整的历史记录列表
+                    const historyByDoctor = {};
+
+                    consultations.forEach(consultation => {
                         try {
-                            const messages = JSON.parse(consultation.conversation_log || '[]');
-                            if (messages.length > 0) {
-                                const historyKey = `tcm_doctor_history_${userId}_${consultation.selected_doctor_id}`;
-                                const dataToSave = {
-                                    messages: messages,
-                                    lastUpdated: consultation.updated_at || consultation.created_at,
-                                    doctor: consultation.selected_doctor_id,
-                                    version: '2.1',
-                                    syncedFromDB: true
-                                };
-                                localStorage.setItem(historyKey, JSON.stringify(dataToSave));
-                                console.log(`💾 已同步医生 ${consultation.selected_doctor_id} 的历史记录`);
+                            if (consultation.conversation_history && consultation.conversation_history.length > 0) {
+                                const doctorId = consultation.doctor_id;
+
+                                // 按医生分组
+                                if (!historyByDoctor[doctorId]) {
+                                    historyByDoctor[doctorId] = [];
+                                }
+
+                                historyByDoctor[doctorId].push({
+                                    consultation_id: consultation.consultation_id,
+                                    messages: consultation.conversation_history,
+                                    created_at: consultation.created_at,
+                                    updated_at: consultation.updated_at || consultation.created_at,
+                                    symptoms_analysis: consultation.symptoms_analysis,
+                                    tcm_syndrome: consultation.tcm_syndrome
+                                });
                             }
                         } catch (err) {
-                            console.warn('⚠️ 解析历史记录失败:', err);
+                            console.warn('⚠️ 处理历史记录失败:', err);
+                        }
+                    });
+
+                    // 保存每个医生的完整历史记录列表
+                    Object.keys(historyByDoctor).forEach(doctorId => {
+                        try {
+                            const historyKey = `tcm_doctor_history_${userId}_${doctorId}`;
+                            const dataToSave = {
+                                doctor: doctorId,
+                                consultations: historyByDoctor[doctorId],
+                                lastUpdated: new Date().toISOString(),
+                                version: '2.3',
+                                syncedFromDB: true
+                            };
+                            localStorage.setItem(historyKey, JSON.stringify(dataToSave));
+                            console.log(`💾 已备份医生 ${doctorId} 的 ${historyByDoctor[doctorId].length} 条历史记录到localStorage`);
+                        } catch (err) {
+                            console.warn(`⚠️ 备份医生 ${doctorId} 的历史记录失败:`, err);
                         }
                     });
 
@@ -3766,17 +3841,19 @@
         // 选择医生（支持默认医生和推荐医生）
         function selectDoctor(doctorKey, doctorData = null) {
             const messagesContainer = document.getElementById('messagesContainer');
+            const mobileMessagesContainer = document.getElementById('mobileMessagesContainer');
+
             // 检查是否有真正的对话内容（用户消息或AI回复）
             const userMessages = messagesContainer.querySelectorAll('.message.user');
             const aiMessages = messagesContainer.querySelectorAll('.message.ai');
             const hasExistingMessages = userMessages.length > 0 || aiMessages.length > 0;
-            
-            // 切换医生时保存当前医生的对话历史，不再清空历史记录
+
+            // 切换医生时保存当前医生的对话历史
             if (selectedDoctor && selectedDoctor !== doctorKey && hasExistingMessages) {
                 // 保存当前医生的对话历史
                 saveCurrentDoctorHistory();
             }
-            
+
             // 移除之前的选中状态
             document.querySelectorAll('.doctor-card').forEach(card => {
                 card.classList.remove('selected');
@@ -3789,11 +3866,11 @@
 
             const previousDoctor = selectedDoctor;
             selectedDoctor = doctorKey;
-            
+
             // 获取医生信息（优先使用传入的doctorData，然后是默认doctors对象）
             const doctor = doctorData || doctors[doctorKey] || {
                 name: '医生',
-                school: '中医师', 
+                school: '中医师',
                 avatar: '👨‍⚕️',
                 specialty: '中医内科'
             };
@@ -3803,24 +3880,34 @@
             document.getElementById('currentDoctorName').textContent = `${doctor.name} - ${doctor.school}`;
             document.getElementById('currentDoctorDesc').textContent = `擅长：${doctor.specialty}`;
 
-            // 切换医生时生成新的对话ID，确保AI身份正确切换
+            // 🔑 切换医生时的关键修复：
             if (previousDoctor && previousDoctor !== doctorKey) {
-                // 生成新的对话ID，强制开始新对话
+                // 1. 清空当前显示的消息（开始全新对话）
+                if (messagesContainer) {
+                    messagesContainer.innerHTML = '';
+                    messagesContainer.removeAttribute('data-current-doctor');
+                }
+                if (mobileMessagesContainer) {
+                    mobileMessagesContainer.innerHTML = '';
+                    mobileMessagesContainer.removeAttribute('data-current-doctor');
+                }
+                console.log(`🧹 切换医生：清空当前对话，准备开始与${doctor.name}的新对话`);
+
+                // 2. 生成新的对话ID，强制开始新对话
                 generateConversationId();
+                console.log(`🆕 生成新对话ID: ${currentConversationId}`);
             }
-            
-            // 加载当前医生的对话历史，不清空历史记录
-            if (!previousDoctor || previousDoctor !== doctorKey) {
-                // 加载该医生的历史对话
-                loadDoctorHistory(doctorKey);
-            }
-            
+
+            // 🔑 修复：不自动加载历史记录，让用户开始全新对话
+            // 如果需要查看历史，用户可以通过历史记录功能查看
+            console.log(`✅ 已切换到${doctor.name}，准备开始新对话`);
+
             // 显示输入框
             const inputContainer = document.querySelector('.input-container');
             if (inputContainer) {
                 inputContainer.classList.add('show');
             }
-            
+
             // 移动端：关闭医生选择浮层
             if (window.innerWidth <= 768) {
                 closeMobileDoctorSelector();
@@ -3837,11 +3924,25 @@
                 isPaid,
                 prescriptionId
             });
-            
+
             const container = document.getElementById('messagesContainer');
             if (!container) {
                 console.error('❌ 找不到messagesContainer');
                 return;
+            }
+
+            // 🔧 防重复机制：检查最后一条消息是否与当前消息相同
+            const lastMessage = container.querySelector('.message:last-child');
+            if (lastMessage) {
+                const lastSender = lastMessage.classList.contains('user') ? 'user' : 'ai';
+                const lastText = lastMessage.querySelector('.message-text');
+                const lastContent = lastText ? lastText.textContent.trim() : '';
+
+                // 如果发送者和内容都相同，则跳过
+                if (lastSender === sender && lastContent === content.trim()) {
+                    console.warn('⚠️ 检测到重复消息，跳过添加:', {sender, contentPreview: content.substring(0, 50)});
+                    return;
+                }
             }
             
             const messageDiv = document.createElement('div');
@@ -9907,71 +10008,35 @@ ${data.analysis_result}`;
         // 🆕 显示问诊详情 - 从服务器获取完整信息
         async function showConversationDetails(sessionId, doctorKey) {
             console.log('📋 显示问诊详情:', sessionId, doctorKey);
-            
+
             try {
-                const userId = getCurrentUserId();
-                
-                // 从服务器获取详细的问诊记录
-                const response = await fetch(`/api/consultation/patient-history/${userId}`, {
+                // 🔑 修复：使用正确的API端点获取完整的问诊详情（包括处方信息）
+                const response = await fetch(`/api/consultation/detail/${sessionId}`, {
                     headers: getAuthHeaders()
                 });
-                
+
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
-                
+
                 const result = await response.json();
-                console.log('📋 API返回的历史数据:', result);
-                
+                console.log('📋 API返回的详情数据:', result);
+
                 if (!result.success || !result.data) {
-                    throw new Error('获取详情失败');
+                    throw new Error(result.message || '获取详情失败');
                 }
-                
-                // 🔑 修复：更准确的会话匹配逻辑
-                const targetConsultation = result.data.find(consultation => {
-                    // 多种ID匹配方式
-                    const matchIds = [
-                        consultation.consultation_id,
-                        consultation.uuid,
-                        consultation.session_id,
-                        consultation.conversation_id
-                    ];
-                    
-                    console.log('🔍 匹配检查:', {
-                        sessionId,
-                        consultation_id: consultation.consultation_id,
-                        matchIds,
-                        doctorMatch: consultation.doctor_id === doctorKey
-                    });
-                    
-                    return matchIds.includes(sessionId) || 
-                           (consultation.doctor_id === doctorKey && matchIds.some(id => id && id.includes(sessionId.slice(-6))));
+
+                const consultation = result.data;
+                console.log('✅ 获取到问诊详情:', {
+                    session_id: consultation.session_id,
+                    doctor: consultation.doctor_name,
+                    has_prescription: consultation.prescription_info != null,
+                    conversation_rounds: consultation.total_rounds
                 });
-                
-                if (!targetConsultation) {
-                    console.warn('未找到匹配的问诊记录，显示所有数据以供调试');
-                    console.log('所有问诊记录:', result.data.map(c => ({
-                        id: c.consultation_id,
-                        doctor: c.doctor_id,
-                        created: c.created_at
-                    })));
-                    
-                    // 如果找不到精确匹配，选择最新的记录
-                    const latestConsultation = result.data[0];
-                    if (latestConsultation) {
-                        console.log('🔄 使用最新的问诊记录:', latestConsultation.consultation_id);
-                        showConsultationDetailsModal(latestConsultation);
-                        return;
-                    }
-                    
-                    throw new Error('未找到对应的问诊记录');
-                }
-                
-                console.log('✅ 找到匹配的问诊记录:', targetConsultation.consultation_id);
-                
+
                 // 显示详情模态框
-                showConsultationDetailsModal(targetConsultation);
-                
+                showConsultationDetailsModal(consultation);
+
             } catch (error) {
                 console.error('获取问诊详情失败:', error);
                 showMessage('获取问诊详情失败: ' + error.message, 'error');
@@ -9981,61 +10046,36 @@ ${data.analysis_result}`;
         // 🆕 显示问诊详情模态框
         function showConsultationDetailsModal(consultation) {
             console.log('🔍 解析问诊详情数据:', consultation);
-            
-            // 🔑 修复：使用正确的字段名解析对话历史
-            let conversationHistory = [];
-            try {
-                // 优先使用API返回的conversation_history字段
-                if (consultation.conversation_history && Array.isArray(consultation.conversation_history)) {
-                    conversationHistory = consultation.conversation_history;
-                } else if (consultation.conversation_log) {
-                    const logData = typeof consultation.conversation_log === 'string' 
-                        ? JSON.parse(consultation.conversation_log) 
-                        : consultation.conversation_log;
-                    conversationHistory = logData.conversation_history || [];
-                }
-            } catch (e) {
-                console.warn('解析对话历史失败:', e);
-            }
-            
+
+            // 🔑 修复：使用API返回的对话历史数据
+            const conversationHistory = consultation.conversation_history || [];
             console.log('📜 对话历史数据:', conversationHistory);
-            
-            // 🔑 修复：解析症状分析，处理多种数据格式
-            let symptomsData = {};
-            try {
-                if (consultation.symptoms_analysis) {
-                    symptomsData = typeof consultation.symptoms_analysis === 'string'
-                        ? JSON.parse(consultation.symptoms_analysis)
-                        : consultation.symptoms_analysis;
-                } else if (consultation.prescription_info && consultation.prescription_info.symptoms) {
-                    // 从处方信息中获取症状
-                    symptomsData.symptoms = consultation.prescription_info.symptoms;
-                }
-            } catch (e) {
-                console.warn('解析症状分析失败:', e);
-            }
-            
+
+            // 🔑 修复：使用API返回的症状摘要
+            const symptomsData = {
+                symptoms: consultation.symptoms_summary || consultation.chief_complaint || '',
+                main_symptoms: consultation.symptoms_summary || '',
+                additional_symptoms: ''
+            };
             console.log('🔍 症状分析数据:', symptomsData);
-            
-            // 🔑 修复：解析中医证候，处理多种数据格式
-            let syndromeData = {};
-            try {
-                if (consultation.tcm_syndrome) {
-                    syndromeData = typeof consultation.tcm_syndrome === 'string'
-                        ? JSON.parse(consultation.tcm_syndrome)
-                        : consultation.tcm_syndrome;
-                } else if (consultation.prescription_info && consultation.prescription_info.diagnosis) {
-                    // 从处方信息中获取诊断
-                    syndromeData.diagnosis = consultation.prescription_info.diagnosis;
-                }
-            } catch (e) {
-                console.warn('解析中医证候失败:', e);
-            }
-            
+
+            // 🔑 修复：使用API返回的中医诊断和证候信息
+            const syndromeData = {
+                diagnosis: consultation.diagnosis || '',
+                syndrome: consultation.syndrome || '',
+                pattern: '',
+                treatment_principle: ''
+            };
             console.log('🏥 中医证候数据:', syndromeData);
-            
-            // 🔑 修复：获取完整的处方信息
+
+            // 🔑 修复：获取完整的处方信息，包括实际的处方内容
             const prescriptionInfo = consultation.prescription_info || {};
+
+            // 如果有处方内容，添加到prescriptionInfo中
+            if (consultation.prescription && !prescriptionInfo.display_text) {
+                prescriptionInfo.display_text = consultation.prescription;
+            }
+
             console.log('💊 处方信息数据:', prescriptionInfo);
             
             // 构建详情HTML
@@ -10048,8 +10088,10 @@ ${data.analysis_result}`;
                             <button onclick="this.closest('[style*=\"position: fixed\"]').remove()" style="position: absolute; top: 15px; right: 20px; background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
                             <div style="margin-top: 10px; font-size: 14px; opacity: 0.9;">
                                 问诊时间: ${new Date(consultation.created_at).toLocaleString('zh-CN')}<br>
-                                医生: ${consultation.doctor_display_name || '中医专家'}<br>
-                                状态: ${consultation.status === 'completed' ? '已完成' : consultation.status === 'pending_review' ? '等待审核' : '进行中'}
+                                医生: ${consultation.doctor_name || '中医专家'}<br>
+                                问诊轮次: ${consultation.total_rounds || conversationHistory.length || 0}轮<br>
+                                问诊时长: ${consultation.duration_minutes ? consultation.duration_minutes + '分钟' : '无记录'}<br>
+                                状态: ${consultation.status === 'completed' ? '✅ 已完成' : consultation.status === 'pending_review' ? '⏳ 等待审核' : '🔄 进行中'}
                             </div>
                         </div>
                         
@@ -10298,6 +10340,23 @@ ${data.analysis_result}`;
         // 移动端添加消息 (改为async以支持处方管理器)
         async function addMobileMessage(sender, content, showFeedback = false, isPaid = false, prescriptionId = null) {
             const container = document.getElementById('mobileMessagesContainer');
+
+            // 🔧 防重复机制：检查最后一条消息是否与当前消息相同
+            if (container) {
+                const lastMessage = container.querySelector('.message:last-child');
+                if (lastMessage) {
+                    const lastSender = lastMessage.classList.contains('user') ? 'user' : 'ai';
+                    const lastText = lastMessage.querySelector('.message-text');
+                    const lastContent = lastText ? lastText.textContent.trim() : '';
+
+                    // 如果发送者和内容都相同，则跳过
+                    if (lastSender === sender && lastContent === content.trim()) {
+                        console.warn('⚠️ 移动端检测到重复消息，跳过添加:', {sender, contentPreview: content.substring(0, 50)});
+                        return;
+                    }
+                }
+            }
+
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
 
@@ -11619,10 +11678,9 @@ ${data.analysis_result}`;
                                         is_reviewed: true,
                                         status: status
                                     });
-                                    console.log(`✅ 更新了现有消息的审核完成状态: ${prescriptionId}`);
+                                     console.log(`✅ 更新了现有消息的审核完成状态: ${prescriptionId}`);
                                 }
-                            }
-                            
+
                             console.log(`✅ 恢复已审核状态: ${prescriptionId}`);
                             restoredCount++;
                         }

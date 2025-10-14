@@ -9,7 +9,28 @@ from typing import Optional, Dict, Any
 import jwt
 from dataclasses import asdict
 
-from database.models.doctor_portal_models import Doctor, DoctorStatus
+# 临时修复: 直接定义简化的Doctor类，避免导入问题
+from dataclasses import dataclass
+from enum import Enum
+from typing import Optional
+
+class DoctorStatus(Enum):
+    """医生状态"""
+    ACTIVE = 'active'
+    INACTIVE = 'inactive'
+    SUSPENDED = 'suspended'
+
+@dataclass
+class Doctor:
+    """医生数据类"""
+    id: int
+    name: str
+    license_no: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    speciality: Optional[str] = None
+    hospital: Optional[str] = None
+    status: str = 'active'
 
 class DoctorAuthManager:
     """医生认证管理器"""

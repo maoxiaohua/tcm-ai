@@ -711,47 +711,61 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
         logger.info(f"🔍 处方检查: contains_prescription={response.contains_prescription}, prescription_data={response.prescription_data is not None}")
         if response.contains_prescription and response.prescription_data:
             logger.info(f"💊 开始保存处方到数据库, prescription_data={response.prescription_data}")
-            # 提取处方内容和诊断信息
-            prescription_text = response.prescription_data.get('prescription', '')
-            if not prescription_text:
-                # 如果没有单独的prescription字段，尝试从完整数据中提取
-                prescription_text = json.dumps(response.prescription_data, ensure_ascii=False, indent=2)
-            
-            diagnosis_text = response.prescription_data.get('diagnosis', '')
-            syndrome_text = response.prescription_data.get('syndrome', '')
-            
-            logger.info(f"📝 处方文本长度: {len(prescription_text) if prescription_text else 0}")
-            
+
+            # 🔑 新增：检查是否已为此consultation创建处方（防重复）
             cursor.execute("""
-                INSERT INTO prescriptions (
-                    patient_id, conversation_id, consultation_id, doctor_id, 
-                    ai_prescription, diagnosis, symptoms,
-                    status, created_at, is_visible_to_patient,
-                    payment_status, prescription_fee, review_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                user_id,
-                request.conversation_id,  # 对话ID
-                consultation_uuid,        # 问诊记录UUID
-                request.selected_doctor,
-                prescription_text,
-                diagnosis_text + ('\n\n' + syndrome_text if syndrome_text else ''),
-                response.prescription_data.get('symptoms_summary', ''),
-                "pending_review",  # 🔑 修改：等待医生审核
-                datetime.now().isoformat(),
-                0,  # 默认不可见，需审核通过后支付解锁
-                "pending",  # 待支付
-                88.0,  # 处方费用
-                "pending_review"  # 🔑 新增：审核状态
-            ))
-            
-            # 获取新创建的处方ID
-            prescription_id = cursor.lastrowid
-            logger.info(f"✅ 处方保存成功，prescription_id={prescription_id}")
-            
-            # 🔑 自动提交到医生审核队列
-            await _submit_to_doctor_review_queue(cursor, prescription_id, request, consultation_uuid)
-            
+                SELECT id FROM prescriptions
+                WHERE consultation_id = ?
+                LIMIT 1
+            """, (consultation_uuid,))
+
+            existing_prescription = cursor.fetchone()
+
+            if existing_prescription:
+                prescription_id = existing_prescription[0]
+                logger.warning(f"⚠️ 处方已存在，跳过重复创建: consultation_id={consultation_uuid}, prescription_id={prescription_id}")
+            else:
+                # 提取处方内容和诊断信息
+                prescription_text = response.prescription_data.get('prescription', '')
+                if not prescription_text:
+                    # 如果没有单独的prescription字段，尝试从完整数据中提取
+                    prescription_text = json.dumps(response.prescription_data, ensure_ascii=False, indent=2)
+
+                diagnosis_text = response.prescription_data.get('diagnosis', '')
+                syndrome_text = response.prescription_data.get('syndrome', '')
+
+                logger.info(f"📝 处方文本长度: {len(prescription_text) if prescription_text else 0}")
+
+                cursor.execute("""
+                    INSERT INTO prescriptions (
+                        patient_id, conversation_id, consultation_id, doctor_id,
+                        ai_prescription, diagnosis, symptoms,
+                        status, created_at, is_visible_to_patient,
+                        payment_status, prescription_fee, review_status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    user_id,
+                    request.conversation_id,  # 对话ID
+                    consultation_uuid,        # 问诊记录UUID
+                    request.selected_doctor,
+                    prescription_text,
+                    diagnosis_text + ('\n\n' + syndrome_text if syndrome_text else ''),
+                    response.prescription_data.get('symptoms_summary', ''),
+                    "pending_review",  # 🔑 修改：等待医生审核
+                    datetime.now().isoformat(),
+                    0,  # 默认不可见，需审核通过后支付解锁
+                    "pending",  # 待支付
+                    88.0,  # 处方费用
+                    "pending_review"  # 🔑 新增：审核状态
+                ))
+
+                # 获取新创建的处方ID
+                prescription_id = cursor.lastrowid
+                logger.info(f"✅ 处方保存成功，prescription_id={prescription_id}")
+
+                # 🔑 自动提交到医生审核队列
+                await _submit_to_doctor_review_queue(cursor, prescription_id, request, consultation_uuid)
+
             # 🔑 将处方ID添加到响应数据中，供前端使用
             if response.prescription_data:
                 response.prescription_data['prescription_id'] = prescription_id
@@ -961,20 +975,23 @@ async def update_consultation_status(request: ConsultationUpdateRequest):
 async def get_conversation_detail(session_id: str):
     """获取对话详细信息，用于详情弹窗显示"""
     try:
+        logger.info(f"🔍 获取对话详情: session_id={session_id}")
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         # 从consultations表获取完整对话记录
         cursor.execute("""
-            SELECT c.uuid, c.patient_id, c.selected_doctor_id, c.conversation_log, 
+            SELECT c.uuid, c.patient_id, c.selected_doctor_id, c.conversation_log,
                    c.symptoms_analysis, c.tcm_syndrome, c.status, c.created_at, c.updated_at,
-                   p.id as prescription_id, p.ai_prescription, p.diagnosis, p.symptoms,
-                   p.payment_status, p.prescription_fee, p.is_visible_to_patient
+                   p.id as prescription_id, p.ai_prescription, p.doctor_prescription,
+                   p.diagnosis, p.symptoms, p.status as prescription_status,
+                   p.review_status, p.payment_status, p.prescription_fee,
+                   p.is_visible_to_patient, p.reviewed_at
             FROM consultations c
             LEFT JOIN prescriptions p ON c.uuid = p.consultation_id
             WHERE c.uuid = ? OR EXISTS (
-                SELECT 1 FROM doctor_sessions ds 
-                WHERE ds.session_id = ? AND ds.user_id = c.patient_id 
+                SELECT 1 FROM doctor_sessions ds
+                WHERE ds.session_id = ? AND ds.user_id = c.patient_id
                 AND ds.doctor_name = c.selected_doctor_id
             )
             ORDER BY c.created_at DESC
@@ -982,7 +999,10 @@ async def get_conversation_detail(session_id: str):
         """, (session_id, session_id))
         
         result = cursor.fetchone()
+        logger.info(f"📊 consultations查询结果: {'找到记录' if result else '未找到记录'}")
+
         if not result:
+            logger.info(f"🔄 尝试从doctor_sessions表查找...")
             # 尝试从doctor_sessions表查找并获取对应的consultations记录
             cursor.execute("""
                 SELECT ds.session_id, ds.user_id, ds.doctor_name, ds.chief_complaint,
@@ -999,7 +1019,10 @@ async def get_conversation_detail(session_id: str):
             """, (session_id,))
             
             ds_result = cursor.fetchone()
+            logger.info(f"📊 doctor_sessions查询结果: {'找到记录' if ds_result else '未找到记录'}")
+
             if not ds_result:
+                logger.warning(f"❌ 未找到对话记录: session_id={session_id}")
                 return {
                     "success": False,
                     "message": "未找到对话记录"
@@ -1039,15 +1062,39 @@ async def get_conversation_detail(session_id: str):
             symptoms_summary = ""
             diagnosis = ""
             syndrome = ""
-            
+
+            logger.info(f"📝 开始解析conversation_log, 有数据: {bool(result['conversation_log'])}")
+
             try:
                 if result['conversation_log']:
                     log_data = json.loads(result['conversation_log'])
-                    conversation_history = log_data.get('conversation_history', [])
-                    
-                    # 提取患者症状描述（第一轮对话）
-                    if conversation_history:
-                        symptoms_summary = conversation_history[0].get('patient_query', '')
+
+                    # 🔑 兼容旧格式和新格式
+                    if isinstance(log_data, list):
+                        # 旧格式: [{type, content, time}]
+                        conversation_history = []
+                        for i in range(0, len(log_data), 2):
+                            if i < len(log_data):
+                                user_msg = log_data[i] if isinstance(log_data[i], dict) and log_data[i].get('type') == 'user' else None
+                                ai_msg = log_data[i+1] if i+1 < len(log_data) and isinstance(log_data[i+1], dict) and log_data[i+1].get('type') == 'ai' else None
+
+                                if user_msg:
+                                    conversation_history.append({
+                                        'patient_query': user_msg.get('content', ''),
+                                        'ai_response': ai_msg.get('content', '') if ai_msg else '',
+                                        'timestamp': user_msg.get('timestamp', '')
+                                    })
+                        symptoms_summary = log_data[0].get('content', '') if len(log_data) > 0 and isinstance(log_data[0], dict) and log_data[0].get('type') == 'user' else ""
+                    elif isinstance(log_data, dict) and 'conversation_history' in log_data:
+                        # 新格式: {conversation_id, conversation_history: [{patient_query, ai_response}]}
+                        conversation_history = log_data.get('conversation_history', [])
+                        if conversation_history and len(conversation_history) > 0:
+                            symptoms_summary = conversation_history[0].get('patient_query', '') if isinstance(conversation_history[0], dict) else ""
+                    else:
+                        conversation_history = []
+                        symptoms_summary = ""
+
+                    logger.info(f"📜 解析到 {len(conversation_history)} 轮对话")
                 
                 # 解析症状分析
                 if result['symptoms_analysis']:
@@ -1103,9 +1150,11 @@ async def get_conversation_detail(session_id: str):
                         pass
                 
                 # 使用提取的信息或备用信息
-                diagnosis = diagnosis_extracted or result.get('diagnosis', '') or "基于患者症状的中医辨证分析"
+                diagnosis = diagnosis_extracted or (result['diagnosis'] if 'diagnosis' in result.keys() else '') or "基于患者症状的中医辨证分析"
                 syndrome = syndrome_extracted or "待进一步辨证分析"
-                
+
+                logger.info(f"📋 提取完成 - 诊断: {diagnosis[:50] if diagnosis else '无'}, 证候: {syndrome[:50] if syndrome else '无'}")
+
             except json.JSONDecodeError as e:
                 logger.warning(f"解析conversation_log失败: {e}")
             
@@ -1125,9 +1174,15 @@ async def get_conversation_detail(session_id: str):
                 "prescription": result['ai_prescription'] if result['ai_prescription'] else None,
                 "prescription_info": {
                     "prescription_id": result['prescription_id'],
+                    "status": result['prescription_status'],
+                    "review_status": result['review_status'],
                     "payment_status": result['payment_status'],
                     "prescription_fee": result['prescription_fee'],
-                    "is_visible": result['is_visible_to_patient']
+                    "is_visible": result['is_visible_to_patient'],
+                    "display_text": result['doctor_prescription'] or result['ai_prescription'],
+                    "diagnosis": result['diagnosis'],
+                    "symptoms": result['symptoms'],
+                    "reviewed_at": result['reviewed_at']
                 } if result['prescription_id'] else None
             }
         
@@ -1157,7 +1212,9 @@ async def get_conversation_detail(session_id: str):
             conversation_data["duration_minutes"] = duration_minutes
         except:
             conversation_data["duration_minutes"] = 0
-        
+
+        logger.info(f"✅ 成功构建对话详情: session_id={conversation_data['session_id']}, 轮次={conversation_data['total_rounds']}, 有处方={conversation_data['prescription_info'] is not None}")
+
         return {
             "success": True,
             "data": conversation_data,
@@ -1492,17 +1549,28 @@ def _extract_treatment_principle(ai_response: str) -> str:
 def _determine_consultation_status(response) -> str:
     """
     🔑 根据问诊回复确定问诊状态，修复历史记录重复问题
+    支持完整的状态流转: in_progress → pending_payment → pending_review → completed
     """
     if response.contains_prescription:
-        # 包含处方时，应该是等待患者支付/医生审核状态，而不是完成状态
+        # 包含处方时，根据支付和审核状态确定问诊状态
         if hasattr(response, 'prescription_data') and response.prescription_data:
             payment_status = response.prescription_data.get('payment_status', 'pending')
-            if payment_status == 'paid':
-                return 'pending_review'  # 已支付，等待医生审核
+            review_status = response.prescription_data.get('review_status', '')
+
+            # 🔑 新增：如果已审核通过且已支付，则问诊完成
+            if review_status == 'approved' and payment_status == 'completed':
+                return 'completed'  # 问诊完成
+            elif review_status == 'approved' and payment_status == 'paid':
+                return 'completed'  # 问诊完成（paid也视为completed）
+            elif payment_status in ['paid', 'completed'] or review_status in ['approved', 'doctor_approved']:
+                return 'pending_review'  # 已支付或已审核，等待另一流程
             else:
                 return 'pending_payment'  # 等待患者支付
         else:
             return 'pending_payment'  # 默认等待支付
     else:
+        # 🔑 新增：如果stage表明问诊已结束
+        if hasattr(response, 'stage') and response.stage in ['prescription_complete', 'consultation_end', 'completed']:
+            return 'completed'
         return 'in_progress'  # 仍在问诊中
 

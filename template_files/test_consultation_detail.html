@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试问诊详情显示</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 3px solid #667eea;
+            white-space: pre-wrap;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .success {
+            color: green;
+            border-left-color: green;
+        }
+        .error {
+            color: red;
+            border-left-color: red;
+        }
+        .prescription-content {
+            background: #fefce8;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 问诊详情显示测试</h1>
+        <p>测试历史记录中是否能正确显示完整的处方内容</p>
+
+        <div class="test-section">
+            <h3>测试: 获取问诊详情</h3>
+            <p>问诊ID: <input type="text" id="consultationId" value="1632-03a2-4975-8020-6ffd" style="padding: 5px; width: 400px;"></p>
+            <button onclick="testGetConsultationDetail()">获取详情</button>
+            <button onclick="testShowInModal()" style="background: #10b981;">模拟前端显示</button>
+            <div id="detailResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>诊断信息</h3>
+            <div id="diagnosisSection" style="display:none;">
+                <h4>诊断:</h4>
+                <div id="diagnosisContent" style="padding: 10px; background: #f0fdf4; border-radius: 5px;"></div>
+
+                <h4 style="margin-top: 15px;">证候:</h4>
+                <div id="syndromeContent" style="padding: 10px; background: #f0fdf4; border-radius: 5px;"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>处方内容</h3>
+            <div id="prescriptionSection" style="display:none;">
+                <h4>处方信息:</h4>
+                <div id="prescriptionMeta" style="padding: 10px; background: #f0f9ff; border-radius: 5px; margin-bottom: 10px;"></div>
+
+                <h4>完整处方内容:</h4>
+                <div id="prescriptionContent" class="prescription-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentConsultationData = null;
+
+        async function testGetConsultationDetail() {
+            const consultationId = document.getElementById('consultationId').value;
+            const resultDiv = document.getElementById('detailResult');
+
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = '正在获取数据...';
+
+            try {
+                const response = await fetch(`/api/consultation/detail/${consultationId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    currentConsultationData = data.data;
+
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `✅ 成功获取问诊详情!\n\n`;
+                    resultDiv.innerHTML += `医生: ${data.data.doctor_name}\n`;
+                    resultDiv.innerHTML += `创建时间: ${data.data.created_at}\n`;
+                    resultDiv.innerHTML += `状态: ${data.data.status}\n`;
+                    resultDiv.innerHTML += `对话轮次: ${data.data.total_rounds}\n`;
+                    resultDiv.innerHTML += `持续时间: ${data.data.duration_minutes || 0}分钟\n\n`;
+
+                    // 显示诊断信息
+                    if (data.data.diagnosis || data.data.syndrome) {
+                        document.getElementById('diagnosisSection').style.display = 'block';
+                        document.getElementById('diagnosisContent').innerHTML = data.data.diagnosis || '无';
+                        document.getElementById('syndromeContent').innerHTML = data.data.syndrome || '无';
+                    }
+
+                    // 显示处方信息
+                    if (data.data.prescription_info) {
+                        const prescInfo = data.data.prescription_info;
+                        document.getElementById('prescriptionSection').style.display = 'block';
+
+                        let metaHTML = `处方ID: ${prescInfo.prescription_id}<br>`;
+                        metaHTML += `审核状态: ${prescInfo.review_status || '无'}<br>`;
+                        metaHTML += `支付状态: ${prescInfo.payment_status}<br>`;
+                        metaHTML += `处方费用: ¥${prescInfo.prescription_fee}<br>`;
+                        metaHTML += `是否可见: ${prescInfo.is_visible ? '是' : '否'}`;
+                        document.getElementById('prescriptionMeta').innerHTML = metaHTML;
+
+                        // 🔑 关键: 显示完整处方内容
+                        const prescriptionText = data.data.prescription || prescInfo.display_text || '无处方内容';
+                        document.getElementById('prescriptionContent').innerHTML = prescriptionText;
+
+                        resultDiv.innerHTML += `\n✅ 处方内容长度: ${prescriptionText.length} 字符\n`;
+                        resultDiv.innerHTML += `✅ 包含君臣佐使: ${prescriptionText.includes('君药') ? '是' : '否'}\n`;
+                    } else {
+                        document.getElementById('prescriptionSection').style.display = 'block';
+                        document.getElementById('prescriptionMeta').innerHTML = '本次问诊未开具处方';
+                        document.getElementById('prescriptionContent').innerHTML = '';
+                    }
+
+                    resultDiv.innerHTML += `\n完整JSON数据:\n${JSON.stringify(data.data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `❌ 获取失败: ${data.message}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ 请求失败: ${error.message}`;
+            }
+        }
+
+        function testShowInModal() {
+            if (!currentConsultationData) {
+                alert('请先点击"获取详情"按钮获取数据');
+                return;
+            }
+
+            const consultation = currentConsultationData;
+            const conversationHistory = consultation.conversation_history || [];
+            const prescriptionInfo = consultation.prescription_info || {};
+
+            // 🔑 关键: 模拟前端代码的处理逻辑
+            if (consultation.prescription && !prescriptionInfo.display_text) {
+                prescriptionInfo.display_text = consultation.prescription;
+            }
+
+            const detailsHTML = `
+                <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; justify-content: center; align-items: center;" onclick="this.remove()">
+                    <div style="background: white; border-radius: 16px; padding: 0; max-width: 800px; max-height: 90vh; overflow: hidden; position: relative;" onclick="event.stopPropagation()">
+                        <!-- 模态框头部 -->
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; position: relative;">
+                            <h2 style="margin: 0; font-size: 20px;">📋 问诊详情</h2>
+                            <button onclick="this.closest('[style*=\\"position: fixed\\"]').remove()" style="position: absolute; top: 15px; right: 20px; background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                            <div style="margin-top: 10px; font-size: 14px; opacity: 0.9;">
+                                问诊时间: ${new Date(consultation.created_at).toLocaleString('zh-CN')}<br>
+                                医生: ${consultation.doctor_name || '中医专家'}<br>
+                                问诊轮次: ${consultation.total_rounds || conversationHistory.length || 0}轮<br>
+                                状态: ${consultation.status === 'completed' ? '✅ 已完成' : '🔄 进行中'}
+                            </div>
+                        </div>
+
+                        <!-- 模态框内容 -->
+                        <div style="padding: 20px; max-height: 60vh; overflow-y: auto;">
+                            <!-- 中医辩证 -->
+                            <div style="margin-bottom: 25px;">
+                                <h3 style="color: #374151; margin-bottom: 15px; font-size: 16px;">🏥 中医辩证</h3>
+                                <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; background: #f0fdf4;">
+                                    <div style="margin-bottom: 10px;">
+                                        <strong>证候诊断:</strong> ${consultation.syndrome || consultation.diagnosis || '无'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 处方信息 -->
+                            ${prescriptionInfo.prescription_id ? `
+                                <div style="margin-bottom: 25px;">
+                                    <h3 style="color: #374151; margin-bottom: 15px; font-size: 16px;">💊 处方信息</h3>
+                                    <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; background: #fefce8;">
+                                        <div style="margin-bottom: 10px;">
+                                            <strong>处方ID:</strong> ${prescriptionInfo.prescription_id}
+                                        </div>
+                                        <div style="margin-bottom: 10px;">
+                                            <strong>支付状态:</strong>
+                                            <span style="color: ${prescriptionInfo.payment_status === 'completed' || prescriptionInfo.payment_status === 'paid' ? '#059669' : '#d97706'};">
+                                                ${prescriptionInfo.payment_status === 'completed' || prescriptionInfo.payment_status === 'paid' ? '已支付' : '待支付'}
+                                            </span>
+                                        </div>
+                                        ${prescriptionInfo.display_text ? `
+                                            <div style="margin-top: 15px;">
+                                                <strong>处方内容:</strong>
+                                                <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 8px; line-height: 1.6; white-space: pre-wrap;">
+                                                    ${prescriptionInfo.display_text}
+                                                </div>
+                                            </div>
+                                        ` : '<div style="color: #dc2626; margin-top: 10px;">⚠️ 未找到处方内容</div>'}
+                                    </div>
+                                </div>
+                            ` : '<div style="color: #6b7280;">本次问诊未开具处方</div>'}
+                        </div>
+
+                        <!-- 模态框底部 -->
+                        <div style="padding: 20px; border-top: 1px solid #e5e7eb; background: #f9fafb; display: flex; justify-content: flex-end;">
+                            <button onclick="this.closest('[style*=\\"position: fixed\\"]').remove()" style="padding: 8px 16px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer;">关闭</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 添加到页面
+            document.body.insertAdjacentHTML('beforeend', detailsHTML);
+        }
+
+        // 页面加载时自动测试
+        window.onload = function() {
+            console.log('测试页面已加载，准备测试问诊详情显示功能');
+        };
+    </script>
+</body>
+</html>

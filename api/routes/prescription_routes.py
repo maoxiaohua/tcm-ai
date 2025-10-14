@@ -9,6 +9,10 @@ import uuid
 from datetime import datetime
 
 from core.doctor_management.doctor_auth import doctor_auth_manager
+
+# 使用内联导入避免模块路径问题
+import sys
+sys.path.insert(0, '/opt/tcm-ai')
 from database.models.doctor_portal_models import Doctor, Prescription, PrescriptionStatus
 
 router = APIRouter(prefix="/api/prescription", tags=["处方管理"])

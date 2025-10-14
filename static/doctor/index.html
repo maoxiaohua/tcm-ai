@@ -2949,9 +2949,21 @@
 
         // 隐藏处方调整表单
         function hideModifyForm() {
-            document.getElementById('modifyForm').style.display = 'none';
-            document.getElementById('modifiedPrescription').value = '';
-            document.getElementById('modifyNotes').value = '';
+            const modifyForm = document.getElementById('modifyForm');
+            if (modifyForm) {
+                modifyForm.style.display = 'none';
+            }
+
+            // 🔑 修复：安全地清空表单，避免null错误
+            const modifiedPrescriptionField = document.getElementById('modifiedPrescription');
+            if (modifiedPrescriptionField) {
+                modifiedPrescriptionField.value = '';
+            }
+
+            const modifyNotesField = document.getElementById('modifyNotes');
+            if (modifyNotesField) {
+                modifyNotesField.value = '';
+            }
         }
 
         // 提交调整后的处方 - 表格化版本

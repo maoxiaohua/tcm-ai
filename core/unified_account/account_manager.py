@@ -26,6 +26,11 @@ from enum import Enum
 from dataclasses import dataclass, asdict
 import logging
 from contextlib import contextmanager
+import sys
+
+# 导入统一数据库连接模块
+sys.path.append('/opt/tcm-ai')
+from core.database import get_db_connection_context
 
 logger = logging.getLogger(__name__)
 
@@ -144,13 +149,10 @@ class UnifiedAccountManager:
     
     @contextmanager
     def _get_db_connection(self):
-        """获取数据库连接上下文管理器"""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        try:
+        """获取数据库连接上下文管理器（使用统一连接模块）"""
+        # 使用统一的数据库连接管理，确保外键约束已启用
+        with get_db_connection_context() as conn:
             yield conn
-        finally:
-            conn.close()
     
     def _generate_user_id(self) -> str:
         """生成全局唯一用户ID"""

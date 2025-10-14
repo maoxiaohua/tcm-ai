@@ -9,11 +9,11 @@ import os
 # 设置工作目录
 os.chdir('/opt/tcm-ai/api')
 
-# 设置Python路径
-sys.path.insert(0, '/opt/tcm-ai')
-sys.path.insert(0, '/opt/tcm-ai/core')
-sys.path.insert(0, '/opt/tcm-ai/services')
+# 设置Python路径 (顺序很重要!)
 sys.path.insert(0, '/opt/tcm-ai/database')
+sys.path.insert(0, '/opt/tcm-ai/services')
+sys.path.insert(0, '/opt/tcm-ai/core')
+sys.path.insert(0, '/opt/tcm-ai')
 
 # 设置环境变量
 os.environ['PYTHONPATH'] = '/opt/tcm-ai:/opt/tcm-ai/core:/opt/tcm-ai/services:/opt/tcm-ai/database'

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试历史记录加载</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 3px solid #007bff;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            color: green;
+            border-left-color: green;
+        }
+        .error {
+            color: red;
+            border-left-color: red;
+        }
+        .conversation-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .conversation-item h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .conversation-meta {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>问诊历史记录加载测试</h1>
+        <p>此页面用于测试从数据库加载历史记录功能</p>
+
+        <div class="test-section">
+            <h3>测试1: 加载当前用户的历史问诊</h3>
+            <p>用户ID: <input type="text" id="userId" value="guest" style="padding: 5px; width: 300px;"></p>
+            <button onclick="loadUserHistory()">加载历史记录</button>
+            <div id="historyResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>测试2: 检查数据库中的问诊总数</h3>
+            <button onclick="checkTotalConsultations()">检查总数</button>
+            <div id="totalResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>测试3: 查看最近的问诊记录</h3>
+            <button onclick="loadRecentConsultations()">查看最近记录</button>
+            <div id="recentResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>测试4: 恢复特定对话</h3>
+            <p>对话ID: <input type="text" id="conversationId" placeholder="输入conversation_id" style="padding: 5px; width: 300px;"></p>
+            <button onclick="restoreConversation()">恢复对话</button>
+            <div id="restoreResult" class="result" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 获取API基础URL
+        const API_BASE = window.location.origin;
+
+        // 测试1: 加载用户历史记录
+        async function loadUserHistory() {
+            const userId = document.getElementById('userId').value || 'guest';
+            const resultDiv = document.getElementById('historyResult');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '加载中...';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/consultation/patient/history?user_id=${userId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    const history = data.data.consultation_history;
+
+                    if (history.length === 0) {
+                        resultDiv.innerHTML = `✅ 成功连接API，但用户 ${userId} 暂无历史记录`;
+                    } else {
+                        let html = `✅ 找到 ${history.length} 条历史记录:\n\n`;
+
+                        history.forEach((item, index) => {
+                            html += `<div class="conversation-item">`;
+                            html += `<h4>对话 ${index + 1}: ${item.doctor_name}</h4>`;
+                            html += `<div class="conversation-meta">`;
+                            html += `对话ID: ${item.consultation_id}<br>`;
+                            html += `创建时间: ${item.created_at}<br>`;
+                            html += `状态: ${item.consultation_status}<br>`;
+                            html += `消息数: ${item.total_messages}<br>`;
+                            html += `包含处方: ${item.has_prescription ? '是' : '否'}`;
+                            html += `</div>`;
+
+                            if (item.conversation_history && item.conversation_history.length > 0) {
+                                html += `<div style="margin-top: 10px;">`;
+                                html += `<strong>对话预览:</strong><br>`;
+                                const preview = item.conversation_history[0];
+                                html += `患者: ${preview.patient_query?.substring(0, 100) || preview.content?.substring(0, 100)}...<br>`;
+                                if (preview.ai_response) {
+                                    html += `医生: ${preview.ai_response.substring(0, 100)}...`;
+                                }
+                                html += `</div>`;
+                            }
+
+                            html += `</div>`;
+                        });
+
+                        resultDiv.innerHTML = html;
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `❌ 加载失败: ${data.message}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ 请求失败: ${error.message}`;
+            }
+        }
+
+        // 测试2: 检查数据库总数
+        async function checkTotalConsultations() {
+            const resultDiv = document.getElementById('totalResult');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '查询中...';
+
+            try {
+                // 尝试获取所有用户的数据量
+                const response = await fetch(`${API_BASE}/api/consultation/patient/history?user_id=guest`);
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `✅ API正常工作\n找到 ${data.data.total_count} 条记录（guest用户）`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `❌ 查询失败: ${data.message}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ 请求失败: ${error.message}`;
+            }
+        }
+
+        // 测试3: 查看最近的问诊记录
+        async function loadRecentConsultations() {
+            const resultDiv = document.getElementById('recentResult');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '加载中...';
+
+            try {
+                // 使用guest用户查看最近记录
+                const response = await fetch(`${API_BASE}/api/consultation/patient/history?user_id=guest`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const history = data.data.consultation_history;
+                    if (history.length > 0) {
+                        resultDiv.className = 'result success';
+                        let html = `✅ 最近的问诊记录:\n\n`;
+                        html += JSON.stringify(history.slice(0, 3), null, 2);
+                        resultDiv.innerHTML = html;
+                    } else {
+                        resultDiv.className = 'result';
+                        resultDiv.innerHTML = `暂无最近记录`;
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `❌ 加载失败: ${data.message}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ 请求失败: ${error.message}`;
+            }
+        }
+
+        // 测试4: 恢复特定对话
+        async function restoreConversation() {
+            const conversationId = document.getElementById('conversationId').value;
+            const resultDiv = document.getElementById('restoreResult');
+
+            if (!conversationId) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = '请输入对话ID';
+                return;
+            }
+
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '恢复中...';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/consultation/detail/${conversationId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    const conv = data.data;
+                    let html = `✅ 成功恢复对话:\n\n`;
+                    html += `医生: ${conv.doctor_name}\n`;
+                    html += `创建时间: ${conv.created_at}\n`;
+                    html += `状态: ${conv.status}\n`;
+                    html += `对话轮次: ${conv.total_rounds}\n\n`;
+                    html += `症状摘要: ${conv.symptoms_summary}\n\n`;
+                    html += `诊断: ${conv.diagnosis}\n\n`;
+                    html += `证候: ${conv.syndrome}\n\n`;
+
+                    if (conv.conversation_history && conv.conversation_history.length > 0) {
+                        html += `对话历史 (共${conv.conversation_history.length}轮):\n`;
+                        html += JSON.stringify(conv.conversation_history, null, 2);
+                    }
+
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `❌ 恢复失败: ${data.message}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ 请求失败: ${error.message}`;
+            }
+        }
+
+        // 页面加载时显示说明
+        window.onload = function() {
+            console.log('测试页面已加载');
+            console.log('可用API: /api/consultation/patient/history, /api/consultation/detail/{id}');
+        };
+    </script>
+</body>
+</html>

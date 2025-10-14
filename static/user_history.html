@@ -1049,7 +1049,7 @@
         async function loadSessionHistory(retryCount = 0) {
             const maxRetries = 3;
             const historyContent = document.getElementById('historyContent');
-            
+
             // 显示加载状态
             if (retryCount === 0) {
                 historyContent.innerHTML = `
@@ -1059,49 +1059,81 @@
                     </div>
                 `;
             }
-            
+
             try {
                 console.log('正在加载会话历史，尝试次数:', retryCount + 1);
-                
-                // 🔑 获取当前用户ID并添加到API请求中
+
+                // 🔑 修复：使用新的统一问诊API端点
                 const userId = getCurrentUserId();
-                // 修复：如果获取不到用户ID，让服务端从token解析
-                const apiUrl = (userId && userId !== 'anonymous') ? 
-                    `/api/user/sessions?user_id=${encodeURIComponent(userId)}` : 
-                    '/api/user/sessions';
-                
-                console.log('🔗 历史记录API URL:', apiUrl);
-                
+                const apiUrl = `/api/consultation/patient/history?user_id=${encodeURIComponent(userId || '')}`;
+
+                console.log('🔗 历史记录API URL (新统一API):', apiUrl);
+
                 const response = await fetch(apiUrl, {
                     method: 'GET',
                     headers: getAuthHeaders(),
                     timeout: 30000
                 });
-                
+
                 console.log('API响应状态:', response.status);
-                
+
                 if (response.ok) {
-                    const data = await response.json();
-                    console.log('获取到的会话数据:', data);
-                    
-                    allSessions = data.sessions || [];
-                    
-                    // 更新统计信息
-                    updateStatistics(data.stats || {});
-                    
-                    // 渲染历史记录
-                    renderSessionHistory();
-                    
-                    console.log('历史记录加载成功，会话数量:', allSessions.length);
+                    const result = await response.json();
+                    console.log('✅ 获取到的统一API数据:', result);
+
+                    if (result.success && result.data) {
+                        // 🔑 新API响应结构：result.data.consultation_history
+                        const consultations = result.data.consultation_history || [];
+                        console.log(`📊 解析到 ${consultations.length} 条问诊记录`);
+
+                        // 转换数据格式以兼容现有渲染逻辑
+                        allSessions = consultations.map((consultation, index) => ({
+                            session_id: consultation.consultation_id,
+                            doctor_name: consultation.selected_doctor_id,
+                            session_count: index + 1,
+                            chief_complaint: consultation.symptoms_analysis ?
+                                (typeof consultation.symptoms_analysis === 'string' ?
+                                    JSON.parse(consultation.symptoms_analysis).chief_complaint :
+                                    consultation.symptoms_analysis.chief_complaint)
+                                : '未记录',
+                            created_at: consultation.created_at,
+                            updated_at: consultation.updated_at,
+                            status: consultation.status,
+                            total_conversations: consultation.conversation_log ?
+                                (typeof consultation.conversation_log === 'string' ?
+                                    JSON.parse(consultation.conversation_log).conversation_history?.length :
+                                    consultation.conversation_log.conversation_history?.length) || 0
+                                : 0,
+                            has_prescription: consultation.has_prescription || false,
+                            prescription_info: consultation.prescription_info || null
+                        }));
+
+                        console.log('📝 转换后的会话数据:', allSessions);
+
+                        // 更新统计信息
+                        const stats = {
+                            total_sessions: result.data.total_count || allSessions.length,
+                            doctor_count: new Set(allSessions.map(s => s.doctor_name)).size,
+                            usage_days: calculateUsageDays(allSessions)
+                        };
+                        updateStatistics(stats);
+
+                        // 渲染历史记录
+                        renderSessionHistory();
+
+                        console.log('✅ 历史记录加载成功，问诊数量:', allSessions.length);
+                    } else {
+                        throw new Error(result.message || 'API返回数据格式错误');
+                    }
                 } else {
                     throw new Error(`API返回错误状态: ${response.status}`);
                 }
             } catch (error) {
-                console.error('加载会话历史失败:', error);
-                
+                console.error('❌ 加载会话历史失败:', error);
+
                 // 如果还有重试次数，则重试
                 if (retryCount < maxRetries) {
-                    console.log(`重试加载历史记录 (${retryCount + 1}/${maxRetries})...`);
+                    console.log(`🔄 重试加载历史记录 (${retryCount + 1}/${maxRetries})...`);
                     setTimeout(() => {
                         loadSessionHistory(retryCount + 1);
                     }, 2000 * (retryCount + 1)); // 递增延迟
@@ -1110,6 +1142,15 @@
                     showHistoryError(error.message);
                 }
             }
+        }
+
+        // 🔑 新增：计算使用天数
+        function calculateUsageDays(sessions) {
+            if (sessions.length === 0) return 0;
+
+            const dates = sessions.map(s => new Date(s.created_at).toDateString());
+            const uniqueDates = new Set(dates);
+            return uniqueDates.size;
         }
         
         // 显示历史记录加载错误

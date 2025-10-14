@@ -207,20 +207,22 @@ async def doctor_review_prescription(request: DoctorReviewRequest):
         cursor.execute("""
             SELECT id, status, doctor_id FROM prescriptions WHERE id = ?
         """, (request.prescription_id,))
-        
+
         prescription = cursor.fetchone()
         if not prescription:
             raise HTTPException(status_code=404, detail="处方不存在")
-        
-        if prescription['status'] != 'pending_review':
+
+        # 🔑 修复：允许重新审核已审核的处方（pending_review 和 doctor_approved 都可以）
+        if prescription['status'] not in ['pending_review', 'doctor_approved', 'ai_generated']:
             return {
                 "success": False,
-                "message": "处方不在待审核状态"
+                "message": f"处方当前状态({prescription['status']})不允许审核"
             }
         
         # 🔑 修复：调整处方状态管理逻辑
         if request.action == "approve":
             new_status = "doctor_approved"
+            review_status = "approved"  # ✅ 添加review_status
             message = "处方审核通过"
             # 只有通过时才完成审核队列
             queue_completed = True
@@ -229,29 +231,32 @@ async def doctor_review_prescription(request: DoctorReviewRequest):
                 raise HTTPException(status_code=400, detail="修改处方时必须提供修改后的处方内容")
             # 🔑 修复：调整处方时保持pending_review状态，不标记为完成
             new_status = "pending_review"  # 保持待审核状态
+            review_status = "modified"  # ✅ 添加review_status
             message = "处方已调整，等待最终审核"
             queue_completed = False  # 不完成审核队列，等待医生最终批准
         else:
             raise HTTPException(status_code=400, detail="无效的审核操作")
-        
+
         # 更新处方记录
         if request.action == "modify":
             cursor.execute("""
-                UPDATE prescriptions 
+                UPDATE prescriptions
                 SET doctor_prescription = ?,
                     doctor_notes = ?,
+                    review_status = ?,
                     reviewed_at = datetime('now')
                 WHERE id = ?
-            """, (request.modified_prescription, request.doctor_notes, request.prescription_id))
-            # 🔑 修复：调整时不改变状态，保持pending_review
+            """, (request.modified_prescription, request.doctor_notes, review_status, request.prescription_id))
+            # 🔑 修复：调整时不改变status，但更新review_status
         else:
             cursor.execute("""
-                UPDATE prescriptions 
+                UPDATE prescriptions
                 SET status = ?,
+                    review_status = ?,
                     doctor_notes = ?,
                     reviewed_at = datetime('now')
                 WHERE id = ?
-            """, (new_status, request.doctor_notes, request.prescription_id))
+            """, (new_status, review_status, request.doctor_notes, request.prescription_id))
         
         # 🔑 修复：只有approve时才完成审核队列
         if queue_completed:
@@ -272,9 +277,17 @@ async def doctor_review_prescription(request: DoctorReviewRequest):
         
         conn.commit()
         conn.close()
-        
+
         logger.info(f"✅ 处方审核完成: prescription_id={request.prescription_id}, action={request.action}")
-        
+
+        # 🔑 审核完成后，同步状态到患者端
+        try:
+            from api.routes.unified_consultation_routes import _sync_prescription_status_to_patient
+            await _sync_prescription_status_to_patient(request.prescription_id, new_status)
+            logger.info(f"✅ 状态已同步到患者端: prescription_id={request.prescription_id}")
+        except Exception as sync_error:
+            logger.error(f"⚠️ 同步状态到患者端失败（不影响审核结果）: {sync_error}")
+
         return {
             "success": True,
             "message": message,
@@ -287,9 +300,11 @@ async def doctor_review_prescription(request: DoctorReviewRequest):
                 "can_approve_again": request.action == "modify"  # 调整后可以再次审批
             }
         }
-        
+
     except Exception as e:
         logger.error(f"处方审核失败: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return {
             "success": False,
             "message": f"审核失败: {str(e)}"

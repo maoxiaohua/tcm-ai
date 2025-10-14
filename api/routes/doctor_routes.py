@@ -7,6 +7,10 @@ from typing import Optional, List, Dict, Any
 import sqlite3
 
 from core.doctor_management.doctor_auth import doctor_auth_manager
+
+# 使用内联导入避免模块路径问题
+import sys
+sys.path.insert(0, '/opt/tcm-ai')
 from database.models.doctor_portal_models import Doctor, Prescription
 
 router = APIRouter(prefix="/api/doctor", tags=["医生端"])
@@ -81,26 +85,26 @@ def get_current_doctor(authorization: str = Header(None)) -> Doctor:
                 conn.close()
                 return Doctor(
                     id=row[0],                    # id
-                    name=row[1],                  # name
-                    license_no=row[2],            # license_no
-                    phone=row[3],                 # phone
-                    email=row[4],                 # email
-                    speciality=row[5],            # speciality
-                    hospital=row[6],              # hospital
-                    auth_token=row[7],            # auth_token
-                    password_hash=row[8],         # password_hash
-                    status=row[9],                # status
-                    created_at=row[10],           # created_at
-                    updated_at=row[11],           # updated_at
-                    last_login=row[12],           # last_login
-                    specialties=row[13],          # specialties
-                    average_rating=row[14],       # average_rating
-                    total_reviews=row[15],        # total_reviews
-                    consultation_count=row[16],   # consultation_count
-                    commission_rate=row[17],      # commission_rate
-                    available_hours=row[18],      # available_hours
-                    introduction=row[19],         # introduction
-                    avatar_url=row[20]            # avatar_url
+                    name=row[2],                  # name (注意:uuid是row[1])
+                    license_no=row[3],            # license_no
+                    phone=row[4],                 # phone
+                    email=row[5],                 # email
+                    speciality=row[6],            # speciality
+                    hospital=row[7],              # hospital
+                    auth_token=row[8],            # auth_token
+                    password_hash=row[9],         # password_hash
+                    status=row[10],               # status
+                    created_at=row[11],           # created_at
+                    updated_at=row[12],           # updated_at
+                    last_login=row[13],           # last_login
+                    specialties=row[14],          # specialties
+                    average_rating=row[15],       # average_rating
+                    total_reviews=row[16],        # total_reviews
+                    consultation_count=row[17],   # consultation_count
+                    commission_rate=row[18],      # commission_rate
+                    available_hours=row[19],      # available_hours
+                    introduction=row[20],         # introduction
+                    avatar_url=row[21]            # avatar_url
                 )
             else:
                 # 使用统一认证系统的用户信息创建Doctor对象
@@ -357,13 +361,17 @@ async def get_pending_prescriptions(current_doctor: Doctor = Depends(get_current
     
     try:
         # 🔑 修复：从doctor_review_queue表获取待审核处方，使用字符串类型的doctor_id
+        # 🔧 防重复：使用DISTINCT和GROUP BY避免重复记录
         cursor.execute("""
-            SELECT p.*, q.submitted_at, q.priority,
+            SELECT p.*,
+                   MIN(q.submitted_at) as submitted_at,
+                   MAX(q.priority) as priority,
                    CASE WHEN q.doctor_id = ? THEN 1 ELSE 0 END as is_assigned_to_me
-            FROM prescriptions p 
+            FROM prescriptions p
             JOIN doctor_review_queue q ON p.id = q.prescription_id
             WHERE q.status = 'pending' AND q.doctor_id = ?
-            ORDER BY q.priority DESC, q.submitted_at ASC
+            GROUP BY p.id
+            ORDER BY priority DESC, submitted_at ASC
         """, (str(current_doctor.id), str(current_doctor.id)))
         
         rows = cursor.fetchall()

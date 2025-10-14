@@ -2094,6 +2094,30 @@ async def test_history_sync_page():
     from fastapi.responses import FileResponse
     return FileResponse('/opt/tcm-ai/test_cross_device_history.html')
 
+@app.get("/test-history-load")
+async def test_history_load_page():
+    """测试历史记录从数据库加载"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/template_files/test_history_load.html')
+
+@app.get("/test-quick-chat")
+async def test_quick_chat_page():
+    """快速测试问诊功能"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/template_files/quick_test_chat.html')
+
+@app.get("/test-consultation-detail")
+async def test_consultation_detail_page():
+    """测试问诊详情显示功能"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/template_files/test_consultation_detail.html')
+
+@app.get("/test-prescription-status")
+async def test_prescription_status_page():
+    """测试处方状态显示功能"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/template_files/test_prescription_status.html')
+
 @app.get("/debug-user-api")
 async def debug_user_api_page():
     """调试用户API"""
