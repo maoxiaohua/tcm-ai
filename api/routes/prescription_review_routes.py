@@ -67,22 +67,23 @@ async def confirm_payment(request: PaymentConfirmRequest):
         
         # 更新支付状态和处方状态
         cursor.execute("""
-            UPDATE prescriptions 
+            UPDATE prescriptions
             SET payment_status = 'paid',
                 status = 'pending_review',
+                review_status = 'pending_review',
                 is_visible_to_patient = 1,
-                visibility_unlock_time = datetime('now'),
-                confirmed_at = datetime('now')
+                visibility_unlock_time = datetime('now', 'localtime'),
+                confirmed_at = datetime('now', 'localtime')
             WHERE id = ?
         """, (request.prescription_id,))
-        
+
         # 记录支付信息（可以扩展支付详情表）
         cursor.execute("""
             INSERT OR REPLACE INTO prescription_payment_logs (
                 prescription_id, amount, payment_method, payment_time, status
-            ) VALUES (?, ?, ?, datetime('now'), 'completed')
+            ) VALUES (?, ?, ?, datetime('now', 'localtime'), 'completed')
         """, (request.prescription_id, request.payment_amount, request.payment_method))
-        
+
         # 自动提交给医生审核 - 插入到医生工作队列
         # 🔑 修复：将doctor_id从整数转换为字符串以匹配表结构
         doctor_id_str = str(prescription['doctor_id']) if prescription['doctor_id'] else '1'
@@ -90,9 +91,9 @@ async def confirm_payment(request: PaymentConfirmRequest):
         consultation_id = prescription['consultation_id'] or 'unknown'
         cursor.execute("""
             INSERT OR REPLACE INTO doctor_review_queue (
-                prescription_id, doctor_id, consultation_id, 
+                prescription_id, doctor_id, consultation_id,
                 submitted_at, status, priority
-            ) VALUES (?, ?, ?, datetime('now'), 'pending', 'normal')
+            ) VALUES (?, ?, ?, datetime('now', 'localtime'), 'pending', 'normal')
         """, (request.prescription_id, doctor_id_str, consultation_id))
         
         conn.commit()
@@ -237,6 +238,15 @@ async def doctor_review_prescription(request: DoctorReviewRequest):
         else:
             raise HTTPException(status_code=400, detail="无效的审核操作")
 
+        # 🔑 关键修复：医生审核时必须检查并保持支付状态
+        # 获取当前支付状态，审核不应该改变支付状态
+        cursor.execute("""
+            SELECT payment_status FROM prescriptions WHERE id = ?
+        """, (request.prescription_id,))
+
+        current_payment_info = cursor.fetchone()
+        current_payment_status = current_payment_info['payment_status'] if current_payment_info else 'pending'
+
         # 更新处方记录
         if request.action == "modify":
             cursor.execute("""
@@ -244,35 +254,36 @@ async def doctor_review_prescription(request: DoctorReviewRequest):
                 SET doctor_prescription = ?,
                     doctor_notes = ?,
                     review_status = ?,
-                    reviewed_at = datetime('now')
+                    reviewed_at = datetime('now', 'localtime')
                 WHERE id = ?
             """, (request.modified_prescription, request.doctor_notes, review_status, request.prescription_id))
             # 🔑 修复：调整时不改变status，但更新review_status
         else:
+            # 🔑 关键修复：医生审核通过时，保持payment_status不变，只更新status和review_status
             cursor.execute("""
                 UPDATE prescriptions
                 SET status = ?,
                     review_status = ?,
                     doctor_notes = ?,
-                    reviewed_at = datetime('now')
+                    reviewed_at = datetime('now', 'localtime')
                 WHERE id = ?
             """, (new_status, review_status, request.doctor_notes, request.prescription_id))
         
         # 🔑 修复：只有approve时才完成审核队列
         if queue_completed:
             cursor.execute("""
-                UPDATE doctor_review_queue 
-                SET status = 'completed', completed_at = datetime('now')
+                UPDATE doctor_review_queue
+                SET status = 'completed', completed_at = datetime('now', 'localtime')
                 WHERE prescription_id = ?
             """, (request.prescription_id,))
-        
+
         # 记录审核历史
         cursor.execute("""
             INSERT INTO prescription_review_history (
-                prescription_id, doctor_id, action, modified_prescription, 
+                prescription_id, doctor_id, action, modified_prescription,
                 doctor_notes, reviewed_at
-            ) VALUES (?, ?, ?, ?, ?, datetime('now'))
-        """, (request.prescription_id, request.doctor_id, request.action, 
+            ) VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))
+        """, (request.prescription_id, request.doctor_id, request.action,
                request.modified_prescription, request.doctor_notes))
         
         conn.commit()
