@@ -725,16 +725,22 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 prescription_id = existing_prescription[0]
                 logger.warning(f"⚠️ 处方已存在，跳过重复创建: consultation_id={consultation_uuid}, prescription_id={prescription_id}")
             else:
-                # 提取处方内容和诊断信息
-                prescription_text = response.prescription_data.get('prescription', '')
-                if not prescription_text:
-                    # 如果没有单独的prescription字段，尝试从完整数据中提取
-                    prescription_text = json.dumps(response.prescription_data, ensure_ascii=False, indent=2)
+                # 🔑 关键修复：处方内容优先从response.reply提取，而非prescription_data元数据
+                # prescription_data通常只包含元信息（prescription_id等），真正的处方文本在reply里
+                prescription_text = response.reply  # AI生成的完整处方内容
 
-                diagnosis_text = response.prescription_data.get('diagnosis', '')
-                syndrome_text = response.prescription_data.get('syndrome', '')
+                # 如果prescription_data里有单独的prescription字段，作为补充
+                if response.prescription_data.get('prescription'):
+                    # 如果有单独的prescription字段且比reply短，说明可能是摘要，保留reply
+                    separate_prescription = response.prescription_data.get('prescription', '')
+                    if len(separate_prescription) > len(prescription_text):
+                        prescription_text = separate_prescription
+
+                diagnosis_text = response.prescription_data.get('diagnosis', '') or _extract_diagnosis_from_reply(response.reply)
+                syndrome_text = response.prescription_data.get('syndrome', '') or _extract_tcm_pattern(response.reply)
 
                 logger.info(f"📝 处方文本长度: {len(prescription_text) if prescription_text else 0}")
+                logger.info(f"📝 诊断长度: {len(diagnosis_text)}, 证候长度: {len(syndrome_text)}")
 
                 cursor.execute("""
                     INSERT INTO prescriptions (
