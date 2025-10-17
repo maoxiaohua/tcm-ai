@@ -199,12 +199,15 @@ class PrescriptionStatusManager:
                 """, (prescription_id,))
 
                 # 确保提交到医生审核队列
+                # 🔑 修复：使用COALESCE处理consultation_id为NULL的情况
                 cursor.execute("""
                     INSERT OR REPLACE INTO doctor_review_queue (
                         prescription_id, doctor_id, consultation_id,
                         submitted_at, status, priority
                     )
-                    SELECT ?, doctor_id, consultation_id,
+                    SELECT ?,
+                           doctor_id,
+                           COALESCE(consultation_id, conversation_id, 'unknown_' || CAST(id AS TEXT)),
                            datetime('now', 'localtime'), 'pending', 'normal'
                     FROM prescriptions WHERE id = ?
                 """, (prescription_id, prescription_id))
