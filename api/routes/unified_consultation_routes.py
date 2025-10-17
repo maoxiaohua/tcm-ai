@@ -742,6 +742,7 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 logger.info(f"📝 处方文本长度: {len(prescription_text) if prescription_text else 0}")
                 logger.info(f"📝 诊断长度: {len(diagnosis_text)}, 证候长度: {len(syndrome_text)}")
 
+                # 🔑 使用统一状态管理器的初始状态
                 cursor.execute("""
                     INSERT INTO prescriptions (
                         patient_id, conversation_id, consultation_id, doctor_id,
@@ -757,27 +758,28 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                     prescription_text,
                     diagnosis_text + ('\n\n' + syndrome_text if syndrome_text else ''),
                     response.prescription_data.get('symptoms_summary', ''),
-                    "pending_review",  # 🔑 修改：等待医生审核
+                    "ai_generated",  # 🔑 使用状态管理器定义的初始状态
                     datetime.now().isoformat(),
                     0,  # 默认不可见，需审核通过后支付解锁
                     "pending",  # 待支付
                     88.0,  # 处方费用
-                    "pending_review"  # 🔑 新增：审核状态
+                    "not_submitted"  # 🔑 使用状态管理器定义的初始审核状态
                 ))
 
                 # 获取新创建的处方ID
                 prescription_id = cursor.lastrowid
                 logger.info(f"✅ 处方保存成功，prescription_id={prescription_id}")
 
-                # 🔑 自动提交到医生审核队列
-                await _submit_to_doctor_review_queue(cursor, prescription_id, request, consultation_uuid)
+                # 🔑 不再自动提交到审核队列，由支付后调用状态管理器时自动提交
+                # await _submit_to_doctor_review_queue(cursor, prescription_id, request, consultation_uuid)
 
             # 🔑 将处方ID添加到响应数据中，供前端使用
             if response.prescription_data:
                 response.prescription_data['prescription_id'] = prescription_id
                 response.prescription_data['payment_status'] = 'pending'
-                response.prescription_data['review_status'] = 'pending_review'
-                response.prescription_data['requires_review'] = True  # 🔑 新增：标记需要审核
+                response.prescription_data['review_status'] = 'not_submitted'  # 🔑 与状态管理器保持一致
+                response.prescription_data['status'] = 'ai_generated'  # 🔑 新增：主状态
+                response.prescription_data['requires_payment'] = True  # 🔑 新增：需要支付
             
             # 更新对话状态，标记已有处方
             cursor.execute("""
@@ -1110,39 +1112,20 @@ async def get_conversation_detail(session_id: str):
                 # 🔑 修复：从对话历史中提取实际的中医诊断信息
                 diagnosis_extracted = ""
                 syndrome_extracted = ""
-                
-                # 从AI回复中提取诊断和证候信息
+
+                # 从AI回复中提取诊断和证候信息（使用改进的提取函数）
                 for conv in conversation_history:
                     ai_response = conv.get('ai_response', '')
-                    if ai_response:
-                        # 提取诊断信息
-                        if ('诊断' in ai_response or '证' in ai_response or '辨证' in ai_response) and not diagnosis_extracted:
-                            # 尝试提取诊断部分
-                            import re
-                            diagnosis_patterns = [
-                                r'诊断[：:](.*?)(?=[。\n]|证候|处方|$)',
-                                r'中医诊断[：:](.*?)(?=[。\n]|证候|处方|$)',
-                                r'([^。]*证[^。]*)',
-                                r'辨证[：:](.*?)(?=[。\n]|处方|$)'
-                            ]
-                            for pattern in diagnosis_patterns:
-                                match = re.search(pattern, ai_response, re.DOTALL)
-                                if match:
-                                    diagnosis_extracted = match.group(1).strip() if len(match.groups()) > 0 else match.group(0).strip()
-                                    break
-                        
-                        # 提取证候信息
-                        if ('证候' in ai_response or '证型' in ai_response) and not syndrome_extracted:
-                            syndrome_patterns = [
-                                r'证候[：:](.*?)(?=[。\n]|处方|$)',
-                                r'证型[：:](.*?)(?=[。\n]|处方|$)',
-                                r'([^。]*?证候[^。]*?)'
-                            ]
-                            for pattern in syndrome_patterns:
-                                match = re.search(pattern, ai_response, re.DOTALL)
-                                if match:
-                                    syndrome_extracted = match.group(1).strip() if len(match.groups()) > 0 else match.group(0).strip()
-                                    break
+                    if ai_response and not diagnosis_extracted:
+                        # 使用改进的提取函数，支持"此为**xxx**之证"等格式
+                        diagnosis_extracted = _extract_diagnosis_from_reply(ai_response)
+                        if diagnosis_extracted:
+                            logger.info(f"✅ 从对话中提取到诊断: {diagnosis_extracted[:50]}...")
+
+                    if ai_response and not syndrome_extracted:
+                        syndrome_extracted = _extract_tcm_pattern(ai_response)
+                        if syndrome_extracted:
+                            logger.info(f"✅ 从对话中提取到证候: {syndrome_extracted[:50]}...")
                 
                 # 解析存储的中医证候
                 if result['tcm_syndrome'] and not syndrome_extracted:
@@ -1163,7 +1146,17 @@ async def get_conversation_detail(session_id: str):
 
             except json.JSONDecodeError as e:
                 logger.warning(f"解析conversation_log失败: {e}")
-            
+
+            # 🔑 修复：对于旧处方，如果diagnosis为空或为占位符，从ai_prescription中提取
+            prescription_diagnosis = result['diagnosis'] if result['prescription_id'] else None
+            if result['prescription_id'] and result['ai_prescription']:
+                # 如果diagnosis为空或为通用占位符，尝试从ai_prescription提取
+                if not prescription_diagnosis or prescription_diagnosis in ['AI中医辨证诊断', '', ' ']:
+                    extracted_diag = _extract_diagnosis_from_reply(result['ai_prescription'])
+                    if extracted_diag:
+                        prescription_diagnosis = extracted_diag
+                        logger.info(f"✅ 从ai_prescription提取到诊断: {extracted_diag[:50]}...")
+
             # 构建响应数据
             conversation_data = {
                 "session_id": result['uuid'],
@@ -1186,7 +1179,7 @@ async def get_conversation_detail(session_id: str):
                     "prescription_fee": result['prescription_fee'],
                     "is_visible": result['is_visible_to_patient'],
                     "display_text": result['doctor_prescription'] or result['ai_prescription'],
-                    "diagnosis": result['diagnosis'],
+                    "diagnosis": prescription_diagnosis or diagnosis,  # 🔑 优先使用从ai_prescription提取的诊断
                     "symptoms": result['symptoms'],
                     "reviewed_at": result['reviewed_at']
                 } if result['prescription_id'] else None
@@ -1285,14 +1278,12 @@ async def get_patient_consultation_history(http_request: Request):
         for c_row in consultation_rows:
             # 为每个consultation获取最新的prescription信息
             cursor.execute("""
-                SELECT 
-                    p.id as prescription_id, p.ai_prescription, p.doctor_prescription, 
+                SELECT
+                    p.id as prescription_id, p.ai_prescription, p.doctor_prescription,
                     p.diagnosis, p.symptoms, p.status as prescription_status,
-                    p.review_status, p.payment_status, p.prescription_fee, 
-                    p.is_visible_to_patient, p.visibility_unlock_time, p.reviewed_at,
-                    d.name as doctor_name, d.speciality as doctor_specialty
+                    p.review_status, p.payment_status, p.prescription_fee,
+                    p.is_visible_to_patient, p.visibility_unlock_time, p.reviewed_at
                 FROM prescriptions p
-                LEFT JOIN doctors d ON CAST(p.doctor_id AS INTEGER) = d.id
                 WHERE p.consultation_id = ?
                 ORDER BY p.created_at DESC
                 LIMIT 1
@@ -1340,14 +1331,14 @@ async def get_patient_consultation_history(http_request: Request):
                 "jin_daifu": "金大夫"
             }
             
-            doctor_display_name = doctor_names.get(row['selected_doctor_id'], row['doctor_name'] or row['selected_doctor_id'])
+            doctor_display_name = doctor_names.get(row['selected_doctor_id'], row['selected_doctor_id'])
             
             # 构建单条历史记录
             consultation_record = {
                 "consultation_id": row['uuid'],
                 "doctor_id": row['selected_doctor_id'],
                 "doctor_name": doctor_display_name,
-                "doctor_specialty": row['doctor_specialty'] or "中医内科",
+                "doctor_specialty": "中医内科",  # 🔑 直接使用固定值，不从数据库获取
                 "created_at": row['created_at'],
                 "updated_at": row['updated_at'],
                 "consultation_status": row['status'],
@@ -1375,7 +1366,8 @@ async def get_patient_consultation_history(http_request: Request):
                     prescription_action_required = "payment_required"
                     is_prescription_visible = bool(row['is_visible_to_patient'])
                     
-                elif row['review_status'] == 'approved' and row['payment_status'] == 'completed':
+                elif row['review_status'] == 'approved' and row['payment_status'] in ['paid', 'completed']:
+                    # 🔑 修复：支持'paid'和'completed'两种支付状态
                     prescription_display_text = row['doctor_prescription'] or row['ai_prescription']
                     prescription_action_required = "completed"
                     is_prescription_visible = True
@@ -1495,15 +1487,24 @@ def _extract_diagnosis_from_reply(ai_response: str) -> str:
             r'诊断[:：](.*?)(?:[。\n]|$)',
             r'辨证[:：](.*?)(?:[。\n]|$)',
             r'证型[:：](.*?)(?:[。\n]|$)',
+            r'此为[*\s]*([^*。\n]+?)[*\s]*之证',  # 🔑 匹配"此为**xxx**之证"格式
+            r'此属[*\s]*([^*。\n]+?)[*\s]*之证',  # 🔑 新增：匹配"此属**xxx**之证"格式
             r'属于(.*?)证',
-            r'考虑为(.*?)(?:[。\n]|$)'
+            r'属(.*?)之证',  # 🔑 新增：匹配"属xxx之证"格式
+            r'考虑为(.*?)(?:[。\n]|$)',
+            r'中医诊断[:：](.*?)(?:[。\n]|$)'
         ]
-        
+
         for pattern in patterns:
-            match = re.search(pattern, ai_response)
+            match = re.search(pattern, ai_response, re.DOTALL)
             if match:
-                return match.group(1).strip()
-                
+                diagnosis = match.group(1).strip()
+                # 清理星号、换行等格式符号
+                diagnosis = diagnosis.replace('*', '').replace('#', '').replace('\n', ' ').strip()
+                # 限制长度，避免提取过长文本
+                if diagnosis and len(diagnosis) < 100:
+                    return diagnosis
+
         return ""
     except Exception as e:
         logger.warning(f"提取诊断失败: {e}")
@@ -1516,15 +1517,24 @@ def _extract_tcm_pattern(ai_response: str) -> str:
         patterns = [
             r'证型.*?[:：](.*?)(?:[。\n]|$)',
             r'辨证.*?[:：](.*?)(?:[。\n]|$)',
+            r'此为[*\s]*([^*。\n]+?)[*\s]*之证',  # 🔑 匹配"此为**xxx**之证"格式
+            r'此属[*\s]*([^*。\n]+?)[*\s]*之证',  # 🔑 新增：匹配"此属**xxx**之证"格式
             r'(.*?)证候',
-            r'属(.*?)型'
+            r'属(.*?)型',
+            r'属(.*?)之证',  # 🔑 新增：匹配"属xxx之证"格式
+            r'证候[:：](.*?)(?:[。\n]|$)'
         ]
-        
+
         for pattern in patterns:
-            match = re.search(pattern, ai_response)
+            match = re.search(pattern, ai_response, re.DOTALL)
             if match:
-                return match.group(1).strip()
-                
+                syndrome = match.group(1).strip()
+                # 清理星号、换行等格式符号
+                syndrome = syndrome.replace('*', '').replace('#', '').replace('\n', ' ').strip()
+                # 限制长度，避免提取过长文本
+                if syndrome and len(syndrome) < 100:
+                    return syndrome
+
         return ""
     except Exception as e:
         logger.warning(f"提取证型失败: {e}")

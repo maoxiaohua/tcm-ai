@@ -777,9 +777,9 @@
                         });
                         console.log('✅ 活跃医生信息已更新:', Object.keys(doctorInfo));
                         console.log('✅ 活跃医生列表:', data.doctors.map(d => d.name));
-                        
-                        // 更新医生筛选选项卡
-                        updateDoctorTabs();
+
+                        // 🔑 修复：不在这里调用updateDoctorTabs(),因为此时allSessions还是空的
+                        // updateDoctorTabs()将在renderSessionHistory()中调用,那时allSessions已填充
                     }
                 }
             } catch (error) {
@@ -1086,24 +1086,37 @@
                         const consultations = result.data.consultation_history || [];
                         console.log(`📊 解析到 ${consultations.length} 条问诊记录`);
 
-                        // 转换数据格式以兼容现有渲染逻辑
+                        // 🔑 修复：正确映射API返回的数据字段
                         allSessions = consultations.map((consultation, index) => ({
                             session_id: consultation.consultation_id,
-                            doctor_name: consultation.selected_doctor_id,
+                            doctor_name: consultation.doctor_id,  // 🔑 修复：使用doctor_id而不是selected_doctor_id
+                            doctor_display_name: consultation.doctor_name,  // 🔑 新增：保存中文显示名
                             session_count: index + 1,
-                            chief_complaint: consultation.symptoms_analysis ?
-                                (typeof consultation.symptoms_analysis === 'string' ?
-                                    JSON.parse(consultation.symptoms_analysis).chief_complaint :
-                                    consultation.symptoms_analysis.chief_complaint)
-                                : '未记录',
+                            chief_complaint: (() => {
+                                // 🔑 修复：优先从conversation_history提取主诉
+                                if (consultation.conversation_history && consultation.conversation_history.length > 0) {
+                                    const firstQuery = consultation.conversation_history[0].patient_query;
+                                    if (firstQuery) {
+                                        return firstQuery.length > 100 ? firstQuery.substring(0, 100) + '...' : firstQuery;
+                                    }
+                                }
+                                // 回退：从symptoms_analysis提取
+                                if (consultation.symptoms_analysis) {
+                                    try {
+                                        const analysis = typeof consultation.symptoms_analysis === 'string' ?
+                                            JSON.parse(consultation.symptoms_analysis) : consultation.symptoms_analysis;
+                                        return analysis.chief_complaint || '未记录';
+                                    } catch {
+                                        return '未记录';
+                                    }
+                                }
+                                return '未记录';
+                            })(),
                             created_at: consultation.created_at,
                             updated_at: consultation.updated_at,
-                            status: consultation.status,
-                            total_conversations: consultation.conversation_log ?
-                                (typeof consultation.conversation_log === 'string' ?
-                                    JSON.parse(consultation.conversation_log).conversation_history?.length :
-                                    consultation.conversation_log.conversation_history?.length) || 0
-                                : 0,
+                            consultation_status: consultation.consultation_status,
+                            status: consultation.consultation_status,  // 兼容旧代码
+                            total_conversations: consultation.total_messages || 0,  // 🔑 使用API返回的total_messages
                             has_prescription: consultation.has_prescription || false,
                             prescription_info: consultation.prescription_info || null
                         }));
@@ -1269,13 +1282,18 @@
         
         // 渲染医生分组
         function renderDoctorGroup(doctorName, sessions) {
-            const doctor = doctorInfo[doctorName] || { name: doctorName, emoji: '👨‍⚕️', description: '' };
-            
+            // 🔑 修复：优先使用doctorInfo，fallback到sessions中的doctor_display_name
+            const doctor = doctorInfo[doctorName] || {
+                name: sessions[0]?.doctor_display_name || doctorName,
+                emoji: '👨‍⚕️',
+                description: '中医专家'
+            };
+
             let sessionsHtml = '';
             sessions.forEach(session => {
                 sessionsHtml += renderSessionItem(session);
             });
-            
+
             return `
                 <div class="doctor-group" onclick="toggleDoctorGroup(this)">
                     <div class="doctor-header">
@@ -1570,6 +1588,7 @@
                 return {
                     session_id: sessionId,
                     doctor_name: conversationData.selected_doctor_id,
+                    doctor_display_name: conversationData.doctor_name,  // 🔑 新增：保存中文显示名
                     session_count: 1,
                     chief_complaint: chiefComplaint,
                     created_at: conversationData.created_at,
@@ -1606,11 +1625,11 @@
             const modal = document.createElement('div');
             modal.className = 'modal';
             modal.style.display = 'block';
-            
-            // 格式化医生信息
-            const doctorName = doctorInfo[detail.doctor_name]?.name || detail.doctor_name;
+
+            // 🔑 修复：格式化医生信息，优先使用doctorInfo，fallback到detail中的显示名
+            const doctorName = doctorInfo[detail.doctor_name]?.name || detail.doctor_display_name || detail.doctor_name;
             const doctorSchool = doctorInfo[detail.doctor_name]?.school || '中医';
-            
+
             // 格式化时间信息
             const visitDate = new Date(detail.created_at).toLocaleString('zh-CN');
             const updateDate = new Date(detail.updated_at).toLocaleString('zh-CN');
@@ -2019,9 +2038,13 @@
             // 按医生分组
             const sessionsByDoctor = groupSessionsByDoctor(allSessions);
             report += `【分医生记录】\n`;
-            
+
             for (const [doctorName, sessions] of Object.entries(sessionsByDoctor)) {
-                const doctor = doctorInfo[doctorName] || { name: doctorName, description: '' };
+                // 🔑 修复：优先使用doctorInfo，fallback到sessions中的doctor_display_name
+                const doctor = doctorInfo[doctorName] || {
+                    name: sessions[0]?.doctor_display_name || doctorName,
+                    description: '中医专家'
+                };
                 report += `\n${doctor.name} (${sessions.length}次问诊)\n`;
                 report += `─────────────────────────\n`;
                 

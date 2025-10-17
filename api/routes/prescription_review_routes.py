@@ -40,77 +40,64 @@ class DoctorReviewRequest(BaseModel):
 @router.post("/payment-confirm")
 async def confirm_payment(request: PaymentConfirmRequest):
     """
-    确认支付并提交给医生审核
+    确认支付并提交给医生审核 - 使用统一状态管理器
     患者支付成功后调用此接口
     """
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # 检查处方是否存在
-        cursor.execute("""
-            SELECT id, consultation_id, doctor_id, status, payment_status
-            FROM prescriptions 
-            WHERE id = ?
-        """, (request.prescription_id,))
-        
-        prescription = cursor.fetchone()
-        if not prescription:
+        # 🔑 使用统一的状态管理器
+        from core.prescription.prescription_status_manager import get_status_manager
+
+        status_manager = get_status_manager()
+
+        # 检查是否已支付
+        current_status = status_manager.get_prescription_status(request.prescription_id)
+        if not current_status:
             raise HTTPException(status_code=404, detail="处方不存在")
-        
-        if prescription['payment_status'] == 'paid':
+
+        if current_status['payment_status'] == 'paid':
             return {
                 "success": True,
                 "message": "处方已支付，无需重复操作",
                 "status": "already_paid"
             }
-        
-        # 更新支付状态和处方状态
-        cursor.execute("""
-            UPDATE prescriptions
-            SET payment_status = 'paid',
-                status = 'pending_review',
-                review_status = 'pending_review',
-                is_visible_to_patient = 1,
-                visibility_unlock_time = datetime('now', 'localtime'),
-                confirmed_at = datetime('now', 'localtime')
-            WHERE id = ?
-        """, (request.prescription_id,))
 
-        # 记录支付信息（可以扩展支付详情表）
+        # 记录支付信息
+        conn = get_db_connection()
+        cursor = conn.cursor()
         cursor.execute("""
             INSERT OR REPLACE INTO prescription_payment_logs (
                 prescription_id, amount, payment_method, payment_time, status
             ) VALUES (?, ?, ?, datetime('now', 'localtime'), 'completed')
         """, (request.prescription_id, request.payment_amount, request.payment_method))
-
-        # 自动提交给医生审核 - 插入到医生工作队列
-        # 🔑 修复：将doctor_id从整数转换为字符串以匹配表结构
-        doctor_id_str = str(prescription['doctor_id']) if prescription['doctor_id'] else '1'
-        # 🔑 修复：处理consultation_id可能为空的情况
-        consultation_id = prescription['consultation_id'] or 'unknown'
-        cursor.execute("""
-            INSERT OR REPLACE INTO doctor_review_queue (
-                prescription_id, doctor_id, consultation_id,
-                submitted_at, status, priority
-            ) VALUES (?, ?, ?, datetime('now', 'localtime'), 'pending', 'normal')
-        """, (request.prescription_id, doctor_id_str, consultation_id))
-        
         conn.commit()
         conn.close()
-        
-        logger.info(f"✅ 处方支付确认成功: prescription_id={request.prescription_id}, 已提交医生审核")
-        
-        return {
-            "success": True,
-            "message": "支付确认成功，处方已提交医生审核",
-            "data": {
-                "prescription_id": request.prescription_id,
-                "status": "pending_review",
-                "note": "处方正在等待医生审核，审核完成后即可配药"
+
+        # 调用状态管理器更新支付状态
+        result = status_manager.update_payment_status(
+            prescription_id=request.prescription_id,
+            payment_status='paid',
+            payment_amount=request.payment_amount
+        )
+
+        if result['success']:
+            logger.info(f"✅ 处方支付确认成功: prescription_id={request.prescription_id}, 已提交医生审核")
+
+            return {
+                "success": True,
+                "message": "支付确认成功，处方已提交医生审核",
+                "data": {
+                    "prescription_id": request.prescription_id,
+                    "status": result['new_status'],
+                    "note": "处方正在等待医生审核，审核完成后即可配药"
+                }
             }
-        }
-        
+        else:
+            logger.error(f"❌ 支付确认失败: {result['message']}")
+            return {
+                "success": False,
+                "message": result['message']
+            }
+
     except Exception as e:
         logger.error(f"支付确认失败: {e}")
         return {
@@ -198,119 +185,43 @@ async def get_doctor_review_queue(doctor_id: str):
 @router.post("/doctor-review")
 async def doctor_review_prescription(request: DoctorReviewRequest):
     """
-    医生审核处方
+    医生审核处方 - 使用统一状态管理器
     """
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # 检查处方状态
-        cursor.execute("""
-            SELECT id, status, doctor_id FROM prescriptions WHERE id = ?
-        """, (request.prescription_id,))
+        # 🔑 使用统一的状态管理器
+        from core.prescription.prescription_status_manager import get_status_manager
 
-        prescription = cursor.fetchone()
-        if not prescription:
-            raise HTTPException(status_code=404, detail="处方不存在")
+        status_manager = get_status_manager()
 
-        # 🔑 修复：允许重新审核已审核的处方（pending_review 和 doctor_approved 都可以）
-        if prescription['status'] not in ['pending_review', 'doctor_approved', 'ai_generated']:
+        # 调用状态管理器进行审核
+        result = status_manager.update_review_status(
+            prescription_id=request.prescription_id,
+            action=request.action,
+            doctor_id=request.doctor_id,
+            doctor_notes=request.doctor_notes,
+            modified_prescription=request.modified_prescription
+        )
+
+        if result['success']:
+            logger.info(f"✅ 处方审核完成: prescription_id={request.prescription_id}, action={request.action}")
+
+            return {
+                "success": True,
+                "message": result['message'],
+                "data": {
+                    "prescription_id": result['prescription_id'],
+                    "status": result['new_status'],
+                    "review_status": result['review_status'],
+                    "action": result['action'],
+                    "reviewed_at": datetime.now().isoformat()
+                }
+            }
+        else:
+            logger.error(f"❌ 处方审核失败: {result['message']}")
             return {
                 "success": False,
-                "message": f"处方当前状态({prescription['status']})不允许审核"
+                "message": result['message']
             }
-        
-        # 🔑 修复：调整处方状态管理逻辑
-        if request.action == "approve":
-            new_status = "doctor_approved"
-            review_status = "approved"  # ✅ 添加review_status
-            message = "处方审核通过"
-            # 只有通过时才完成审核队列
-            queue_completed = True
-        elif request.action == "modify":
-            if not request.modified_prescription:
-                raise HTTPException(status_code=400, detail="修改处方时必须提供修改后的处方内容")
-            # 🔑 修复：调整处方时保持pending_review状态，不标记为完成
-            new_status = "pending_review"  # 保持待审核状态
-            review_status = "modified"  # ✅ 添加review_status
-            message = "处方已调整，等待最终审核"
-            queue_completed = False  # 不完成审核队列，等待医生最终批准
-        else:
-            raise HTTPException(status_code=400, detail="无效的审核操作")
-
-        # 🔑 关键修复：医生审核时必须检查并保持支付状态
-        # 获取当前支付状态，审核不应该改变支付状态
-        cursor.execute("""
-            SELECT payment_status FROM prescriptions WHERE id = ?
-        """, (request.prescription_id,))
-
-        current_payment_info = cursor.fetchone()
-        current_payment_status = current_payment_info['payment_status'] if current_payment_info else 'pending'
-
-        # 更新处方记录
-        if request.action == "modify":
-            cursor.execute("""
-                UPDATE prescriptions
-                SET doctor_prescription = ?,
-                    doctor_notes = ?,
-                    review_status = ?,
-                    reviewed_at = datetime('now', 'localtime')
-                WHERE id = ?
-            """, (request.modified_prescription, request.doctor_notes, review_status, request.prescription_id))
-            # 🔑 修复：调整时不改变status，但更新review_status
-        else:
-            # 🔑 关键修复：医生审核通过时，保持payment_status不变，只更新status和review_status
-            cursor.execute("""
-                UPDATE prescriptions
-                SET status = ?,
-                    review_status = ?,
-                    doctor_notes = ?,
-                    reviewed_at = datetime('now', 'localtime')
-                WHERE id = ?
-            """, (new_status, review_status, request.doctor_notes, request.prescription_id))
-        
-        # 🔑 修复：只有approve时才完成审核队列
-        if queue_completed:
-            cursor.execute("""
-                UPDATE doctor_review_queue
-                SET status = 'completed', completed_at = datetime('now', 'localtime')
-                WHERE prescription_id = ?
-            """, (request.prescription_id,))
-
-        # 记录审核历史
-        cursor.execute("""
-            INSERT INTO prescription_review_history (
-                prescription_id, doctor_id, action, modified_prescription,
-                doctor_notes, reviewed_at
-            ) VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))
-        """, (request.prescription_id, request.doctor_id, request.action,
-               request.modified_prescription, request.doctor_notes))
-        
-        conn.commit()
-        conn.close()
-
-        logger.info(f"✅ 处方审核完成: prescription_id={request.prescription_id}, action={request.action}")
-
-        # 🔑 审核完成后，同步状态到患者端
-        try:
-            from api.routes.unified_consultation_routes import _sync_prescription_status_to_patient
-            await _sync_prescription_status_to_patient(request.prescription_id, new_status)
-            logger.info(f"✅ 状态已同步到患者端: prescription_id={request.prescription_id}")
-        except Exception as sync_error:
-            logger.error(f"⚠️ 同步状态到患者端失败（不影响审核结果）: {sync_error}")
-
-        return {
-            "success": True,
-            "message": message,
-            "data": {
-                "prescription_id": request.prescription_id,
-                "status": new_status,
-                "action": request.action,
-                "reviewed_at": datetime.now().isoformat(),
-                "queue_completed": queue_completed,
-                "can_approve_again": request.action == "modify"  # 调整后可以再次审批
-            }
-        }
 
     except Exception as e:
         logger.error(f"处方审核失败: {e}")
@@ -324,62 +235,64 @@ async def doctor_review_prescription(request: DoctorReviewRequest):
 @router.get("/status/{prescription_id}")
 async def get_prescription_review_status(prescription_id: int):
     """
-    获取处方审核状态
+    获取处方审核状态 - 使用统一状态管理器
     患者端调用查看审核进度
     """
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT 
-                p.id, p.status, p.payment_status, p.doctor_notes,
-                p.ai_prescription, p.doctor_prescription,
-                p.created_at, p.reviewed_at, p.confirmed_at,
-                q.submitted_at, q.status as queue_status
-            FROM prescriptions p
-            LEFT JOIN doctor_review_queue q ON p.id = q.prescription_id
-            WHERE p.id = ?
-        """, (prescription_id,))
-        
-        result = cursor.fetchone()
-        conn.close()
-        
-        if not result:
+        # 🔑 使用统一的状态管理器
+        from core.prescription.prescription_status_manager import get_status_manager
+
+        status_manager = get_status_manager()
+
+        # 获取处方状态
+        status_info = status_manager.get_prescription_status(prescription_id)
+        if not status_info:
             return {
                 "success": False,
                 "message": f"处方ID {prescription_id} 不存在",
                 "error_code": "PRESCRIPTION_NOT_FOUND"
             }
-        
-        # 生成状态描述
-        status_descriptions = {
-            "ai_generated": "AI已生成处方，请支付解锁",
-            "pending_review": "已支付，等待医生审核 - 请勿配药",
-            "doctor_approved": "医生审核完成，可以配药",
-            "doctor_modified": "医生已修改处方，可以配药"
-        }
-        
+
+        # 获取显示信息
+        display_info = status_manager.get_display_info(prescription_id)
+
+        # 获取处方详细信息
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT ai_prescription, doctor_prescription, doctor_notes, created_at
+            FROM prescriptions
+            WHERE id = ?
+        """, (prescription_id,))
+
+        prescription_detail = cursor.fetchone()
+        conn.close()
+
         return {
             "success": True,
             "data": {
                 "prescription_id": prescription_id,
-                "status": result['status'],
-                "status_description": status_descriptions.get(result['status'], "未知状态"),
-                "payment_status": result['payment_status'],
-                "is_reviewed": result['status'] in ['doctor_approved', 'doctor_modified'],
-                "is_modified": result['status'] == 'doctor_modified',
-                "doctor_notes": result['doctor_notes'],
-                "final_prescription": result['doctor_prescription'] or result['ai_prescription'],
-                "created_at": result['created_at'],
-                "reviewed_at": result['reviewed_at'],
-                "submitted_at": result['submitted_at'],
-                "has_doctor_modifications": bool(result['doctor_prescription'])  # 是否有医生调整
+                "status": status_info['status'],
+                "review_status": status_info['review_status'],
+                "payment_status": status_info['payment_status'],
+                "status_description": display_info['status_description'],
+                "display_text": display_info['display_text'],
+                "action_required": display_info['action_required'],
+                "is_visible": display_info['is_visible'],
+                "can_pay": display_info['can_pay'],
+                "doctor_notes": status_info['doctor_notes'],
+                "final_prescription": prescription_detail['doctor_prescription'] or prescription_detail['ai_prescription'],
+                "created_at": prescription_detail['created_at'],
+                "reviewed_at": status_info['reviewed_at'],
+                "confirmed_at": status_info['confirmed_at'],
+                "has_doctor_modifications": bool(prescription_detail['doctor_prescription'])
             }
         }
-        
+
     except Exception as e:
         logger.error(f"获取处方状态失败: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return {
             "success": False,
             "message": f"获取状态失败: {str(e)}"

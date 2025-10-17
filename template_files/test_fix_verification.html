@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>修复验证 - 金大夫记录显示测试</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #f5f5f5; }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+        }
+        .pass { color: green; font-weight: bold; }
+        .fail { color: red; font-weight: bold; }
+        pre { background: #f5f5f5; padding: 15px; overflow-x: auto; border-radius: 4px; }
+        h2 { color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #5a67d8; }
+        .result { margin-top: 10px; padding: 10px; border-radius: 4px; }
+        .result.success { background: #d4edda; border: 1px solid #c3e6cb; }
+        .result.error { background: #f8d7da; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <h1>🔍 金大夫记录显示修复验证工具</h1>
+
+    <div class="test-section">
+        <h2>步骤1: 验证API返回数据</h2>
+        <button onclick="testAPIResponse()">🔄 测试API响应</button>
+        <div id="apiResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>步骤2: 模拟修复后的逻辑</h2>
+        <button onclick="testFixedLogic()">🔄 测试修复后的逻辑</button>
+        <div id="logicResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>步骤3: 完整流程模拟</h2>
+        <button onclick="testFullFlow()">🔄 测试完整初始化流程</button>
+        <div id="flowResult"></div>
+    </div>
+
+    <script>
+        // 模拟全局变量
+        let doctorInfo = {};
+        let allSessions = [];
+
+        async function testAPIResponse() {
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.innerHTML = '<p>正在测试...</p>';
+
+            try {
+                const response = await fetch('/api/consultation/patient/history?user_id=usr_20250920_5741e17a78e8');
+                const data = await response.json();
+
+                const jinDafuRecord = data.data.consultation_history.find(c => c.doctor_id === 'jin_daifu');
+                const zhangRecord = data.data.consultation_history.find(c => c.doctor_id === 'zhang_zhongjing');
+
+                let html = '<div class="result success">';
+                html += '<h3>✅ API测试结果</h3>';
+                html += `<p><strong>总记录数:</strong> ${data.data.total_count}</p>`;
+
+                if (jinDafuRecord) {
+                    html += '<p class="pass">✅ 金大夫记录存在</p>';
+                    html += `<pre>${JSON.stringify(jinDafuRecord, null, 2)}</pre>`;
+                } else {
+                    html += '<p class="fail">❌ 金大夫记录缺失</p>';
+                }
+
+                if (zhangRecord) {
+                    html += '<p class="pass">✅ 张仲景记录存在</p>';
+                    html += `<pre>${JSON.stringify(zhangRecord, null, 2)}</pre>`;
+                } else {
+                    html += '<p class="fail">❌ 张仲景记录缺失</p>';
+                }
+
+                html += '</div>';
+                resultDiv.innerHTML = html;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error"><h3>❌ API测试失败</h3><p>${error.message}</p></div>`;
+            }
+        }
+
+        async function testFixedLogic() {
+            const resultDiv = document.getElementById('logicResult');
+            resultDiv.innerHTML = '<p>正在测试修复后的逻辑...</p>';
+
+            try {
+                // 步骤1: 加载医生信息 (模拟loadDoctorInfo)
+                console.log('📍 步骤1: 加载医生信息');
+                const doctorResponse = await fetch('/api/doctor/list');
+                const doctorData = await doctorResponse.json();
+
+                doctorInfo = {};
+                if (doctorData.success && doctorData.doctors) {
+                    doctorData.doctors.forEach(doctor => {
+                        if (doctor.doctor_code) {
+                            doctorInfo[doctor.doctor_code] = {
+                                name: doctor.name,
+                                emoji: '👨‍⚕️',
+                                description: '中医专家'
+                            };
+                        }
+                    });
+                }
+                console.log('✅ doctorInfo构建完成:', Object.keys(doctorInfo));
+
+                // 🔑 修复：不在这里调用updateDoctorTabs(),因为此时allSessions还是空的
+                console.log('⚠️ 此时allSessions长度:', allSessions.length); // 应该是0
+
+                // 步骤2: 加载历史记录 (模拟loadSessionHistory)
+                console.log('📍 步骤2: 加载历史记录');
+                const historyResponse = await fetch('/api/consultation/patient/history?user_id=usr_20250920_5741e17a78e8');
+                const historyData = await historyResponse.json();
+
+                const consultations = historyData.data.consultation_history || [];
+                allSessions = consultations.map((consultation, index) => ({
+                    session_id: consultation.consultation_id,
+                    doctor_name: consultation.doctor_id,  // 🔑 使用doctor_id
+                    doctor_display_name: consultation.doctor_name,  // 🔑 保存中文显示名
+                    session_count: index + 1
+                }));
+                console.log('✅ allSessions填充完成:', allSessions.length, '条记录');
+                console.log('✅ 包含的医生:', [...new Set(allSessions.map(s => s.doctor_name))]);
+
+                // 步骤3: 现在调用updateDoctorTabs (模拟renderSessionHistory中的调用)
+                console.log('📍 步骤3: 生成医生筛选标签');
+                const doctorsWithData = [...new Set(allSessions.map(session => session.doctor_name))];
+                console.log('🔍 有历史记录的医生:', doctorsWithData);
+                console.log('🔍 活跃医生:', Object.keys(doctorInfo));
+
+                const validDoctors = doctorsWithData.filter(doctorKey => doctorInfo[doctorKey]);
+                console.log('✅ 筛选后的医生:', validDoctors);
+
+                // 显示结果
+                let html = '<div class="result success">';
+                html += '<h3>✅ 修复后的逻辑测试结果</h3>';
+
+                html += '<h4>执行顺序 (修复后):</h4>';
+                html += '<ol>';
+                html += '<li>✅ loadDoctorInfo() 完成 → doctorInfo有 ' + Object.keys(doctorInfo).length + ' 位医生</li>';
+                html += '<li>⚠️ 此时allSessions = [] (长度0) - 不调用updateDoctorTabs()</li>';
+                html += '<li>✅ loadSessionHistory() 完成 → allSessions有 ' + allSessions.length + ' 条记录</li>';
+                html += '<li>✅ renderSessionHistory() 调用 updateDoctorTabs()</li>';
+                html += '<li>✅ updateDoctorTabs() 使用填充后的allSessions</li>';
+                html += '</ol>';
+
+                html += '<h4>最终结果:</h4>';
+                html += `<p><strong>有历史记录的医生:</strong> ${doctorsWithData.join(', ')}</p>`;
+                html += `<p><strong>活跃医生:</strong> ${Object.keys(doctorInfo).join(', ')}</p>`;
+                html += `<p><strong>筛选后显示的医生:</strong> ${validDoctors.join(', ')}</p>`;
+
+                if (validDoctors.includes('jin_daifu') && validDoctors.includes('zhang_zhongjing')) {
+                    html += '<p class="pass">✅✅✅ 成功！金大夫和张仲景都会显示！</p>';
+                } else {
+                    html += '<p class="fail">❌ 失败！某些医生未显示</p>';
+                }
+
+                html += '<h4>生成的医生标签:</h4>';
+                html += '<div style="display: flex; gap: 10px; margin-top: 10px;">';
+                validDoctors.forEach(doctorKey => {
+                    const doctor = doctorInfo[doctorKey];
+                    html += `<button style="background: #667eea; color: white; padding: 8px 16px; border-radius: 20px; border: none;">${doctor.name}</button>`;
+                });
+                html += '</div>';
+
+                html += '</div>';
+                resultDiv.innerHTML = html;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error"><h3>❌ 逻辑测试失败</h3><p>${error.message}</p><pre>${error.stack}</pre></div>`;
+            }
+        }
+
+        async function testFullFlow() {
+            const resultDiv = document.getElementById('flowResult');
+            resultDiv.innerHTML = '<p>正在测试完整初始化流程...</p>';
+
+            try {
+                // 重置全局变量
+                doctorInfo = {};
+                allSessions = [];
+
+                let flowLog = [];
+
+                // 模拟initializePage()
+                flowLog.push('🚀 initializePage() 开始');
+
+                // 步骤1: Promise.all 并行执行
+                flowLog.push('📍 Promise.all([loadDoctorInfo(), loadUserInfo()]) 开始');
+
+                await Promise.all([
+                    (async () => {
+                        flowLog.push('  → loadDoctorInfo() 开始');
+                        const response = await fetch('/api/doctor/list');
+                        const data = await response.json();
+                        doctorInfo = {};
+                        if (data.success && data.doctors) {
+                            data.doctors.forEach(doctor => {
+                                if (doctor.doctor_code) {
+                                    doctorInfo[doctor.doctor_code] = {
+                                        name: doctor.name,
+                                        emoji: '👨‍⚕️',
+                                        description: '中医专家'
+                                    };
+                                }
+                            });
+                        }
+                        flowLog.push(`  → loadDoctorInfo() 完成 - doctorInfo有${Object.keys(doctorInfo).length}位医生`);
+                        flowLog.push(`  ⚠️ 🔑 修复：不调用updateDoctorTabs()，因为allSessions=[](长度${allSessions.length})`);
+                    })(),
+                    (async () => {
+                        flowLog.push('  → loadUserInfo() 开始');
+                        // 模拟用户信息加载
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        flowLog.push('  → loadUserInfo() 完成');
+                    })()
+                ]);
+
+                flowLog.push('✅ Promise.all 完成');
+
+                // 步骤2: loadSessionHistory 顺序执行
+                flowLog.push('📍 loadSessionHistory() 开始');
+                const historyResponse = await fetch('/api/consultation/patient/history?user_id=usr_20250920_5741e17a78e8');
+                const historyData = await historyResponse.json();
+                const consultations = historyData.data.consultation_history || [];
+                allSessions = consultations.map((consultation, index) => ({
+                    session_id: consultation.consultation_id,
+                    doctor_name: consultation.doctor_id,
+                    doctor_display_name: consultation.doctor_name,
+                    session_count: index + 1
+                }));
+                flowLog.push(`✅ loadSessionHistory() 完成 - allSessions有${allSessions.length}条记录`);
+
+                // 步骤3: renderSessionHistory 调用 updateDoctorTabs
+                flowLog.push('📍 renderSessionHistory() 调用 updateDoctorTabs()');
+                const doctorsWithData = [...new Set(allSessions.map(session => session.doctor_name))];
+                const validDoctors = doctorsWithData.filter(doctorKey => doctorInfo[doctorKey]);
+                flowLog.push(`✅ updateDoctorTabs() 完成 - 生成${validDoctors.length}个医生标签`);
+
+                flowLog.push('🎉 initializePage() 完成');
+
+                // 显示结果
+                let html = '<div class="result success">';
+                html += '<h3>✅ 完整流程测试结果</h3>';
+
+                html += '<h4>执行日志:</h4>';
+                html += '<pre>' + flowLog.join('\n') + '</pre>';
+
+                html += '<h4>最终状态:</h4>';
+                html += `<p><strong>doctorInfo:</strong> ${Object.keys(doctorInfo).length} 位医生 (${Object.keys(doctorInfo).join(', ')})</p>`;
+                html += `<p><strong>allSessions:</strong> ${allSessions.length} 条记录</p>`;
+                html += `<p><strong>有记录的医生:</strong> ${doctorsWithData.join(', ')}</p>`;
+                html += `<p><strong>显示的医生标签:</strong> ${validDoctors.join(', ')}</p>`;
+
+                if (validDoctors.includes('jin_daifu')) {
+                    html += '<p class="pass">✅✅✅ 金大夫标签会正确显示！</p>';
+                } else {
+                    html += '<p class="fail">❌ 金大夫标签缺失</p>';
+                }
+
+                if (validDoctors.includes('zhang_zhongjing')) {
+                    html += '<p class="pass">✅✅✅ 张仲景标签会正确显示！</p>';
+                } else {
+                    html += '<p class="fail">❌ 张仲景标签缺失</p>';
+                }
+
+                html += '</div>';
+                resultDiv.innerHTML = html;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error"><h3>❌ 完整流程测试失败</h3><p>${error.message}</p><pre>${error.stack}</pre></div>`;
+            }
+        }
+    </script>
+</body>
+</html>

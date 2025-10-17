@@ -193,14 +193,66 @@ async def get_doctor_prescription_stats(authorization: Optional[str] = Header(No
         conn.close()
 
 # 具体路由必须在参数路由之前定义
+@router.get("/detail/{session_id}")
+async def get_prescription_detail_by_session(session_id: str):
+    """通过session_id获取处方详情（患者端历史记录查看）"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # 通过session_id查找处方
+        cursor.execute("""
+            SELECT p.*, d.name as doctor_name, d.speciality as doctor_speciality
+            FROM prescriptions p
+            LEFT JOIN doctors d ON p.doctor_id = d.id
+            WHERE p.conversation_id = ? OR p.consultation_id = ?
+            ORDER BY p.created_at DESC
+            LIMIT 1
+        """, (session_id, session_id))
+
+        row = cursor.fetchone()
+        if not row:
+            return {
+                "success": False,
+                "message": "暂无处方详情或处方未支付"
+            }
+
+        prescription = dict(row)
+
+        # 构建处方详情数据
+        prescription_data = {
+            "prescription_id": prescription['id'],
+            "doctor_name": prescription.get('doctor_name', '中医专家'),
+            "doctor_speciality": prescription.get('doctor_speciality', '中医内科'),
+            "ai_prescription": prescription.get('doctor_prescription') or prescription.get('ai_prescription', ''),
+            "diagnosis": prescription.get('diagnosis', ''),
+            "symptoms": prescription.get('symptoms', ''),
+            "status": prescription.get('status', ''),
+            "payment_status": prescription.get('payment_status', 'pending'),
+            "prescription_fee": prescription.get('prescription_fee', 88.0),
+            "created_at": prescription.get('created_at', ''),
+            "reviewed_at": prescription.get('reviewed_at', ''),
+            "is_visible_to_patient": prescription.get('is_visible_to_patient', 0)
+        }
+
+        return {
+            "success": True,
+            "data": prescription_data
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取处方详情失败: {e}")
+    finally:
+        conn.close()
+
 @router.get("/learning_stats")
 async def get_prescription_learning_stats():
     """获取处方学习系统统计信息"""
     from services.prescription_learning_integrator import get_prescription_learning_integrator
     import logging
-    
+
     logger = logging.getLogger(__name__)
-    
+
     try:
         learning_integrator = get_prescription_learning_integrator()
         stats = await learning_integrator.get_learning_statistics()
