@@ -1,0 +1,4731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>可视化决策树构建器</title>
+    <style>        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            max-width: 100%;
+            margin: 0;
+            background: white;
+        }
+
+        /* 紧凑型侧边栏 - 固定宽度，内容紧凑 */
+        .sidebar {
+            width: 280px;
+            background: #f8fafc;
+            border-right: 1px solid #e2e8f0;
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        /* 主内容区 - 占据剩余空间 */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        
+
+        
+
+        
+
+                
+
+                
+
+        
+
+        
+
+        
+
+                
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+        }
+
+        
+
+        
+
+        
+
+        .canvas {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            padding: 20px;
+            background: #fafbfc;
+        }
+
+        .canvas svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .branch-line {
+            stroke: #3b82f6;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+
+        .branch-line.selected {
+            stroke: #ef4444;
+            stroke-width: 3;
+        }
+
+        .node {
+            position: absolute;
+            width: 220px;
+            min-height: 80px;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: move;
+            user-select: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+        }
+
+        .node:hover {
+            border-color: #3b82f6;
+        }
+
+        .node.selected {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .node.condition { 
+            border-left: 4px solid #0ea5e9; 
+            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+        }
+        .node.diagnosis { 
+            border-left: 4px solid #22c55e; 
+            background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+        }
+        .node.treatment { 
+            border-left: 4px solid #ec4899; 
+            background: linear-gradient(135deg, #ffffff 0%, #fdf2f8 100%);
+        }
+        .node.formula { 
+            border-left: 4px solid #a855f7; 
+            background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%);
+        }
+        .node.symptom { 
+            border-left: 4px solid #f59e0b; 
+            background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+        }
+        .node.pathogenesis { 
+            border-left: 4px solid #dc2626; 
+            background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+        }
+        .node.syndrome { 
+            border-left: 4px solid #059669; 
+            background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%);
+        }
+        .node.principle { 
+            border-left: 4px solid #7c3aed; 
+            background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%);
+        }
+        .node.prescription { 
+            border-left: 4px solid #be185d; 
+            background: linear-gradient(135deg, #ffffff 0%, #fdf2f8 100%);
+        }
+        
+        /* 🎯 智能年龄分支样式 */
+        .node.adult-branch { 
+            border-left: 4px solid #0369a1; 
+            background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+        }
+        .node.child-branch { 
+            border-left: 4px solid #dc2626; 
+            background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+        }
+        
+        .age-group-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .age-group-badge.adult {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .age-group-badge.child {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .node-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #1f2937;
+            text-align: center;
+            line-height: 1.3;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .node-content {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.4;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+        }
+        .node-content.truncated {
+            max-height: 72px;
+            overflow: hidden;
+            position: relative;
+        }
+        .node-content.truncated::after {
+            content: '...';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: white;
+            padding-left: 10px;
+            color: #9ca3af;
+        }
+        .expand-btn {
+            color: #3b82f6;
+            cursor: pointer;
+            font-size: 11px;
+            margin-top: 4px;
+            text-decoration: underline;
+            display: block;
+            text-align: center;
+            padding: 2px 0;
+            border-top: 1px solid #f3f4f6;
+        }
+        .expand-btn:hover {
+            color: #1d4ed8;
+            background: #f8fafc;
+        }
+        
+        /* 节点类型图标 */
+        .node-type-icon {
+            display: inline-block;
+            margin-right: 4px;
+            font-size: 16px;
+            vertical-align: middle;
+        }
+
+        /* 相关症状样式 */
+        .related-symptoms {
+            margin-top: 8px;
+            padding: 6px 8px;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 4px;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .symptoms-label {
+            font-size: 10px;
+            color: #3b82f6;
+            font-weight: 500;
+            margin-bottom: 3px;
+        }
+
+        .symptoms-list {
+            font-size: 10px;
+            color: #1e40af;
+            line-height: 1.3;
+        }
+
+        .node-desc {
+            margin-top: 5px;
+            font-size: 10px;
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        .empty-canvas {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #9ca3af;
+            text-align: center;
+        }
+
+        .loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-content {
+            text-align: center;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .result-title {
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 10px;
+        }
+
+        .auth-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(90deg, #3b82f6, #1e40af);
+            color: white;
+            padding: 10px 20px;
+            font-size: 12px;
+            z-index: 10000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .container.with-auth {
+            margin-top: 45px;
+            height: calc(100vh - 45px);
+        }
+
+        .suggestion-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .suggestion-item:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+
+        .suggestion-content {
+            font-weight: 500;
+            color: #1e40af;
+            margin-bottom: 4px;
+        }
+
+        .suggestion-desc {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .context-menu {
+            position: fixed;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10000;
+            min-width: 150px;
+        }
+
+        .context-menu-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .context-menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .context-menu-item:hover {
+            background: #f8fafc;
+        }
+
+        .context-menu-item.danger {
+            color: #ef4444;
+        }
+
+        .context-menu-item.danger:hover {
+            background: #fef2f2;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 20px;
+            height: 20px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 12px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+
+        .node:hover .delete-btn {
+            display: flex;
+        }
+
+        .formula-analysis-panel {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .herb-item {
+            display: inline-block;
+            background: white;
+            border: 1px solid #0ea5e9;
+            border-radius: 15px;
+            padding: 4px 8px;
+            margin: 2px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .herb-item:hover {
+            background: #0ea5e9;
+            color: white;
+        }
+
+        .apply-formula-btn {
+            background: #22c55e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .apply-formula-btn:hover {
+            background: #16a34a;
+        }
+
+        .auto-analysis-panel {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .pathway-step {
+            background: white;
+            border-left: 4px solid #3b82f6;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .add-pathway-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 11px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        /* AI模式切换开关样式 */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .toggle-switch input[type="checkbox"] {
+            display: none;
+        }
+        
+        .toggle-label {
+            display: block;
+            width: 50px;
+            height: 24px;
+            background-color: #cbd5e0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .toggle-switch input[type="checkbox"]:checked + .toggle-label {
+            background-color: #3b82f6;
+        }
+        
+        .toggle-switch input[type="checkbox"]:checked + .toggle-label .toggle-slider {
+            transform: translateX(26px);
+        }
+        
+        /* 数据来源标识样式 */
+        .data-source-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .data-source-ai {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .data-source-template {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .data-source-fallback {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #8b4513;
+        }
+        
+        /* 生成状态指示器 */
+        .generation-status {
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            display: none;
+        }
+        
+        .generation-status.ai-mode {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+        
+        .generation-status.template-mode {
+            background: #fef3f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+        }
+            
+
+        
+
+        
+
+        
+    
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+    
+        
+
+        
+
+        
+
+        
+
+        
+    
+        
+
+        
+
+        
+
+        
+    
+        
+    
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1e40af;
+            margin: 12px 0 8px 0;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #dbeafe;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .section-title:first-child {
+            margin-top: 0;
+        }
+    
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 4px;
+            color: #374151;
+            font-weight: 500;
+            font-size: 12px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-textarea {
+            min-height: 70px;
+            resize: vertical;
+            font-family: inherit;
+        }
+    
+        /* 按钮网格布局 - 2列 */
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .btn-group.full-width {
+            grid-template-columns: 1fr;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #63357d 100%);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+    
+        .ai-mode-selector {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-radius: 6px;
+            border: 1px solid #bae6fd;
+            font-size: 11px;
+        }
+    
+        .header {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #1e40af;
+            margin: 0 0 4px 0;
+            font-size: 20px;
+        }
+
+        .header p {
+            color: #6b7280;
+            font-size: 12px;
+            margin: 0;
+        }
+
+        .canvas-area {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            position: relative;
+            overflow: auto;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div id="authBar"></div>
+    <div class="container" id="mainContainer">
+        <!-- 左侧工具栏 -->
+        <div class="sidebar">
+            <!-- 基本信息 -->
+            <div class="section-title">🏥 基本信息</div>
+            <div class="form-group">
+                <label class="form-label">疾病名称</label>
+                <input type="text" class="form-input" id="diseaseName" placeholder="如：失眠、胃痛、头痛">
+            </div>
+            <div class="form-group">
+                <label class="form-label">诊疗思路</label>
+                <textarea class="form-input form-textarea" id="doctorThought" placeholder="简述您的诊疗思路..."></textarea>
+            </div>
+
+            
+                </div>
+            </div>
+
+            <!-- AI功能 -->
+            <div class="section-title">🤖 智能功能</div>
+            
+            <!-- AI模式选择 -->
+            <div class="ai-mode-selector" style="margin-bottom: 15px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <span style="font-weight: 500; color: #374151;">生成模式:</span>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="aiModeToggle" checked>
+                        <label for="aiModeToggle" class="toggle-label">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <span id="aiModeText" style="font-size: 12px; color: #6b7280;">AI智能模式</span>
+                </div>
+                <div id="aiStatusInfo" style="font-size: 11px; color: #9ca3af;">
+                    <span id="aiStatusIndicator">⏳ 检查AI状态中...</span>
+                </div>
+            </div>
+            
+            <div class="btn-group full-width">
+                <button class="btn btn-primary" id="generateBtn">
+                    <span id="generateBtnIcon">🤖</span> 
+                    <span id="generateBtnText">智能生成决策树</span>
+                </button>
+                
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-primary" id="saveToLibraryBtn" style="background: #7c3aed;">💾 保存</button>
+                <button class="btn btn-secondary" id="viewHistoryBtn" style="background: #6b7280;">📋 历史</button>
+            </div>
+
+            <!-- 快速操作 -->
+            <div class="section-title">⚡ 快速操作</div>
+            <div class="btn-group">
+                <button class="btn btn-primary" id="addPathBtn">📋 标准路径</button>
+                <button class="btn btn-success" id="arrangeBtn">📐 自动排列</button>
+                <button class="btn btn-danger" id="clearBtn">🗑️ 清空画布</button>
+            </div>
+
+            <!-- 保存导出 -->
+            <div class="section-title">💾 保存导出</div>
+            <div class="btn-group">
+                <button class="btn btn-success" id="saveBtn">💾 保存决策树</button>
+                <button class="btn btn-primary" id="exportBtn">📄 导出JSON</button>
+            </div>
+
+            <!-- 选中节点信息 -->
+            <div id="selectedNodeInfo" style="display: none;">
+                <div class="section-title">📍 选中节点</div>
+                <div class="result-panel">
+                    <div id="nodeInfoContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="main-content">
+            <div class="header">
+                <h1 style="color: #1e40af; margin-bottom: 10px;">🌳 可视化决策树构建器</h1>
+                <p style="color: #6b7280; font-size: 14px;">构建中医智能诊疗决策树，支持AI生成和可视化编辑</p>
+            </div>
+
+            <!-- 生成状态和数据来源显示 -->
+            <div id="generationStatusPanel" class="generation-status" style="display: none;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="dataSourceBadge" class="data-source-badge data-source-template">Template</span>
+                        <span id="generationInfo">已使用标准模板生成</span>
+                    </div>
+                    <div style="font-size: 10px; color: #6b7280;">
+                        <span id="generationTime">即时</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="canvas-area">
+                <div class="canvas" id="canvas">
+                    <svg id="branchSvg">
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+                            </marker>
+                        </defs>
+                    </svg>
+                    <div class="empty-canvas" id="emptyHint">
+                        <div style="font-size: 48px; margin-bottom: 20px;">🌳</div>
+                        <h3>开始构建您的决策树</h3>
+                        <p style="margin: 10px 0;">输入疾病名称，然后点击"AI生成决策树"</p>
+                        <p style="color: #9ca3af; font-size: 12px;">或点击"标准路径"快速开始</p>
+                    </div>
+                </div>
+                <div class="loading" id="loading" style="display: none;">
+                    <div class="loading-content">
+                        <div class="spinner"></div>
+                        <div id="loadingText">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        </div>
+            
+            <div class="section-title">📊 分析结果</div>
+            <div id="analysisResults"></div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let nodes = [];
+        let selectedNode = null;
+        let nodeCounter = 1;
+        let isAuthenticated = false;
+        let currentUser = null;
+        let connections = [];
+        let symptomClusters = new Map(); // 症状群存储
+        
+        // 症状群数据结构
+        const SYMPTOM_CLUSTER_TEMPLATES = {
+            '失眠群': {
+                mainDisease: '失眠',
+                icon: '😴',
+                color: '#8b5cf6',
+                relatedSymptoms: ['早醒', '多梦', '入睡困难', '睡眠浅', '易惊醒'],
+                accompanyingSymptoms: ['心烦', '健忘', '头晕', '疲乏']
+            },
+            '胃痛群': {
+                mainDisease: '胃痛',
+                icon: '🤢',
+                color: '#f59e0b',
+                relatedSymptoms: ['胃胀', '反酸', '嗳气', '恶心', '胃脏疼痛'],
+                accompanyingSymptoms: ['食欲不振', '乏力', '腹胀', '便秘']
+            }
+        };
+
+        // 辅助函数：获取疾病名称
+        function getCurrentDiseaseName() {
+            const value = document.getElementById('diseaseName')?.value?.trim() || '';
+            // 演示：添加输入验证
+            if (value && value.length < 2) {
+                console.warn('疾病名称过短，建议至少2个字符');
+                return '';
+            }
+            return value;
+        }
+
+        // 全局AI状态变量
+        let aiStatus = {
+            ai_enabled: false,
+            available: false,
+            model: 'unknown',
+            features: {
+                decision_tree_generation: false,
+                theory_analysis: false,
+                hybrid_mode: false
+            }
+        };
+        
+        // 用户模式偏好
+        let userPreferences = {
+            aiModePreferred: true,
+            complexityLevel: 'standard'
+        };
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 页面初始化开始...');
+
+            // 初始化AI状态检查
+            await initializeAIStatus();
+
+            // 初始化模式切换
+            initializeModeToggle();
+
+            console.log('检查元素是否存在:');
+            console.log('generateBtn:', document.getElementById('generateBtn'));
+            console.log('analyzeBtn:', document.getElementById('analyzeBtn'));
+            console.log('diseaseName:', document.getElementById('diseaseName'));
+
+            // 简单测试：直接绑定一个简单的点击事件
+            const testBtn = document.getElementById('generateBtn');
+            if (testBtn) {
+                console.log('尝试绑定简单测试事件...');
+                testBtn.onclick = function() {
+                    console.log('简单点击事件工作正常!');
+                    alert('按钮点击成功!');
+                    return false;
+                };
+            }
+
+            try {
+                await initializeAuth();
+                initializeEventListeners();
+                checkURLParameters();
+                console.log('页面初始化完成');
+            } catch (error) {
+                console.error('页面初始化出错:', error);
+            }
+        });
+
+        // 初始化认证状态
+        async function initializeAuth() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if (urlParams.get('auto_auth') === '1') {
+                const doctorToken = urlParams.get('doctor_token');
+                const doctorName = decodeURIComponent(urlParams.get('doctor_name') || '');
+                
+                if (doctorToken && doctorName) {
+                    localStorage.setItem('token', doctorToken);
+                    localStorage.setItem('doctorToken', doctorToken);
+                    localStorage.setItem('doctorName', doctorName);
+                    
+                    showAuthStatus(doctorName, true);
+                    
+                    // 清理URL参数
+                    const cleanUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, cleanUrl);
+                }
+            } else {
+                await checkExistingAuth();
+            }
+        }
+
+        // 检查现有认证状态
+        async function checkExistingAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
+            try {
+                const response = await fetch('/api/doctor/current', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showAuthStatus(data.name, true);
+                    isAuthenticated = true;
+                    currentUser = data;
+                }
+            } catch (error) {
+                console.log('认证检查失败:', error);
+            }
+        }
+
+        // 显示认证状态
+        function showAuthStatus(doctorName, isLoggedIn) {
+            const authBar = document.getElementById('authBar');
+            const container = document.getElementById('mainContainer');
+            
+            if (isLoggedIn) {
+                authBar.className = 'auth-bar';
+                authBar.innerHTML = `
+                    ✅ 已登录医生: ${doctorName} | 决策树将自动保存到您的账户
+                    <button onclick="logout()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 4px 12px; border-radius: 4px; margin-left: 20px; cursor: pointer; font-size: 12px;">退出登录</button>
+                `;
+                container.classList.add('with-auth');
+                isAuthenticated = true;
+            }
+        }
+
+        // 退出登录
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('doctorToken');
+            localStorage.removeItem('doctorName');
+            document.getElementById('authBar').innerHTML = '';
+            document.getElementById('mainContainer').classList.remove('with-auth');
+            isAuthenticated = false;
+            currentUser = null;
+        }
+
+        // 初始化事件监听器
+        function initializeEventListeners() {
+            try {
+                // AI功能按钮
+                // 🎯 核心功能按钮
+                const generateBtn = document.getElementById('generateBtn');
+                if (generateBtn) generateBtn.addEventListener('click', generateAITree);
+                
+                
+                
+                
+                // 🔬 高级分析功能  
+                
+                
+                
+                // 💾 思维库功能
+                const saveToLibraryBtn = document.getElementById('saveToLibraryBtn');
+                if (saveToLibraryBtn) {
+                    saveToLibraryBtn.addEventListener('click', saveToThinkingLibrary);
+                }
+                
+                // 快速操作按钮
+                const addPathBtn = document.getElementById('addPathBtn');
+                if (addPathBtn) addPathBtn.addEventListener('click', addStandardPath);
+                
+                const arrangeBtn = document.getElementById('arrangeBtn');
+                if (arrangeBtn) {
+                    arrangeBtn.onclick = function(e) {
+                        e.preventDefault();
+                        console.log('arrangeBtn被点击了!');
+                        autoArrangeNodes();
+                        return false;
+                    };
+                }
+                
+                const clearBtn = document.getElementById('clearBtn');
+                if (clearBtn) {
+                    clearBtn.onclick = function(e) {
+                        e.preventDefault();
+                        console.log('clearBtn被点击了!');
+                        clearCanvas();
+                        return false;
+                    };
+                }
+            
+                // 保存导出按钮
+                const saveBtn = document.getElementById('saveBtn');
+                if (saveBtn) saveBtn.addEventListener('click', saveDecisionTree);
+                
+                const exportBtn = document.getElementById('exportBtn');
+                if (exportBtn) exportBtn.addEventListener('click', exportJSON);
+
+                // 全局事件
+                document.addEventListener('contextmenu', function(e) {
+                    // 如果不是节点的右键菜单，则隐藏现有菜单
+                    if (!e.target.closest('.node')) {
+                        hideContextMenu();
+                    }
+                });
+                document.addEventListener('click', function(e) {
+                    console.log('Global click detected, target:', e.target);
+                    
+                    // 检查点击目标
+                    const isContextMenuClick = e.target.closest('.context-menu');
+                    const isNodeClick = e.target.closest('.node');
+                    const canvas = document.getElementById('canvas');
+                    const isCanvasClick = canvas && (e.target === canvas || canvas.contains(e.target));
+                    
+                    // 隐藏右键菜单（除非点击菜单本身）
+                    if (!isContextMenuClick) {
+                        console.log('Hiding context menu due to click outside menu');
+                        hideContextMenu();
+                    }
+                    
+                    // 清除节点选择（如果点击画布空白区域）
+                    if (isCanvasClick && !isNodeClick && !isContextMenuClick) {
+                        console.log('Clearing node selection due to canvas click');
+                        document.querySelectorAll('.node').forEach(el => {
+                            el.classList.remove('selected');
+                        });
+                        selectedNode = null;
+                        hideSelectedNodeInfo();
+                    }
+                });
+                
+                console.log('事件监听器初始化完成');
+            } catch (error) {
+                console.error('事件监听器初始化失败:', error);
+            }
+        }
+
+        // 初始化AI状态检查
+        async function initializeAIStatus() {
+            try {
+                console.log('🔍 检查AI状态...');
+                const response = await fetch('/api/ai_status');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        aiStatus = data.data;
+                        updateAIStatusDisplay();
+                        console.log('✅ AI状态获取成功:', aiStatus);
+                    } else {
+                        console.warn('⚠️ AI状态获取失败:', data.message);
+                        updateAIStatusDisplay(false, data.message);
+                    }
+                } else {
+                    console.warn('⚠️ AI状态API不可用 (404)，使用降级模式');
+                    // 降级处理：假设AI可用，让用户自己选择
+                    aiStatus.ai_enabled = true;
+                    updateAIStatusDisplay(true, '');
+                    
+                    // 更新状态显示
+                    const statusIndicator = document.getElementById('aiStatusIndicator');
+                    if (statusIndicator) {
+                        statusIndicator.innerHTML = '⚡ 混合模式 (API降级)';
+                        statusIndicator.style.color = '#f59e0b';
+                    }
+                }
+            } catch (error) {
+                console.error('❌ AI状态检查网络失败:', error);
+                console.log('🔄 启用降级模式，允许用户选择');
+                
+                // 网络错误也启用降级模式
+                aiStatus.ai_enabled = true;
+                updateAIStatusDisplay(true, '');
+                
+                const statusIndicator = document.getElementById('aiStatusIndicator');
+                if (statusIndicator) {
+                    statusIndicator.innerHTML = '⚡ 混合模式 (网络降级)';
+                    statusIndicator.style.color = '#f59e0b';
+                }
+            }
+        }
+        
+        // 更新AI状态显示
+        function updateAIStatusDisplay(success = true, errorMessage = '') {
+            const statusIndicator = document.getElementById('aiStatusIndicator');
+            const aiModeToggle = document.getElementById('aiModeToggle');
+            const aiModeText = document.getElementById('aiModeText');
+            
+            if (success && aiStatus.ai_enabled) {
+                // AI可用或降级模式
+                if (!statusIndicator.innerHTML.includes('混合模式')) {
+                    statusIndicator.innerHTML = `✅ AI已就绪 (${aiStatus.model || 'qwen-max'})`;
+                    statusIndicator.style.color = '#059669';
+                }
+                aiModeToggle.disabled = false;
+                
+                console.log('🎛️ AI模式切换已启用');
+            } else if (errorMessage && !errorMessage.includes('降级')) {
+                // 只有在真正错误时才禁用
+                const message = errorMessage || 'AI服务不可用，将使用模板模式';
+                statusIndicator.innerHTML = `⚠️ ${message}`;
+                statusIndicator.style.color = '#d97706';
+                aiModeToggle.checked = false;
+                aiModeToggle.disabled = true;
+                updateModeDisplay(false);
+                
+                console.log('🚫 AI模式切换已禁用');
+            } else {
+                // 降级模式：保持切换可用
+                aiModeToggle.disabled = false;
+                console.log('⚡ 降级模式：AI切换保持可用');
+            }
+        }
+        
+        // 初始化模式切换
+        function initializeModeToggle() {
+            const aiModeToggle = document.getElementById('aiModeToggle');
+            
+            console.log('🔧 初始化模式切换...');
+            console.log('  - Toggle元素:', aiModeToggle);
+            console.log('  - AI状态:', aiStatus);
+            
+            if (aiModeToggle) {
+                // 移除可能存在的旧事件监听器
+                aiModeToggle.removeEventListener('change', handleModeToggle);
+                
+                // 添加新的事件监听器
+                aiModeToggle.addEventListener('change', handleModeToggle);
+                
+                // 初始化显示状态
+                const initialUseAI = aiModeToggle.checked && aiStatus.ai_enabled;
+                updateModeDisplay(initialUseAI);
+                
+                console.log('✅ 模式切换初始化完成');
+            } else {
+                console.error('❌ 找不到aiModeToggle元素');
+            }
+        }
+        
+        // 模式切换处理函数
+        function handleModeToggle() {
+            const useAI = this.checked && aiStatus.ai_enabled;
+            console.log('🔄 模式切换事件触发:');
+            console.log('  - Toggle选中:', this.checked);
+            console.log('  - AI可用:', aiStatus.ai_enabled);
+            console.log('  - 最终模式:', useAI ? 'AI模式' : '模板模式');
+            
+            updateModeDisplay(useAI);
+            
+            // 可选：保存用户偏好
+            if (typeof userPreferences !== 'undefined') {
+                userPreferences.aiModePreferred = useAI;
+            }
+        }
+        
+        // 更新模式显示
+        function updateModeDisplay(useAI) {
+            const aiModeText = document.getElementById('aiModeText');
+            const generateBtnIcon = document.getElementById('generateBtnIcon');
+            const generateBtnText = document.getElementById('generateBtnText');
+            
+            if (useAI) {
+                aiModeText.textContent = 'AI智能模式';
+                aiModeText.style.color = '#3b82f6';
+                generateBtnIcon.textContent = '🤖';
+                generateBtnText.textContent = 'AI智能生成';
+            } else {
+                aiModeText.textContent = '标准模板模式';
+                aiModeText.style.color = '#6b7280';
+                generateBtnIcon.textContent = '📋';
+                generateBtnText.textContent = '标准模板生成';
+            }
+            
+            userPreferences.aiModePreferred = useAI;
+        }
+        
+        // 显示生成状态和数据来源
+        function showGenerationStatus(source, info, time) {
+            const statusPanel = document.getElementById('generationStatusPanel');
+            const dataSourceBadge = document.getElementById('dataSourceBadge');
+            const generationInfo = document.getElementById('generationInfo');
+            const generationTime = document.getElementById('generationTime');
+            
+            // 更新数据来源标识
+            dataSourceBadge.className = `data-source-badge data-source-${source}`;
+            switch (source) {
+                case 'ai':
+                    dataSourceBadge.textContent = '🤖 AI Generated';
+                    generationInfo.textContent = info || '已使用AI智能生成';
+                    break;
+                case 'template':
+                    dataSourceBadge.textContent = '📋 Template';
+                    generationInfo.textContent = info || '已使用标准模板生成';
+                    break;
+                case 'template_fallback':
+                    dataSourceBadge.textContent = '⚠️ Fallback';
+                    generationInfo.textContent = info || 'AI失败，使用模板备用';
+                    break;
+            }
+            
+            generationTime.textContent = time || '即时';
+            
+            // 显示状态面板
+            statusPanel.style.display = 'block';
+            statusPanel.className = `generation-status ${source === 'ai' ? 'ai-mode' : 'template-mode'}`;
+        }
+
+        // AI生成决策树（升级版）
+        async function generateAITree() {
+            console.log('🚀 智能生成决策树被调用');
+            
+            // 直接使用getCurrentDiseaseName()，不声明局部变量
+            if (!getCurrentDiseaseName()) {
+                alert('请先输入疾病名称');
+                return;
+            }
+
+            const doctorThought = document.getElementById('doctorThought').value.trim();
+            const useAI = document.getElementById('aiModeToggle').checked && aiStatus.ai_enabled;
+            
+            // 根据模式显示不同的loading信息
+            const loadingMessage = useAI ? 
+                (doctorThought ? 'AI正在根据您的思路生成决策树...' : 'AI正在生成标准决策树...') :
+                '正在加载标准模板...';
+            
+            showLoading(loadingMessage);
+
+            try {
+                const response = await fetch('/api/generate_visual_decision_tree', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        disease_name: getCurrentDiseaseName(),
+                        thinking_process: doctorThought,
+                        use_ai: useAI,
+                        include_tcm_analysis: true,
+                        complexity_level: userPreferences.complexityLevel,
+                        enable_smart_branching: document.getElementById('enableSmartBranching') ? document.getElementById('enableSmartBranching').checked : false
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success && result.data && result.data.paths) {
+                    const pathsData = result.data.paths;
+                    const source = result.data.source || 'template';
+                    const generationTime = result.data.generation_time || '即时';
+                    
+                    generateNodesFromPaths(pathsData);
+                    hideLoading();
+                    
+                    // 显示生成状态
+                    showGenerationStatus(
+                        source, 
+                        result.message,
+                        generationTime
+                    );
+                    
+                    showResult('成功', `✅ 成功生成了${pathsData.length}条诊疗路径！`, 'success');
+                    console.log('📊 生成统计:', {
+                        source: source,
+                        pathCount: pathsData.length,
+                        aiEnabled: aiStatus.ai_enabled,
+                        userThinking: !!doctorThought
+                    });
+                } else {
+                    throw new Error(result.message || '生成失败');
+                }
+            } catch (error) {
+                console.error('❌ 生成失败:', error);
+                hideLoading();
+                showResult('错误', `❌ 生成失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 从AI路径数据生成节点（简化版：直接使用路径数据）
+        function generateNodesFromPaths(paths) {
+            console.log('🔄 开始生成节点，路径数据:', paths);
+            clearCanvas();
+            
+            if (!paths || paths.length === 0) {
+                console.warn('⚠️ 没有路径数据可生成');
+                return;
+            }
+            
+            let baseX = 50, baseY = 80;
+            const pathWidth = 300;
+            const stepHeight = 120;
+            
+            // 为每条路径生成节点
+            paths.forEach((path, pathIndex) => {
+                console.log(`📍 处理路径 ${pathIndex + 1}: ${path.title || path.id}`);
+                
+                if (path.steps && path.steps.length > 0) {
+                    path.steps.forEach((step, stepIndex) => {
+                        const node = {
+                            id: `${path.id}_step_${stepIndex}`,
+                            name: step.title || step.content || step.name || '诊疗步骤',
+                            description: step.content || step.description || '',
+                            type: step.type || 'condition',
+                            x: baseX + (pathIndex * pathWidth),
+                            y: baseY + (stepIndex * stepHeight),
+                            // 🎯 智能分支属性支持
+                            age_group: path.age_group,
+                            age_range: path.age_range,
+                            dosage_ratio: path.dosage_ratio,
+                            dosage_note: path.dosage_note
+                        };
+                        
+                        // 添加年龄特定的用药说明
+                        if (step.age_specific_notes && step.age_specific_notes.length > 0) {
+                            node.description += '\n\n📋 用药说明:\n' + step.age_specific_notes.join('\n');
+                        }
+                        
+                        // 如果是处方步骤，添加剂量信息
+                        if (step.type === 'prescription' && path.dosage_note) {
+                            node.description += '\n\n⚖️ ' + path.dosage_note;
+                        }
+                        
+                        nodes.push(node);
+                        renderNode(node);
+                        console.log(`  ✅ 添加节点: ${node.name} (${node.type})`);
+                        
+                        // 连接同一路径内的连续步骤
+                        if (stepIndex > 0) {
+                            const prevNodeId = `${path.id}_step_${stepIndex - 1}`;
+                            connections.push({
+                                from: prevNodeId,
+                                to: node.id
+                            });
+                        }
+                    });
+                } else {
+                    console.warn(`⚠️ 路径 ${path.title || path.id} 没有步骤数据`);
+                    // 如果没有steps，创建一个基本节点
+                    const node = {
+                        id: `${path.id}_basic`,
+                        name: path.title || path.id || '诊疗路径',
+                        description: path.description || '基本诊疗信息',
+                        type: 'condition',
+                        x: baseX + (pathIndex * pathWidth),
+                        y: baseY,
+                        age_group: path.age_group,
+                        age_range: path.age_range
+                    };
+                    
+                    nodes.push(node);
+                    renderNode(node);
+                }
+            });
+            
+            // 自动排列节点
+            setTimeout(() => {
+                autoArrangeNodes();
+            }, 100);
+            
+            console.log(`✅ 节点生成完成，共 ${nodes.length} 个节点`);
+        }
+
+        // 分析当前决策树
+        async function analyzeCurrentTree() {
+            console.log('分析当前决策树被调用');
+            
+            if (nodes.length === 0) {
+                alert('请先创建或生成决策树');
+                return;
+            }
+
+            // 直接使用getCurrentDiseaseName()，不声明局部变量
+            if (!getCurrentDiseaseName()) {
+                alert('请先输入疾病名称');
+                return;
+            }
+
+            showLoading('正在进行中医理论分析...');
+
+            try {
+                const treeData = {
+                    disease_name: getCurrentDiseaseName(),
+                    nodes: nodes
+                };
+
+                const response = await fetch('/api/analyze_tree_tcm_theory', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        tree_data: treeData,
+                        disease_name: getCurrentDiseaseName()
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    hideLoading();
+                    showAnalysisResult(data.data.analysis || '分析完成');
+                } else {
+                    throw new Error(data.message || '分析失败');
+                }
+            } catch (error) {
+                console.error('理论分析失败:', error);
+                hideLoading();
+                showResult('错误', `❌ 分析失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 建议遗漏逻辑
+        async function suggestMissingLogic() {
+            console.log('建议遗漏逻辑被调用');
+            
+            if (nodes.length === 0) {
+                alert('请先创建或生成决策树');
+                return;
+            }
+
+            // 直接使用getCurrentDiseaseName()，不声明局部变量
+            if (!getCurrentDiseaseName()) {
+                alert('请先输入疾病名称');
+                return;
+            }
+
+            showLoading('正在检测遗漏逻辑...');
+
+            try {
+                const response = await fetch('/api/detect_missing_logic', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        disease_name: getCurrentDiseaseName(),
+                        current_paths: [],
+                        existing_nodes: nodes
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    hideLoading();
+                    showMissingLogicResult(data.data);
+                } else {
+                    throw new Error(data.message || '检测失败');
+                }
+            } catch (error) {
+                console.error('遗漏逻辑检测失败:', error);
+                hideLoading();
+                showResult('错误', `❌ 检测失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 添加标准路径
+        function addStandardPath() {
+            console.log('添加标准路径被调用');
+            
+            // 直接使用getCurrentDiseaseName()，不声明局部变量
+            
+            clearCanvas();
+            
+            // 检查是否应该创建症状群
+            const template = SYMPTOM_CLUSTER_TEMPLATES[`${getCurrentDiseaseName()}群`];
+            if (template) {
+                // 创建症状群模式
+                // TODO: 优化后添加症状群功能
+                
+                // 创建后续节点
+                const followUpNodes = [
+                    { type: 'diagnosis', name: '中医诊断', description: '辨证分型', x: 400, y: 150 },
+                    { type: 'treatment', name: '治疗方法', description: '治则治法', x: 650, y: 150 },
+                    { type: 'formula', name: '方剂选择', description: '具体方药', x: 900, y: 150 }
+                ];
+                
+                let previousNode = null;
+                followUpNodes.forEach((nodeData, index) => {
+                    const node = {
+                        id: `std_${index + 2}`,
+                        ...nodeData
+                    };
+                    nodes.push(node);
+                    renderNode(node);
+                    previousNode = node;
+                });
+            } else {
+                // 传统模式 - 创建符合中医诊疗流程的标准路径节点
+                const standardNodes = [
+                    { type: 'disease', name: `${getCurrentDiseaseName()}`, description: '病种识别', x: 50, y: 100 },
+                    { type: 'four_diagnosis', name: '四诊收集', description: '望闻问切', x: 250, y: 100 },
+                    { type: 'symptom', name: '主要症状', description: '症状分析', x: 450, y: 100 },
+                    { type: 'pathogenesis', name: '病因病机', description: '病理分析', x: 650, y: 100 },
+                    { type: 'syndrome', name: '证候判断', description: '辨证分型', x: 850, y: 100 },
+                    { type: 'principle', name: '治则治法', description: '确定治疗原则', x: 1050, y: 100 },
+                    { type: 'prescription', name: '方剂处方', description: '选方用药', x: 1250, y: 100 },
+                    { type: 'formula', name: '方剂选择', description: '具体方药', x: 1050, y: 100 }
+                ];
+                
+                let previousNode = null;
+                standardNodes.forEach((nodeData, index) => {
+                    const node = {
+                        id: `std_${index + 1}`,
+                        ...nodeData
+                    };
+                    nodes.push(node);
+                    renderNode(node);
+                    
+                    // 创建连接
+                    if (previousNode) {
+                        connections.push({
+                            from: previousNode.id,
+                            to: node.id
+                        });
+                    }
+                    
+                    previousNode = node;
+                });
+            }
+            
+            let previousNode = null;
+            standardNodes.forEach((nodeData, index) => {
+                const node = {
+                    id: `std_${index + 1}`,
+                    ...nodeData
+                };
+                nodes.push(node);
+                renderNode(node);
+                
+                // 创建连接
+                if (previousNode) {
+                    connections.push({
+                        from: previousNode.id,
+                        to: node.id
+                    });
+                }
+                
+                previousNode = node;
+            });
+            
+            updateCanvas();
+            drawConnections();
+            showResult('成功', '✅ 标准诊疗路径已添加', 'success');
+        }
+
+        // 自动排列节点
+        function autoArrangeNodes() {
+            console.log('自动排列节点被调用');
+            
+            if (nodes.length === 0) {
+                showResult('提示', '没有节点需要排列', 'info');
+                return;
+            }
+            
+            // 基于中医诊疗流程的智能排列
+            const nodeHierarchy = buildNodeHierarchy();
+            
+            // 计算布局
+            const baseX = 50;
+            const baseY = 300;
+            const horizontalGap = 280;
+            const verticalGap = 150;
+            
+            // 按层级排列
+            Object.keys(nodeHierarchy).forEach((level, levelIndex) => {
+                const levelNodes = nodeHierarchy[level];
+                const levelX = baseX + levelIndex * horizontalGap;
+                
+                levelNodes.forEach((node, nodeIndex) => {
+                    // 计算垂直位置，使同层节点居中分布
+                    const totalHeight = (levelNodes.length - 1) * verticalGap;
+                    const startY = baseY - (totalHeight / 2);
+                    node.x = levelX;
+                    node.y = startY + (nodeIndex * verticalGap);
+                    
+                    updateNodePosition(node);
+                });
+            });
+            
+            // 重绘连接线
+            setTimeout(() => {
+                drawConnections();
+                showResult('成功', `✅ 已按中医诊疗流程智能排列${nodes.length}个节点`, 'success');
+            }, 50);
+        }
+        
+        // 构建节点层级关系
+        function buildNodeHierarchy() {
+            const hierarchy = {};
+            const visited = new Set();
+            
+            // 查找根节点（没有入边的节点）
+            const rootNodes = nodes.filter(node => {
+                return !connections.some(conn => conn.to === node.id);
+            });
+            
+            // 如果没有明确的根节点，选择病种类型的节点作为根
+            if (rootNodes.length === 0) {
+                const diseaseNodes = nodes.filter(n => n.type === 'disease');
+                if (diseaseNodes.length > 0) {
+                    rootNodes.push(...diseaseNodes);
+                } else if (nodes.length > 0) {
+                    rootNodes.push(nodes[0]);
+                }
+            }
+            
+            // 广度优先遍历构建层级
+            let currentLevel = 0;
+            let currentLevelNodes = rootNodes;
+            
+            while (currentLevelNodes.length > 0 && currentLevel < 10) {
+                hierarchy[currentLevel] = [...currentLevelNodes];
+                currentLevelNodes.forEach(n => visited.add(n.id));
+                
+                // 获取下一层节点
+                const nextLevelNodes = [];
+                currentLevelNodes.forEach(node => {
+                    const childConnections = connections.filter(conn => conn.from === node.id);
+                    childConnections.forEach(conn => {
+                        const childNode = nodes.find(n => n.id === conn.to);
+                        if (childNode && !visited.has(childNode.id)) {
+                            nextLevelNodes.push(childNode);
+                            visited.add(childNode.id);
+                        }
+                    });
+                });
+                
+                currentLevelNodes = nextLevelNodes;
+                currentLevel++;
+            }
+            
+            return hierarchy;
+        }
+
+        // 清空画布
+        function clearCanvas() {
+            console.log('清空画布被调用');
+            
+            nodes = [];
+            selectedNode = null;
+            connections = [];
+            
+            const canvas = document.getElementById('canvas');
+            canvas.innerHTML = `
+                <svg id="branchSvg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+                        </marker>
+                    </defs>
+                </svg>
+                <div class="empty-canvas" id="emptyHint">
+                    <div style="font-size: 48px; margin-bottom: 20px;">🌳</div>
+                    <h3>开始构建您的决策树</h3>
+                    <p style="margin: 10px 0;">输入疾病名称，然后点击"AI生成决策树"</p>
+                    <p style="color: #9ca3af; font-size: 12px;">或点击"标准路径"快速开始</p>
+                </div>
+            `;
+            
+            clearResults();
+            hideSelectedNodeInfo();
+            showResult('成功', '✅ 画布已清空', 'success');
+        }
+
+        // 保存决策树
+        async function saveDecisionTree() {
+            console.log('保存决策树被调用');
+            
+            // 直接使用getCurrentDiseaseName()，不声明局部变量
+            if (!getCurrentDiseaseName()) {
+                alert('请先输入疾病名称');
+                return;
+            }
+
+            if (nodes.length === 0) {
+                alert('请先构建决策树');
+                return;
+            }
+
+            if (!isAuthenticated) {
+                alert('请先登录医生账户');
+                return;
+            }
+
+            showLoading('正在保存决策树...');
+
+            try {
+                const saveData = {
+                    disease_name: getCurrentDiseaseName(),
+                    paths: convertNodesToPaths(),
+                    integration_enabled: true
+                };
+
+                const response = await fetch('/api/save_decision_tree_v3', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify(saveData)
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    hideLoading();
+                    showResult('成功', `✅ 决策树已保存！包含${nodes.length}个节点`, 'success');
+                } else {
+                    throw new Error(data.message || '保存失败');
+                }
+            } catch (error) {
+                console.error('保存失败:', error);
+                hideLoading();
+                showResult('错误', `❌ 保存失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 保存到思维库（临床决策模式）
+        async function saveToThinkingLibrary() {
+            console.log('保存到思维库被调用');
+            
+            // 验证必要条件
+            if (!getCurrentDiseaseName()) {
+                showResult('提示', '请先输入疾病名称', 'warning');
+                return;
+            }
+            if (nodes.length === 0) {
+                showResult('提示', '请先构建决策树', 'warning');
+                return;
+            }
+            
+            // 显示保存对话框
+            showThinkingLibraryDialog();
+        }
+        
+        // 显示思维库保存对话框
+        function showThinkingLibraryDialog() {
+            // 创建遮罩层
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 9999;
+                backdrop-filter: blur(2px);
+                animation: fadeIn 0.2s ease-out;
+            `;
+            
+            // 创建对话框
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 0;
+                border-radius: 12px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+                z-index: 10000;
+                width: 520px;
+                max-width: 90vw;
+                max-height: 80vh;
+                overflow: hidden;
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            const diseaseName = getCurrentDiseaseName();
+            const nodeCount = nodes.length;
+            const connectionCount = connections.length;
+            
+            dialog.innerHTML = `
+                <div style="background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%); color: white; padding: 24px; text-align: center;">
+                    <div style="font-size: 36px; margin-bottom: 12px;">🧠</div>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 600;">保存到医生思维库</h3>
+                    <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">将您的临床决策经验保存为可复用的思维模式</p>
+                </div>
+                
+                <div style="padding: 28px;">
+                    <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #7c3aed;">
+                        <h4 style="margin: 0 0 12px; color: #374151; font-size: 16px;">📊 决策树信息</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px;">
+                            <div><strong>疾病名称:</strong> ${diseaseName}</div>
+                            <div><strong>节点数量:</strong> ${nodeCount} 个</div>
+                            <div><strong>连接数量:</strong> ${connectionCount} 个</div>
+                            <div><strong>创建时间:</strong> ${new Date().toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            🏷️ 思维模式名称
+                        </label>
+                        <input type="text" id="thinkingPatternName" 
+                               value="${diseaseName}临床决策模式" 
+                               style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; transition: all 0.2s ease;"
+                               placeholder="请输入思维模式名称">
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            🎯 应用场景
+                        </label>
+                        <select id="applicationScenario" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; background: white;">
+                            <option value="clinical_diagnosis">临床诊断决策</option>
+                            <option value="treatment_planning">治疗方案规划</option>
+                            <option value="symptom_analysis">症状分析流程</option>
+                            <option value="formula_selection">方剂选择指导</option>
+                            <option value="teaching_case">教学案例模板</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 24px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            📝 临床思维描述
+                        </label>
+                        <textarea id="clinicalThinking" 
+                                  style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; min-height: 120px; font-size: 14px; line-height: 1.5; resize: vertical; font-family: inherit;"
+                                  placeholder="请描述您在构建此决策树时的临床思维过程、核心要点、注意事项等...&#10;例如：此决策树基于张仲景六经辨证理论，重点突出..."></textarea>
+                    </div>
+                    
+                    <div style="background: #fffbeb; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #f59e0b;">
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 16px; margin-right: 8px;">💡</span>
+                            <strong style="color: #92400e;">思维库价值</strong>
+                        </div>
+                        <ul style="margin: 0; padding-left: 16px; font-size: 13px; color: #92400e; line-height: 1.6;">
+                            <li>积累临床决策经验，形成个人知识库</li>
+                            <li>快速复用成功的诊疗思路和流程</li>
+                            <li>为教学和培训提供标准化模板</li>
+                            <li>促进临床经验的传承和分享</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button id="cancelLibrarySave" 
+                                style="padding: 12px 24px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: #6b7280; transition: all 0.2s ease;">
+                            ✖️ 取消
+                        </button>
+                        <button id="confirmLibrarySave" 
+                                style="padding: 12px 24px; border: none; background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%); color: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; box-shadow: 0 2px 4px rgba(124, 58, 237, 0.2); transition: all 0.2s ease;">
+                            🧠 保存到思维库
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // 关闭对话框函数
+            function closeDialog() {
+                dialog.style.animation = 'slideOut 0.2s ease-in forwards';
+                overlay.style.animation = 'fadeOut 0.2s ease-in forwards';
+                setTimeout(() => {
+                    if (overlay.parentNode) overlay.remove();
+                    if (dialog.parentNode) dialog.remove();
+                }, 200);
+            }
+            
+            // 添加到页面
+            document.body.appendChild(overlay);
+            document.body.appendChild(dialog);
+            
+            // 事件绑定
+            document.getElementById('cancelLibrarySave').onclick = closeDialog;
+            overlay.onclick = closeDialog;
+            
+            // ESC键关闭
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    closeDialog();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+            
+            // 保存到思维库
+            document.getElementById('confirmLibrarySave').onclick = async function() {
+                const patternName = document.getElementById('thinkingPatternName').value.trim();
+                const scenario = document.getElementById('applicationScenario').value;
+                const thinking = document.getElementById('clinicalThinking').value.trim();
+                
+                if (!patternName) {
+                    document.getElementById('thinkingPatternName').focus();
+                    showResult('提示', '请输入思维模式名称', 'warning');
+                    return;
+                }
+                
+                if (!thinking) {
+                    document.getElementById('clinicalThinking').focus();
+                    showResult('提示', '请描述您的临床思维过程', 'warning');
+                    return;
+                }
+                
+                closeDialog();
+                document.removeEventListener('keydown', escHandler);
+                
+                // 执行保存
+                await performLibrarySave(patternName, scenario, thinking);
+            };
+            
+            // 自动聚焦
+            setTimeout(() => {
+                document.getElementById('thinkingPatternName').focus();
+                document.getElementById('thinkingPatternName').select();
+            }, 100);
+        }
+        
+        // 执行思维库保存
+        async function performLibrarySave(patternName, scenario, thinking) {
+            showLoading('正在保存到思维库...');
+            
+            try {
+                const saveData = {
+                    disease_name: getCurrentDiseaseName(),
+                    thinking_process: thinking,
+                    tree_structure: {
+                        nodes: nodes,
+                        connections: connections,
+                        metadata: {
+                            pattern_name: patternName,
+                            scenario: scenario,
+                            created_at: new Date().toISOString(),
+                            node_count: nodes.length,
+                            connection_count: connections.length
+                        }
+                    },
+                    clinical_patterns: {
+                        scenario_type: scenario,
+                        key_decision_points: extractKeyDecisionPoints(),
+                        diagnostic_flow: extractDiagnosticFlow(),
+                        treatment_principles: extractTreatmentPrinciples()
+                    },
+                    doctor_expertise: {
+                        specialization: "中医内科", // 可以后续从用户信息获取
+                        experience_level: "主治医师", // 可以后续从用户信息获取
+                        theoretical_basis: extractTheoreticalBasis()
+                    }
+                };
+                
+                const response = await fetch('/api/save_clinical_pattern', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+                    },
+                    body: JSON.stringify(saveData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    hideLoading();
+                    showResult('成功', `🧠 临床决策模式已保存到思维库！模式ID: ${result.data.pattern_id}`, 'success');
+                } else {
+                    throw new Error(result.message || '保存到思维库失败');
+                }
+                
+            } catch (error) {
+                console.error('保存到思维库失败:', error);
+                hideLoading();
+                showResult('错误', `❌ 保存到思维库失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 提取关键决策点
+        function extractKeyDecisionPoints() {
+            const decisionPoints = [];
+            nodes.forEach(node => {
+                if (['condition', 'diagnosis', 'syndrome'].includes(node.type)) {
+                    decisionPoints.push({
+                        node_id: node.id,
+                        node_type: node.type,
+                        decision_name: node.name,
+                        decision_criteria: node.description || ''
+                    });
+                }
+            });
+            return decisionPoints;
+        }
+        
+        // 提取诊断流程
+        function extractDiagnosticFlow() {
+            const flow = [];
+            connections.forEach(conn => {
+                const fromNode = nodes.find(n => n.id === conn.from);
+                const toNode = nodes.find(n => n.id === conn.to);
+                if (fromNode && toNode) {
+                    flow.push({
+                        from: fromNode.name,
+                        to: toNode.name,
+                        from_type: fromNode.type,
+                        to_type: toNode.type
+                    });
+                }
+            });
+            return flow;
+        }
+        
+        // 提取治疗原则
+        function extractTreatmentPrinciples() {
+            const principles = [];
+            nodes.forEach(node => {
+                if (['principle', 'treatment', 'prescription'].includes(node.type)) {
+                    principles.push({
+                        principle_name: node.name,
+                        principle_type: node.type,
+                        description: node.description || ''
+                    });
+                }
+            });
+            return principles;
+        }
+        
+        // 提取理论基础
+        function extractTheoreticalBasis() {
+            const basis = [];
+            nodes.forEach(node => {
+                if (node.description && node.description.includes('理论')) {
+                    basis.push({
+                        node_name: node.name,
+                        theoretical_content: node.description
+                    });
+                }
+            });
+            return basis.length > 0 ? basis : [{ 
+                node_name: "整体决策树", 
+                theoretical_content: "基于中医传统理论的诊疗决策过程" 
+            }];
+        }
+
+        // 导出JSON
+        function exportJSON() {
+            console.log('导出JSON被调用');
+            
+            // 直接使用getCurrentDiseaseName()，不声明局部变量
+            
+            const exportData = {
+                disease_name: getCurrentDiseaseName() || '未命名疾病',
+                nodes: nodes,
+                exported_at: new Date().toISOString(),
+                version: '2.0'
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `决策树_${getCurrentDiseaseName() || '未命名'}_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+            showResult('成功', '✅ JSON文件已下载', 'success');
+        }
+
+        // 渲染节点
+        function renderNode(node) {
+            const canvas = document.getElementById('canvas');
+            const emptyHint = document.getElementById('emptyHint');
+            
+            if (emptyHint) {
+                emptyHint.remove();
+            }
+
+            const nodeElement = document.createElement('div');
+            
+            // 🎯 智能年龄分支样式支持
+            let nodeClass = `node ${node.type}`;
+            if (node.age_group) {
+                nodeClass += ` ${node.age_group}-branch`;
+            }
+            
+            nodeElement.className = nodeClass;
+            nodeElement.id = node.id;
+            nodeElement.style.left = `${node.x}px`;
+            nodeElement.style.top = `${node.y}px`;
+            
+            // 构建节点内容，支持相关症状显示
+            let nodeContent = node.description || '';
+            if (node.relatedSymptoms && node.relatedSymptoms.length > 0) {
+                nodeContent = `${nodeContent}
+                    <div class="related-symptoms">
+                        <div class="symptoms-label">相关症状:</div>
+                        <div class="symptoms-list">${node.relatedSymptoms.join(', ')}</div>
+                    </div>`;
+            }
+            
+            // 🎯 年龄分支信息显示
+            let ageBadge = '';
+            if (node.age_group) {
+                const badgeText = node.age_group === 'adult' ? 
+                    `👨 ${node.age_range || '成人'}` : 
+                    `👶 ${node.age_range || '儿童'}`;
+                ageBadge = `<div class="age-group-badge ${node.age_group}">${badgeText}</div>`;
+            }
+            
+            // 智能文本处理 - 检查内容长度
+            const isLongContent = nodeContent.length > 120;
+            const contentId = `content_${node.id}`;
+            
+            // 为不同类型节点添加图标
+            const typeIcons = {
+                'condition': '🏥',
+                'diagnosis': '🔍', 
+                'treatment': '💊',
+                'formula': '🌿',
+                'symptom': '📋',
+                'pathogenesis': '⚡',
+                'syndrome': '🎯',
+                'principle': '📏',
+                'prescription': '📝',
+                'four_diagnosis': '👁',
+                'disease': '🔬'
+            };
+            const nodeIcon = typeIcons[node.type] || '📄';
+            
+            nodeElement.innerHTML = `
+                <button class="delete-btn" onclick="deleteNodeById('${node.id}')">×</button>
+                ${ageBadge}
+                <div class="node-title">
+                    <span class="node-type-icon">${nodeIcon}</span>
+                    ${node.name}
+                </div>
+                <div class="node-content" id="${contentId}">${nodeContent}</div>
+                ${isLongContent ? `<div class="expand-btn" onclick="toggleNodeContent('${node.id}')">展开详情 ▼</div>` : ''}
+            `;
+            
+            // 如果内容过长，默认截断显示
+            if (isLongContent) {
+                const contentDiv = nodeElement.querySelector('.node-content');
+                contentDiv.classList.add('truncated');
+            }
+            
+            // 添加点击事件
+            nodeElement.addEventListener('click', function(e) {
+                e.stopPropagation();
+                selectNode(node);
+            });
+            
+            // 添加右键菜单事件
+            nodeElement.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                showContextMenu(e, node);
+            });
+            
+            // 使用统一的编辑功能绑定
+            ensureNodeEditability(nodeElement, node);
+            
+            // 添加拖拽
+            makeNodeDraggable(nodeElement, node);
+            
+            canvas.appendChild(nodeElement);
+        }
+
+        
+
+        // 选择节点
+        function selectNode(node) {
+            // 清除其他选择
+            document.querySelectorAll('.node').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // 选择当前节点
+            document.getElementById(node.id).classList.add('selected');
+            selectedNode = node;
+            
+            showSelectedNodeInfo(node);
+            console.log('选择了节点:', node.name);
+        }
+
+        // 使节点可拖拽
+        function makeNodeDraggable(element, node) {
+            let isDragging = false;
+            let startX, startY, startNodeX, startNodeY;
+
+            element.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startNodeX = node.x;
+                startNodeY = node.y;
+                
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+            });
+
+            function handleMouseMove(e) {
+                if (!isDragging) return;
+                
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+                
+                node.x = Math.max(0, startNodeX + deltaX);
+                node.y = Math.max(0, startNodeY + deltaY);
+                
+                updateNodePosition(node);
+            }
+
+            function handleMouseUp() {
+                isDragging = false;
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+            }
+        }
+
+        // 更新节点位置
+        function updateNodePosition(node) {
+            const element = document.getElementById(node.id);
+            if (element) {
+                element.style.left = `${node.x}px`;
+                element.style.top = `${node.y}px`;
+            }
+        }
+
+        // 转换节点为路径格式
+        function convertNodesToPaths() {
+            if (nodes.length === 0) return [];
+            
+            return [{
+                id: 'path_1',
+                steps: nodes.map(node => ({
+                    type: node.type,
+                    content: node.name
+                })),
+                keywords: [document.getElementById('diseaseName').value.trim()],
+                created_by: currentUser?.name || '匿名用户'
+            }];
+        }
+
+        // 更新画布状态
+        function updateCanvas() {
+            const canvas = document.getElementById('canvas');
+            const emptyHint = document.getElementById('emptyHint');
+            
+            if (nodes.length === 0 && !emptyHint) {
+                canvas.innerHTML = `
+                    <div class="empty-canvas" id="emptyHint">
+                        <div style="font-size: 48px; margin-bottom: 20px;">🌳</div>
+                        <h3>开始构建您的决策树</h3>
+                        <p style="margin: 10px 0;">输入疾病名称，然后点击"AI生成决策树"</p>
+                        <p style="color: #9ca3af; font-size: 12px;">或点击"标准路径"快速开始</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 显示加载状态
+        function showLoading(message) {
+            const loading = document.getElementById('loading');
+            const loadingText = document.getElementById('loadingText');
+            
+            loadingText.textContent = message;
+            loading.style.display = 'flex';
+        }
+
+        // 隐藏加载状态
+        function hideLoading() {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'none';
+        }
+
+        // 显示结果
+        function showResult(title, message, type) {
+            const resultsDiv = document.getElementById('analysisResults');
+            
+            const typeColors = {
+                success: '#22c55e',
+                error: '#ef4444',
+                warning: '#f59e0b',
+                info: '#3b82f6'
+            };
+            
+            const color = typeColors[type] || typeColors.info;
+            
+            const resultElement = document.createElement('div');
+            resultElement.className = 'result-panel';
+            resultElement.innerHTML = `
+                <div class="result-title" style="color: ${color};">${title}</div>
+                <div style="font-size: 13px; color: #374151;">${message}</div>
+            `;
+            
+            resultsDiv.appendChild(resultElement);
+            
+            // 5秒后自动移除成功消息
+            if (type === 'success') {
+                setTimeout(() => {
+                    resultElement.remove();
+                }, 5000);
+            }
+        }
+
+        // 显示分析结果
+        function showAnalysisResult(analysisHtml) {
+            // 清除之前的结果，避免重复
+            clearResults();
+            
+            const resultsDiv = document.getElementById('analysisResults');
+            
+            const resultElement = document.createElement('div');
+            resultElement.className = 'result-panel';
+            resultElement.innerHTML = `
+                <div class="result-title">🧠 中医理论分析结果</div>
+                <div style="font-size: 13px;">${analysisHtml}</div>
+            `;
+            
+            resultsDiv.appendChild(resultElement);
+        }
+
+        // 显示遗漏逻辑结果
+        function showMissingLogicResult(data) {
+            // 清除之前的结果，避免重复
+            clearResults();
+            
+            const resultsDiv = document.getElementById('analysisResults');
+            
+            let html = '<div class="result-title">💡 遗漏逻辑检测结果</div>';
+            
+            if (data.missing_analyses && data.missing_analyses.length > 0) {
+                data.missing_analyses.forEach(analysis => {
+                    html += `<div style="margin: 15px 0;"><strong>${analysis.category}:</strong><br>`;
+                    analysis.items.forEach(item => {
+                        html += `
+                            <div class="suggestion-item" onclick="addSuggestionToTree('${item.suggested_addition.step_type}', '${item.content}', '${item.description}')">
+                                <div class="suggestion-content">${item.content}</div>
+                                <div class="suggestion-desc">${item.description}</div>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                });
+            } else {
+                html += '<div style="color: #22c55e;">✅ 当前决策树逻辑完整，未发现明显遗漏</div>';
+            }
+            
+            const resultElement = document.createElement('div');
+            resultElement.className = 'result-panel';
+            resultElement.innerHTML = html;
+            
+            resultsDiv.appendChild(resultElement);
+        }
+
+        // 清除结果
+        function clearResults() {
+            const resultsDiv = document.getElementById('analysisResults');
+            resultsDiv.innerHTML = '';
+        }
+
+
+        // 绘制连接线
+        function drawConnections() {
+            const svg = document.getElementById('branchSvg');
+            
+            // 清除现有连接线
+            const existingPaths = svg.querySelectorAll('.branch-line, .branch-path');
+            existingPaths.forEach(path => path.remove());
+            
+            connections.forEach(conn => {
+                const fromNode = nodes.find(n => n.id === conn.from);
+                const toNode = nodes.find(n => n.id === conn.to);
+                
+                if (fromNode && toNode) {
+                    const fromElement = document.getElementById(fromNode.id);
+                    const toElement = document.getElementById(toNode.id);
+                    
+                    if (fromElement && toElement) {
+                        const fromRect = fromElement.getBoundingClientRect();
+                        const toRect = toElement.getBoundingClientRect();
+                        const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+                        
+                        // 计算连接点位置
+                        const x1 = fromRect.left - canvasRect.left + fromRect.width;
+                        const y1 = fromRect.top - canvasRect.top + fromRect.height / 2;
+                        const x2 = toRect.left - canvasRect.left;
+                        const y2 = toRect.top - canvasRect.top + toRect.height / 2;
+                        
+                        // 使用贝塞尔曲线创建平滑连接
+                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        const midX = (x1 + x2) / 2;
+                        
+                        // 创建平滑的曲线路径
+                        const d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+                        
+                        path.setAttribute('d', d);
+                        path.setAttribute('class', 'branch-path');
+                        path.setAttribute('fill', 'none');
+                        path.setAttribute('stroke', '#3b82f6');
+                        path.setAttribute('stroke-width', '2');
+                        path.setAttribute('marker-end', 'url(#arrowhead)');
+                        
+                        // 添加连接标签（如果需要）
+                        if (conn.label) {
+                            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            text.setAttribute('x', midX);
+                            text.setAttribute('y', (y1 + y2) / 2 - 10);
+                            text.setAttribute('text-anchor', 'middle');
+                            text.setAttribute('font-size', '12');
+                            text.setAttribute('fill', '#6b7280');
+                            text.textContent = conn.label;
+                            svg.appendChild(text);
+                        }
+                        
+                        svg.appendChild(path);
+                    }
+                }
+            });
+        }
+
+        // 显示选中节点信息
+        function showSelectedNodeInfo(node) {
+            const infoDiv = document.getElementById('selectedNodeInfo');
+            const contentDiv = document.getElementById('nodeInfoContent');
+            
+            contentDiv.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 8px;">${node.name}</div>
+                <div style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">类型: ${getNodeTypeText(node.type)}</div>
+                <div style="font-size: 12px; color: #374151;">${node.description}</div>
+                ${selectedNode ? '<div style="margin-top: 10px; font-size: 11px; color: #059669;">💡 点击遗漏逻辑检测结果中的建议可添加到此节点</div>' : ''}
+            `;
+            
+            infoDiv.style.display = 'block';
+        }
+
+        // 隐藏选中节点信息
+        function hideSelectedNodeInfo() {
+            const infoDiv = document.getElementById('selectedNodeInfo');
+            infoDiv.style.display = 'none';
+        }
+
+        // 获取节点类型文本
+        function getNodeTypeText(type) {
+            const typeMap = {
+                'symptom': '症状',
+                'condition': '判断条件',
+                'diagnosis': '诊断',
+                'treatment': '治疗',
+                'formula': '方剂'
+            };
+            return typeMap[type] || type;
+        }
+
+        // 添加建议到决策树 (支持异步数据库查询)
+        async function addSuggestionToTree(nodeType, nodeName, description) {
+            if (!selectedNode) {
+                alert('请先选择一个节点作为添加位置');
+                return;
+            }
+            
+            // 智能症状合并：检查是否应该合并到现有症状群
+            if (nodeType === 'symptom') {
+                console.log(`开始智能症状分析: ${nodeName}`);
+                const mergeTarget = await findSymptomMergeTarget(nodeName);
+                if (mergeTarget) {
+                    // 给用户一个确认提示
+                    const isSelectedNode = mergeTarget === selectedNode;
+                    const targetDescription = isSelectedNode ? 
+                        `当前选中的"${mergeTarget.name}"` : 
+                        `现有的"${mergeTarget.name}"`;
+                    
+                    console.log(`准备合并症状"${nodeName}"到${targetDescription}节点`);
+                    mergeSymptomToNode(mergeTarget, nodeName, description);
+                    return;
+                }
+            }
+            
+            // 如果不需要合并，创建新的独立节点
+            const newX = selectedNode.x + 250;
+            const newY = selectedNode.y + (Math.random() - 0.5) * 100; // 稍微随机偏移
+            
+            const newNode = {
+                id: `suggested_${nodeCounter++}`,
+                type: nodeType,
+                name: nodeName,
+                description: description,
+                x: newX,
+                y: newY
+            };
+            
+            nodes.push(newNode);
+            renderNode(newNode);
+            
+            // 创建连接
+            connections.push({
+                from: selectedNode.id,
+                to: newNode.id
+            });
+            
+            drawConnections();
+            updateCanvas();
+            
+            // 显示成功消息
+            showResult('成功', `✅ 已添加"${nodeName}"到决策树`, 'success');
+        }
+
+        // 智能症状合并：查找应该合并的目标节点 (数据库版本)
+        async function findSymptomMergeTarget(newSymptom) {
+            console.log(`\n=== 智能症状合并分析 ===`);
+            console.log(`新症状: ${newSymptom}`);
+            console.log(`当前选中节点:`, selectedNode);
+            console.log(`当前选中节点的相关症状:`, selectedNode?.relatedSymptoms);
+            
+            // 第一优先级：如果当前选中的节点是症状类型，优先检查数据库关系
+            if (selectedNode && selectedNode.type === 'symptom') {
+                console.log(`检查选中节点与新症状的数据库关系...`);
+                
+                try {
+                    // 调用症状关系数据库API
+                    const response = await fetch(`/api/symptom/quick_analyze/${encodeURIComponent(selectedNode.name)}`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        const allRelatedSymptoms = [
+                            ...data.data.related_symptoms,
+                            ...data.data.accompanying_symptoms
+                        ];
+                        
+                        console.log(`数据库查询成功，找到相关症状:`, allRelatedSymptoms);
+                        
+                        if (allRelatedSymptoms.includes(newSymptom)) {
+                            console.log(`✅ 数据库确认关系，优先合并到选中节点: ${newSymptom} -> ${selectedNode.name}`);
+                            return selectedNode;
+                        }
+                        
+                        // 检查模糊匹配
+                        const fuzzyMatch = allRelatedSymptoms.find(symptom => 
+                            symptom.includes(newSymptom) || newSymptom.includes(symptom)
+                        );
+                        if (fuzzyMatch) {
+                            console.log(`✅ 数据库模糊匹配成功: ${newSymptom} ≈ ${fuzzyMatch} -> ${selectedNode.name}`);
+                            return selectedNode;
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`数据库查询失败，回退到本地逻辑:`, error);
+                }
+                
+                // 回退到原有的本地关系检查
+                if (isSymptomRelated(selectedNode.name, newSymptom)) {
+                    console.log(`✅ 本地关系检查通过，合并到选中节点: ${newSymptom} -> ${selectedNode.name}`);
+                    return selectedNode;
+                }
+                
+                console.log(`❌ 选中节点与新症状不相关`);
+            }
+            
+            // 第二优先级：查找其他现有症状节点的数据库关系
+            console.log(`检查其他症状节点的数据库关系...`);
+            const existingSymptomNodes = nodes.filter(node => 
+                node.type === 'symptom' && node !== selectedNode
+            );
+            
+            for (const node of existingSymptomNodes) {
+                try {
+                    const response = await fetch(`/api/symptom/quick_analyze/${encodeURIComponent(node.name)}`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        const allRelatedSymptoms = [
+                            ...data.data.related_symptoms,
+                            ...data.data.accompanying_symptoms
+                        ];
+                        
+                        if (allRelatedSymptoms.includes(newSymptom)) {
+                            console.log(`✅ 数据库找到合并目标: ${newSymptom} -> ${node.name}`);
+                            return node;
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`节点 ${node.name} 数据库查询失败:`, error);
+                    // 继续下一个节点
+                }
+                
+                // 本地关系检查作为后备
+                if (isSymptomRelated(node.name, newSymptom)) {
+                    console.log(`✅ 本地关系找到合并目标: ${newSymptom} -> ${node.name}`);
+                    return node;
+                }
+            }
+            
+            console.log(`❌ 未找到任何合并目标，将创建新节点: ${newSymptom}`);
+            return null; // 没找到合并目标，需要创建新节点
+        }
+
+        // 判断两个症状是否相关
+        function isSymptomRelated(existingSymptom, newSymptom) {
+            console.log(`  检查症状关联性: "${existingSymptom}" vs "${newSymptom}"`);
+            
+            const relationshipMap = {
+                '失眠': ['早醒', '多梦', '入睡困难', '睡眠浅', '易惊醒', '夜醒', '心烦', '健忘', '头晕', '疲乏', '精神不振'],
+                '头痛': ['头胀', '头晕', '偏头痛', '太阳穴痛', '后脑痛', '颈项强直', '恶心'],
+                '胃痛': ['胃胀', '胃酸', '反酸', '嗳气', '胃脘痛', '胃部不适', '食欲不振', '恶心', '呕吐'],
+                '便秘': ['大便干燥', '排便困难', '大便干结', '便干如栗', '腹胀', '口干'],
+                '腹泻': ['便溏', '泄泻', '水泻', '大便稀薄', '腹痛', '肠鸣', '里急后重'],
+                '咳嗽': ['咳痰', '干咳', '咳喘', '痰多', '喉痒', '胸闷', '气短']
+            };
+            
+            // 检查双向关系
+            for (const [mainSymptom, relatedList] of Object.entries(relationshipMap)) {
+                const condition1 = existingSymptom.includes(mainSymptom) && relatedList.includes(newSymptom);
+                const condition2 = newSymptom.includes(mainSymptom) && relatedList.includes(existingSymptom);
+                
+                if (condition1 || condition2) {
+                    console.log(`    ✅ 找到关联: ${mainSymptom} -> [${relatedList.join(', ')}]`);
+                    console.log(`    条件1 (${existingSymptom} 包含 ${mainSymptom} 且 ${newSymptom} 在列表中): ${condition1}`);
+                    console.log(`    条件2 (${newSymptom} 包含 ${mainSymptom} 且 ${existingSymptom} 在列表中): ${condition2}`);
+                    return true;
+                }
+            }
+            
+            console.log(`    ❌ 未找到关联关系`);
+            return false;
+        }
+
+        // 将症状合并到现有节点
+        function mergeSymptomToNode(targetNode, newSymptom, description) {
+            console.log(`开始合并症状: ${newSymptom} -> ${targetNode.name}`);
+            
+            // 更新节点内容，将新症状添加到描述中
+            if (!targetNode.relatedSymptoms) {
+                targetNode.relatedSymptoms = [];
+            }
+            
+            // 避免重复添加
+            if (!targetNode.relatedSymptoms.includes(newSymptom)) {
+                targetNode.relatedSymptoms.push(newSymptom);
+                
+                console.log(`症状合并成功，当前相关症状:`, targetNode.relatedSymptoms);
+                
+                // 更新节点显示
+                updateNodeDisplay(targetNode);
+                
+                // 显示合并成功消息，区分是否为选中节点
+                const isSelectedNode = targetNode === selectedNode;
+                const message = isSelectedNode ? 
+                    `✅ 已将"${newSymptom}"合并到您选中的"${targetNode.name}"症状群` :
+                    `✅ 已将"${newSymptom}"合并到相关的"${targetNode.name}"症状群`;
+                showResult('成功', message, 'success');
+                
+                console.log(`节点显示更新完成，目标节点:`, targetNode);
+            } else {
+                showResult('提示', `"${newSymptom}"已存在于"${targetNode.name}"症状群中`, 'info');
+            }
+        }
+
+        // 更新节点显示以显示相关症状
+        function updateNodeDisplay(node) {
+            const nodeElement = document.getElementById(node.id);
+            if (!nodeElement) return;
+            
+            const contentDiv = nodeElement.querySelector('.node-content');
+            if (!contentDiv) return;
+            
+            // 清理描述内容，移除已有的相关症状HTML
+            let cleanDescription = node.description || '';
+            // 移除之前添加的相关症状HTML，防止重复
+            cleanDescription = cleanDescription.replace(/<div class="related-symptoms">[\s\S]*?<\/div>/g, '');
+            
+            // 重新构建内容
+            let nodeContent = cleanDescription;
+            if (node.relatedSymptoms && node.relatedSymptoms.length > 0) {
+                nodeContent = `${nodeContent}
+                    <div class="related-symptoms">
+                        <div class="symptoms-label">相关症状:</div>
+                        <div class="symptoms-list">${node.relatedSymptoms.join(', ')}</div>
+                    </div>`;
+            }
+            
+            contentDiv.innerHTML = nodeContent;
+            
+            // 关键修复：确保传递的是nodes数组中的实际节点对象
+            const actualNode = nodes.find(n => n.id === node.id);
+            if (actualNode) {
+                ensureNodeEditability(nodeElement, actualNode);
+            } else {
+                // 作为后备，使用传入的node对象
+                ensureNodeEditability(nodeElement, node);
+            }
+        }
+        
+        // 确保节点具有编辑功能（防御性编程）
+        function ensureNodeEditability(nodeElement, node) {
+            // 移除旧的双击事件监听器（如果存在）
+            const existingHandler = nodeElement._editHandler;
+            if (existingHandler) {
+                nodeElement.removeEventListener('dblclick', existingHandler);
+            }
+            
+            // 创建新的事件处理函数 - 统一使用对话框编辑
+            const newHandler = function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                // 直接查找最新的节点数据
+                const currentNode = nodes.find(n => n.id === node.id) || node;
+                editNode(currentNode); // 使用统一的对话框编辑
+            };
+            
+            // 保存事件处理器引用以便后续移除
+            nodeElement._editHandler = newHandler;
+            
+            // 添加双击编辑功能
+            nodeElement.addEventListener('dblclick', newHandler);
+            
+            // 标记为已绑定编辑事件
+            nodeElement.setAttribute('data-editable', 'true');
+        }
+
+        // 更新节点拖拽后重绘连接线
+        function updateNodePosition(node) {
+            const element = document.getElementById(node.id);
+            if (element) {
+                element.style.left = `${node.x}px`;
+                element.style.top = `${node.y}px`;
+                
+                // 重绘连接线
+                setTimeout(drawConnections, 10);
+            }
+        }
+
+        // 切换节点内容显示状态
+        function toggleNodeContent(nodeId) {
+            const contentDiv = document.getElementById(`content_${nodeId}`);
+            const expandBtn = contentDiv.nextElementSibling;
+            
+            if (contentDiv.classList.contains('truncated')) {
+                // 展开内容
+                contentDiv.classList.remove('truncated');
+                if (expandBtn) expandBtn.innerHTML = '收起详情 ▲';
+            } else {
+                // 收起内容
+                contentDiv.classList.add('truncated');
+                if (expandBtn) expandBtn.innerHTML = '展开详情 ▼';
+            }
+        }
+        
+        // 删除节点
+        function deleteNodeById(nodeId) {
+            if (confirm('确定要删除这个节点吗？')) {
+                // 从数组中移除节点
+                nodes = nodes.filter(node => node.id !== nodeId);
+                
+                // 移除相关连接
+                connections = connections.filter(conn => 
+                    conn.from !== nodeId && conn.to !== nodeId
+                );
+                
+                // 从DOM中移除节点
+                const element = document.getElementById(nodeId);
+                if (element) {
+                    element.remove();
+                }
+                
+                // 如果删除的是选中节点，清除选择
+                if (selectedNode && selectedNode.id === nodeId) {
+                    selectedNode = null;
+                    hideSelectedNodeInfo();
+                }
+                
+                // 重绘连接线
+                drawConnections();
+                updateCanvas();
+                
+                showResult('成功', '✅ 节点已删除', 'success');
+            }
+        }
+        
+        // 添加分支节点（支持多分支诊断）
+        function addBranchNode(parentNode) {
+            const nodeType = getNextNodeType(parentNode.type);
+            const newNode = {
+                id: `branch_${nodeCounter++}`,
+                type: nodeType,
+                name: getDefaultNodeName(nodeType),
+                description: '',
+                x: parentNode.x + 200,
+                y: parentNode.y + 150
+            };
+            
+            nodes.push(newNode);
+            renderNode(newNode);
+            
+            // 创建连接
+            connections.push({
+                from: parentNode.id,
+                to: newNode.id
+            });
+            
+            drawConnections();
+            updateCanvas();
+            
+            // 自动选中新节点以便编辑
+            selectNode(newNode);
+            editNode(newNode);
+        }
+        
+        // 添加子节点（顺序流程）
+        function addChildNode(parentNode) {
+            const nodeType = getNextNodeType(parentNode.type);
+            const newNode = {
+                id: `child_${nodeCounter++}`,
+                type: nodeType,
+                name: getDefaultNodeName(nodeType),
+                description: '',
+                x: parentNode.x + 250,
+                y: parentNode.y
+            };
+            
+            nodes.push(newNode);
+            renderNode(newNode);
+            
+            // 创建连接
+            connections.push({
+                from: parentNode.id,
+                to: newNode.id
+            });
+            
+            drawConnections();
+            updateCanvas();
+            
+            // 自动选中新节点以便编辑
+            selectNode(newNode);
+            editNode(newNode);
+        }
+        
+        // 添加证候分型（支持多种证型）
+        function addSyndromeTypes(syndromeNode) {
+            const syndromeTypes = [
+                { name: '证型1', desc: '请编辑证型名称和描述' },
+                { name: '证型2', desc: '请编辑证型名称和描述' }
+            ];
+            
+            syndromeTypes.forEach((type, index) => {
+                const newNode = {
+                    id: `syndrome_type_${nodeCounter++}`,
+                    type: 'syndrome',
+                    name: type.name,
+                    description: type.desc,
+                    x: syndromeNode.x + 200,
+                    y: syndromeNode.y + (index - 0.5) * 120
+                };
+                
+                nodes.push(newNode);
+                renderNode(newNode);
+                
+                connections.push({
+                    from: syndromeNode.id,
+                    to: newNode.id
+                });
+            });
+            
+            drawConnections();
+            updateCanvas();
+            showResult('成功', '✅ 已添加证候分型模板，请编辑具体内容', 'success');
+        }
+        
+        // 编辑节点（美观增强版）
+        function editNode(node) {
+            // 创建遮罩层
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 9999;
+                backdrop-filter: blur(2px);
+                animation: fadeIn 0.2s ease-out;
+            `;
+            
+            // 创建编辑对话框
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 0;
+                border-radius: 12px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+                z-index: 10000;
+                width: 480px;
+                max-width: 90vw;
+                max-height: 80vh;
+                overflow: hidden;
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            // 添加动画样式
+            if (!document.querySelector('#edit-dialog-styles')) {
+                const style = document.createElement('style');
+                style.id = 'edit-dialog-styles';
+                style.textContent = `
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes slideIn {
+                        from { 
+                            opacity: 0;
+                            transform: translate(-50%, -60%);
+                            scale: 0.95;
+                        }
+                        to { 
+                            opacity: 1;
+                            transform: translate(-50%, -50%);
+                            scale: 1;
+                        }
+                    }
+                    .edit-input:focus {
+                        outline: none;
+                        border-color: #3b82f6;
+                        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+                    }
+                    .edit-btn {
+                        transition: all 0.2s ease;
+                    }
+                    .edit-btn:hover {
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            // 获取节点类型图标
+            const typeIcons = {
+                'disease': '🔬',
+                'four_diagnosis': '👁',
+                'symptom': '📋',
+                'pathogenesis': '⚡',
+                'syndrome': '🎯',
+                'principle': '📏',
+                'prescription': '📝',
+                'modification': '🔄',
+                'prognosis': '💚'
+            };
+            
+            dialog.innerHTML = `
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">
+                        ${typeIcons[node.type] || '📄'}
+                    </div>
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 600;">编辑节点信息</h3>
+                    <p style="margin: 5px 0 0; opacity: 0.9; font-size: 14px;">双击或右键编辑节点内容</p>
+                </div>
+                
+                <div style="padding: 24px;">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            🏷️ 节点名称
+                        </label>
+                        <input type="text" id="editNodeName" value="${node.name}" 
+                               class="edit-input"
+                               style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; transition: all 0.2s ease;"
+                               placeholder="请输入节点名称">
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            🎯 节点类型
+                        </label>
+                        <select id="editNodeType" 
+                                class="edit-input"
+                                style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; background: white; transition: all 0.2s ease;">
+                            <option value="disease" ${node.type === 'disease' ? 'selected' : ''}>🔬 病种识别</option>
+                            <option value="four_diagnosis" ${node.type === 'four_diagnosis' ? 'selected' : ''}>👁 四诊信息</option>
+                            <option value="symptom" ${node.type === 'symptom' ? 'selected' : ''}>📋 主要症状</option>
+                            <option value="pathogenesis" ${node.type === 'pathogenesis' ? 'selected' : ''}>⚡ 病因病机</option>
+                            <option value="syndrome" ${node.type === 'syndrome' ? 'selected' : ''}>🎯 证候判断</option>
+                            <option value="principle" ${node.type === 'principle' ? 'selected' : ''}>📏 治则治法</option>
+                            <option value="prescription" ${node.type === 'prescription' ? 'selected' : ''}>📝 方剂处方</option>
+                            <option value="modification" ${node.type === 'modification' ? 'selected' : ''}>🔄 随症加减</option>
+                            <option value="prognosis" ${node.type === 'prognosis' ? 'selected' : ''}>💚 预后调理</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 24px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            📝 详细描述
+                        </label>
+                        <textarea id="editNodeDesc" 
+                                  class="edit-input"
+                                  style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; min-height: 100px; font-size: 14px; line-height: 1.5; resize: vertical; transition: all 0.2s ease; font-family: inherit;"
+                                  placeholder="请输入详细的节点描述信息...">${node.description || ''}</textarea>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button id="cancelEdit" 
+                                class="edit-btn"
+                                style="padding: 12px 24px; border: 2px solid #e5e7eb; background: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: #6b7280;">
+                            ✖️ 取消
+                        </button>
+                        <button id="saveNodeEdit" 
+                                class="edit-btn"
+                                style="padding: 12px 24px; border: none; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);">
+                            ✅ 保存更改
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // 添加遮罩层和对话框到页面
+            document.body.appendChild(overlay);
+            document.body.appendChild(dialog);
+            
+            // 关闭对话框的函数
+            function closeDialog() {
+                dialog.style.animation = 'slideOut 0.2s ease-in forwards';
+                overlay.style.animation = 'fadeOut 0.2s ease-in forwards';
+                
+                setTimeout(() => {
+                    if (overlay.parentNode) overlay.remove();
+                    if (dialog.parentNode) dialog.remove();
+                }, 200);
+            }
+            
+            // 添加关闭动画样式
+            const exitAnimations = `
+                @keyframes slideOut {
+                    to { 
+                        opacity: 0;
+                        transform: translate(-50%, -60%);
+                        scale: 0.95;
+                    }
+                }
+                @keyframes fadeOut {
+                    to { opacity: 0; }
+                }
+            `;
+            document.querySelector('#edit-dialog-styles').textContent += exitAnimations;
+            
+            // 取消编辑
+            document.getElementById('cancelEdit').onclick = closeDialog;
+            
+            // 点击遮罩层关闭
+            overlay.onclick = closeDialog;
+            
+            // ESC键关闭
+            const escapeHandler = function(e) {
+                if (e.key === 'Escape') {
+                    closeDialog();
+                    document.removeEventListener('keydown', escapeHandler);
+                }
+            };
+            document.addEventListener('keydown', escapeHandler);
+            
+            // 保存编辑
+            document.getElementById('saveNodeEdit').onclick = function() {
+                const nameInput = document.getElementById('editNodeName');
+                const typeSelect = document.getElementById('editNodeType');
+                const descTextarea = document.getElementById('editNodeDesc');
+                
+                // 验证输入
+                if (!nameInput.value.trim()) {
+                    nameInput.focus();
+                    nameInput.style.borderColor = '#ef4444';
+                    setTimeout(() => nameInput.style.borderColor = '#e5e7eb', 2000);
+                    return;
+                }
+                
+                // 更新节点数据
+                node.name = nameInput.value.trim();
+                node.type = typeSelect.value;
+                node.description = descTextarea.value.trim();
+                
+                // 更新显示
+                const nodeElement = document.getElementById(node.id);
+                nodeElement.className = `node ${node.type}`;
+                updateNodeDisplay(node);
+                
+                closeDialog();
+                showResult('成功', '✅ 节点信息已更新', 'success');
+                
+                // 移除ESC监听器
+                document.removeEventListener('keydown', escapeHandler);
+            };
+            
+            // 自动聚焦到名称输入框
+            setTimeout(() => {
+                document.getElementById('editNodeName').focus();
+                document.getElementById('editNodeName').select();
+            }, 100);
+        }
+        
+        // 获取下一个节点的默认类型
+        function getNextNodeType(currentType) {
+            const typeFlow = {
+                'disease': 'four_diagnosis',
+                'four_diagnosis': 'symptom',
+                'symptom': 'pathogenesis',
+                'pathogenesis': 'syndrome',
+                'syndrome': 'principle',
+                'principle': 'prescription',
+                'prescription': 'modification',
+                'modification': 'prognosis'
+            };
+            return typeFlow[currentType] || 'symptom';
+        }
+        
+        // 获取节点默认名称
+        function getDefaultNodeName(nodeType) {
+            const defaultNames = {
+                'disease': '病种名称',
+                'four_diagnosis': '四诊信息',
+                'symptom': '主要症状',
+                'pathogenesis': '病因病机',
+                'syndrome': '证候类型',
+                'principle': '治则治法',
+                'prescription': '方剂名称',
+                'modification': '加减方案',
+                'prognosis': '预后建议'
+            };
+            return defaultNames[nodeType] || '新节点';
+        }
+
+        // 显示右键菜单
+        function showContextMenu(e, node) {
+            hideContextMenu();
+            
+            const menu = document.createElement('div');
+            menu.className = 'context-menu';
+            menu.id = 'contextMenu';
+            menu.style.left = `${e.clientX}px`;
+            menu.style.top = `${e.clientY}px`;
+            
+            const menuItems = [
+                { text: '🔍 分析此节点', action: () => analyzeSelectedNode(node) },
+                { text: '📝 编辑节点', action: () => editNode(node) },
+                { text: '➕ 添加子节点', action: () => addChildNode(node) },
+                { text: '🌿 添加分支', action: () => addBranchNode(node) }
+            ];
+            
+            if (node.type === 'prescription') {
+                menuItems.push({ text: '💊 AI方剂分析', action: () => analyzeFormulaNode(node) });
+            }
+            
+            if (node.type === 'syndrome') {
+                menuItems.push({ text: '📋 添加证候分型', action: () => addSyndromeTypes(node) });
+            }
+            
+            menuItems.push({ text: '🗑️ 删除节点', action: () => deleteNodeById(node.id), danger: true });
+            
+            menuItems.forEach(item => {
+                const menuItem = document.createElement('div');
+                menuItem.className = `context-menu-item ${item.danger ? 'danger' : ''}`;
+                menuItem.innerHTML = item.text;
+                menuItem.onclick = () => {
+                    item.action();
+                    hideContextMenu();
+                };
+                menu.appendChild(menuItem);
+            });
+            
+            document.body.appendChild(menu);
+        }
+
+        // 隐藏右键菜单
+        function hideContextMenu() {
+            const menu = document.getElementById('contextMenu');
+            if (menu) {
+                console.log('Removing context menu');
+                menu.remove();
+            } else {
+                console.log('No context menu to remove');
+            }
+        }
+
+        // 症状遗漏检测
+        async function detectMissingSymptoms() {
+            console.log('症状遗漏检测被调用');
+            
+            // 直接使用getCurrentDiseaseName()，不声明局部变量
+            if (!getCurrentDiseaseName()) {
+                alert('请先输入疾病名称');
+                return;
+            }
+
+            // 收集现有症状节点
+            const symptomNodes = nodes.filter(node => node.type === 'symptom');
+            const existingSymptoms = symptomNodes.map(node => node.name);
+            
+            showLoading('正在检测症状遗漏...');
+
+            try {
+                // 使用现有的API，但专注于症状检测
+                const response = await fetch('/api/detect_missing_logic', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        disease_name: getCurrentDiseaseName(),
+                        current_paths: [],
+                        existing_nodes: nodes.filter(node => node.type === 'symptom')
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    hideLoading();
+                    showSymptomDetectionResult(data.data, existingSymptoms);
+                } else {
+                    throw new Error(data.message || '检测失败');
+                }
+            } catch (error) {
+                console.error('症状遗漏检测失败:', error);
+                hideLoading();
+                showResult('错误', `❌ 检测失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 显示症状检测结果
+        function showSymptomDetectionResult(data, existingSymptoms) {
+            clearResults();
+            
+            const resultsDiv = document.getElementById('analysisResults');
+            
+            // 生成常见症状建议
+            // 直接使用getCurrentDiseaseName()，不声明局部变量
+            const commonSymptoms = getCommonSymptomsForDisease(getCurrentDiseaseName());
+            const missingSymptoms = commonSymptoms.filter(symptom => 
+                !existingSymptoms.some(existing => existing.includes(symptom))
+            );
+            
+            let html = '<div class="result-title">🔍 症状遗漏检测结果</div>';
+            
+            if (missingSymptoms.length > 0) {
+                html += '<div style="margin: 15px 0;"><strong>建议补充的症状:</strong><br>';
+                missingSymptoms.forEach(symptom => {
+                    html += `
+                        <div class="suggestion-item" onclick="addSuggestionToTree('symptom', '${symptom}', '${getCurrentDiseaseName()}的常见症状')">
+                            <div class="suggestion-content">${symptom}</div>
+                            <div class="suggestion-desc">${getCurrentDiseaseName()}的常见症状表现</div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            } else {
+                html += '<div style="color: #22c55e;">✅ 症状覆盖较为完整</div>';
+            }
+            
+            // 添加现有症状分析
+            if (existingSymptoms.length > 0) {
+                html += '<div style="margin: 15px 0;"><strong>现有症状:</strong><br>';
+                html += `<div style="font-size: 12px; color: #6b7280;">${existingSymptoms.join('、')}</div></div>`;
+            }
+            
+            const resultElement = document.createElement('div');
+            resultElement.className = 'result-panel';
+            resultElement.innerHTML = html;
+            
+            resultsDiv.appendChild(resultElement);
+        }
+
+        // 获取疾病常见症状
+        function getCommonSymptomsForDisease(diseaseName) {
+            const symptomDatabase = {
+                '失眠': ['难以入睡', '早醒', '多梦', '睡眠浅', '心烦', '健忘', '头晕', '疲乏'],
+                '胃痛': ['胃脘疼痛', '胃胀', '反酸', '嗳气', '恶心', '食欲不振', '腹胀', '便秘'],
+                '头痛': ['头部疼痛', '眩晕', '恶心呕吐', '畏光', '颈项强直', '耳鸣', '视物模糊'],
+                '咳嗽': ['干咳', '咳痰', '气短', '胸闷', '咽痒', '声嘶', '发热', '乏力'],
+                '腹泻': ['大便稀溏', '腹痛', '腹胀', '肠鸣', '里急后重', '发热', '恶心', '食欲减退']
+            };
+            
+            return symptomDatabase[diseaseName] || ['相关症状1', '相关症状2', '相关症状3'];
+        }
+
+
+            // 直接使用getCurrentDiseaseName()，不声明局部变量
+            if (!getCurrentDiseaseName()) {
+                alert('请先输入疾病名称');
+                return;
+            }
+
+            showLoading('正在进行AI方剂分析...');
+
+            try {
+                const response = await fetch('/api/analyze_formula_composition', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        disease_name: getCurrentDiseaseName(),
+                        formulas: formulaNodes.map(node => ({
+                            name: node.name,
+                            description: node.description
+                        })),
+                        patient_symptoms: nodes.filter(n => n.type === 'symptom').map(n => n.name)
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    hideLoading();
+                    showFormulaAnalysisResult(data.data || {});
+                } else {
+                    // 如果API不存在，使用本地分析
+                    hideLoading();
+                    showLocalFormulaAnalysis(formulaNodes, getCurrentDiseaseName());
+                }
+            } catch (error) {
+                console.error('方剂分析失败:', error);
+                hideLoading();
+                // 使用本地分析作为后备
+                showLocalFormulaAnalysis(formulaNodes, getCurrentDiseaseName());
+            }
+        }
+
+        // 本地方剂分析
+            
+            const resultElement = document.createElement('div');
+            resultElement.className = 'result-panel';
+            resultElement.innerHTML = html;
+            
+            resultsDiv.appendChild(resultElement);
+        }
+
+        // 动态方剂分析 - 不使用硬编码数据库
+            
+            // 检查是否是从用户诊疗思路中提取的方剂
+            const thinkingProcess = document.getElementById('doctorThought')?.value || '';
+            
+            if (!thinkingProcess.includes(formulaName)) {
+                // 如果诊疗思路中没有这个方剂，说明是系统错误生成的
+                console.warn(`⚠️ 方剂"${formulaName}"未在用户诊疗思路中找到，可能是硬编码生成`);
+                return {
+                    herbs: [],
+                    effects: `⚠️ 方剂"${formulaName}"不在用户提供的诊疗思路中`,
+                    modifications: '请重新生成或手动输入正确的处方',
+                    error: 'NOT_FROM_USER_INPUT'
+                };
+            }
+            
+            // 如果是用户输入的方剂，返回基本分析框架
+            return {
+                herbs: [
+                    { name: '需要AI分析', dosage: '-' },
+                    { name: '具体药材组成', dosage: '-' },
+                    { name: '请查看诊疗思路', dosage: '-' }
+                ],
+                effects: `根据用户诊疗思路中的${formulaName}方剂治疗${diseaseName}`,
+                modifications: '请参考用户诊疗思路中的具体用药说明'
+            };
+        }
+
+        // 显示方剂分析结果
+            `;
+            
+            resultsDiv.appendChild(resultElement);
+        }
+
+        // 分析选中节点
+        function analyzeSelectedNode(node) {
+            if (node.type === 'formula') {
+                analyzeFormulaNode(node);
+            } else {
+                showResult('提示', `正在分析${getNodeTypeText(node.type)}节点: ${node.name}`, 'info');
+            }
+        }
+
+        // 分析方剂节点
+        function analyzeFormulaNode(node) {
+            const analysis = analyzeFormulaLocally(node.name, getCurrentDiseaseName());
+            
+            clearResults();
+            const resultsDiv = document.getElementById('analysisResults');
+            
+            const resultElement = document.createElement('div');
+            resultElement.className = 'result-panel';
+            resultElement.innerHTML = `
+                <div class="result-title">💊 ${node.name} 详细分析</div>
+                <div class="formula-analysis-panel">
+                    <div style="margin-bottom: 10px;">
+                        <strong>药材组成:</strong><br>
+                        <div style="font-size: 12px; margin-top: 5px;">
+                            ${analysis.herbs.map(herb => `${herb.name} ${herb.dosage}`).join('、')}
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <strong>功效主治:</strong><br>
+                        <div style="font-size: 12px; color: #6b7280;">${analysis.effects}</div>
+                    </div>
+                    <div>
+                        <strong>加减化裁:</strong><br>
+                        <div style="font-size: 12px; color: #059669;">${analysis.modifications}</div>
+                    </div>
+                </div>
+            `;
+            
+            resultsDiv.appendChild(resultElement);
+        }
+
+
+        // 添加子节点
+        function addChildNode(parentNode) {
+            const nodeType = prompt('请输入节点类型 (symptom/condition/diagnosis/treatment/formula):', 'condition');
+            if (!nodeType) return;
+            
+            const nodeName = prompt('请输入节点名称:', '新节点');
+            if (!nodeName) return;
+            
+            const newNode = {
+                id: `child_${nodeCounter++}`,
+                type: nodeType,
+                name: nodeName,
+                description: `${parentNode.name}的相关节点`,
+                x: parentNode.x + 250,
+                y: parentNode.y + (Math.random() - 0.5) * 100
+            };
+            
+            nodes.push(newNode);
+            renderNode(newNode);
+            
+            connections.push({
+                from: parentNode.id,
+                to: newNode.id
+            });
+            
+            drawConnections();
+            showResult('成功', `✅ 已添加子节点"${nodeName}"`, 'success');
+        }
+
+        // 添加药材到方剂节点
+        function addHerbToFormula(formulaNodeId, herbName, dosage) {
+            const formulaNode = nodes.find(node => node.id === formulaNodeId);
+            if (!formulaNode) {
+                showResult('错误', '找不到方剂节点', 'error');
+                return;
+            }
+            
+            // 初始化 herbs 数组
+            if (!formulaNode.herbs) {
+                formulaNode.herbs = [];
+            }
+            
+            // 检查是否已存在该药材
+            const existingHerb = formulaNode.herbs.find(h => h.name === herbName);
+            if (existingHerb) {
+                existingHerb.dosage = dosage;
+                showResult('成功', `✅ 已更新 ${herbName} 用量为 ${dosage}`, 'success');
+            } else {
+                formulaNode.herbs.push({ name: herbName, dosage: dosage });
+                showResult('成功', `✅ 已添加 ${herbName} ${dosage} 到方剂`, 'success');
+            }
+            
+            // 更新节点显示
+            updateFormulaNodeDisplay(formulaNode);
+        }
+
+        // 应用完整方剂到节点
+        function applyFullFormulaToNode(formulaNodeId, herbsJsonStr) {
+            const formulaNode = nodes.find(node => node.id === formulaNodeId);
+            if (!formulaNode) {
+                showResult('错误', '找不到方剂节点', 'error');
+                return;
+            }
+            
+            try {
+                const herbs = JSON.parse(herbsJsonStr.replace(/&quot;/g, '"'));
+                formulaNode.herbs = herbs;
+                
+                updateFormulaNodeDisplay(formulaNode);
+                showResult('成功', `✅ 已应用完整方剂到 ${formulaNode.name}，包含 ${herbs.length} 味药材`, 'success');
+            } catch (error) {
+                showResult('错误', '方剂数据解析失败', 'error');
+            }
+        }
+
+        // 更新方剂节点显示
+        function updateFormulaNodeDisplay(formulaNode) {
+            const element = document.getElementById(formulaNode.id);
+            if (!element) return;
+            
+            const contentDiv = element.querySelector('.node-content');
+            if (contentDiv && formulaNode.herbs && formulaNode.herbs.length > 0) {
+                const herbsList = formulaNode.herbs.map(h => `${h.name} ${h.dosage}`).join('、');
+                contentDiv.innerHTML = `${formulaNode.description || ''}<br><small style="color: #059669;">药材: ${herbsList}</small>`;
+            }
+        }
+
+        // 增强的证型智能识别
+        async function analyzeSyndrome() {
+            console.log('证型智能识别被调用');
+            
+            // 直接使用getCurrentDiseaseName()，不声明局部变量
+            if (!getCurrentDiseaseName()) {
+                alert('请先输入疾病名称');
+                return;
+            }
+            
+            // 收集所有症状（从节点和症状群）
+            const symptomNodes = nodes.filter(node => node.type === 'symptom');
+            const allSymptoms = symptomNodes.map(n => n.name);
+            
+            // 即使没有症状也进行分析（使用疾病名称）
+            const symptomsForAnalysis = allSymptoms.length > 0 ? allSymptoms : [getCurrentDiseaseName()];
+
+            // 直接使用getCurrentDiseaseName()，不声明局部变量
+            if (!getCurrentDiseaseName()) {
+                alert('请先输入疾病名称');
+                return;
+            }
+
+            showLoading('正在进行证型智能识别...');
+
+            try {
+                    const syndromeAnalysis = analyzeSyndromeLocally(getCurrentDiseaseName(), symptomsForAnalysis || []);
+                
+                hideLoading();
+                showSyndromeAnalysisResult(syndromeAnalysis);
+                
+            } catch (error) {
+                console.error('证型识别失败:', error);
+                hideLoading();
+                showResult('错误', `❌ 识别失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 动态证型分析 - 移除硬编码方剂
+        function analyzeSyndromeLocally(diseaseName, symptoms) {
+            // 🚨 移除硬编码方剂，改为动态分析
+            console.log(`📋 动态证型分析: ${diseaseName}, 症状: ${symptoms}`);
+            
+            const syndromeDatabase = {
+                '失眠': {
+                    '心火旺盛证': {
+                        keywords: ['心烦', '多梦', '口干', '舌红', '苔黄', '失眠', '难以入睡'],
+                        description: '心火亢盛，扰乱神明',
+                        treatment: '清心火，安神志',
+                        weight: 0.8
+                    },
+                    '心脾两虚证': {
+                        keywords: ['健忘', '心悸', '面色萎黄', '舌淡', '脉弱', '失眠', '疲乏', '食欲不振'],
+                        description: '心脾气血不足，神失所养',
+                        treatment: '补益心脾，养血安神',
+                        weight: 0.7
+                    },
+                    '肝郁化火证': {
+                        keywords: ['易怒', '胸胁胀满', '口苦', '脉弦', '失眠', '烦躁', '头痛'],
+                        description: '肝郁化火，上扰神明',
+                        treatment: '疏肝解郁，清热安神',
+                        weight: 0.8
+                    },
+                    '阴虚火旺证': {
+                        keywords: ['失眠', '早醒', '五心烦热', '盗汗', '口干', '舌红少苔'],
+                        description: '肾阴不足，虚火上炎',
+                        treatment: '滋阴降火，养心安神',
+                        weight: 0.7
+                    }
+                },
+                '胃痛': {
+                    '脾胃虚寒证': {
+                        keywords: ['喜温喜按', '面色萎白', '舌淡苔白', '脉细弱', '胃痛', '胃胀'],
+                        description: '脾胃阳气不足，失于温煦',
+                        treatment: '温中散寒，补气健脾',
+                        weight: 0.8
+                    },
+                    '肝气犯胃证': {
+                        keywords: ['胀痛拒按', '嗳气', '情志不遂', '脉弦', '胃痛', '反酸'],
+                        description: '肝气郁结，横逆犯胃',
+                        treatment: '疏肝理气，和胃止痛',
+                        weight: 0.7
+                    }
+                },
+                // 通用症状匹配（降低阈值）
+                '通用': {
+                    '气血不足证': {
+                        keywords: ['疲乏', '乏力', '面色萎黄', '头晕', '心悸'],
+                        description: '气血亏虚，脏腑失养',
+                        treatment: '益气养血',
+                        weight: 0.4
+                    },
+                    '痰湿内阻证': {
+                        keywords: ['胸闷', '恶心', '食欲不振', '舌苔厚腻', '头重'],
+                        description: '痰湿内生，阻滞气机',
+                        treatment: '化痰除湿，理气和中',
+                        weight: 0.4
+                    }
+                }
+            };
+
+            const diseaseSymptoms = syndromeDatabase[diseaseName] || {};
+            const matchedSyndromes = [];
+
+            // 检查疾病特定证型
+            Object.keys(diseaseSymptoms).forEach(syndromeName => {
+                const syndrome = diseaseSymptoms[syndromeName];
+                const matchCount = syndrome.keywords.filter(keyword => 
+                    symptoms.some(symptom => symptom.includes(keyword) || keyword.includes(symptom))
+                ).length;
+                
+                const baseMatchRate = matchCount / syndrome.keywords.length;
+                const weightedMatchRate = baseMatchRate * (syndrome.weight || 0.5);
+                
+                // 降低匹配阈值到15%，让更多证型能被识别
+                if (weightedMatchRate > 0.15) {
+                    // 🚨 移除硬编码方剂字段
+                    const { formula, ...syndromeWithoutFormula } = syndrome;
+                    matchedSyndromes.push({
+                        name: syndromeName,
+                        matchRate: weightedMatchRate,
+                        confidence: Math.min(weightedMatchRate * 1.5, 1.0),
+                        ...syndromeWithoutFormula,
+                        // 🔄 从用户诊疗思路中提取实际方剂
+                        recommendedFormula: extractFormulaFromThinking(syndromeName)
+                    });
+                }
+            });
+            
+            // 检查通用证型（当疾病特定证型匹配度低时）
+            if (matchedSyndromes.length === 0 && syndromeDatabase['通用']) {
+                Object.keys(syndromeDatabase['通用']).forEach(syndromeName => {
+                    const syndrome = syndromeDatabase['通用'][syndromeName];
+                    const matchCount = syndrome.keywords.filter(keyword => 
+                        symptoms.some(symptom => symptom.includes(keyword) || keyword.includes(symptom))
+                    ).length;
+                    
+                    const matchRate = matchCount / syndrome.keywords.length;
+                    
+                    if (matchRate > 0.2) { // 通用证型阈值稍高
+                        // 🚨 移除硬编码方剂字段
+                        const { formula, ...syndromeWithoutFormula } = syndrome;
+                        matchedSyndromes.push({
+                            name: syndromeName,
+                            matchRate: matchRate,
+                            confidence: matchRate * 0.8, // 通用证型置信度稍低
+                            isGeneric: true,
+                            ...syndromeWithoutFormula,
+                            // 🔄 从用户诊疗思路中提取实际方剂
+                            recommendedFormula: extractFormulaFromThinking(syndromeName)
+                        });
+                    }
+                });
+            }
+
+            // 按匹配度排序
+            matchedSyndromes.sort((a, b) => b.matchRate - a.matchRate);
+
+            return {
+                matchedSyndromes,
+                recommendation: matchedSyndromes.length > 0 ? matchedSyndromes[0] : null
+            };
+        }
+
+        // 🔄 从用户诊疗思路中提取方剂的辅助函数
+        function extractFormulaFromThinking(syndromeName) {
+            const thinkingProcess = document.getElementById('doctorThought')?.value || '';
+            
+            if (!thinkingProcess) {
+                return '请在诊疗思路中明确方剂选择';
+            }
+            
+            // 简单的方剂提取模式
+            const formulaPatterns = [
+                /方[药剂]?[:：]\s*([^。,，\n]+)/g,
+                /选[用药方]?[:：]\s*([^。,，\n]+)/g,
+                /治疗?[:：]\s*([^。,，\n]*[汤散丸方][^。,，\n]*)/g,
+                /([^。,，\s]*[汤散丸方][^。,，\s]*)/g
+            ];
+            
+            const extractedFormulas = [];
+            for (const pattern of formulaPatterns) {
+                const matches = thinkingProcess.matchAll(pattern);
+                for (const match of matches) {
+                    if (match[1] && match[1].trim()) {
+                        extractedFormulas.push(match[1].trim());
+                    }
+                }
+            }
+            
+            if (extractedFormulas.length > 0) {
+                return extractedFormulas[0]; // 返回第一个找到的方剂
+            }
+            
+            return `需要根据${syndromeName}选择相应方剂`;
+        }
+
+        // 显示证型分析结果
+        function showSyndromeAnalysisResult(analysis) {
+            clearResults();
+            
+            const resultsDiv = document.getElementById('analysisResults');
+            
+            let html = '<div class="result-title">🎯 证型智能识别结果</div>';
+            
+            if (analysis.recommendation) {
+                html += `
+                    <div class="auto-analysis-panel">
+                        <div style="font-weight: 600; margin-bottom: 10px; color: #d97706;">
+                            🏆 推荐证型: ${analysis.recommendation.name} 
+                            <span style="font-size: 12px; color: #6b7280;">(匹配度: ${Math.round(analysis.recommendation.matchRate * 100)}%)</span>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <strong>病机:</strong> ${analysis.recommendation.description}
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <strong>治法:</strong> ${analysis.recommendation.treatment}
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <strong>推荐方剂:</strong> ${analysis.recommendation.formula}
+                        </div>
+                        <button class="add-pathway-btn" onclick="addSyndromeToTree('${analysis.recommendation.name}', '${analysis.recommendation.description}')">
+                            ➕ 添加证型到决策树
+                        </button>
+                        <button class="add-pathway-btn" onclick="addTreatmentToTree('${analysis.recommendation.treatment}', '${analysis.recommendation.formula}')">
+                            ➕ 添加治疗方案
+                        </button>
+                    </div>
+                `;
+            }
+
+            if (analysis.matchedSyndromes.length > 1) {
+                html += '<div style="margin-top: 15px;"><strong>其他可能证型:</strong><br>';
+                analysis.matchedSyndromes.slice(1, 3).forEach(syndrome => {
+                    html += `
+                        <div class="suggestion-item" onclick="addSyndromeToTree('${syndrome.name}', '${syndrome.description}')">
+                            <div class="suggestion-content">${syndrome.name}</div>
+                            <div class="suggestion-desc">匹配度: ${Math.round(syndrome.matchRate * 100)}% - ${syndrome.description}</div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+
+            if (analysis.matchedSyndromes.length === 0) {
+                // 提供更多帮助信息
+                // 直接使用getCurrentDiseaseName()，不声明局部变量
+                html += `
+                    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; color: #92400e;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">⚠️ 证型识别建议</div>
+                        <div style="font-size: 12px; margin-bottom: 8px;">
+                            当前${diseaseName}的症状信息不足，建议补充以下信息：
+                        </div>
+                        <div style="font-size: 11px; line-height: 1.4;">
+                            • 详细描述症状特点（如痛痛性质、发作时间）<br>
+                            • 添加伴随症状（如睡眠、饮食、大小便）<br>
+                            • 提供舌象脉象信息<br>
+                            • 记录情志因素和起病原因
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button onclick="showSymptomGuidance('${diseaseName}')" style="
+                                background: #f59e0b; color: white; border: none; border-radius: 6px; 
+                                padding: 6px 12px; font-size: 11px; cursor: pointer;
+                            ">
+                                📝 获取症状指导
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            const resultElement = document.createElement('div');
+            resultElement.className = 'result-panel';
+            resultElement.innerHTML = html;
+            
+            resultsDiv.appendChild(resultElement);
+        }
+
+        // 添加证型到决策树
+        function addSyndromeToTree(syndromeName, description) {
+            if (!selectedNode) {
+                // 自动选择最后一个condition节点或创建新位置
+                const conditionNodes = nodes.filter(n => n.type === 'condition');
+                if (conditionNodes.length > 0) {
+                    selectedNode = conditionNodes[conditionNodes.length - 1];
+                } else {
+                    showResult('提示', '请先选择一个节点作为添加位置', 'info');
+                    return;
+                }
+            }
+
+            const newNode = {
+                id: `syndrome_${nodeCounter++}`,
+                type: 'diagnosis',
+                name: syndromeName,
+                description: description,
+                x: selectedNode.x + 250,
+                y: selectedNode.y
+            };
+            
+            nodes.push(newNode);
+            renderNode(newNode);
+            
+            connections.push({
+                from: selectedNode.id,
+                to: newNode.id
+            });
+            
+            drawConnections();
+            showResult('成功', `✅ 已添加证型"${syndromeName}"到决策树`, 'success');
+        }
+
+        // 添加治疗方案到决策树
+        function addTreatmentToTree(treatmentMethod, formulaName) {
+            const diagnosisNodes = nodes.filter(n => n.type === 'diagnosis');
+            if (diagnosisNodes.length === 0) {
+                showResult('提示', '请先添加诊断节点', 'info');
+                return;
+            }
+
+            const lastDiagnosisNode = diagnosisNodes[diagnosisNodes.length - 1];
+            
+            // 添加治疗节点
+            const treatmentNode = {
+                id: `treatment_${nodeCounter++}`,
+                type: 'treatment',
+                name: '治疗方案',
+                description: treatmentMethod,
+                x: lastDiagnosisNode.x + 250,
+                y: lastDiagnosisNode.y
+            };
+            
+            nodes.push(treatmentNode);
+            renderNode(treatmentNode);
+            
+            connections.push({
+                from: lastDiagnosisNode.id,
+                to: treatmentNode.id
+            });
+
+            // 添加方剂节点
+            const formulaNode = {
+                id: `formula_${nodeCounter++}`,
+                type: 'formula',
+                name: formulaName,
+                description: '推荐方剂',
+                x: treatmentNode.x + 250,
+                y: treatmentNode.y
+            };
+            
+            nodes.push(formulaNode);
+            renderNode(formulaNode);
+            
+            connections.push({
+                from: treatmentNode.id,
+                to: formulaNode.id
+            });
+            
+            drawConnections();
+            showResult('成功', `✅ 已添加治疗方案和方剂到决策树`, 'success');
+        }
+
+        // 生成基础诊疗路径（无症状时）
+        function generateBasicPathway(diseaseName) {
+            const basicSteps = [
+                {
+                    type: 'inquiry',
+                    title: '问诊采集',
+                    content: `详细了解${diseaseName}相关症状`,
+                    action: 'collect_symptoms'
+                },
+                {
+                    type: 'examination',
+                    title: '体格检查',
+                    content: '望闻问切四诊合参',
+                    action: 'physical_exam'
+                },
+                {
+                    type: 'analysis',
+                    title: '辨证分析',
+                    content: `根据症状特点进行${diseaseName}的证型判断`,
+                    action: 'syndrome_analysis'
+                },
+                {
+                    type: 'treatment',
+                    title: '治疗方案',
+                    content: '制定针对性的中医治疗方案',
+                    action: 'treatment_plan'
+                }
+            ];
+            
+            return {
+                pathway: basicSteps,
+                message: `为${diseaseName}生成的基础诊疗路径`
+            };
+        }
+        
+        // 生成通用诊疗路径（有症状但无明确证型）
+        function generateGenericPathway(diseaseName, symptoms) {
+            const genericSteps = [
+                {
+                    type: 'analysis',
+                    title: '症状分析',
+                    content: `当前症状: ${symptoms.join('、')}，需进一步分析辨证`,
+                    action: 'symptom_analysis'
+                },
+                {
+                    type: 'differential',
+                    title: '鉴别诊断',
+                    content: `排除${diseaseName}的其他可能证型`,
+                    action: 'differential_diagnosis'
+                },
+                {
+                    type: 'supplementary',
+                    title: '补充检查',
+                    content: '完善四诊信息，明确证型',
+                    action: 'supplementary_exam'
+                },
+                {
+                    type: 'treatment',
+                    title: '分型治疗',
+                    content: '根据最终证型选择合适治法',
+                    action: 'targeted_treatment'
+                }
+            ];
+            
+            return {
+                pathway: genericSteps,
+                syndrome: null,
+                message: `基于现有症状生成的${diseaseName}通用诊疗路径`
+            };
+        }
+        
+        // 增强的智能诊疗路径生成
+        async function generateAutoPathway() {
+            console.log('智能诊疗路径被调用');
+            
+            // 直接使用getCurrentDiseaseName()，不声明局部变量
+            if (!getCurrentDiseaseName()) {
+                alert('请先输入疾病名称');
+                return;
+            }
+            
+            showLoading('正在生成智能诊疗路径...');
+
+            try {
+                // 收集症状（从节点和症状群）
+                const symptomNodes = nodes.filter(node => node.type === 'symptom');
+                const allSymptoms = symptomNodes.map(n => n.name);
+                
+                // 基于现有症状生成完整路径
+                const pathwayData = generatePathwayFromSymptoms(diseaseName, allSymptoms || []);
+                
+                hideLoading();
+                showPathwayGenerationResult(pathwayData);
+                
+            } catch (error) {
+                console.error('路径生成失败:', error);
+                hideLoading();
+                showResult('错误', `❌ 生成失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 增强的诊疗路径生成
+        function generatePathwayFromSymptoms(diseaseName, symptoms) {
+            // 先进行证型分析
+            const syndromeAnalysis = analyzeSyndromeLocally(diseaseName, symptoms);
+            const recommendedSyndrome = syndromeAnalysis.recommendation;
+            
+            // 降低阈值，即使没有明确证型也生成基础路径
+            if (!recommendedSyndrome && symptoms.length === 0) {
+                // 完全没有症状时的默认路径
+                return generateBasicPathway(diseaseName);
+            }
+            
+            if (!recommendedSyndrome && symptoms.length > 0) {
+                // 有症状但没有匹配证型时的通用路径
+                return generateGenericPathway(diseaseName, symptoms);
+            }
+
+            // 生成完整路径步骤
+            const pathway = [
+                {
+                    type: 'analysis',
+                    title: '症状分析',
+                    content: `当前症状: ${symptoms.join('、')}`,
+                    action: 'review_symptoms'
+                },
+                {
+                    type: 'syndrome',
+                    title: '证型诊断',
+                    content: `${recommendedSyndrome.name} (匹配度: ${Math.round(recommendedSyndrome.matchRate * 100)}%)`,
+                    description: recommendedSyndrome.description,
+                    action: 'add_syndrome'
+                },
+                {
+                    type: 'treatment',
+                    title: '治疗原则',
+                    content: recommendedSyndrome.treatment,
+                    action: 'add_treatment'
+                },
+                {
+                    type: 'formula',
+                    title: '方药选择',
+                    content: recommendedSyndrome.formula,
+                    action: 'add_formula'
+                }
+            ];
+
+            return {
+                pathway: pathway,
+                syndrome: recommendedSyndrome,
+                message: '基于现有症状生成的智能诊疗路径'
+            };
+        }
+
+        // 显示路径生成结果
+        function showPathwayGenerationResult(pathwayData) {
+            clearResults();
+            
+            const resultsDiv = document.getElementById('analysisResults');
+            
+            let html = '<div class="result-title">🤖 智能诊疗路径</div>';
+            
+            if (pathwayData.pathway.length > 0) {
+                html += `<div style="margin-bottom: 15px; color: #059669; font-size: 12px;">${pathwayData.message}</div>`;
+                
+                pathwayData.pathway.forEach((step, index) => {
+                    html += `
+                        <div class="pathway-step">
+                            <div style="font-weight: 600; color: #1e40af; margin-bottom: 5px;">
+                                ${index + 1}. ${step.title}
+                            </div>
+                            <div style="font-size: 13px; margin-bottom: 8px;">${step.content}</div>
+                            ${step.description ? `<div style="font-size: 11px; color: #6b7280; margin-bottom: 8px;">${step.description}</div>` : ''}
+                            <button class="add-pathway-btn" onclick="executePathwayStep('${step.action}', '${step.title}', '${step.content.replace(/'/g, "\\'")}')">
+                                ➕ 添加到决策树
+                            </button>
+                        </div>
+                    `;
+                });
+
+                html += `
+                    <div style="margin-top: 15px; padding: 10px; background: #f0f9ff; border-radius: 6px;">
+                        <button class="apply-formula-btn" onclick="applyFullPathway('${JSON.stringify(pathwayData).replace(/"/g, "&quot;")}')">
+                            🚀 应用完整路径
+                        </button>
+                    </div>
+                `;
+            } else {
+                html += `<div style="color: #f59e0b;">${pathwayData.message}</div>`;
+            }
+            
+            const resultElement = document.createElement('div');
+            resultElement.className = 'result-panel';
+            resultElement.innerHTML = html;
+            
+            resultsDiv.appendChild(resultElement);
+        }
+
+        // 执行路径步骤
+        function executePathwayStep(action, title, content) {
+            const lastNode = nodes.length > 0 ? nodes[nodes.length - 1] : null;
+            const baseX = lastNode ? lastNode.x + 250 : 50;
+            const baseY = lastNode ? lastNode.y : 100;
+
+            let nodeType, nodeName, nodeDescription;
+
+            switch (action) {
+                case 'add_syndrome':
+                    nodeType = 'diagnosis';
+                    nodeName = content.split(' (')[0]; // 移除匹配度信息
+                    nodeDescription = title;
+                    break;
+                case 'add_treatment':
+                    nodeType = 'treatment';
+                    nodeName = title;
+                    nodeDescription = content;
+                    break;
+                case 'add_formula':
+                    nodeType = 'formula';
+                    nodeName = content;
+                    nodeDescription = title;
+                    break;
+                default:
+                    showResult('提示', `已记录: ${title}`, 'info');
+                    return;
+            }
+
+            const newNode = {
+                id: `pathway_${nodeCounter++}`,
+                type: nodeType,
+                name: nodeName,
+                description: nodeDescription,
+                x: baseX,
+                y: baseY + (Math.random() - 0.5) * 50
+            };
+            
+            nodes.push(newNode);
+            renderNode(newNode);
+            
+            if (lastNode) {
+                connections.push({
+                    from: lastNode.id,
+                    to: newNode.id
+                });
+                drawConnections();
+            }
+            
+            showResult('成功', `✅ 已添加${title}到决策树`, 'success');
+        }
+
+        // 应用完整路径
+        function applyFullPathway(pathwayJsonStr) {
+            try {
+                const pathwayData = JSON.parse(pathwayJsonStr.replace(/&quot;/g, '"'));
+                
+                let previousNode = nodes.length > 0 ? nodes[nodes.length - 1] : null;
+                let x = previousNode ? previousNode.x + 250 : 300;
+                const baseY = previousNode ? previousNode.y : 100;
+                
+                pathwayData.pathway.forEach((step, index) => {
+                    let nodeType, nodeName, nodeDescription;
+
+                    switch (step.action) {
+                        case 'add_syndrome':
+                            nodeType = 'diagnosis';
+                            nodeName = step.content.split(' (')[0];
+                            nodeDescription = step.description || step.title;
+                            break;
+                        case 'add_treatment':
+                            nodeType = 'treatment';
+                            nodeName = step.title;
+                            nodeDescription = step.content;
+                            break;
+                        case 'add_formula':
+                            nodeType = 'formula';
+                            nodeName = step.content;
+                            nodeDescription = step.title;
+                            break;
+                        default:
+                            return;
+                    }
+
+                    const newNode = {
+                        id: `full_pathway_${nodeCounter++}`,
+                        type: nodeType,
+                        name: nodeName,
+                        description: nodeDescription,
+                        x: x,
+                        y: baseY + (index * 20) - 40
+                    };
+                    
+                    nodes.push(newNode);
+                    renderNode(newNode);
+                    
+                    if (previousNode) {
+                        connections.push({
+                            from: previousNode.id,
+                            to: newNode.id
+                        });
+                    }
+                    
+                    previousNode = newNode;
+                    x += 250;
+                });
+                
+                drawConnections();
+                showResult('成功', `✅ 已应用完整诊疗路径，包含${pathwayData.pathway.filter(s => s.action !== 'review_symptoms').length}个步骤`, 'success');
+                
+            } catch (error) {
+                showResult('错误', '路径数据解析失败', 'error');
+            }
+        }
+
+        // 显示症状指导
+        function showSymptomGuidance(diseaseName) {
+            const guidance = {
+                '失眠': [
+                    '入睡情况：难以入睡、辗转反侧、入睡时间超过30分钟',
+                    '睡眠维持：早醒、多梦、睡眠浅、易惊醒',
+                    '伴随症状：心烦、头晕、健忘、疲乏乏力',
+                    '情志因素：焦虑、抑郁、工作压力、情绪波动',
+                    '舌象脉象：舌质、舌苔、脉象（数、有力、滑涩等）'
+                ],
+                '胃痛': [
+                    '痛痛特点：胀痛、刺痛、隐痛、续痛、阵发性痛痛',
+                    '痛痛诱因：食后痛、空腹痛、情绪激动后加重',
+                    '伴随症状：胃胀、反酸、嗳气、恶心呕吐',
+                    '飮食情况：食欲不振、喜按喜温、喜凉拒按',
+                    '大小便：大便情况、小便颜色及量'
+                ]
+            };
+            
+            const diseaseGuidance = guidance[diseaseName] || [
+                '详细描述主要症状的特点和发作规律',
+                '记录伴随出现的其他不适症状',
+                '注意观察舌象和脉象的变化',
+                '考虑疾病的起因和诱发因素'
+            ];
+            
+            alert(`${diseaseName}症状采集指导：\n\n${diseaseGuidance.map((item, index) => `${index + 1}. ${item}`).join('\n\n')}\n\n请根据以上指导补充症状信息，提高证型识别的准确性。`);
+        }
+        
+        // URL参数检查函数（在主初始化中调用）
+        function checkURLParameters() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const presetSymptoms = urlParams.get('symptoms');
+                const presetDisease = urlParams.get('disease');
+                
+                if (presetDisease) {
+                    const diseaseInput = document.getElementById('diseaseName');
+                    if (diseaseInput) {
+                        diseaseInput.value = presetDisease;
+                        console.log('设置预设疾病:', presetDisease);
+                    }
+                }
+                
+                if (presetSymptoms) {
+                    console.log('发现预设症状:', presetSymptoms);
+                    // TODO: 后续可以添加自动生成症状群功能
+                }
+            } catch (error) {
+                console.error('URL参数检查出错:', error);
+            }
+        }
+        
+        console.log('决策树构建器加载完成');
+        
+        // 紧急修复：强制重新绑定主要按钮事件
+        setTimeout(function() {
+            console.log('强制重新绑定事件...');
+            const generateBtn = document.getElementById('generateBtn');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const aiModeToggle = document.getElementById('aiModeToggle');
+            
+            if (generateBtn) {
+                generateBtn.onclick = function() {
+                    console.log('强制绑定的generateAITree被调用');
+                    generateAITree();
+                };
+                console.log('generateBtn重新绑定成功');
+            }
+            
+            if (analyzeBtn) {
+                analyzeBtn.onclick = function() {
+                    console.log('强制绑定的analyzeCurrentTree被调用');
+                    analyzeCurrentTree();
+                };
+                console.log('analyzeBtn重新绑定成功');
+            }
+            
+            if (clearBtn) {
+                clearBtn.onclick = function() {
+                    console.log('强制绑定的clearCanvas被调用');
+                    clearCanvas();
+                };
+                console.log('clearBtn重新绑定成功');
+            }
+            
+            // 🔧 强制修复AI模式切换
+            if (aiModeToggle) {
+                console.log('🔧 强制绑定AI模式切换...');
+                console.log('  当前AI状态:', aiStatus);
+                
+                aiModeToggle.onchange = function() {
+                    console.log('🔄 AI模式切换触发!');
+                    console.log('  - 切换状态:', this.checked);
+                    console.log('  - AI可用性:', aiStatus.ai_enabled);
+                    
+                    const useAI = this.checked && aiStatus.ai_enabled;
+                    console.log('  - 最终模式:', useAI ? 'AI模式' : '模板模式');
+                    
+                    // 立即更新UI显示
+                    const aiModeText = document.getElementById('aiModeText');
+                    const generateBtnText = document.getElementById('generateBtnText');
+                    const generateBtnIcon = document.getElementById('generateBtnIcon');
+                    
+                    if (useAI) {
+                        aiModeText.textContent = 'AI智能模式';
+                        aiModeText.style.color = '#3b82f6';
+                        if (generateBtnText) generateBtnText.textContent = 'AI智能生成';
+                        if (generateBtnIcon) generateBtnIcon.textContent = '🤖';
+                    } else {
+                        aiModeText.textContent = '标准模板模式';
+                        aiModeText.style.color = '#6b7280';
+                        if (generateBtnText) generateBtnText.textContent = '标准模板生成';
+                        if (generateBtnIcon) generateBtnIcon.textContent = '📋';
+                    }
+                    
+                    console.log('✅ UI更新完成');
+                };
+                
+                // 触发初始状态设置
+                const event = new Event('change');
+                aiModeToggle.dispatchEvent(event);
+                
+                console.log('✅ AI模式切换强制绑定完成');
+            
+            // 🔧 强制绑定右键菜单隐藏事件（最高优先级）
+            console.log('🔧 强制绑定右键菜单隐藏事件...');
+            document.addEventListener('click', function(e) {
+                console.log('🖱️ Force-bound click detected, target:', e.target.tagName, e.target.className);
+                
+                const isContextMenuClick = e.target.closest('.context-menu');
+                if (!isContextMenuClick) {
+                    console.log('🗑️ Force hiding context menu');
+                    const menu = document.getElementById('contextMenu');
+                    if (menu) {
+                        menu.remove();
+                        console.log('✅ Context menu removed by force binding');
+                    }
+                }
+            }, true); // 使用捕获阶段确保优先执行
+            
+            console.log('✅ 右键菜单隐藏事件强制绑定完成');
+            } else {
+                console.error('❌ 找不到aiModeToggle元素');
+            }
+        }, 1500);
+        
+        // 展示中医决策树示例
+        function showTCMExample() {
+            // 清空当前画布
+            clearCanvas();
+            
+            // 设置疾病名称
+            document.getElementById('diseaseName').value = '失眠症';
+            
+            // 创建示例决策树
+            const exampleNodes = [
+                // 主流程
+                { id: 'ex1', type: 'disease', name: '失眠症', description: '不寐病，睡眠障碍', x: 50, y: 300 },
+                { id: 'ex2', type: 'four_diagnosis', name: '四诊信息收集', description: '望：面色晦暗、舌红苔薄\n闻：语声低微\n问：入睡困难、多梦易醒\n切：脉细数', x: 300, y: 300 },
+                { id: 'ex3', type: 'symptom', name: '主症分析', description: '主症：入睡困难、易醒\n兼症：心烦、口干、头晕', x: 550, y: 300 },
+                { id: 'ex4', type: 'pathogenesis', name: '病因病机', description: '思虑过度，暗耗阴血\n心肾不交，虚火上炎', x: 800, y: 300 },
+                { id: 'ex5', type: 'syndrome', name: '证候判断', description: '综合四诊，辨证分型', x: 1050, y: 300 },
+                
+                // 证型分支
+                { id: 'ex5a', type: 'syndrome', name: '心肾不交证', description: '心烦不寐，心悸健忘\n头晕耳鸣，腰膝酸软', x: 1300, y: 200 },
+                { id: 'ex5b', type: 'syndrome', name: '阴虚火旺证', description: '虚烦不眠，五心烦热\n口干咽燥，舌红少苔', x: 1300, y: 400 },
+                
+                // 心肾不交证的治疗
+                { id: 'ex6a', type: 'principle', name: '滋阴降火', description: '交通心肾，宁心安神', x: 1550, y: 200 },
+                { id: 'ex7a', type: 'prescription', name: '交泰丸加减', description: '黄连6g 肉桂3g\n酸枣仁15g 龙骨30g', x: 1800, y: 200 },
+                
+                // 阴虚火旺证的治疗
+                { id: 'ex6b', type: 'principle', name: '滋阴清热', description: '养阴清热，宁心安神', x: 1550, y: 400 },
+                { id: 'ex7b', type: 'prescription', name: '黄连阿胶汤', description: '黄连9g 阿胶9g\n黄芩6g 白芍12g\n鸡子黄2枚', x: 1800, y: 400 }
+            ];
+            
+            // 创建连接关系
+            const exampleConnections = [
+                { from: 'ex1', to: 'ex2' },
+                { from: 'ex2', to: 'ex3' },
+                { from: 'ex3', to: 'ex4' },
+                { from: 'ex4', to: 'ex5' },
+                { from: 'ex5', to: 'ex5a' },
+                { from: 'ex5', to: 'ex5b' },
+                { from: 'ex5a', to: 'ex6a' },
+                { from: 'ex6a', to: 'ex7a' },
+                { from: 'ex5b', to: 'ex6b' },
+                { from: 'ex6b', to: 'ex7b' }
+            ];
+            
+            // 添加节点
+            exampleNodes.forEach(node => {
+                nodes.push(node);
+                renderNode(node);
+            });
+            
+            // 添加连接
+            connections = exampleConnections;
+            
+            // 绘制连接线
+            setTimeout(() => {
+                drawConnections();
+                showResult('成功', '✅ 已加载失眠症的中医诊疗决策树示例', 'success');
+            }, 100);
+        }
+    
+        // ======================== 历史决策树管理功能 ========================
+
+        async function viewHistoryTrees() {
+            console.log('查看历史决策树');
+            document.getElementById('historyModal').style.display = 'block';
+            await loadHistoryList();
+        }
+
+        async function loadHistoryList() {
+            const container = document.getElementById('historyListContainer');
+
+            try {
+                const doctorId = getCurrentDoctorId();
+                const response = await fetch(`/api/get_doctor_patterns/${doctorId}`, {
+                    headers: getAuthHeaders()
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.data.patterns && data.data.patterns.length > 0) {
+                    displayHistoryList(data.data.patterns);
+                } else {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #6b7280;">
+                            <div style="font-size: 48px;">📭</div>
+                            <div style="margin-top: 10px;">暂无保存的决策树</div>
+                            <div style="margin-top: 5px; font-size: 14px;">点击"保存到思维库"保存您的决策树</div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载历史记录失败:', error);
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #ef4444;">
+                        <div style="font-size: 48px;">⚠️</div>
+                        <div style="margin-top: 10px;">加载失败: ${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function displayHistoryList(patterns) {
+            const container = document.getElementById('historyListContainer');
+
+            let html = '';
+            patterns.forEach((pattern, index) => {
+                const createdDate = new Date(pattern.created_at).toLocaleString('zh-CN');
+                const usageCount = pattern.usage_count || 0;
+
+                html += `
+                    <div class="history-item" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #f9fafb;">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <h3 style="margin: 0 0 10px 0; color: #1e40af; font-size: 18px;">
+                                    ${index + 1}. ${pattern.disease_name}
+                                </h3>
+                                <div style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">
+                                    📅 创建时间: ${createdDate} | 📊 使用次数: ${usageCount}
+                                </div>
+                                <div style="font-size: 13px; color: #374151; max-height: 60px; overflow: hidden;">
+                                    ${pattern.thinking_process ? pattern.thinking_process.substring(0, 150) + '...' : '无诊疗思路'}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px; margin-left: 15px;">
+                                <button onclick="loadHistoryTree('${pattern.pattern_id}')"
+                                        style="background: #3b82f6; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+                                    📂 加载
+                                </button>
+                                <button onclick="deleteHistoryTree('${pattern.pattern_id}')"
+                                        style="background: #ef4444; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+                                    🗑️ 删除
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        async function loadHistoryTree(patternId) {
+            try {
+                showLoading('正在加载决策树...');
+
+                const doctorId = getCurrentDoctorId();
+                const response = await fetch(`/api/get_doctor_patterns/${doctorId}`, {
+                    headers: getAuthHeaders()
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const pattern = data.data.patterns.find(p => p.pattern_id === patternId);
+
+                    if (pattern) {
+                        // 恢复疾病名称
+                        document.getElementById('diseaseName').value = pattern.disease_name;
+
+                        // 恢复诊疗思路
+                        if (pattern.thinking_process) {
+                            document.getElementById('doctorThought').value = pattern.thinking_process;
+                        }
+
+                        // 恢复决策树结构
+                        if (pattern.tree_structure && pattern.tree_structure.nodes) {
+                            nodes.splice(0, nodes.length);
+                            nodes.push(...pattern.tree_structure.nodes);
+                            edges.splice(0, edges.length);
+                            if (pattern.tree_structure.edges) {
+                                edges.push(...pattern.tree_structure.edges);
+                            }
+
+                            draw();
+                        }
+
+                        closeHistoryModal();
+                        hideLoading();
+                        showResult('成功', `决策树"${pattern.disease_name}"已加载`, 'success');
+                    }
+                }
+            } catch (error) {
+                console.error('加载决策树失败:', error);
+                hideLoading();
+                showResult('错误', `加载失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteHistoryTree(patternId) {
+            if (!confirm('确定要删除这个决策树吗？此操作不可恢复。')) {
+                return;
+            }
+
+            showResult('提示', '删除功能开发中...', 'info');
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('historyModal').style.display = 'none';
+        }
+
+        function getCurrentDoctorId() {
+            const userData = localStorage.getItem('userData');
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    return user.user_id || 'temp_doctor_default';
+                } catch (e) {
+                    console.error('解析用户数据失败:', e);
+                }
+            }
+            return 'temp_doctor_default';
+        }
+
+        // 绑定历史记录按钮事件
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                const viewHistoryBtn = document.getElementById('viewHistoryBtn');
+                if (viewHistoryBtn) {
+                    viewHistoryBtn.addEventListener('click', viewHistoryTrees);
+                    console.log('✅ 历史决策树按钮事件已绑定');
+                }
+            }, 500);
+        });
+
+</script>
+
+<!-- 历史决策树模态框 -->
+<div id="historyModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; overflow-y: auto;">
+    <div style="background: white; max-width: 900px; margin: 50px auto; padding: 30px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0; color: #1e40af;">📋 我的决策树历史</h2>
+            <button onclick="closeHistoryModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280;">&times;</button>
+        </div>
+
+        <div id="historyListContainer" style="max-height: 600px; overflow-y: auto;">
+            <div style="text-align: center; padding: 40px; color: #6b7280;">
+                <div style="font-size: 48px;">🔍</div>
+                <div style="margin-top: 10px;">加载中...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

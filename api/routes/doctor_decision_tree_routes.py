@@ -1973,5 +1973,279 @@ def _generate_dosage_adjustment_rules(
     
     return "\n".join(rules)
 
+
+# ======================== 决策树使用统计功能 ========================
+
+@router.get("/doctor-decision-tree/usage-stats/{doctor_id}")
+async def get_pattern_usage_statistics(
+    doctor_id: str,
+    time_range: str = "all",  # today, week, month, all
+    current_user: UserSession = Depends(get_current_user)
+):
+    """
+    获取医生的决策树使用统计
+
+    Args:
+        doctor_id: 医生ID
+        time_range: 时间范围（today, week, month, all）
+        current_user: 当前用户会话
+
+    Returns:
+        决策树使用统计数据
+    """
+    import sqlite3
+    from datetime import datetime, timedelta
+
+    try:
+        logger.info(f"获取医生 {doctor_id} 的决策树使用统计，时间范围: {time_range}")
+
+        # 计算时间范围
+        time_filter = ""
+        if time_range == "today":
+            time_filter = "AND DATE(c.created_at) = DATE('now')"
+        elif time_range == "week":
+            time_filter = "AND c.created_at >= datetime('now', '-7 days')"
+        elif time_range == "month":
+            time_filter = "AND c.created_at >= datetime('now', '-30 days')"
+
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # 1. 获取总体统计
+        cursor.execute(f"""
+            SELECT
+                COUNT(DISTINCT p.id) as total_patterns,
+                COUNT(DISTINCT c.uuid) as total_calls,
+                COUNT(DISTINCT CASE WHEN pr.status = 'reviewed' THEN c.uuid END) as success_calls,
+                ROUND(CAST(COUNT(DISTINCT CASE WHEN c.used_pattern_id IS NOT NULL THEN c.uuid END) AS FLOAT) /
+                      NULLIF(COUNT(DISTINCT c.uuid), 0) * 100, 2) as coverage_rate
+            FROM doctor_clinical_patterns p
+            LEFT JOIN consultations c ON c.used_pattern_id = p.id {time_filter}
+            LEFT JOIN prescriptions pr ON pr.consultation_id = c.uuid
+            WHERE p.doctor_id = ?
+        """, (doctor_id,))
+
+        overall_stats = dict(cursor.fetchone())
+
+        # 2. 获取每个决策树的详细统计
+        cursor.execute(f"""
+            SELECT
+                p.id as pattern_id,
+                p.disease_name,
+                p.thinking_process,
+                p.created_at as pattern_created_at,
+                COUNT(DISTINCT c.uuid) as call_count,
+                COUNT(DISTINCT CASE WHEN pr.status = 'reviewed' THEN c.uuid END) as success_count,
+                ROUND(CAST(COUNT(DISTINCT CASE WHEN pr.status = 'reviewed' THEN c.uuid END) AS FLOAT) /
+                      NULLIF(COUNT(DISTINCT c.uuid), 0) * 100, 2) as success_rate,
+                MAX(c.created_at) as last_used_at,
+                AVG(c.pattern_match_score) as avg_match_score
+            FROM doctor_clinical_patterns p
+            LEFT JOIN consultations c ON c.used_pattern_id = p.id {time_filter}
+            LEFT JOIN prescriptions pr ON pr.consultation_id = c.uuid
+            WHERE p.doctor_id = ?
+            GROUP BY p.id
+            ORDER BY call_count DESC
+        """, (doctor_id,))
+
+        pattern_stats = [dict(row) for row in cursor.fetchall()]
+
+        # 3. 获取总问诊数（用于计算使用率）
+        cursor.execute(f"""
+            SELECT COUNT(*) as total_consultations
+            FROM consultations
+            WHERE 1=1 {time_filter}
+        """)
+
+        total_consultations = cursor.fetchone()[0]
+
+        conn.close()
+
+        # 计算每个决策树的使用率
+        for pattern in pattern_stats:
+            if total_consultations > 0:
+                pattern['usage_rate'] = round((pattern['call_count'] / total_consultations) * 100, 2)
+            else:
+                pattern['usage_rate'] = 0
+
+        return {
+            "success": True,
+            "data": {
+                "overall": {
+                    **overall_stats,
+                    "total_consultations": total_consultations,
+                    "time_range": time_range
+                },
+                "patterns": pattern_stats
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"获取决策树使用统计失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取统计失败: {str(e)}")
+
+
+@router.get("/doctor-decision-tree/usage-detail/{pattern_id}")
+async def get_pattern_usage_detail(
+    pattern_id: str,
+    limit: int = 50,
+    current_user: UserSession = Depends(get_current_user)
+):
+    """
+    获取单个决策树的详细使用记录
+
+    Args:
+        pattern_id: 决策树ID
+        limit: 返回记录数量限制
+        current_user: 当前用户会话
+
+    Returns:
+        决策树详细使用记录
+    """
+    import sqlite3
+
+    try:
+        logger.info(f"获取决策树 {pattern_id} 的详细使用记录")
+
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # 1. 获取决策树基本信息
+        cursor.execute("""
+            SELECT *
+            FROM doctor_clinical_patterns
+            WHERE id = ?
+        """, (pattern_id,))
+
+        pattern_info = cursor.fetchone()
+        if not pattern_info:
+            raise HTTPException(status_code=404, detail="决策树不存在")
+
+        pattern_info = dict(pattern_info)
+
+        # 2. 获取使用记录列表
+        cursor.execute("""
+            SELECT
+                c.uuid as consultation_id,
+                c.patient_id,
+                c.pattern_match_score,
+                c.created_at as consultation_date,
+                c.status as consultation_status,
+                p.id as prescription_id,
+                p.status as prescription_status,
+                p.review_status,
+                p.payment_status,
+                p.diagnosis
+            FROM consultations c
+            LEFT JOIN prescriptions p ON p.consultation_id = c.uuid
+            WHERE c.used_pattern_id = ?
+            ORDER BY c.created_at DESC
+            LIMIT ?
+        """, (pattern_id, limit))
+
+        usage_records = [dict(row) for row in cursor.fetchall()]
+
+        conn.close()
+
+        return {
+            "success": True,
+            "data": {
+                "pattern_info": pattern_info,
+                "usage_records": usage_records,
+                "total_count": len(usage_records)
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取决策树使用详情失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取详情失败: {str(e)}")
+
+
+@router.get("/consultation/{consultation_id}/detail")
+async def get_consultation_detail(
+    consultation_id: str,
+    current_user: UserSession = Depends(get_current_user)
+):
+    """
+    统一的问诊详情查询API
+    用于患者端和医生端查看问诊详情
+
+    Args:
+        consultation_id: 问诊UUID
+        current_user: 当前用户会话
+
+    Returns:
+        问诊完整详情（包括处方、决策树信息）
+    """
+    import sqlite3
+
+    try:
+        logger.info(f"获取问诊详情: consultation_id={consultation_id}, user={current_user.user_id}")
+
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # 1. 获取问诊基本信息
+        cursor.execute("""
+            SELECT *
+            FROM consultations
+            WHERE uuid = ?
+        """, (consultation_id,))
+
+        consultation = cursor.fetchone()
+        if not consultation:
+            raise HTTPException(status_code=404, detail="问诊记录不存在")
+
+        consultation = dict(consultation)
+
+        # 2. 获取处方信息
+        cursor.execute("""
+            SELECT *
+            FROM prescriptions
+            WHERE consultation_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+        """, (consultation_id,))
+
+        prescription = cursor.fetchone()
+        if prescription:
+            consultation['prescription'] = dict(prescription)
+
+        # 3. 如果使用了决策树，获取决策树信息
+        if consultation.get('used_pattern_id'):
+            cursor.execute("""
+                SELECT id, disease_name, doctor_id, thinking_process
+                FROM doctor_clinical_patterns
+                WHERE id = ?
+            """, (consultation['used_pattern_id'],))
+
+            pattern = cursor.fetchone()
+            if pattern:
+                consultation['used_pattern'] = dict(pattern)
+
+        conn.close()
+
+        # 权限检查：只允许患者本人或医生查看
+        if (current_user.user_id != consultation['patient_id'] and
+            current_user.role not in ['DOCTOR', 'ADMIN']):
+            raise HTTPException(status_code=403, detail="无权限查看此问诊记录")
+
+        return {
+            "success": True,
+            "data": consultation
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取问诊详情失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取详情失败: {str(e)}")
+
+
 # 导出路由器
 __all__ = ["router"]

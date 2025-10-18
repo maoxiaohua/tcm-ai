@@ -1089,6 +1089,7 @@ from api.routes.decoction_routes import router as decoction_router
 from api.routes.auth_routes import router as auth_router
 from api.routes.unified_auth_routes import router as unified_auth_router
 from api.routes.doctor_decision_tree_routes import router as decision_tree_router
+from api.routes.decision_tree_usage_routes import router as decision_tree_usage_router
 from api.routes.symptom_analysis_routes import router as symptom_analysis_router
 # from api.routes.doctor_matching_routes import router as doctor_matching_router  # AI推荐医生功能已移除
 from api.routes.review_routes import router as review_router
@@ -2154,6 +2155,7 @@ app.include_router(medical_knowledge_router)
 app.include_router(follow_up_router)
 app.include_router(session_router)
 app.include_router(security_router)
+app.include_router(decision_tree_usage_router)  # 🧠 决策树使用记录
 app.include_router(prescription_review_router)
 app.include_router(prescription_structured_edit_router)
 

@@ -260,7 +260,7 @@
         <div class="login-right">
             <div class="login-header">
                 <h2>医生登录</h2>
-                <p>请使用您的执业证书号和密码登录</p>
+                <p>请使用您的医生账户登录</p>
             </div>
 
             <div id="errorMessage" class="error-message"></div>
@@ -268,15 +268,22 @@
 
             <form id="loginForm" onsubmit="handleLogin(event)">
                 <div class="form-group">
-                    <label class="form-label">执业证书号</label>
-                    <input type="text" id="licenseNo" class="form-input" 
-                           placeholder="请输入执业证书号" required>
+                    <label class="form-label">用户名</label>
+                    <input type="text" id="username" class="form-input"
+                           placeholder="请输入用户名" required autocomplete="username">
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">登录密码</label>
-                    <input type="password" id="password" class="form-input" 
-                           placeholder="请输入登录密码" required>
+                    <input type="password" id="password" class="form-input"
+                           placeholder="请输入登录密码" required autocomplete="current-password">
+                </div>
+
+                <div class="form-group" style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <input type="checkbox" id="rememberMe" style="margin-right: 8px;">
+                    <label for="rememberMe" style="color: #6b7280; font-size: 14px; cursor: pointer; user-select: none;">
+                        记住我
+                    </label>
                 </div>
 
                 <button type="submit" class="login-btn" id="loginButton">
@@ -285,7 +292,7 @@
             </form>
 
             <div class="register-link">
-                还没有账户？ <a href="register.html">申请医生账户</a>
+                还没有账户？ <a href="/login?tab=register">注册医生账户</a>
             </div>
         </div>
     </div>
@@ -296,7 +303,7 @@
     <script>
         // 页面加载时检查是否已登录
         document.addEventListener('DOMContentLoaded', function() {
-            const token = localStorage.getItem('doctorToken');
+            const token = localStorage.getItem('token') || localStorage.getItem('session_token');
             if (token) {
                 // 验证token是否有效
                 validateToken(token);
@@ -306,70 +313,115 @@
         // 验证token有效性
         async function validateToken(token) {
             try {
-                const response = await fetch('/api/doctor/profile', {
+                const response = await fetch('/api/doctor/current', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 if (response.ok) {
-                    // Token有效，直接跳转到工作台
-                    window.location.href = '/doctor/';
+                    const data = await response.json();
+                    // 验证是否为医生角色
+                    if (data.role === 'doctor') {
+                        // Token有效且是医生，直接跳转到工作台
+                        window.location.href = '/doctor';
+                    } else {
+                        // 不是医生角色，清除token
+                        clearTokens();
+                    }
                 } else {
                     // Token无效，清除本地存储
-                    localStorage.removeItem('doctorToken');
+                    clearTokens();
                 }
             } catch (error) {
                 console.error('Token验证失败:', error);
-                localStorage.removeItem('doctorToken');
+                clearTokens();
             }
+        }
+
+        // 清除所有token
+        function clearTokens() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('session_token');
+            localStorage.removeItem('doctorToken');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('userData');
         }
 
         // 处理登录表单提交
         async function handleLogin(event) {
             event.preventDefault();
-            
-            const licenseNo = document.getElementById('licenseNo').value.trim();
+
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
+            const rememberMe = document.getElementById('rememberMe').checked;
             const loginButton = document.getElementById('loginButton');
-            
-            if (!licenseNo || !password) {
+
+            if (!username || !password) {
                 showError('请填写完整的登录信息');
                 return;
             }
-            
+
             // 显示加载状态
             loginButton.disabled = true;
             loginButton.textContent = '登录中...';
             hideMessages();
-            
+
             try {
-                const response = await fetch('/api/doctor/login', {
+                // 使用统一认证API
+                const response = await fetch('/api/v2/auth/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        license_no: licenseNo,
-                        password: password
+                        username: username,
+                        password: password,
+                        remember_me: rememberMe
                     })
                 });
-                
+
                 const data = await response.json();
-                
-                if (data.success) {
-                    // 保存登录信息
-                    localStorage.setItem('doctorToken', data.doctor.auth_token);
-                    
-                    showSuccess('登录成功，正在跳转...');
-                    
-                    // 延迟跳转，让用户看到成功提示
-                    setTimeout(() => {
-                        window.location.href = '/doctor/';
-                    }, 1000);
-                    
+
+                if (response.ok && data.success) {
+                    // 验证是否为医生角色
+                    if (data.user && data.user.primary_role === 'doctor') {
+                        // 保存登录信息（使用统一认证格式）
+                        if (data.session && data.session.session_id) {
+                            // 保存session token
+                            localStorage.setItem('token', data.session.session_id);
+                            localStorage.setItem('session_token', data.session.session_id);
+                            localStorage.setItem('doctorToken', data.session.session_id);
+
+                            // 保存用户信息
+                            localStorage.setItem('currentUser', JSON.stringify(data.user));
+                            localStorage.setItem('userData', JSON.stringify(data.user));
+
+                            // 设置cookie
+                            document.cookie = `session_token=${data.session.session_id}; path=/; max-age=86400; samesite=strict`;
+                        }
+
+                        showSuccess('登录成功，正在跳转到医生工作台...');
+
+                        // 检查是否有返回URL
+                        const returnUrl = localStorage.getItem('returnUrl');
+
+                        // 延迟跳转，让用户看到成功提示
+                        setTimeout(() => {
+                            if (returnUrl) {
+                                localStorage.removeItem('returnUrl');
+                                window.location.href = returnUrl;
+                            } else {
+                                window.location.href = '/doctor';
+                            }
+                        }, 1000);
+
+                    } else {
+                        showError('该账户不是医生角色，请使用医生账户登录');
+                    }
+
                 } else {
-                    showError(data.detail || '登录失败，请检查您的凭据');
+                    showError(data.message || data.detail || '登录失败，请检查您的用户名和密码');
                 }
-                
+
             } catch (error) {
                 console.error('登录请求失败:', error);
                 showError('网络连接失败，请稍后重试');

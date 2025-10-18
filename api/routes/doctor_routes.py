@@ -510,6 +510,12 @@ async def get_current_doctor_info(current_doctor: Doctor = Depends(get_current_d
     """获取当前登录医生信息"""
     return {
         "success": True,
+        "role": "doctor",  # 添加role字段供决策树页面验证
+        "name": current_doctor.name,
+        "id": current_doctor.id,
+        "license_no": current_doctor.license_no,
+        "speciality": current_doctor.speciality,
+        "hospital": current_doctor.hospital,
         "doctor": {
             "id": current_doctor.id,
             "name": current_doctor.name,

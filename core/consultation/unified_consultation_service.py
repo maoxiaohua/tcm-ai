@@ -29,6 +29,9 @@ from core.ai_response.template_prompt_generator_simple import (
     SimpleTemplateContext, get_simple_prompt_generator
 )
 
+# 🆕 决策树智能匹配系统
+from core.consultation.decision_tree_matcher import get_decision_tree_matcher
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -84,8 +87,14 @@ class UnifiedConsultationService:
             
             # 思维库集成（新增）
             self.thinking_library_enabled = True
-            
-            logger.info("✅ 统一问诊服务初始化完成（含思维库集成）")
+
+            # 🧠 决策树匹配服务（新增）
+            self.decision_tree_matcher = get_decision_tree_matcher()
+
+            # 决策树匹配结果缓存（新增）
+            self.pattern_match_cache = {}  # {conversation_id: (pattern_id, match_score, matched_pattern)}
+
+            logger.info("✅ 统一问诊服务初始化完成（含思维库集成+智能决策树匹配）")
             self.state_manager = conversation_state_manager
             
             # 对话分析器
@@ -304,12 +313,22 @@ class UnifiedConsultationService:
             
             # 检查是否包含处方
             contains_prescription = self._contains_prescription(ai_response)
-            
+
             # 提取处方数据（如果有）
             prescription_data = None
             real_prescription_id = None
             if contains_prescription:
                 prescription_data = self._extract_prescription_data(ai_response)
+
+                # 🆕 决策树匹配（在生成处方时）
+                pattern_id, match_score = await self._match_decision_tree_pattern(request, ai_response)
+                if pattern_id:
+                    # 缓存匹配结果
+                    self.pattern_match_cache[request.conversation_id] = (pattern_id, match_score)
+                    # 更新决策树使用统计
+                    await self._update_pattern_usage_stats(pattern_id)
+                    logger.info(f"🎯 问诊使用决策树: {pattern_id}, 匹配度: {match_score:.2f}")
+
                 # 🔑 关键修复：检测到处方时自动创建处方记录和审核队列
                 real_prescription_id = await self._create_prescription_record(request, ai_response, prescription_data)
                 if real_prescription_id and prescription_data:
@@ -317,6 +336,7 @@ class UnifiedConsultationService:
                     prescription_data["prescription_id"] = real_prescription_id
                     prescription_data["status"] = "pending_review"  # 等待审核状态
                     prescription_data["note"] = "处方已提交医生审核，审核通过后可配药"
+
             
             # 判断问诊阶段
             stage = self._determine_consultation_stage(ai_response, request.conversation_history or [])
@@ -487,7 +507,202 @@ class UnifiedConsultationService:
                 conn.rollback()
                 conn.close()
             return None
-    
+
+    async def _match_decision_tree_pattern(self, request: ConsultationRequest, ai_response: str) -> Tuple[Optional[str], float]:
+        """
+        匹配医生的决策树模式
+
+        Returns:
+            Tuple[pattern_id, match_score]: 决策树ID和匹配分数（0.0-1.0）
+        """
+        import sqlite3
+        from difflib import SequenceMatcher
+
+        try:
+            # 获取当前医生ID（从request中获取）
+            doctor_id_mapping = {
+                'zhang_zhongjing': 'usr_20250927_zhangzhongjing',
+                'ye_tianshi': 'usr_20250920_4e7591213d67',
+                'li_dongyuan': 'usr_20250920_38d51c44ae1d',
+                'zheng_qin_an': 'usr_20250920_85ba2882db50',
+                'liu_duzhou': 'usr_20250920_7a230caec0f8',
+                'jin_daifu': 'usr_20250920_575ba94095a7'  # 金大夫
+            }
+
+            doctor_user_id = doctor_id_mapping.get(request.selected_doctor)
+            if not doctor_user_id:
+                logger.debug(f"未找到医生映射: {request.selected_doctor}")
+                return None, 0.0
+
+            # 从AI响应中提取关键信息
+            diagnosis_keywords = self._extract_diagnosis_keywords(ai_response)
+            symptoms_from_history = self._extract_symptoms_from_history(request.conversation_history or [])
+
+            if not diagnosis_keywords and not symptoms_from_history:
+                logger.debug("未能提取诊断关键词或症状，跳过决策树匹配")
+                return None, 0.0
+
+            # 连接数据库查询该医生的决策树
+            conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT id, disease_name, thinking_process, clinical_patterns
+                FROM doctor_clinical_patterns
+                WHERE doctor_id = ?
+                ORDER BY updated_at DESC
+            """, (doctor_user_id,))
+
+            patterns = cursor.fetchall()
+            conn.close()
+
+            if not patterns:
+                logger.debug(f"医生 {request.selected_doctor} 没有保存的决策树")
+                return None, 0.0
+
+            # 匹配最佳决策树
+            best_pattern_id = None
+            best_score = 0.0
+
+            for pattern in patterns:
+                score = self._calculate_pattern_match_score(
+                    pattern,
+                    diagnosis_keywords,
+                    symptoms_from_history,
+                    ai_response
+                )
+
+                if score > best_score:
+                    best_score = score
+                    best_pattern_id = pattern['id']
+                    logger.debug(f"匹配决策树: {pattern['disease_name']}, 分数: {score:.2f}")
+
+            # 只有当匹配分数超过阈值时才返回结果
+            if best_score >= 0.6:  # 60%以上置信度
+                logger.info(f"✅ 决策树匹配成功: pattern_id={best_pattern_id}, score={best_score:.2f}")
+                return best_pattern_id, best_score
+            else:
+                logger.debug(f"决策树匹配分数过低: {best_score:.2f}")
+                return None, 0.0
+
+        except Exception as e:
+            logger.error(f"决策树匹配失败: {e}")
+            return None, 0.0
+
+    def _extract_diagnosis_keywords(self, text: str) -> List[str]:
+        """从文本中提取诊断关键词"""
+        keywords = []
+
+        # 中医常见病症关键词
+        disease_patterns = [
+            r'(失眠|不寐|多梦)',
+            r'(胃痛|胃脘痛|脘腹痛)',
+            r'(头痛|头胀|眩晕)',
+            r'(便秘|大便秘结|大便不通)',
+            r'(腹泻|泄泻|拉肚子)',
+            r'(咳嗽|久咳|痰多)',
+            r'(感冒|外感|表证)',
+            r'(心悸|怔忡|心慌)',
+            r'(郁证|抑郁|情志不畅)',
+            r'(痛经|月经不调|经期腹痛)'
+        ]
+
+        for pattern in disease_patterns:
+            matches = re.findall(pattern, text)
+            if matches:
+                keywords.extend(matches)
+
+        # 提取证型关键词
+        syndrome_patterns = [
+            r'(肝郁|肝气郁结|肝郁脾虚)',
+            r'(脾虚|脾胃虚弱|脾气不足)',
+            r'(肾虚|肾阳虚|肾阴虚)',
+            r'(气虚|气血不足|气血两虚)',
+            r'(痰湿|湿热|寒湿)',
+            r'(阴虚|阳虚|气阴两虚)'
+        ]
+
+        for pattern in syndrome_patterns:
+            matches = re.findall(pattern, text)
+            if matches:
+                keywords.extend(matches)
+
+        return list(set(keywords))  # 去重
+
+    def _extract_symptoms_from_history(self, history: List[Dict]) -> List[str]:
+        """从对话历史中提取症状"""
+        symptoms = []
+
+        # 提取用户消息中的症状
+        for msg in history:
+            if msg.get('role') == 'user':
+                content = msg.get('content', '')
+                # 使用简单的关键词提取
+                extracted = self._extract_symptoms_for_summary(content)
+                symptoms.extend(extracted)
+
+        return list(set(symptoms))  # 去重
+
+    def _calculate_pattern_match_score(self, pattern: Dict, diagnosis_keywords: List[str],
+                                       symptoms: List[str], ai_response: str) -> float:
+        """
+        计算决策树模式的匹配分数
+
+        评分维度:
+        1. 疾病名称匹配 (40%)
+        2. 症状匹配 (30%)
+        3. 诊疗思路相似度 (30%)
+        """
+        from difflib import SequenceMatcher
+
+        score = 0.0
+
+        # 1. 疾病名称匹配 (40%)
+        disease_name = pattern['disease_name']
+        for keyword in diagnosis_keywords:
+            if keyword in disease_name or disease_name in keyword:
+                score += 0.4
+                break
+
+        # 2. 症状匹配 (30%)
+        thinking_process = pattern['thinking_process']
+        if symptoms:
+            matched_symptoms = sum(1 for s in symptoms if s in thinking_process)
+            symptom_match_rate = matched_symptoms / len(symptoms)
+            score += 0.3 * symptom_match_rate
+
+        # 3. 诊疗思路相似度 (30%)
+        # 使用序列匹配算法比较文本相似度
+        similarity = SequenceMatcher(None, thinking_process, ai_response).ratio()
+        score += 0.3 * similarity
+
+        return min(score, 1.0)  # 确保分数不超过1.0
+
+    async def _update_pattern_usage_stats(self, pattern_id: str):
+        """更新决策树使用统计"""
+        import sqlite3
+
+        try:
+            conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+            cursor = conn.cursor()
+
+            # 更新usage_count和last_used_at
+            cursor.execute("""
+                UPDATE doctor_clinical_patterns
+                SET usage_count = usage_count + 1,
+                    last_used_at = datetime('now')
+                WHERE id = ?
+            """, (pattern_id,))
+
+            conn.commit()
+            conn.close()
+
+            logger.info(f"✅ 决策树使用统计已更新: {pattern_id}")
+
+        except Exception as e:
+            logger.error(f"更新决策树使用统计失败: {e}")
+
     def _determine_consultation_stage(self, response: str, history: List[Dict]) -> str:
         """判断问诊阶段"""
         # 检查是否包含完整处方
@@ -1004,71 +1219,143 @@ class UnifiedConsultationService:
             }
 
     async def _get_thinking_library_context(self, request: ConsultationRequest, conversation_state) -> Optional[Dict]:
-        """获取思维库上下文（新增）"""
+        """🧠 获取思维库上下文（智能决策树匹配版本）"""
         if not self.thinking_library_enabled:
             return None
-            
+
         try:
-            # 从对话中识别疾病名称
+            # 1. 检查缓存
+            if request.conversation_id in self.pattern_match_cache:
+                cached_data = self.pattern_match_cache[request.conversation_id]
+                logger.info(f"💾 使用缓存的决策树匹配: {cached_data[0]}")
+                return self._format_pattern_context(cached_data[2])
+
+            # 2. 从对话中提取疾病名称和症状
             disease_name = self._extract_disease_from_conversation(request)
             if not disease_name:
+                logger.info("未能识别疾病名称，跳过决策树匹配")
                 return None
-                
-            # 获取医生ID（从selected_doctor映射）
+
+            # 3. 提取症状列表
+            symptoms = self._extract_symptoms_from_conversation(request, conversation_state)
+
+            # 4. 获取完整患者描述
+            patient_description = self._build_patient_description(request)
+
+            # 5. 获取医生ID
             doctor_id = self._map_doctor_name_to_id(request.selected_doctor)
-            
-            # 调用思维库API查询临床模式
-            import aiohttp
-            import json
-            
-            api_url = f"http://localhost:8000/api/get_doctor_patterns/{doctor_id}"
-            params = {"disease_name": disease_name} if disease_name else {}
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.get(api_url, params=params, timeout=3) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        if result.get("success") and result.get("data", {}).get("patterns"):
-                            patterns = result["data"]["patterns"]
-                            if patterns:
-                                # 使用最新的模式
-                                latest_pattern = patterns[0]
-                                logger.info(f"✅ 从思维库获取临床模式: {latest_pattern['pattern_id']}")
-                                return {
-                                    "enabled": True,
-                                    "pattern_id": latest_pattern["pattern_id"],
-                                    "thinking_process": latest_pattern["thinking_process"],
-                                    "clinical_patterns": latest_pattern["clinical_patterns"],
-                                    "doctor_expertise": latest_pattern["doctor_expertise"],
-                                    "disease_name": latest_pattern["disease_name"]
-                                }
-            
-            logger.info(f"📚 未找到匹配的思维库模式: 医生={doctor_id}, 疾病={disease_name}")
-            return None
-            
+
+            # 6. 🔍 使用决策树匹配器查找最佳匹配
+            matching_patterns = await self.decision_tree_matcher.find_matching_patterns(
+                disease_name=disease_name,
+                symptoms=symptoms,
+                patient_description=patient_description,
+                doctor_id=doctor_id,
+                min_match_score=0.3  # 最小30%匹配度
+            )
+
+            if matching_patterns:
+                best_match = matching_patterns[0]
+                logger.info(f"✅ 找到最佳决策树匹配: {best_match.pattern_id}, "
+                           f"疾病={best_match.disease_name}, "
+                           f"匹配分数={best_match.match_score:.2%}, "
+                           f"置信度={best_match.confidence:.2%}")
+
+                # 7. 缓存匹配结果
+                self.pattern_match_cache[request.conversation_id] = (
+                    best_match.pattern_id,
+                    best_match.match_score,
+                    best_match
+                )
+
+                # 8. 格式化并返回
+                return self._format_pattern_context(best_match)
+            else:
+                logger.info(f"📚 未找到匹配的决策树: 医生={doctor_id}, 疾病={disease_name}, 症状数={len(symptoms)}")
+                return None
+
         except Exception as e:
-            logger.warning(f"思维库查询失败: {e}")
+            logger.warning(f"决策树匹配失败: {e}")
+            return None
+
+    def _format_pattern_context(self, pattern) -> Dict:
+        """格式化决策树模式上下文"""
+        try:
+            # 解析临床模式JSON
+            clinical_patterns = {}
+            if isinstance(pattern.clinical_patterns, str):
+                try:
+                    clinical_patterns = json.loads(pattern.clinical_patterns)
+                except:
+                    clinical_patterns = {"raw": pattern.clinical_patterns}
+            else:
+                clinical_patterns = pattern.clinical_patterns or {}
+
+            return {
+                "enabled": True,
+                "pattern_id": pattern.pattern_id,
+                "disease_name": pattern.disease_name,
+                "thinking_process": pattern.thinking_process,
+                "clinical_patterns": clinical_patterns,
+                "tree_structure": pattern.tree_structure,
+                "match_score": pattern.match_score,
+                "confidence": pattern.confidence,
+                "doctor_id": pattern.doctor_id,
+                "usage_count": pattern.usage_count,
+                "success_rate": (pattern.success_count / pattern.usage_count * 100) if pattern.usage_count > 0 else 0
+            }
+        except Exception as e:
+            logger.error(f"格式化决策树上下文失败: {e}")
             return None
     
     def _extract_disease_from_conversation(self, request: ConsultationRequest) -> Optional[str]:
         """从对话中提取疾病名称"""
-        # 简单实现：检查常见疾病关键词
-        common_diseases = ["头痛", "失眠", "胃痛", "咳嗽", "便秘", "腹泻", "眩晕", "头晕"]
-        
-        # 检查当前消息
-        for disease in common_diseases:
-            if disease in request.message:
-                return disease
-                
-        # 检查历史对话
+        # 使用决策树匹配器的疾病提取功能
+        combined_text = request.message
         if request.conversation_history:
-            for turn in request.conversation_history:
+            for turn in request.conversation_history[-5:]:  # 检查最近5轮对话
                 if turn.get("role") == "user":
-                    for disease in common_diseases:
-                        if disease in turn.get("content", ""):
-                            return disease
-        
-        return None
+                    combined_text += " " + turn.get("content", "")
+
+        disease = self.decision_tree_matcher.extract_disease_from_text(combined_text)
+        if disease:
+            logger.info(f"🔍 识别到疾病: {disease}")
+        return disease
+
+    def _extract_symptoms_from_conversation(self, request: ConsultationRequest, conversation_state) -> List[str]:
+        """从对话中提取症状列表"""
+        symptoms = []
+
+        # 1. 从当前消息提取
+        symptoms.extend(self.decision_tree_matcher.extract_symptoms_from_text(request.message))
+
+        # 2. 从对话历史提取
+        if request.conversation_history:
+            for turn in request.conversation_history[-10:]:  # 最近10轮
+                if turn.get("role") == "user":
+                    symptoms.extend(self.decision_tree_matcher.extract_symptoms_from_text(turn.get("content", "")))
+
+        # 3. 从对话状态获取已收集的症状
+        if conversation_state and hasattr(conversation_state, 'symptoms_collected'):
+            symptoms.extend(conversation_state.symptoms_collected)
+
+        # 去重
+        symptoms = list(set(symptoms))
+        logger.info(f"🔍 提取到症状: {symptoms[:10]}")  # 只显示前10个
+        return symptoms
+
+    def _build_patient_description(self, request: ConsultationRequest) -> str:
+        """构建完整的患者描述"""
+        parts = [request.message]
+
+        if request.conversation_history:
+            for turn in request.conversation_history[-8:]:  # 最近8轮对话
+                if turn.get("role") == "user":
+                    parts.append(turn.get("content", ""))
+
+        description = " ".join(parts)
+        logger.info(f"📝 构建患者描述 (长度: {len(description)}字)")
+        return description
     
     def _map_doctor_name_to_id(self, doctor_name: str) -> str:
         """将医生名称映射为ID"""
@@ -1089,24 +1376,34 @@ class UnifiedConsultationService:
         # 系统消息：医生人格 + 思维库上下文
         system_content = persona_prompt
         
-        # 🧠 集成思维库内容
+        # 🧠 集成决策树智能匹配内容
         if thinking_context and thinking_context.get("enabled"):
+            match_score = thinking_context.get('match_score', 0) * 100
+            confidence = thinking_context.get('confidence', 0) * 100
+            success_rate = thinking_context.get('success_rate', 0)
+
             thinking_prompt = f"""
 
-📚 **临床经验参考**（来自您的思维库）:
-疾病: {thinking_context.get('disease_name', '未知')}
-临床思维: {thinking_context.get('thinking_process', '未提供')}
+🧠 **智能决策树匹配** (匹配度: {match_score:.0f}%, 置信度: {confidence:.0f}%, 历史成功率: {success_rate:.0f}%)
 
-**您的诊疗要点**:
+**匹配的疾病**: {thinking_context.get('disease_name', '未知')}
+
+**您的诊疗思路** (来自您保存的决策树):
+{thinking_context.get('thinking_process', '未提供')}
+
+**临床决策要点**:
 {self._format_clinical_patterns(thinking_context.get('clinical_patterns', {}))}
 
-**专业背景**:
-{self._format_doctor_expertise(thinking_context.get('doctor_expertise', {}))}
+**🎯 重要指示**:
+1. **优先使用决策树思路**: 上述诊疗思路是您之前针对该疾病总结的宝贵经验，请作为首要参考
+2. **处方生成**: 如果需要开具处方，请严格遵循决策树中的用药思路和方剂选择
+3. **个性化调整**: 根据当前患者的具体症状，对决策树方案进行必要的加减化裁
+4. **保持一致性**: 确保您的诊疗建议与决策树中的思维模式保持一致
 
-请基于上述您已有的临床经验和思维模式，结合当前患者的症状，提供符合您诊疗风格的专业建议。"""
-            
+📊 **决策树应用统计**: 此决策树已被成功应用 {thinking_context.get('usage_count', 0)} 次"""
+
             system_content += thinking_prompt
-            logger.info("🧠 思维库内容已集成到AI提示词中")
+            logger.info(f"🧠 决策树智能匹配已集成 (匹配度:{match_score:.0f}%, ID:{thinking_context.get('pattern_id')})")
         
         # 🔥 新增：构建增强的对话历史摘要，防止重复问询
         if request.conversation_history and isinstance(request.conversation_history, list):
@@ -1298,6 +1595,28 @@ class UnifiedConsultationService:
                     symptoms.append(symptom)
         
         return symptoms[:5]  # 最多返回5个症状
+
+    def get_pattern_match_result(self, conversation_id: str) -> Optional[Tuple[str, float]]:
+        """
+        获取指定问诊的决策树匹配结果
+
+        Args:
+            conversation_id: 问诊ID
+
+        Returns:
+            Tuple[pattern_id, match_score] or None
+        """
+        return self.pattern_match_cache.get(conversation_id)
+
+    def clear_pattern_match_result(self, conversation_id: str):
+        """
+        清除指定问诊的决策树匹配结果（节省内存）
+
+        Args:
+            conversation_id: 问诊ID
+        """
+        if conversation_id in self.pattern_match_cache:
+            del self.pattern_match_cache[conversation_id]
 
 # 全局服务实例
 _consultation_service = None
