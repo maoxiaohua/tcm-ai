@@ -5838,8 +5838,232 @@
 
         // 查看问诊详情
         async function viewConsultationDetail(consultationId) {
-            alert(`查看问诊详情功能开发中...\n问诊ID: ${consultationId}`);
-            // TODO: 实现问诊详情查看功能，调用统一的问诊详情API
+            try {
+                console.log('🔍 医生查看问诊详情:', consultationId);
+
+                // 显示加载提示
+                showResult('加载中', '正在获取问诊详情...', 'info');
+
+                // 调用API获取问诊详情
+                const response = await fetch(`/api/consultation/${consultationId}/detail`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`获取详情失败: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('📄 获取到的问诊详情:', result);
+
+                if (!result.success) {
+                    throw new Error(result.message || '获取问诊详情失败');
+                }
+
+                // 显示详情弹窗
+                displayConsultationDetailModal(result.data);
+
+            } catch (error) {
+                console.error('❌ 获取问诊详情失败:', error);
+                showResult('错误', `获取问诊详情失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 显示问诊详情弹窗
+        function displayConsultationDetailModal(consultation) {
+            // 解析对话记录
+            let conversationHistory = [];
+            if (consultation.conversation_log) {
+                try {
+                    const logData = JSON.parse(consultation.conversation_log);
+                    if (logData.conversation_history && Array.isArray(logData.conversation_history)) {
+                        conversationHistory = logData.conversation_history;
+                    }
+                } catch (e) {
+                    console.error('解析对话记录失败:', e);
+                }
+            }
+
+            // 获取医生信息
+            const doctorId = consultation.selected_doctor_id || 'unknown';
+            const doctorName = getDoctorDisplayName(doctorId);
+
+            // 格式化时间
+            const createdTime = consultation.created_at ? new Date(consultation.created_at).toLocaleString('zh-CN') : '-';
+            const updatedTime = consultation.updated_at ? new Date(consultation.updated_at).toLocaleString('zh-CN') : '-';
+
+            // 构建对话历史HTML
+            const conversationHTML = conversationHistory.length > 0 ?
+                conversationHistory.map((conv, index) => `
+                    <div class="conversation-turn" style="margin-bottom: 20px; padding: 15px; background: #f9fafb; border-radius: 8px;">
+                        <div class="patient-message" style="margin-bottom: 10px;">
+                            <strong style="color: #3b82f6;">患者 (第${index + 1}轮):</strong>
+                            <p style="margin: 5px 0; padding: 10px; background: white; border-radius: 4px;">${conv.patient_query || ''}</p>
+                        </div>
+                        <div class="doctor-message" style="margin-bottom: 10px;">
+                            <strong style="color: #10b981;">${doctorName}:</strong>
+                            <p style="margin: 5px 0; padding: 10px; background: white; border-radius: 4px;">${conv.ai_response || ''}</p>
+                        </div>
+                        <div class="turn-timestamp" style="text-align: right; font-size: 12px; color: #6b7280;">
+                            ${conv.timestamp ? new Date(conv.timestamp).toLocaleString('zh-CN') : ''}
+                        </div>
+                    </div>
+                `).join('') :
+                '<p style="text-align: center; color: #6b7280;">暂无对话记录</p>';
+
+            // 处方信息
+            const prescription = consultation.prescription;
+            const prescriptionHTML = prescription ? `
+                <div class="detail-section" style="margin-bottom: 20px; padding: 15px; background: #f0fdf4; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #10b981;">🌿 处方信息</h3>
+                    <div style="background: white; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                        <div style="margin-bottom: 5px;"><strong>诊断:</strong> ${prescription.diagnosis || '未记录'}</div>
+                        <div style="margin-bottom: 5px;"><strong>处方内容:</strong></div>
+                        <div style="padding: 10px; background: #f9fafb; border-radius: 4px; white-space: pre-wrap;">${prescription.prescription_text || '未记录'}</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 14px;">
+                        <div><strong>处方状态:</strong> ${getPrescriptionStatusText(prescription.status)}</div>
+                        <div><strong>审核状态:</strong> ${getReviewStatusText(prescription.review_status)}</div>
+                        <div><strong>支付状态:</strong> ${getPaymentStatusText(prescription.payment_status)}</div>
+                        <div><strong>创建时间:</strong> ${prescription.created_at ? new Date(prescription.created_at).toLocaleString('zh-CN') : '-'}</div>
+                    </div>
+                </div>
+            ` : '<p style="color: #6b7280;">本次问诊未开具处方</p>';
+
+            // 决策树信息
+            const patternHTML = consultation.used_pattern ? `
+                <div class="detail-section" style="margin-bottom: 20px; padding: 15px; background: #eff6ff; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #3b82f6;">🌳 使用的决策树</h3>
+                    <div style="background: white; padding: 10px; border-radius: 4px;">
+                        <div style="margin-bottom: 5px;"><strong>疾病名称:</strong> ${consultation.used_pattern.disease_name}</div>
+                        <div style="margin-bottom: 5px;"><strong>匹配分数:</strong> ${consultation.pattern_match_score || '-'}</div>
+                        ${consultation.used_pattern.thinking_process ? `
+                            <div style="margin-top: 10px;">
+                                <strong>诊疗思路:</strong>
+                                <div style="padding: 10px; background: #f9fafb; border-radius: 4px; margin-top: 5px; max-height: 100px; overflow-y: auto;">
+                                    ${consultation.used_pattern.thinking_process}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            ` : '';
+
+            // 创建弹窗
+            const modal = document.createElement('div');
+            modal.id = 'consultationDetailModal';
+            modal.style.cssText = 'display: flex; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); align-items: center; justify-content: center;';
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 12px; max-width: 1000px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); width: 90%;">
+                    <div style="position: sticky; top: 0; background: white; padding: 20px; border-bottom: 2px solid #e5e7eb; z-index: 1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="margin: 0; color: #1f2937;">📋 问诊详情</h2>
+                            <button onclick="document.getElementById('consultationDetailModal').remove()"
+                                    style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; line-height: 1;">
+                                &times;
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="padding: 20px;">
+                        <!-- 基本信息 -->
+                        <div class="detail-section" style="margin-bottom: 20px; padding: 15px; background: #f9fafb; border-radius: 8px;">
+                            <h3 style="margin-top: 0; color: #374151;">📊 基本信息</h3>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; font-size: 14px;">
+                                <div><strong>问诊ID:</strong> ${consultation.uuid || '-'}</div>
+                                <div><strong>患者ID:</strong> ${consultation.patient_id || '-'}</div>
+                                <div><strong>医生:</strong> ${doctorName}</div>
+                                <div><strong>问诊状态:</strong> ${getConsultationStatusText(consultation.status)}</div>
+                                <div><strong>创建时间:</strong> ${createdTime}</div>
+                                <div><strong>更新时间:</strong> ${updatedTime}</div>
+                                <div><strong>对话轮次:</strong> ${conversationHistory.length}轮</div>
+                            </div>
+                        </div>
+
+                        <!-- 决策树信息 -->
+                        ${patternHTML}
+
+                        <!-- 处方信息 -->
+                        ${prescriptionHTML}
+
+                        <!-- 对话历史 -->
+                        <div class="detail-section" style="margin-bottom: 20px;">
+                            <h3 style="color: #374151;">💬 对话记录</h3>
+                            <div style="max-height: 400px; overflow-y: auto;">
+                                ${conversationHTML}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // 点击背景关闭
+            modal.onclick = function(event) {
+                if (event.target === modal) {
+                    modal.remove();
+                }
+            };
+        }
+
+        // 辅助函数：获取医生显示名称
+        function getDoctorDisplayName(doctorId) {
+            const doctorMap = {
+                'zhang_zhongjing': '张仲景',
+                'ye_tianshi': '叶天士',
+                'li_dongyuan': '李东垣',
+                'zheng_qinan': '郑钦安',
+                'liu_duzhou': '刘渡舟'
+            };
+            return doctorMap[doctorId] || doctorId;
+        }
+
+        // 辅助函数：获取问诊状态文本
+        function getConsultationStatusText(status) {
+            const statusMap = {
+                'active': '<span style="color: #3b82f6;">⏳ 进行中</span>',
+                'completed': '<span style="color: #10b981;">✅ 已完成</span>',
+                'cancelled': '<span style="color: #6b7280;">❌ 已取消</span>'
+            };
+            return statusMap[status] || status || '-';
+        }
+
+        // 辅助函数：获取处方状态文本
+        function getPrescriptionStatusText(status) {
+            const statusMap = {
+                'draft': '<span style="color: #6b7280;">草稿</span>',
+                'pending': '<span style="color: #f59e0b;">待审核</span>',
+                'approved': '<span style="color: #10b981;">已通过</span>',
+                'rejected': '<span style="color: #ef4444;">已拒绝</span>'
+            };
+            return statusMap[status] || status || '-';
+        }
+
+        // 辅助函数：获取审核状态文本
+        function getReviewStatusText(status) {
+            const statusMap = {
+                'pending': '<span style="color: #f59e0b;">待审核</span>',
+                'approved': '<span style="color: #10b981;">已批准</span>',
+                'rejected': '<span style="color: #ef4444;">已拒绝</span>',
+                'revision_required': '<span style="color: #f59e0b;">需修改</span>'
+            };
+            return statusMap[status] || status || '-';
+        }
+
+        // 辅助函数：获取支付状态文本
+        function getPaymentStatusText(status) {
+            const statusMap = {
+                'unpaid': '<span style="color: #6b7280;">未支付</span>',
+                'pending': '<span style="color: #f59e0b;">待支付</span>',
+                'paid': '<span style="color: #10b981;">已支付</span>',
+                'refunded': '<span style="color: #6b7280;">已退款</span>'
+            };
+            return statusMap[status] || status || '-';
         }
 
         // 关闭详情弹窗
