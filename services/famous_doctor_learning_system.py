@@ -1010,9 +1010,113 @@ class FamousDoctorLearningSystem:
         
         return suggestions
 
+    def _get_disease_specific_content(self, disease_name: str):
+        """
+        获取疾病特定的诊疗内容
+
+        Args:
+            disease_name: 疾病名称
+
+        Returns:
+            包含症状问题、辨证要点、治疗原则的字典
+        """
+        # 常见疾病知识库
+        disease_knowledge = {
+            "感冒": {
+                "cold": {
+                    "symptoms": [f"{disease_name}时是否怕冷明显？", f"{disease_name}时是否流清鼻涕？", "是否打喷嚏？", "是否咽喉不痛？"],
+                    "diagnosis": [f"{disease_name}风寒程度", "表证轻重", "有无兼证"],
+                    "treatment": "辛温解表，发散风寒",
+                    "prescription_hint": f"针对{disease_name}风寒证，可考虑辛温解表之剂"
+                },
+                "heat": {
+                    "symptoms": [f"{disease_name}时是否发热明显？", f"{disease_name}时是否咽喉肿痛？", "是否口渴喜饮？", "鼻涕是否黄稠？"],
+                    "diagnosis": [f"{disease_name}风热程度", "热象轻重", "有无化燥"],
+                    "treatment": "辛凉解表，清热解毒",
+                    "prescription_hint": f"针对{disease_name}风热证，可考虑辛凉清热之品"
+                }
+            },
+            "头痛": {
+                "cold": {
+                    "symptoms": [f"{disease_name}时是否遇寒加重？", f"{disease_name}时是否喜温？", "疼痛是否紧束感？", "是否伴有怕冷？"],
+                    "diagnosis": [f"{disease_name}病位（前额/后头/偏侧）", "寒邪程度", "有无血瘀"],
+                    "treatment": "温经散寒，通络止痛",
+                    "prescription_hint": f"针对{disease_name}寒证，可考虑温通止痛之法"
+                },
+                "heat": {
+                    "symptoms": [f"{disease_name}时是否跳痛灼痛？", f"{disease_name}是否口苦？", "是否目赤？", "是否烦躁易怒？"],
+                    "diagnosis": [f"{disease_name}病位及性质", "肝阳亢盛程度", "有无痰火"],
+                    "treatment": "清热平肝，息风止痛",
+                    "prescription_hint": f"针对{disease_name}热证，可考虑清肝泻火之品"
+                }
+            },
+            "咳嗽": {
+                "cold": {
+                    "symptoms": [f"{disease_name}时痰是否清稀？", f"{disease_name}时是否怕冷？", "是否咽痒？", "是否鼻塞流涕？"],
+                    "diagnosis": [f"{disease_name}风寒程度", "肺气闭束情况", "痰液性质"],
+                    "treatment": "疏风散寒，宣肺止咳",
+                    "prescription_hint": f"针对{disease_name}风寒证，宜温化寒痰"
+                },
+                "heat": {
+                    "symptoms": [f"{disease_name}时痰是否黄稠？", f"{disease_name}时咽喉是否疼痛？", "是否发热？", "是否口干？"],
+                    "diagnosis": [f"{disease_name}热邪程度", "痰热壅肺情况", "津液耗损"],
+                    "treatment": "清热宣肺，化痰止咳",
+                    "prescription_hint": f"针对{disease_name}痰热证，宜清肺化痰"
+                }
+            },
+            "腹泻": {
+                "cold": {
+                    "symptoms": [f"{disease_name}时是否腹痛喜按？", f"{disease_name}时是否得温痛减？", "是否肠鸣漉漉？", "大便是否清稀？"],
+                    "diagnosis": [f"{disease_name}寒湿程度", "脾阳虚损情况", "病程久暂"],
+                    "treatment": "温中散寒，健脾止泻",
+                    "prescription_hint": f"针对{disease_name}寒证，宜温脾散寒"
+                },
+                "heat": {
+                    "symptoms": [f"{disease_name}时大便是否臭秽？", f"{disease_name}时是否肛门灼热？", "是否口渴？", "是否腹痛拒按？"],
+                    "diagnosis": [f"{disease_name}湿热程度", "肠道热象", "正气强弱"],
+                    "treatment": "清热利湿，调理肠腑",
+                    "prescription_hint": f"针对{disease_name}湿热证，宜清肠化湿"
+                }
+            },
+            "胃痛": {
+                "cold": {
+                    "symptoms": [f"{disease_name}时是否得温痛减？", f"{disease_name}时是否喜热饮？", "是否畏寒肢冷？", "呕吐物是否清稀？"],
+                    "diagnosis": [f"{disease_name}虚实寒热", "中焦虚寒程度", "气机阻滞"],
+                    "treatment": "温中散寒，和胃止痛",
+                    "prescription_hint": f"针对{disease_name}寒证，宜温胃散寒"
+                },
+                "heat": {
+                    "symptoms": [f"{disease_name}时是否灼痛？", f"{disease_name}时是否喜冷饮？", "是否口苦？", "是否烦躁？"],
+                    "diagnosis": [f"{disease_name}郁热程度", "胃阴耗损情况", "肝胃不和"],
+                    "treatment": "清热和胃，降逆止痛",
+                    "prescription_hint": f"针对{disease_name}热证，宜清胃泻火"
+                }
+            }
+        }
+
+        # 如果是已知疾病，返回特定内容；否则返回通用内容
+        if disease_name in disease_knowledge:
+            return disease_knowledge[disease_name]
+        else:
+            # 通用内容（但包含疾病名称）
+            return {
+                "cold": {
+                    "symptoms": [f"{disease_name}时是否怕冷？", f"{disease_name}时是否喜温？", f"{disease_name}症状遇寒是否加重？", "是否肢体不温？"],
+                    "diagnosis": [f"{disease_name}的寒证程度", "病位深浅", "虚实夹杂"],
+                    "treatment": "温阳散寒",
+                    "prescription_hint": f"针对{disease_name}的寒证特点选方用药"
+                },
+                "heat": {
+                    "symptoms": [f"{disease_name}时是否发热？", f"{disease_name}时是否口渴？", f"{disease_name}症状遇热是否加重？", "是否尿黄便干？"],
+                    "diagnosis": [f"{disease_name}的热证性质", "病位层次", "实热虚热"],
+                    "treatment": "清热泻火",
+                    "prescription_hint": f"针对{disease_name}的热证特点选方用药"
+                }
+            }
+
     def _generate_standard_template(self, disease_name: str, complexity_level: str = "standard") -> List[Dict[str, Any]]:
         """
-        生成标准决策树模板
+        生成标准决策树模板（根据疾病提供针对性内容）
 
         Args:
             disease_name: 疾病名称
@@ -1023,36 +1127,40 @@ class FamousDoctorLearningSystem:
         """
         print(f"📋 生成标准模板: {disease_name} (复杂度: {complexity_level})")
 
+        # 获取疾病特定内容
+        disease_content = self._get_disease_specific_content(disease_name)
+
         # 基础模板结构
         if complexity_level == "simple":
-            # 简单模板：单一路径
+            # 简单模板：单一路径（使用寒证作为示例）
+            cold_content = disease_content.get("cold", {})
             template_paths = [
                 {
                     "id": f"{disease_name}_standard",
                     "title": f"{disease_name}标准诊疗流程",
                     "path_name": f"{disease_name}标准诊疗流程",
-                    "description": "请根据实际情况填充诊疗内容",
+                    "description": f"针对{disease_name}的标准诊疗流程（以寒证为例）",
                     "steps": [
                         {
                             "step_number": 1,
-                            "title": "症状收集",
-                            "content": "详细询问患者主诉症状（请根据实际填写）",
-                            "questions": ["主要症状是什么？", "症状持续多久？", "伴随症状有哪些？"],
+                            "title": f"{disease_name}症状收集",
+                            "content": f"详细询问{disease_name}的症状特点",
+                            "questions": cold_content.get("symptoms", [f"{disease_name}的主要症状？", "症状持续多久？", "伴随症状？"]),
                             "node_type": "inquiry"
                         },
                         {
                             "step_number": 2,
-                            "title": "辨证分析",
-                            "content": "综合四诊信息进行辨证（请根据实际填写）",
-                            "key_points": ["证型判断", "病位病性分析", "病因病机探讨"],
+                            "title": f"{disease_name}辨证分析",
+                            "content": f"综合四诊信息对{disease_name}进行辨证",
+                            "key_points": cold_content.get("diagnosis", [f"{disease_name}证型", "病位病性", "病因病机"]),
                             "node_type": "diagnosis"
                         },
                         {
                             "step_number": 3,
-                            "title": "治疗方案",
-                            "content": "制定个体化治疗方案（请根据实际填写）",
-                            "treatment_principle": "请填写治疗原则",
-                            "prescription": "请填写处方建议",
+                            "title": f"{disease_name}治疗方案",
+                            "content": f"制定{disease_name}的个体化治疗方案",
+                            "treatment_principle": cold_content.get("treatment", "辨证施治"),
+                            "prescription": cold_content.get("prescription_hint", "根据辨证选方用药"),
                             "node_type": "treatment"
                         }
                     ]
@@ -1121,34 +1229,37 @@ class FamousDoctorLearningSystem:
                 }
             ]
         else:
-            # 标准模板：双路径（寒热辨证）
+            # 标准模板：双路径（寒热辨证） - 使用疾病特定内容
+            cold_content = disease_content.get("cold", {})
+            heat_content = disease_content.get("heat", {})
+
             template_paths = [
                 {
                     "id": f"{disease_name}_cold",
                     "title": f"{disease_name}寒证诊疗路径",
                     "path_name": f"{disease_name}寒证诊疗路径",
-                    "description": "寒证类型的标准诊疗流程（请根据实际情况填充内容）",
+                    "description": f"针对{disease_name}寒证类型的诊疗流程",
                     "steps": [
                         {
                             "step_number": 1,
-                            "title": "寒证症状询问",
-                            "content": "详细询问寒证相关症状（请根据实际填写）",
-                            "questions": ["是否怕冷喜温？", "是否四肢不温？", "是否喜热饮？"],
+                            "title": f"{disease_name}寒证症状询问",
+                            "content": f"询问{disease_name}寒证的特征性症状",
+                            "questions": cold_content.get("symptoms", [f"{disease_name}时是否怕冷？", "是否喜温？"]),
                             "node_type": "inquiry"
                         },
                         {
                             "step_number": 2,
-                            "title": "寒证辨证",
-                            "content": "综合判断寒证类型（请根据实际填写）",
-                            "key_points": ["寒证程度", "病位深浅", "虚实夹杂"],
+                            "title": f"{disease_name}寒证辨证",
+                            "content": f"对{disease_name}寒证进行辨证分析",
+                            "key_points": cold_content.get("diagnosis", [f"{disease_name}寒证程度", "病位深浅"]),
                             "node_type": "diagnosis"
                         },
                         {
                             "step_number": 3,
-                            "title": "温阳散寒治疗",
-                            "content": "制定温阳散寒方案（请根据实际填写）",
-                            "treatment_principle": "温阳散寒",
-                            "prescription": "请填写温阳方药",
+                            "title": f"{disease_name}寒证治疗",
+                            "content": f"制定{disease_name}寒证的治疗方案",
+                            "treatment_principle": cold_content.get("treatment", "温阳散寒"),
+                            "prescription": cold_content.get("prescription_hint", f"针对{disease_name}寒证选方用药"),
                             "node_type": "treatment"
                         }
                     ]
@@ -1157,28 +1268,28 @@ class FamousDoctorLearningSystem:
                     "id": f"{disease_name}_heat",
                     "title": f"{disease_name}热证诊疗路径",
                     "path_name": f"{disease_name}热证诊疗路径",
-                    "description": "热证类型的标准诊疗流程（请根据实际情况填充内容）",
+                    "description": f"针对{disease_name}热证类型的诊疗流程",
                     "steps": [
                         {
                             "step_number": 1,
-                            "title": "热证症状询问",
-                            "content": "详细询问热证相关症状（请根据实际填写）",
-                            "questions": ["是否发热口渴？", "是否喜冷饮？", "是否尿黄便干？"],
+                            "title": f"{disease_name}热证症状询问",
+                            "content": f"询问{disease_name}热证的特征性症状",
+                            "questions": heat_content.get("symptoms", [f"{disease_name}时是否发热？", "是否口渴？"]),
                             "node_type": "inquiry"
                         },
                         {
                             "step_number": 2,
-                            "title": "热证辨证",
-                            "content": "综合判断热证类型（请根据实际填写）",
-                            "key_points": ["热证性质", "病位层次", "实热虚热"],
+                            "title": f"{disease_name}热证辨证",
+                            "content": f"对{disease_name}热证进行辨证分析",
+                            "key_points": heat_content.get("diagnosis", [f"{disease_name}热证性质", "病位层次"]),
                             "node_type": "diagnosis"
                         },
                         {
                             "step_number": 3,
-                            "title": "清热治疗",
-                            "content": "制定清热方案（请根据实际填写）",
-                            "treatment_principle": "清热泻火",
-                            "prescription": "请填写清热方药",
+                            "title": f"{disease_name}热证治疗",
+                            "content": f"制定{disease_name}热证的治疗方案",
+                            "treatment_principle": heat_content.get("treatment", "清热泻火"),
+                            "prescription": heat_content.get("prescription_hint", f"针对{disease_name}热证选方用药"),
                             "node_type": "treatment"
                         }
                     ]
