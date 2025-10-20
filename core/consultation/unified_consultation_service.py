@@ -62,6 +62,9 @@ class ConsultationResponse:
     progress_info: Optional[Dict] = None
     stage_guidance: Optional[Dict] = None
     requires_confirmation: bool = False
+    # 🆕 决策树匹配信息
+    used_pattern_id: Optional[str] = None
+    pattern_match_score: Optional[float] = None
 
 class UnifiedConsultationService:
     """统一问诊服务"""
@@ -859,17 +862,28 @@ class UnifiedConsultationService:
     def _create_final_response(self, request, processed_response, start_time, conversation_state) -> ConsultationResponse:
         """创建最终响应"""
         processing_time = (datetime.now() - start_time).total_seconds()
-        
+
         # 获取进度信息和阶段引导
         progress_info = self.state_manager.get_conversation_progress(request.conversation_id)
         stage_guidance = self.state_manager.get_stage_guidance(request.conversation_id)
-        
+
         # 判断是否需要确认
         requires_confirmation = (
             conversation_state.current_stage == ConversationStage.PRESCRIPTION and
             processed_response.get("contains_prescription", False)
         )
-        
+
+        # 🆕 获取决策树匹配信息
+        used_pattern_id = None
+        pattern_match_score = None
+        if request.conversation_id in self.pattern_match_cache:
+            cached_data = self.pattern_match_cache[request.conversation_id]
+            if len(cached_data) >= 3:
+                # (pattern_id, match_score, matched_pattern)
+                used_pattern_id = cached_data[0]
+                pattern_match_score = cached_data[1]
+                logger.info(f"📊 添加决策树信息到响应: pattern_id={used_pattern_id}, score={pattern_match_score:.2%}")
+
         return ConsultationResponse(
             reply=processed_response["content"],
             conversation_id=request.conversation_id,
@@ -882,7 +896,9 @@ class UnifiedConsultationService:
             conversation_active=conversation_state.is_active,
             progress_info=progress_info,
             stage_guidance=stage_guidance,
-            requires_confirmation=requires_confirmation
+            requires_confirmation=requires_confirmation,
+            used_pattern_id=used_pattern_id,
+            pattern_match_score=pattern_match_score
         )
     
     def _create_error_response(self, request, start_time, error_msg) -> ConsultationResponse:
@@ -1246,6 +1262,7 @@ class UnifiedConsultationService:
             doctor_id = self._map_doctor_name_to_id(request.selected_doctor)
 
             # 6. 🔍 使用决策树匹配器查找最佳匹配
+            # 先尝试匹配指定医生的决策树
             matching_patterns = await self.decision_tree_matcher.find_matching_patterns(
                 disease_name=disease_name,
                 symptoms=symptoms,
@@ -1253,6 +1270,28 @@ class UnifiedConsultationService:
                 doctor_id=doctor_id,
                 min_match_score=0.3  # 最小30%匹配度
             )
+
+            # 🔧 如果没找到，尝试查询通用决策树（anonymous_doctor）
+            if not matching_patterns and doctor_id != "anonymous_doctor":
+                logger.info(f"📚 未找到医生 {doctor_id} 的决策树，尝试查询通用决策树...")
+                matching_patterns = await self.decision_tree_matcher.find_matching_patterns(
+                    disease_name=disease_name,
+                    symptoms=symptoms,
+                    patient_description=patient_description,
+                    doctor_id="anonymous_doctor",  # 查询通用决策树
+                    min_match_score=0.3
+                )
+
+            # 🔧 如果还是没找到，查询所有医生的决策树（不限制doctor_id）
+            if not matching_patterns:
+                logger.info(f"📚 未找到通用决策树，查询所有医生的决策树...")
+                matching_patterns = await self.decision_tree_matcher.find_matching_patterns(
+                    disease_name=disease_name,
+                    symptoms=symptoms,
+                    patient_description=patient_description,
+                    doctor_id=None,  # 不限制医生ID
+                    min_match_score=0.3
+                )
 
             if matching_patterns:
                 best_match = matching_patterns[0]

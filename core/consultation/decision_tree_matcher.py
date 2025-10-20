@@ -35,17 +35,17 @@ class DecisionTreeMatcher:
         """初始化决策树匹配服务"""
         self.db_path = db_path
 
-        # 疾病别名映射
+        # 疾病别名映射（扩展版，包含更多中医常用术语）
         self.disease_aliases = {
-            "失眠": ["失眠", "不寐", "睡眠障碍", "睡不着", "多梦"],
-            "便秘": ["便秘", "大便干", "大便难", "排便困难"],
-            "腹泻": ["腹泻", "拉肚子", "泄泻", "大便溏"],
-            "胃痛": ["胃痛", "胃疼", "胃脘痛", "胃部不适"],
-            "头痛": ["头痛", "头疼", "偏头痛"],
-            "咳嗽": ["咳嗽", "咳", "干咳", "咳痰"],
-            "感冒": ["感冒", "风寒", "风热", "外感"],
-            "发热": ["发热", "发烧", "身热"],
-            "心悸": ["心悸", "心慌", "怔忡"]
+            "失眠": ["失眠", "不寐", "睡眠障碍", "睡不着", "多梦", "难入睡", "易醒"],
+            "便秘": ["便秘", "大便干", "大便难", "排便困难", "大便秘结", "大便不通"],
+            "腹泻": ["腹泻", "拉肚子", "泄泻", "便溏"],  # 移除"大便溏"，避免误匹配
+            "胃痛": ["胃痛", "胃疼", "胃脘痛", "胃部不适", "胃脘隐痛", "胃脘胀痛", "胃脘灼痛", "脘痛", "脘腹痛"],
+            "头痛": ["头痛", "头疼", "偏头痛", "头胀痛", "巅顶痛"],
+            "咳嗽": ["咳嗽", "咳", "干咳", "咳痰", "咳喘"],
+            "感冒": ["感冒", "风寒", "风热", "外感", "伤风"],
+            "发热": ["发热", "发烧", "身热", "壮热", "潮热"],
+            "心悸": ["心悸", "心慌", "怔忡", "心跳", "心动悸"]
         }
 
         logger.info(f"✅ 决策树匹配服务初始化完成: {db_path}")
@@ -76,14 +76,16 @@ class DecisionTreeMatcher:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
-            # 查询所有决策树
+            # 🔧 查询决策树（支持doctor_id=None查询所有医生的决策树）
             if doctor_id:
+                logger.info(f"🔍 查询医生 {doctor_id} 的决策树")
                 cursor.execute("""
                     SELECT * FROM doctor_clinical_patterns
                     WHERE doctor_id = ?
                     ORDER BY usage_count DESC, success_count DESC
                 """, (doctor_id,))
             else:
+                logger.info(f"🔍 查询所有医生的决策树")
                 cursor.execute("""
                     SELECT * FROM doctor_clinical_patterns
                     ORDER BY usage_count DESC, success_count DESC
@@ -153,20 +155,28 @@ class DecisionTreeMatcher:
 
         匹配算法:
         1. 疾病名称完全匹配: 0.4分
-        2. 疾病别名匹配: 0.3分
-        3. 症状匹配度: 0.4分
-        4. 临床模式文本相似度: 0.2分
+        2. 疾病别名匹配: 0.35分
+        3. 核心疾病词匹配: 0.3分 (如"胃痛"匹配"脾胃虚寒型胃痛")
+        4. 症状匹配度: 0.4分
+        5. 临床模式文本相似度: 0.2分
         """
         total_score = 0.0
 
         # 1. 疾病名称匹配 (权重: 0.4)
         pattern_disease = pattern['disease_name']
         if disease_name == pattern_disease:
+            # 完全匹配
             total_score += 0.4
         elif self._is_disease_alias(disease_name, pattern_disease):
+            # 别名匹配
+            total_score += 0.35
+        elif disease_name in pattern_disease:
+            # 患者描述的疾病名包含在决策树疾病名中 (如"胃痛" in "脾胃虚寒型胃痛")
+            # 这种情况应该给较高分数,因为是核心疾病词匹配
             total_score += 0.3
-        elif disease_name in pattern_disease or pattern_disease in disease_name:
-            total_score += 0.2
+        elif pattern_disease in disease_name:
+            # 决策树疾病名包含在患者描述中
+            total_score += 0.25
 
         # 2. 症状匹配度 (权重: 0.4)
         if symptoms:
@@ -331,13 +341,32 @@ class DecisionTreeMatcher:
         return list(set(symptoms))  # 去重
 
     def extract_disease_from_text(self, text: str) -> Optional[str]:
-        """从文本中提取疾病名称"""
+        """
+        从文本中提取疾病名称
+
+        策略：找到所有匹配的疾病，优先选择在文本中最早出现的（主要症状）
+        例如："胃脘隐痛...大便溏薄" → 优先返回"胃痛"而不是"腹泻"
+        """
+        matched_diseases = []
+
         for main_disease, aliases in self.disease_aliases.items():
             for alias in aliases:
                 if alias in text:
-                    return main_disease
+                    # 记录疾病名称和在文本中的位置
+                    position = text.find(alias)
+                    matched_diseases.append((main_disease, position, alias))
+                    break  # 找到一个别名就跳出，避免重复
 
-        return None
+        if not matched_diseases:
+            return None
+
+        # 按照在文本中的位置排序，选择最早出现的疾病
+        matched_diseases.sort(key=lambda x: x[1])
+
+        selected_disease = matched_diseases[0][0]
+        logger.info(f"🔍 疾病提取: 找到 {len(matched_diseases)} 个候选疾病，选择最早出现的 '{selected_disease}'")
+
+        return selected_disease
 
 # 全局单例
 _matcher_instance = None

@@ -1010,6 +1010,183 @@ class FamousDoctorLearningSystem:
         
         return suggestions
 
+    def _generate_standard_template(self, disease_name: str, complexity_level: str = "standard") -> List[Dict[str, Any]]:
+        """
+        生成标准决策树模板
+
+        Args:
+            disease_name: 疾病名称
+            complexity_level: 复杂度级别 (simple, standard, complex)
+
+        Returns:
+            标准决策路径列表
+        """
+        print(f"📋 生成标准模板: {disease_name} (复杂度: {complexity_level})")
+
+        # 基础模板结构
+        if complexity_level == "simple":
+            # 简单模板：单一路径
+            template_paths = [
+                {
+                    "id": f"{disease_name}_standard",
+                    "title": f"{disease_name}标准诊疗流程",
+                    "path_name": f"{disease_name}标准诊疗流程",
+                    "description": "请根据实际情况填充诊疗内容",
+                    "steps": [
+                        {
+                            "step_number": 1,
+                            "title": "症状收集",
+                            "content": "详细询问患者主诉症状（请根据实际填写）",
+                            "questions": ["主要症状是什么？", "症状持续多久？", "伴随症状有哪些？"],
+                            "node_type": "inquiry"
+                        },
+                        {
+                            "step_number": 2,
+                            "title": "辨证分析",
+                            "content": "综合四诊信息进行辨证（请根据实际填写）",
+                            "key_points": ["证型判断", "病位病性分析", "病因病机探讨"],
+                            "node_type": "diagnosis"
+                        },
+                        {
+                            "step_number": 3,
+                            "title": "治疗方案",
+                            "content": "制定个体化治疗方案（请根据实际填写）",
+                            "treatment_principle": "请填写治疗原则",
+                            "prescription": "请填写处方建议",
+                            "node_type": "treatment"
+                        }
+                    ]
+                }
+            ]
+        elif complexity_level == "complex":
+            # 复杂模板：多路径分支
+            template_paths = [
+                {
+                    "id": f"{disease_name}_deficiency",
+                    "title": f"{disease_name}虚证诊疗路径",
+                    "path_name": f"{disease_name}虚证诊疗路径",
+                    "description": "虚证类型的诊疗流程（请根据实际填写）",
+                    "steps": [
+                        {
+                            "step_number": 1,
+                            "title": "虚证症状识别",
+                            "content": "识别虚证特征性症状（请根据实际填写）",
+                            "questions": ["是否乏力疲劳？", "是否气短懒言？", "舌质是否淡？"],
+                            "node_type": "inquiry"
+                        },
+                        {
+                            "step_number": 2,
+                            "title": "虚证辨证分型",
+                            "content": "区分气虚、血虚、阴虚、阳虚（请根据实际填写）",
+                            "key_points": ["虚证类型", "虚损程度", "兼夹证候"],
+                            "node_type": "diagnosis"
+                        },
+                        {
+                            "step_number": 3,
+                            "title": "补虚治疗",
+                            "content": "根据虚证类型选择补法（请根据实际填写）",
+                            "treatment_principle": "虚则补之",
+                            "node_type": "treatment"
+                        }
+                    ]
+                },
+                {
+                    "id": f"{disease_name}_excess",
+                    "title": f"{disease_name}实证诊疗路径",
+                    "path_name": f"{disease_name}实证诊疗路径",
+                    "description": "实证类型的诊疗流程（请根据实际填写）",
+                    "steps": [
+                        {
+                            "step_number": 1,
+                            "title": "实证症状识别",
+                            "content": "识别实证特征性症状（请根据实际填写）",
+                            "questions": ["是否胀痛拒按？", "是否便秘？", "舌苔是否厚腻？"],
+                            "node_type": "inquiry"
+                        },
+                        {
+                            "step_number": 2,
+                            "title": "实证辨证分型",
+                            "content": "区分气滞、血瘀、痰湿、食积等（请根据实际填写）",
+                            "key_points": ["实证类型", "病邪性质", "病位深浅"],
+                            "node_type": "diagnosis"
+                        },
+                        {
+                            "step_number": 3,
+                            "title": "祛邪治疗",
+                            "content": "根据实证类型选择泻法（请根据实际填写）",
+                            "treatment_principle": "实则泻之",
+                            "node_type": "treatment"
+                        }
+                    ]
+                }
+            ]
+        else:
+            # 标准模板：双路径（寒热辨证）
+            template_paths = [
+                {
+                    "id": f"{disease_name}_cold",
+                    "title": f"{disease_name}寒证诊疗路径",
+                    "path_name": f"{disease_name}寒证诊疗路径",
+                    "description": "寒证类型的标准诊疗流程（请根据实际情况填充内容）",
+                    "steps": [
+                        {
+                            "step_number": 1,
+                            "title": "寒证症状询问",
+                            "content": "详细询问寒证相关症状（请根据实际填写）",
+                            "questions": ["是否怕冷喜温？", "是否四肢不温？", "是否喜热饮？"],
+                            "node_type": "inquiry"
+                        },
+                        {
+                            "step_number": 2,
+                            "title": "寒证辨证",
+                            "content": "综合判断寒证类型（请根据实际填写）",
+                            "key_points": ["寒证程度", "病位深浅", "虚实夹杂"],
+                            "node_type": "diagnosis"
+                        },
+                        {
+                            "step_number": 3,
+                            "title": "温阳散寒治疗",
+                            "content": "制定温阳散寒方案（请根据实际填写）",
+                            "treatment_principle": "温阳散寒",
+                            "prescription": "请填写温阳方药",
+                            "node_type": "treatment"
+                        }
+                    ]
+                },
+                {
+                    "id": f"{disease_name}_heat",
+                    "title": f"{disease_name}热证诊疗路径",
+                    "path_name": f"{disease_name}热证诊疗路径",
+                    "description": "热证类型的标准诊疗流程（请根据实际情况填充内容）",
+                    "steps": [
+                        {
+                            "step_number": 1,
+                            "title": "热证症状询问",
+                            "content": "详细询问热证相关症状（请根据实际填写）",
+                            "questions": ["是否发热口渴？", "是否喜冷饮？", "是否尿黄便干？"],
+                            "node_type": "inquiry"
+                        },
+                        {
+                            "step_number": 2,
+                            "title": "热证辨证",
+                            "content": "综合判断热证类型（请根据实际填写）",
+                            "key_points": ["热证性质", "病位层次", "实热虚热"],
+                            "node_type": "diagnosis"
+                        },
+                        {
+                            "step_number": 3,
+                            "title": "清热治疗",
+                            "content": "制定清热方案（请根据实际填写）",
+                            "treatment_principle": "清热泻火",
+                            "prescription": "请填写清热方药",
+                            "node_type": "treatment"
+                        }
+                    ]
+                }
+            ]
+
+        return template_paths
+
     async def generate_decision_paths(self, disease_name: str, thinking_process: str = "", 
                                     use_ai: bool = None, include_tcm_analysis: bool = True, 
                                     complexity_level: str = "standard", enable_smart_branching: bool = False) -> Dict[str, Any]:
@@ -1068,9 +1245,12 @@ class FamousDoctorLearningSystem:
                 await self._record_ai_learning(disease_name, thinking_process, ai_paths)
                 
             else:
-                # 🚨 不使用硬编码模板，直接返回错误
-                print(f"❌ 无诊疗思路或AI未启用，不生成硬编码模板: {disease_name}")
-                raise ValueError("需要提供诊疗思路且启用AI功能才能生成决策树")
+                # 📋 使用标准模板
+                print(f"📋 使用标准模板生成: {disease_name}")
+                template_paths = self._generate_standard_template(disease_name, complexity_level)
+                result["paths"] = template_paths
+                result["generation_time"] = "即时"
+                result["source"] = "template"
             
             # 添加中医理论分析
             if include_tcm_analysis:
@@ -1094,8 +1274,18 @@ class FamousDoctorLearningSystem:
             
         except Exception as e:
             print(f"❌ 决策路径生成失败: {e}")
-            # 🚨 不使用硬编码模板备用，直接抛出错误
-            raise e
+            print(f"📋 降级使用标准模板作为备用方案")
+            # 使用标准模板作为备用
+            try:
+                template_paths = self._generate_standard_template(disease_name, complexity_level)
+                result["paths"] = template_paths
+                result["generation_time"] = "即时"
+                result["source"] = "template_fallback"
+                result["error_message"] = str(e)
+                return result
+            except Exception as fallback_error:
+                print(f"❌ 模板备用方案也失败: {fallback_error}")
+                raise e
 
     async def analyze_tcm_theory(self, tree_data: Dict[str, Any], disease_name: str, analysis_prompt: str) -> Dict[str, Any]:
         """
@@ -1820,7 +2010,7 @@ class FamousDoctorLearningSystem:
                 content = response.output.choices[0]['message']['content']
                 print(f"🔍 AI原始响应内容: {content}")
                 
-                # 解析JSON响应 - 增强版
+                # 解析JSON响应 - 增强容错版
                 try:
                     # 首先尝试直接解析
                     ai_result = json.loads(content)
@@ -1830,45 +2020,71 @@ class FamousDoctorLearningSystem:
                     print(f"❌ 直接JSON解析失败: {e}")
                     print(f"🔍 错误位置: 行{e.lineno}, 列{e.colno}, 字符{e.pos}")
                     print(f"🔍 错误附近内容: ...{content[max(0, e.pos-20):e.pos+20]}...")
+
                     # 如果失败，尝试提取JSON部分 - 支持markdown代码块
                     import re
-                    
-                    # 更精准的JSON提取模式
-                    json_patterns = [
-                        r'```json\s*(\{[\s\S]*?\})\s*```',  # markdown代码块
-                        r'```\s*(\{[\s\S]*?\})\s*```',      # 无语言标识的代码块
-                        r'(\{[\s\S]*?\})(?=\s*###|补充|建议|注意|$)',    # JSON后跟其他内容
-                        r'(\{(?:[^{}]|\{[^}]*\})*\})'       # 平衡括号匹配，避免贪婪匹配
-                    ]
-                    
-                    json_content = None
-                    for pattern in json_patterns:
-                        json_match = re.search(pattern, content)
-                        if json_match:
-                            # 🔧 修复：安全地访问捕获组
+
+                    # 🔧 第一步：清理常见的JSON格式错误
+                    cleaned_content = content
+                    # 移除注释
+                    cleaned_content = re.sub(r'//.*?\n', '\n', cleaned_content)
+                    cleaned_content = re.sub(r'/\*.*?\*/', '', cleaned_content, flags=re.DOTALL)
+                    # 修复尾部逗号
+                    cleaned_content = re.sub(r',(\s*[}\]])', r'\1', cleaned_content)
+                    # 修复缺失的逗号（在}或]后面应该有逗号但没有的情况）
+                    cleaned_content = re.sub(r'([}\]])(\s*)([{"\[])', r'\1,\2\3', cleaned_content)
+
+                    # 尝试用清理后的内容解析
+                    try:
+                        ai_result = json.loads(cleaned_content)
+                        paths = ai_result.get("paths", [])
+                        print(f"🔍 清理后JSON解析成功，得到{len(paths)}条路径")
+                    except json.JSONDecodeError:
+                        # 更精准的JSON提取模式
+                        json_patterns = [
+                            r'```json\s*(\{[\s\S]*?\})\s*```',  # markdown代码块
+                            r'```\s*(\{[\s\S]*?\})\s*```',      # 无语言标识的代码块
+                            r'(\{[\s\S]*?\})(?=\s*###|补充|建议|注意|$)',    # JSON后跟其他内容
+                            r'(\{(?:[^{}]|\{[^}]*\})*\})'       # 平衡括号匹配
+                        ]
+
+                        json_content = None
+                        for pattern in json_patterns:
+                            json_match = re.search(pattern, cleaned_content)
+                            if json_match:
+                                # 安全地访问捕获组
+                                try:
+                                    json_content = json_match.group(1)
+                                    print(f"🔍 使用模式提取到JSON内容")
+                                    break
+                                except IndexError:
+                                    json_content = json_match.group(0)
+                                    print(f"🔍 使用模式提取到JSON内容（fallback）")
+                                    break
+
+                        if json_content:
+                            # 再次清理提取的JSON
+                            json_content = re.sub(r',(\s*[}\]])', r'\1', json_content)
+                            json_content = re.sub(r'([}\]])(\s*)([{"\[])', r'\1,\2\3', json_content)
+
                             try:
-                                json_content = json_match.group(1)
-                                print(f"🔍 使用模式 {pattern} 提取到JSON内容")
-                                break
-                            except IndexError:
-                                # 如果没有捕获组，使用整个匹配
-                                json_content = json_match.group(0)
-                                print(f"🔍 使用模式 {pattern} 提取到JSON内容（fallback）")
-                                break
-                    
-                    if json_content:
-                        try:
-                            ai_result = json.loads(json_content)
-                            paths = ai_result.get("paths", [])
-                            print(f"🔍 从混合内容中提取JSON成功，得到{len(paths)}条路径")
-                        except json.JSONDecodeError as e:
-                            print(f"⚠️ JSON提取也失败: {e}")
-                            print(f"提取的内容: {json_content}")
-                            raise
-                    else:
-                        print(f"⚠️ 无法找到JSON内容")
-                        print(f"原始响应: {content}")
-                        raise
+                                ai_result = json.loads(json_content)
+                                paths = ai_result.get("paths", [])
+                                print(f"🔍 从混合内容中提取JSON成功，得到{len(paths)}条路径")
+                            except json.JSONDecodeError as e2:
+                                print(f"⚠️ JSON提取也失败: {e2}")
+                                print(f"提取的内容前500字符: {json_content[:500]}")
+                                # 🔧 容错：不抛出异常，返回空路径
+                                print(f"⚠️ 使用空路径作为备用方案")
+                                paths = []
+                                ai_result = {"paths": paths}
+                        else:
+                            print(f"⚠️ 无法找到JSON内容")
+                            print(f"原始响应前500字符: {content[:500]}")
+                            # 🔧 容错：不抛出异常，返回空路径
+                            print(f"⚠️ 使用空路径作为备用方案")
+                            paths = []
+                            ai_result = {"paths": paths}
                 
                 # 验证和清理AI返回的数据
                 cleaned_paths = []
@@ -1890,7 +2106,9 @@ class FamousDoctorLearningSystem:
                     print(f"✅ AI成功生成 {len(cleaned_paths)} 条决策路径")
                     return cleaned_paths
                 else:
-                    raise Exception("AI生成的路径格式验证失败")
+                    # 🔧 如果AI返回的路径为空或验证失败，生成一个基本的备用路径
+                    print(f"⚠️ AI返回的路径为空或验证失败，生成基本备用路径")
+                    return self._generate_basic_fallback_path(disease_name, thinking_process)
                     
             else:
                 raise Exception(f"AI调用失败: {response.message}")
@@ -2569,8 +2787,97 @@ def test_famous_doctor_system():
         # 添加儿童用药提示
         if "儿童剂量" not in adjusted_content:
             adjusted_content += " (已调整为儿童安全剂量)"
-        
+
         return adjusted_content
+
+    def _generate_basic_fallback_path(self, disease_name: str, thinking_process: str) -> List[Dict[str, Any]]:
+        """
+        生成基本的备用决策路径（当AI解析完全失败时使用）
+
+        Args:
+            disease_name: 疾病名称
+            thinking_process: 医生的诊疗思路
+
+        Returns:
+            基本的决策路径列表
+        """
+        print(f"🔧 生成基本备用路径: {disease_name}")
+
+        # 从医生思路中提取关键信息
+        import re
+
+        # 提取可能的症状
+        symptoms = []
+        symptom_keywords = ["症状", "表现", "证候", "主症", "兼症"]
+        for keyword in symptom_keywords:
+            if keyword in thinking_process:
+                # 提取该关键词后的内容
+                match = re.search(f'{keyword}[:：]?([^。，；]+)', thinking_process)
+                if match:
+                    symptoms.append(match.group(1).strip())
+
+        # 提取可能的治法
+        treatment_principle = ""
+        treatment_keywords = ["治法", "治则", "治疗", "方药"]
+        for keyword in treatment_keywords:
+            if keyword in thinking_process:
+                match = re.search(f'{keyword}[:：]?([^。，；]+)', thinking_process)
+                if match:
+                    treatment_principle = match.group(1).strip()
+                    break
+
+        # 构建基本路径
+        steps = [
+            {
+                "type": "disease",
+                "title": disease_name,
+                "content": disease_name
+            }
+        ]
+
+        # 添加症状步骤
+        if symptoms:
+            steps.append({
+                "type": "symptom",
+                "title": "临床表现",
+                "content": "、".join(symptoms[:3])  # 最多取3个症状
+            })
+        else:
+            steps.append({
+                "type": "symptom",
+                "title": "临床表现",
+                "content": thinking_process[:100] if thinking_process else f"{disease_name}的典型症状"
+            })
+
+        # 添加治疗步骤
+        if treatment_principle:
+            steps.append({
+                "type": "treatment",
+                "title": "治疗原则",
+                "content": treatment_principle
+            })
+        else:
+            steps.append({
+                "type": "treatment",
+                "title": "治疗原则",
+                "content": f"{disease_name}的辨证施治"
+            })
+
+        # 添加处方步骤（基本模板）
+        steps.append({
+            "type": "prescription",
+            "title": "处方建议",
+            "content": f"方剂：请根据具体证型选方用药"
+        })
+
+        return [{
+            "id": "fallback_path1",
+            "title": f"{disease_name}基本诊疗路径",
+            "steps": steps,
+            "keywords": [disease_name, "基本路径"],
+            "source": "fallback",
+            "note": "由于AI解析异常，此为基本参考路径，请根据实际情况调整"
+        }]
 
 if __name__ == "__main__":
     test_famous_doctor_system()

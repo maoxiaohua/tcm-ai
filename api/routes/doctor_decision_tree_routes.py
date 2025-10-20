@@ -13,11 +13,12 @@ from datetime import datetime
 import json
 import logging
 import asyncio
+import sqlite3
 
 # 导入必要的服务
 from services.famous_doctor_learning_system import FamousDoctorLearningSystem
 from api.security_integration import get_current_user
-from core.security.rbac_system import UserSession
+from core.security.rbac_system import UserSession, UserRole
 from core.prescription.tcm_formula_analyzer import TCMFormulaAnalyzer
 from config.settings import AI_CONFIG
 
@@ -1735,7 +1736,7 @@ async def get_doctor_clinical_patterns(
             patterns_data = []
             for pattern in patterns:
                 pattern_data = {
-                    "pattern_id": pattern["pattern_id"],
+                    "pattern_id": pattern["id"],  # 🔧 修复：数据库列名是 id，不是 pattern_id
                     "doctor_id": pattern["doctor_id"],
                     "disease_name": pattern["disease_name"],
                     "thinking_process": pattern["thinking_process"],
@@ -1769,15 +1770,12 @@ async def get_doctor_clinical_patterns(
 
 async def _create_or_get_temp_doctor_identity(disease_name: str) -> str:
     """为匿名用户创建临时医生身份"""
-    import hashlib
-    import time
-    
-    # 基于疾病名称和时间戳生成临时医生ID
-    temp_id = f"temp_doctor_{hashlib.md5((disease_name + str(time.time())).encode()).hexdigest()[:8]}"
-    
-    # 检查数据库中是否需要创建临时用户记录
-    # TODO: 这里可以扩展为真正的用户创建逻辑
-    
+    # 🔧 修复：使用固定的匿名医生ID，而不是每次生成新的
+    # 这样可以确保同一个用户的所有决策树都关联到同一个ID
+    temp_id = "anonymous_doctor"
+
+    logger.info(f"为匿名用户使用固定医生ID: {temp_id}")
+
     return temp_id
 
 async def _save_pattern_to_database(pattern_data: Dict[str, Any]) -> str:
@@ -2054,7 +2052,7 @@ async def get_pattern_usage_statistics(
         # 3. 获取总问诊数（用于计算使用率）
         cursor.execute(f"""
             SELECT COUNT(*) as total_consultations
-            FROM consultations
+            FROM consultations c
             WHERE 1=1 {time_filter}
         """)
 

@@ -590,8 +590,14 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
         if existing:
             # 更新现有记录，合并对话历史
             existing_log = json.loads(existing[1]) if existing[1] else {}
+
+            # 🔧 修复：处理 existing_log 可能是 list 的情况
+            if isinstance(existing_log, list):
+                # 如果是列表，转换为标准格式
+                existing_log = {"conversation_history": existing_log}
+
             conversation_history = existing_log.get('conversation_history', [])
-            
+
             # 添加新的对话轮次
             conversation_history.append({
                 "patient_query": request.message,
@@ -599,7 +605,7 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 "timestamp": datetime.now().isoformat(),
                 "stage": response.stage
             })
-            
+
             updated_log = {
                 "conversation_id": request.conversation_id,
                 "conversation_history": conversation_history,
@@ -610,17 +616,19 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
             }
             
             cursor.execute("""
-                UPDATE consultations 
-                SET conversation_log = ?, 
+                UPDATE consultations
+                SET conversation_log = ?,
                     symptoms_analysis = ?,
                     tcm_syndrome = ?,
                     status = ?,
-                    updated_at = ?
+                    updated_at = ?,
+                    used_pattern_id = ?,
+                    pattern_match_score = ?
                 WHERE uuid = ?
             """, (
                 json.dumps(updated_log),
                 json.dumps({
-                    "confidence_score": response.confidence_score, 
+                    "confidence_score": response.confidence_score,
                     "stage": response.stage,
                     "symptoms": _extract_symptoms_from_conversation(request.message, response.reply),
                     "main_symptoms": _extract_main_symptoms(request.message),
@@ -634,6 +642,8 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 }),
                 _determine_consultation_status(response),
                 datetime.now().isoformat(),
+                response.used_pattern_id,  # 🆕 决策树ID
+                response.pattern_match_score,  # 🆕 匹配分数
                 existing[0]
             ))
             consultation_uuid = existing[0]
@@ -658,15 +668,16 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 INSERT INTO consultations (
                     uuid, patient_id, selected_doctor_id, conversation_log,
                     symptoms_analysis, tcm_syndrome, status,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    created_at, updated_at,
+                    used_pattern_id, pattern_match_score
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 consultation_uuid,
                 user_id,
                 request.selected_doctor,
                 conversation_log,
                 json.dumps({
-                    "confidence_score": response.confidence_score, 
+                    "confidence_score": response.confidence_score,
                     "stage": response.stage,
                     "symptoms": _extract_symptoms_from_conversation(request.message, response.reply),
                     "main_symptoms": _extract_main_symptoms(request.message),
@@ -680,7 +691,9 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 }),
                 _determine_consultation_status(response),
                 datetime.now().isoformat(),
-                datetime.now().isoformat()
+                datetime.now().isoformat(),
+                response.used_pattern_id,  # 🆕 决策树ID
+                response.pattern_match_score  # 🆕 匹配分数
             ))
         
         # 2. 更新或创建 conversation_states 表（对话状态）
@@ -810,7 +823,22 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
         
         conn.commit()
         logger.info(f"✅ 问诊记录已存储: user={user_id}, doctor={request.selected_doctor}, 包含处方={response.contains_prescription}")
-        
+
+        # 🆕 记录决策树使用情况
+        if response.used_pattern_id:
+            try:
+                from core.consultation.decision_tree_matcher import get_decision_tree_matcher
+                matcher = get_decision_tree_matcher()
+                # 暂时记录为使用（success=False），等待处方审核通过后再更新为成功
+                await matcher.record_pattern_usage(
+                    pattern_id=response.used_pattern_id,
+                    success=False,  # 处方审核通过后会更新为True
+                    feedback=None
+                )
+                logger.info(f"📊 决策树使用已记录: pattern_id={response.used_pattern_id}, score={response.pattern_match_score:.2%}")
+            except Exception as e:
+                logger.warning(f"记录决策树使用失败: {e}")
+
     except Exception as e:
         logger.error(f"❌ 存储问诊记录失败: {e}")
         logger.error(traceback.format_exc())
