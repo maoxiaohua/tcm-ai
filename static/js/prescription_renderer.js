@@ -643,12 +643,9 @@ class PrescriptionRenderer {
     getDoctorName() {
         const doctors = {
             'zhang_zhongjing': '张仲景',
-            'ye_tianshi': '叶天士',
-            'li_dongyuan': '李东垣',
-            'zheng_qinan': '郑钦安',
-            'liu_duzhou': '刘渡舟'
+            'jin_daifu': '金大夫'
         };
-        
+
         return doctors[window.selectedDoctor] || '名医';
     }
 

@@ -3716,12 +3716,8 @@
         // 为医生分配头像
         function getAvatarForDoctor(doctorName) {
             const avatarMap = {
-                '张仲景': '🎯',
-                '金大夫': '🎯',  // 金大夫使用张仲景的头像
-                '叶天士': '🌡️', 
-                '李东垣': '🌱',
-                '郑钦安': '🔥',
-                '刘渡舟': '⚖️'
+                '张仲景': '⚕️',
+                '金大夫': '💊'
             };
             return avatarMap[doctorName] || '👨‍⚕️';
         }
@@ -4406,10 +4402,6 @@
                         // 🔑 修复：添加医生ID到处方数据
                         const doctorIdMapping = {
                             'zhang_zhongjing': 4,
-                            'ye_tianshi': 2,
-                            'li_dongyuan': 3,
-                            'zheng_qin_an': 6,
-                            'liu_duzhou': 5,
                             'jin_daifu': 1
                         };
                         
@@ -4786,8 +4778,7 @@
             // 备选：硬编码映射（兼容旧数据）
             const doctorNames = {
                 'jin_daifu': '金大夫',
-                'zhang_zhongjing': '张仲景',
-                'ye_tianshi': '叶天士'
+                'zhang_zhongjing': '张仲景'
             };
             return doctorNames[doctorKey] || doctorKey || '医生';
         }
