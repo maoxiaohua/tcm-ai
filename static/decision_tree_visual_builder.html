@@ -1168,36 +1168,53 @@
                 };
             }
             
-            try {
-                initializeAuth();
-                initializeEventListeners();
-                checkURLParameters();
-                console.log('页面初始化完成');
-            } catch (error) {
-                console.error('页面初始化出错:', error);
-            }
+            // 使用立即执行的异步函数来处理初始化
+            (async () => {
+                try {
+                    await initializeAuth();  // ⚠️ 必须等待认证完成
+                    initializeEventListeners();
+                    checkURLParameters();
+                    console.log('✅ 页面初始化完成(含认证)');
+                } catch (error) {
+                    console.error('❌ 页面初始化出错:', error);
+                }
+            })();
         });
 
         // 初始化认证状态
         async function initializeAuth() {
             const urlParams = new URLSearchParams(window.location.search);
-            
+            console.log('🔐 开始认证初始化...');
+            console.log('   URL参数:', {
+                auto_auth: urlParams.get('auto_auth'),
+                has_doctor_token: !!urlParams.get('doctor_token'),
+                doctor_name: urlParams.get('doctor_name')
+            });
+
             if (urlParams.get('auto_auth') === '1') {
                 const doctorToken = urlParams.get('doctor_token');
                 const doctorName = decodeURIComponent(urlParams.get('doctor_name') || '');
-                
+
+                console.log('🔑 URL自动认证模式');
+
                 if (doctorToken && doctorName) {
+                    console.log('✅ 保存token到localStorage');
                     localStorage.setItem('token', doctorToken);
                     localStorage.setItem('doctorToken', doctorToken);
                     localStorage.setItem('doctorName', doctorName);
-                    
-                    showAuthStatus(doctorName, true);
-                    
+
                     // 清理URL参数
                     const cleanUrl = window.location.pathname;
                     window.history.replaceState({}, document.title, cleanUrl);
+
+                    // ⚠️ 重要:验证token是否有效
+                    await checkExistingAuth();
+                } else {
+                    console.warn('⚠️ URL参数不完整，fallback到检查现有认证');
+                    await checkExistingAuth();
                 }
             } else {
+                console.log('🔍 检查现有认证...');
                 await checkExistingAuth();
             }
         }
@@ -1205,20 +1222,28 @@
         // 检查现有认证状态
         async function checkExistingAuth() {
             const token = localStorage.getItem('token');
+            console.log('🔍 检查认证状态:', {
+                hasToken: !!token,
+                tokenPreview: token ? token.substring(0, 20) + '...' : 'null'
+            });
 
             // 强制登录检查
             if (!token) {
+                console.warn('⚠️ 未找到token，显示登录提示');
                 showLoginRequired();
                 return;
             }
 
             try {
-                const response = await fetch('/api/doctor/current', {
+                const response = await fetch('/api/auth/doctor/current', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
+                console.log('📡 API响应状态:', response.status);
+
                 if (response.ok) {
                     const data = await response.json();
+                    console.log('✅ 认证成功:', data);
 
                     // 验证是否为医生角色
                     if (data.role !== 'doctor') {
@@ -1235,10 +1260,15 @@
                     await loadDoctorHistoryTrees();
                 } else {
                     // Token无效，跳转登录
+                    console.warn('❌ 认证失败:', response.status, response.statusText);
+                    try {
+                        const errorData = await response.json();
+                        console.warn('错误详情:', errorData);
+                    } catch(e) {}
                     redirectToLogin();
                 }
             } catch (error) {
-                console.error('认证检查失败:', error);
+                console.error('❌ 认证检查异常:', error);
                 redirectToLogin();
             }
         }
@@ -5421,6 +5451,10 @@
 
         function getAuthHeaders() {
             const token = localStorage.getItem('token');
+            console.log('🔑 getAuthHeaders调用:', {
+                hasToken: !!token,
+                tokenPreview: token ? token.substring(0, 20) + '...' : 'null'
+            });
             return {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -5844,12 +5878,10 @@
                 // 显示加载提示
                 showResult('加载中', '正在获取问诊详情...', 'info');
 
-                // 调用API获取问诊详情
+                // 调用API获取问诊详情(需要携带认证token)
                 const response = await fetch(`/api/consultation/${consultationId}/detail`, {
                     method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    headers: getAuthHeaders()
                 });
 
                 if (!response.ok) {

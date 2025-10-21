@@ -6,7 +6,8 @@ Doctor Decision Tree API Routes
 提供医生决策树分析和生成功能，帮助医生将自然语言描述转换为结构化的诊疗决策树
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from datetime import datetime
@@ -20,6 +21,7 @@ from services.famous_doctor_learning_system import FamousDoctorLearningSystem
 from api.security_integration import get_current_user
 from core.security.rbac_system import UserSession, UserRole
 from core.prescription.tcm_formula_analyzer import TCMFormulaAnalyzer
+from core.doctor_management.doctor_auth import doctor_auth_manager
 from config.settings import AI_CONFIG
 
 # 检查Dashscope可用性
@@ -39,6 +41,71 @@ router = APIRouter(prefix="/api", tags=["doctor-decision-tree"])
 # 初始化服务
 doctor_learning_system = FamousDoctorLearningSystem()
 formula_analyzer = TCMFormulaAnalyzer()
+security_bearer = HTTPBearer(auto_error=False)
+
+# 混合认证依赖函数 - 支持RBAC session和医生JWT token
+async def get_current_user_or_doctor(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer)
+) -> UserSession:
+    """
+    混合认证：优先使用RBAC session，fallback到医生JWT token
+
+    这个函数解决了系统中存在两套认证机制的问题：
+    1. RBAC系统：使用user_sessions表
+    2. 医生系统：使用doctors表的JWT token
+    """
+    # 1. 先尝试RBAC认证
+    try:
+        user_session = await get_current_user(request, credentials)
+        if user_session and user_session.role in [UserRole.DOCTOR, UserRole.ADMIN]:
+            return user_session
+    except Exception as e:
+        logger.debug(f"RBAC认证失败: {e}")
+
+    # 2. 尝试医生JWT token认证
+    if credentials and credentials.credentials:
+        token = credentials.credentials
+        doctor_payload = doctor_auth_manager.verify_auth_token(token)
+
+        if doctor_payload:
+            # 从doctors表获取医生信息
+            conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT * FROM doctors WHERE id = ? AND status = 'active'
+            """, (doctor_payload['doctor_id'],))
+
+            doctor = cursor.fetchone()
+            conn.close()
+
+            if doctor:
+                # 创建临时UserSession对象
+                from datetime import datetime, timedelta
+                # 使用license_no作为user_id (医生的唯一标识)
+                doctor_user_id = doctor['license_no']
+                logger.info(f"医生JWT认证成功: {doctor['name']} ({doctor_user_id})")
+
+                return UserSession(
+                    user_id=doctor_user_id,
+                    role=UserRole.DOCTOR,
+                    permissions=set(),  # 医生默认有所有医生权限
+                    session_token=token,
+                    created_at=datetime.now(),
+                    expires_at=datetime.now() + timedelta(days=7),
+                    ip_address=request.client.host if request.client else "unknown",
+                    user_agent=request.headers.get("User-Agent", "Unknown"),
+                    last_activity=datetime.now(),
+                    is_active=True
+                )
+
+    # 3. 认证失败，抛出403错误
+    raise HTTPException(
+        status_code=403,
+        detail="需要医生或管理员权限。请先登录。"
+    )
 
 # 请求/响应模型
 class ThinkingAnalysisRequest(BaseModel):
@@ -2166,7 +2233,8 @@ async def get_pattern_usage_detail(
 @router.get("/consultation/{consultation_id}/detail")
 async def get_consultation_detail(
     consultation_id: str,
-    current_user: UserSession = Depends(get_current_user)
+    request: Request,
+    current_user: UserSession = Depends(get_current_user_or_doctor)
 ):
     """
     统一的问诊详情查询API
@@ -2230,7 +2298,8 @@ async def get_consultation_detail(
 
         # 权限检查：只允许患者本人或医生查看
         if (current_user.user_id != consultation['patient_id'] and
-            current_user.role not in ['DOCTOR', 'ADMIN']):
+            current_user.role not in [UserRole.DOCTOR, UserRole.ADMIN]):
+            logger.warning(f"权限检查失败: user={current_user.user_id}, role={current_user.role}, patient={consultation['patient_id']}")
             raise HTTPException(status_code=403, detail="无权限查看此问诊记录")
 
         return {

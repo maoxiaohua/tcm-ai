@@ -1088,6 +1088,7 @@ from api.routes.payment_routes import router as payment_router
 from api.routes.decoction_routes import router as decoction_router
 from api.routes.auth_routes import router as auth_router
 from api.routes.unified_auth_routes import router as unified_auth_router
+from api.routes.unified_login_routes import router as unified_login_router  # ⭐ 新的统一登录路由
 from api.routes.doctor_decision_tree_routes import router as decision_tree_router
 from api.routes.decision_tree_usage_routes import router as decision_tree_usage_router
 from api.routes.symptom_analysis_routes import router as symptom_analysis_router
@@ -2128,6 +2129,7 @@ async def debug_user_api_page():
 # 集成所有路由
 app.include_router(auth_router)
 app.include_router(unified_auth_router)  # 新的统一认证系统
+app.include_router(unified_login_router)  # ⭐ 统一登录API (v3.0)
 app.include_router(doctor_router)
 
 # 添加管理员路由
