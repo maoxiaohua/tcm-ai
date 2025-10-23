@@ -79,14 +79,10 @@ class DecisionTreeMatcher:
             # 🔑 关键修复：将前端医生标识（jin_daifu）映射到数据库user_id
             actual_doctor_id = doctor_id
             if doctor_id and not doctor_id.startswith('usr_'):
-                # 医生标识到名称的映射
+                # 医生标识到名称的映射（仅包含活跃医生）
                 doctor_name_map = {
                     'jin_daifu': '金大夫',
-                    'zhang_zhongjing': '张仲景',
-                    'ye_tianshi': '叶天士',
-                    'li_dongyuan': '李东垣',
-                    'zheng_qin_an': '郑钦安',
-                    'liu_duzhou': '刘渡舟'
+                    'zhang_zhongjing': '张仲景'
                 }
 
                 doctor_name = doctor_name_map.get(doctor_id, doctor_id)
