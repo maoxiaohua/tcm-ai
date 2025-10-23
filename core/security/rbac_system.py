@@ -316,28 +316,72 @@ class SessionManager:
         conn.close()
     
     def _load_session_from_db(self, session_token: str) -> Optional[UserSession]:
-        """从数据库加载会话"""
+        """从数据库加载会话 - 支持user_sessions和unified_sessions两个表"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
+        # 🔑 关键修复：先查询user_sessions表（旧RBAC系统）
         cursor.execute("""
             SELECT user_id, role, permissions, created_at, expires_at,
                    ip_address, user_agent, last_activity, is_active
             FROM user_sessions WHERE session_token = ? AND is_active = 1
         """, (session_token,))
-        
+
         row = cursor.fetchone()
-        conn.close()
-        
+
+        # 🔑 如果user_sessions中没有，查询unified_sessions表（新统一认证系统）
         if not row:
-            return None
-            
-        permissions = {Permission(p) for p in json.loads(row[2])}
-        
+            logger.info(f"🔍 user_sessions中未找到token，尝试unified_sessions: {session_token[:20]}...")
+            cursor.execute("""
+                SELECT user_id, session_status, device_type, created_at, expires_at,
+                       ip_address, user_agent, last_activity_at,
+                       CASE WHEN session_status = 'active' THEN 1 ELSE 0 END
+                FROM unified_sessions
+                WHERE session_id = ? AND session_status = 'active'
+            """, (session_token,))
+
+            row = cursor.fetchone()
+
+            if not row:
+                logger.warning(f"⚠️ unified_sessions中也未找到token: {session_token[:20]}...")
+                conn.close()
+                return None
+
+            # unified_sessions的字段映射不同，创建默认值
+            user_id = row[0]
+            session_role = None  # unified_sessions没有role字段，需要从user_roles查询
+            logger.info(f"✅ 从unified_sessions加载会话: user={user_id}")
+        else:
+            user_id = row[0]
+            session_role = row[1]
+            logger.info(f"✅ 从user_sessions加载会话: user={user_id}, session_role={session_role}")
+
+        # 🔑 关键修复：从user_roles表获取用户的实际角色（优先级高于session中缓存的角色）
+        cursor.execute("""
+            SELECT role FROM user_roles
+            WHERE user_id = ? AND is_active = 1
+            ORDER BY assigned_at DESC
+            LIMIT 1
+        """, (user_id,))
+
+        role_row = cursor.fetchone()
+        conn.close()
+
+        # 如果user_roles表中有角色，使用它；否则使用session中的角色
+        if role_row and role_row[0]:
+            actual_role = UserRole(role_row[0])
+            logger.info(f"✅ 从user_roles表加载角色: user={user_id}, role={actual_role.value}")
+        else:
+            actual_role = UserRole(session_role) if session_role else UserRole.ANONYMOUS
+            logger.info(f"⚠️ 使用session中的角色: user={user_id}, role={actual_role.value}")
+
+        # 根据实际角色更新权限
+        permissions_from_role = self.role_manager.get_permissions(actual_role)
+
         return UserSession(
-            user_id=row[0],
-            role=UserRole(row[1]),
-            permissions=permissions,
+            user_id=user_id,
+            role=actual_role,
+            permissions=permissions_from_role,
             session_token=session_token,
             created_at=datetime.fromisoformat(row[3]),
             expires_at=datetime.fromisoformat(row[4]),

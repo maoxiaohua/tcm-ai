@@ -55,6 +55,8 @@ async def get_current_user_or_doctor(
     1. RBAC系统：使用user_sessions表
     2. 医生系统：使用doctors表的JWT token
     """
+    logger.info(f"🔍 [认证]开始混合认证流程, 有credentials: {credentials is not None and credentials.credentials is not None}")
+
     # 1. 先尝试RBAC认证（包括统一认证系统）
     try:
         user_session = await get_current_user(request, credentials)
@@ -63,6 +65,8 @@ async def get_current_user_or_doctor(
             user_roles = getattr(user_session, 'roles', [getattr(user_session, 'role', None)])
             if isinstance(user_roles, str):
                 user_roles = [user_roles]
+
+            logger.info(f"🔍 [认证]RBAC认证成功: user={user_session.user_id}, roles={user_roles}")
 
             # 检查是否有医生或管理员角色
             has_doctor_role = any(
@@ -76,12 +80,15 @@ async def get_current_user_or_doctor(
             else:
                 logger.warning(f"⚠️ 用户无医生权限: user={user_session.user_id}, roles={user_roles}")
     except Exception as e:
-        logger.debug(f"RBAC认证失败: {e}")
+        logger.info(f"🔍 [认证]RBAC认证失败: {e}")
 
     # 2. 尝试医生JWT token认证
     if credentials and credentials.credentials:
         token = credentials.credentials
+        logger.info(f"🔍 [认证]尝试医生JWT认证, token前缀: {token[:20]}...")
         doctor_payload = doctor_auth_manager.verify_auth_token(token)
+
+        logger.info(f"🔍 [认证]JWT验证结果: {doctor_payload is not None}")
 
         if doctor_payload:
             # 从doctors表获取医生信息
@@ -2283,7 +2290,13 @@ async def get_consultation_detail(
     import sqlite3
 
     try:
-        logger.info(f"获取问诊详情: consultation_id={consultation_id}, user={current_user.user_id}")
+        # 🔍 详细调试日志
+        user_roles = getattr(current_user, 'roles', [getattr(current_user, 'role', None)])
+        if isinstance(user_roles, str):
+            user_roles = [user_roles]
+
+        logger.info(f"🔍 [决策树]获取问诊详情请求: consultation_id={consultation_id}, user_id={current_user.user_id}, roles={user_roles}")
+        logger.info(f"🔍 [决策树]current_user完整信息: {current_user.__dict__}")
 
         conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
         conn.row_factory = sqlite3.Row
