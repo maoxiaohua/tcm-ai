@@ -76,14 +76,41 @@ class DecisionTreeMatcher:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
+            # 🔑 关键修复：将前端医生标识（jin_daifu）映射到数据库user_id
+            actual_doctor_id = doctor_id
+            if doctor_id and not doctor_id.startswith('usr_'):
+                # 医生标识到名称的映射
+                doctor_name_map = {
+                    'jin_daifu': '金大夫',
+                    'zhang_zhongjing': '张仲景',
+                    'ye_tianshi': '叶天士',
+                    'li_dongyuan': '李东垣',
+                    'zheng_qin_an': '郑钦安',
+                    'liu_duzhou': '刘渡舟'
+                }
+
+                doctor_name = doctor_name_map.get(doctor_id, doctor_id)
+
+                # 从doctors表查询对应的user_id
+                cursor.execute("""
+                    SELECT user_id FROM doctors
+                    WHERE name = ?
+                    LIMIT 1
+                """, (doctor_name,))
+
+                doctor_row = cursor.fetchone()
+                if doctor_row and doctor_row['user_id']:
+                    actual_doctor_id = doctor_row['user_id']
+                    logger.info(f"🔄 医生ID映射: {doctor_id} ({doctor_name}) → {actual_doctor_id}")
+
             # 🔧 查询决策树（支持doctor_id=None查询所有医生的决策树）
-            if doctor_id:
-                logger.info(f"🔍 查询医生 {doctor_id} 的决策树")
+            if actual_doctor_id:
+                logger.info(f"🔍 查询医生 {actual_doctor_id} 的决策树")
                 cursor.execute("""
                     SELECT * FROM doctor_clinical_patterns
                     WHERE doctor_id = ?
                     ORDER BY usage_count DESC, success_count DESC
-                """, (doctor_id,))
+                """, (actual_doctor_id,))
             else:
                 logger.info(f"🔍 查询所有医生的决策树")
                 cursor.execute("""
