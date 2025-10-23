@@ -262,11 +262,26 @@ def setup_security_routes(app: FastAPI):
     @app.get("/api/auth/profile")
     async def get_profile(current_user: UserSession = Depends(get_current_user)):
         """获取当前用户信息"""
+        # 🔧 修复：兼容统一认证系统的 roles 和旧系统的 role
+        # 获取角色信息
+        if hasattr(current_user, 'primary_role'):
+            # 统一认证系统
+            role_value = current_user.primary_role
+            all_roles = current_user.roles if hasattr(current_user, 'roles') else [role_value]
+        elif hasattr(current_user, 'role'):
+            # 旧RBAC系统
+            role_value = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
+            all_roles = [role_value]
+        else:
+            role_value = "UNKNOWN"
+            all_roles = []
+
         # 构建基本用户信息
         user_data = {
             "user_id": current_user.user_id,
-            "role": current_user.role.value,
-            "permissions": [p.value for p in current_user.permissions],
+            "role": role_value,
+            "roles": all_roles,  # 新增：返回所有角色
+            "permissions": [p.value if hasattr(p, 'value') else p for p in getattr(current_user, 'permissions', [])],
             "session_info": {
                 "created_at": current_user.created_at.isoformat(),
                 "last_activity": current_user.last_activity.isoformat(),

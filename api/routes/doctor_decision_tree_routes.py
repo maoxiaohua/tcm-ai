@@ -55,11 +55,26 @@ async def get_current_user_or_doctor(
     1. RBAC系统：使用user_sessions表
     2. 医生系统：使用doctors表的JWT token
     """
-    # 1. 先尝试RBAC认证
+    # 1. 先尝试RBAC认证（包括统一认证系统）
     try:
         user_session = await get_current_user(request, credentials)
-        if user_session and user_session.role in [UserRole.DOCTOR, UserRole.ADMIN]:
-            return user_session
+        if user_session:
+            # 🔧 修复：兼容统一认证系统的 roles (List[str]) 和旧系统的 role
+            user_roles = getattr(user_session, 'roles', [getattr(user_session, 'role', None)])
+            if isinstance(user_roles, str):
+                user_roles = [user_roles]
+
+            # 检查是否有医生或管理员角色
+            has_doctor_role = any(
+                role in ['DOCTOR', 'ADMIN', UserRole.DOCTOR, UserRole.ADMIN]
+                for role in user_roles if role
+            )
+
+            if has_doctor_role:
+                logger.info(f"✅ 统一认证验证通过: user={user_session.user_id}, roles={user_roles}")
+                return user_session
+            else:
+                logger.warning(f"⚠️ 用户无医生权限: user={user_session.user_id}, roles={user_roles}")
     except Exception as e:
         logger.debug(f"RBAC认证失败: {e}")
 
@@ -1207,7 +1222,11 @@ async def get_user_preferences(
     """获取用户偏好设置"""
     try:
         # 权限检查：只能访问自己的偏好设置
-        if current_user.user_id != user_id and current_user.role != "admin":
+        # 🔧 修复：兼容统一认证系统
+        user_roles = getattr(current_user, 'roles', [getattr(current_user, 'role', None)])
+        is_admin = any(role in ['admin', 'ADMIN', UserRole.ADMIN] for role in user_roles if role)
+
+        if current_user.user_id != user_id and not is_admin:
             raise HTTPException(status_code=403, detail="无权限访问")
         
         preferences = doctor_learning_system.get_user_preferences(user_id)
@@ -1231,7 +1250,11 @@ async def save_user_preferences(
     """保存用户偏好设置"""
     try:
         # 权限检查：只能修改自己的偏好设置
-        if current_user.user_id != user_id and current_user.role != "admin":
+        # 🔧 修复：兼容统一认证系统
+        user_roles = getattr(current_user, 'roles', [getattr(current_user, 'role', None)])
+        is_admin = any(role in ['admin', 'ADMIN', UserRole.ADMIN] for role in user_roles if role)
+
+        if current_user.user_id != user_id and not is_admin:
             raise HTTPException(status_code=403, detail="无权限修改")
         
         preferences = {
@@ -1696,21 +1719,31 @@ async def save_clinical_pattern(
         保存结果
     """
     try:
-        logger.info(f"医生思维库保存请求 - 用户: {current_user.user_id}, 角色: {current_user.role}")
-        
+        # 🔧 修复：统一认证系统使用 roles (List[str])，而非 role
+        roles = getattr(current_user, 'roles', [getattr(current_user, 'role', None)])
+        if isinstance(roles, str):
+            roles = [roles]
+
+        logger.info(f"医生思维库保存请求 - 用户: {current_user.user_id}, 角色: {roles}")
+
         # 🔐 权限验证：确保是医生用户
-        if current_user.role not in [UserRole.DOCTOR, UserRole.ADMIN]:
+        # 检查是否有DOCTOR或ADMIN角色
+        has_doctor_role = any(role in ['DOCTOR', 'ADMIN', UserRole.DOCTOR, UserRole.ADMIN] for role in roles if role)
+
+        if not has_doctor_role:
             # 🔧 临时解决方案：如果是匿名用户，尝试创建临时医生身份
-            if current_user.role == UserRole.ANONYMOUS:
+            is_anonymous = any(role in ['ANONYMOUS', UserRole.ANONYMOUS] for role in roles if role)
+            if is_anonymous:
                 doctor_id = await _create_or_get_temp_doctor_identity(request.disease_name)
                 logger.info(f"为匿名用户创建临时医生身份: {doctor_id}")
             else:
                 raise HTTPException(
-                    status_code=403, 
+                    status_code=403,
                     detail="仅医生用户可保存临床决策模式到思维库"
                 )
         else:
             doctor_id = current_user.user_id
+            logger.info(f"✅ 使用医生用户ID保存决策树: {doctor_id}")
         
         # 🗄️ 保存到数据库
         pattern_data = {
@@ -2297,10 +2330,23 @@ async def get_consultation_detail(
         conn.close()
 
         # 权限检查：只允许患者本人或医生查看
-        if (current_user.user_id != consultation['patient_id'] and
-            current_user.role not in [UserRole.DOCTOR, UserRole.ADMIN]):
-            logger.warning(f"权限检查失败: user={current_user.user_id}, role={current_user.role}, patient={consultation['patient_id']}")
+        # 🔧 修复：兼容统一认证系统的 roles (List[str]) 和旧系统的 role
+        user_roles = getattr(current_user, 'roles', [getattr(current_user, 'role', None)])
+        if isinstance(user_roles, str):
+            user_roles = [user_roles]
+
+        # 检查是否有医生或管理员角色
+        has_doctor_role = any(
+            role in ['DOCTOR', 'ADMIN', UserRole.DOCTOR, UserRole.ADMIN]
+            for role in user_roles if role
+        )
+
+        # 权限验证：必须是患者本人 或 医生/管理员
+        if current_user.user_id != consultation['patient_id'] and not has_doctor_role:
+            logger.warning(f"权限检查失败: user={current_user.user_id}, roles={user_roles}, patient={consultation['patient_id']}")
             raise HTTPException(status_code=403, detail="无权限查看此问诊记录")
+
+        logger.info(f"✅ 权限检查通过: user={current_user.user_id}, roles={user_roles}, is_doctor={has_doctor_role}")
 
         return {
             "success": True,

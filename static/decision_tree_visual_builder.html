@@ -1256,8 +1256,11 @@
                     isAuthenticated = true;
                     currentUser = data;
 
-                    // 登录成功后，加载医生的历史决策树
+                    // 🔧 修复: 每次认证成功后都加载医生的历史决策树
+                    // 无论是首次登录还是页面刷新,都确保数据显示
+                    console.log('🔄 认证成功,开始加载历史决策树...');
                     await loadDoctorHistoryTrees();
+                    console.log('✅ 历史决策树加载完成');
                 } else {
                     // Token无效，跳转登录
                     console.warn('❌ 认证失败:', response.status, response.statusText);
@@ -5426,8 +5429,16 @@
         }
 
         function getCurrentDoctorId() {
+            console.log('🔍 getCurrentDoctorId 被调用');
+            console.log('📊 当前状态:', {
+                hasCurrentUser: !!currentUser,
+                currentUserData: currentUser,
+                hasLocalStorage: !!localStorage.getItem('userData')
+            });
+
             // 优先使用currentUser（更可靠）
             if (currentUser && currentUser.user_id) {
+                console.log('✅ 从 currentUser 获取 user_id:', currentUser.user_id);
                 return currentUser.user_id;
             }
 
@@ -5436,16 +5447,19 @@
             if (userData) {
                 try {
                     const user = JSON.parse(userData);
+                    console.log('📦 从 localStorage 解析到用户数据:', user);
                     if (user.user_id) {
+                        console.log('✅ 从 localStorage 获取 user_id:', user.user_id);
                         return user.user_id;
                     }
                 } catch (e) {
-                    console.error('解析用户数据失败:', e);
+                    console.error('❌ 解析用户数据失败:', e);
                 }
             }
 
             // 🔧 最终备用方案：使用固定的匿名医生ID
             // 这个ID与后端 _create_or_get_temp_doctor_identity 返回的ID一致
+            console.warn('⚠️ 无法获取用户ID，使用匿名医生ID');
             return 'anonymous_doctor';
         }
 
@@ -5463,30 +5477,56 @@
 
         // 加载医生的历史决策树列表
         async function loadDoctorHistoryTrees() {
+            console.log('📚 loadDoctorHistoryTrees 被调用');
+
             const doctorId = getCurrentDoctorId();
+            console.log('👨‍⚕️ 当前医生ID:', doctorId);
+            console.log('👤 currentUser:', currentUser);
+            console.log('🔐 isAuthenticated:', isAuthenticated);
+
             if (!doctorId) {
-                console.error('无法获取医生ID');
+                console.error('❌ 无法获取医生ID');
                 return;
             }
 
             const myTreesSection = document.getElementById('myTreesSection');
             const myTreesList = document.getElementById('myTreesList');
 
+            console.log('📋 DOM元素检查:', {
+                hasSection: !!myTreesSection,
+                hasList: !!myTreesList
+            });
+
             try {
+                const headers = getAuthHeaders();
+                console.log('🔑 请求头:', headers);
+                console.log('📡 发起API请求:', `/api/get_doctor_patterns/${doctorId}`);
+
                 const response = await fetch(`/api/get_doctor_patterns/${doctorId}`, {
-                    headers: getAuthHeaders()
+                    headers: headers
+                });
+
+                console.log('📡 API响应:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok
                 });
 
                 if (!response.ok) {
-                    throw new Error('加载历史记录失败');
+                    throw new Error(`加载历史记录失败: ${response.status} ${response.statusText}`);
                 }
 
                 const data = await response.json();
+                console.log('📄 API返回数据:', data);
+                console.log('📊 决策树数量:', data.data?.patterns?.length || 0);
 
                 if (data.success && data.data.patterns && data.data.patterns.length > 0) {
+                    console.log('✅ 找到决策树,开始显示:', data.data.patterns.length, '个');
                     displayMyTreesList(data.data.patterns);
                     myTreesSection.style.display = 'block';
+                    console.log('✅ 历史决策树显示完成');
                 } else {
+                    console.log('⚠️ 没有找到决策树,显示空状态');
                     myTreesList.innerHTML = `
                         <div style="text-align: center; padding: 20px; color: #9ca3af;">
                             <div style="font-size: 32px; margin-bottom: 10px;">📂</div>
@@ -5497,13 +5537,14 @@
                     myTreesSection.style.display = 'block';
                 }
             } catch (error) {
-                console.error('加载历史决策树失败:', error);
+                console.error('❌ 加载历史决策树失败:', error);
                 myTreesList.innerHTML = `
                     <div style="text-align: center; padding: 20px; color: #ef4444;">
                         <div style="font-size: 32px; margin-bottom: 10px;">⚠️</div>
-                        <div style="font-size: 12px;">加载失败</div>
+                        <div style="font-size: 12px;">加载失败: ${error.message}</div>
                     </div>
                 `;
+                myTreesSection.style.display = 'block';
             }
         }
 
