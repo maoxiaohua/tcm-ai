@@ -2373,5 +2373,181 @@ async def get_consultation_detail(
         raise HTTPException(status_code=500, detail=f"获取详情失败: {str(e)}")
 
 
+# ================================
+# AI智能决策树生成 - 思维导图模式
+# ================================
+
+class MindMapGenerationRequest(BaseModel):
+    """AI思维导图生成请求"""
+    doctor_input: str  # 医生的自然语言诊疗思路
+    auto_save: bool = True  # 是否自动保存到思维库
+
+@router.post("/ai_mindmap_generate")
+async def ai_mindmap_generate(
+    request: MindMapGenerationRequest,
+    current_user: UserSession = Depends(get_current_user_or_doctor)
+):
+    """
+    AI智能生成思维导图式决策树
+
+    功能：
+    1. 接收医生的自然语言描述
+    2. AI自动分析：主证、证见、处方、加减法
+    3. 生成思维导图形式的决策树
+    4. 可选自动保存到医生思维库
+
+    Example Input:
+    ```
+    {
+        "doctor_input": "风热感冒：外感风热，邪袭肺卫。症见发热恶风，汗出不畅，头痛鼻塞，咽喉肿痛，咳嗽痰黄，口渴欲饮。舌边尖红，苔薄黄，脉浮数。治疗用桑菊饮加减：桑叶10g、菊花10g、薄荷6g、桔梗6g、连翘10g、芦根15g、甘草3g。若热重加黄芩10g、板蓝根15g；若咽痛甚加射干10g、山豆根10g。",
+        "auto_save": true
+    }
+    ```
+
+    Returns:
+        思维导图式决策树结构 + 可视化数据
+    """
+    try:
+        # 导入AI生成器
+        from core.doctor_management.ai_decision_tree_generator import get_ai_decision_tree_generator
+
+        generator = get_ai_decision_tree_generator()
+
+        logger.info(f"🧠 [AI思维导图]用户 {current_user.user_id} 请求生成决策树，输入长度: {len(request.doctor_input)}字")
+
+        # AI分析并生成思维导图
+        mind_map_tree = await generator.analyze_and_generate(
+            doctor_input=request.doctor_input,
+            doctor_id=current_user.user_id
+        )
+
+        # 转换为数据库格式
+        db_format = generator.to_database_format(mind_map_tree)
+
+        # 自动保存到思维库
+        pattern_id = None
+        if request.auto_save:
+            pattern_id = await _save_mind_map_to_database(
+                doctor_id=current_user.user_id,
+                mind_map_data=db_format
+            )
+            logger.info(f"✅ [AI思维导图]决策树已保存到思维库: {pattern_id}")
+
+        return {
+            "success": True,
+            "message": "AI思维导图生成成功",
+            "data": {
+                "disease_name": mind_map_tree.disease_name,
+                "main_syndrome": mind_map_tree.main_syndrome,
+                "syndrome_branches": mind_map_tree.syndrome_branches,
+                "nodes": mind_map_tree.nodes,
+                "connections": mind_map_tree.connections,
+                "metadata": mind_map_tree.metadata,
+                "pattern_id": pattern_id if request.auto_save else None
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"AI思维导图生成失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"AI思维导图生成失败: {str(e)}"
+        )
+
+async def _save_mind_map_to_database(
+    doctor_id: str,
+    mind_map_data: Dict[str, Any]
+) -> str:
+    """保存思维导图到数据库（使用UPSERT策略）"""
+    import uuid
+
+    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    cursor = conn.cursor()
+
+    # 检查是否已存在相同疾病的决策树
+    cursor.execute("""
+        SELECT id FROM doctor_clinical_patterns
+        WHERE doctor_id = ? AND disease_name = ?
+    """, (doctor_id, mind_map_data['disease_name']))
+
+    existing = cursor.fetchone()
+
+    if existing:
+        # 更新现有记录
+        pattern_id = existing[0]
+        logger.info(f"🔄 更新现有决策树: {pattern_id}, 疾病={mind_map_data['disease_name']}")
+
+        # 构建医生专长信息
+        try:
+            clinical_patterns = json.loads(mind_map_data['clinical_patterns'])
+            doctor_expertise = json.dumps({
+                "specialties": [mind_map_data['disease_name']],
+                "main_syndromes": [clinical_patterns.get('main_syndrome', '')],
+                "ai_generated": True,
+                "updated_count": 1
+            }, ensure_ascii=False)
+        except:
+            doctor_expertise = json.dumps({
+                "specialties": [],
+                "ai_generated": True
+            }, ensure_ascii=False)
+
+        cursor.execute("""
+            UPDATE doctor_clinical_patterns
+            SET thinking_process = ?,
+                tree_structure = ?,
+                clinical_patterns = ?,
+                doctor_expertise = ?,
+                updated_at = datetime('now')
+            WHERE id = ?
+        """, (
+            mind_map_data['thinking_process'],
+            mind_map_data['tree_structure'],
+            mind_map_data['clinical_patterns'],
+            doctor_expertise,
+            pattern_id
+        ))
+    else:
+        # 插入新记录
+        pattern_id = str(uuid.uuid4())
+        logger.info(f"✨ 创建新决策树: {pattern_id}, 疾病={mind_map_data['disease_name']}")
+
+        # 构建医生专长信息
+        try:
+            clinical_patterns = json.loads(mind_map_data['clinical_patterns'])
+            doctor_expertise = json.dumps({
+                "specialties": [mind_map_data['disease_name']],
+                "main_syndromes": [clinical_patterns.get('main_syndrome', '')],
+                "ai_generated": True
+            }, ensure_ascii=False)
+        except:
+            doctor_expertise = json.dumps({
+                "specialties": [],
+                "ai_generated": True
+            }, ensure_ascii=False)
+
+        cursor.execute("""
+            INSERT INTO doctor_clinical_patterns (
+                id, doctor_id, disease_name, thinking_process,
+                tree_structure, clinical_patterns, doctor_expertise,
+                usage_count, success_count,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, datetime('now'), datetime('now'))
+        """, (
+            pattern_id,
+            doctor_id,
+            mind_map_data['disease_name'],
+            mind_map_data['thinking_process'],
+            mind_map_data['tree_structure'],
+            mind_map_data['clinical_patterns'],
+            doctor_expertise
+        ))
+
+    conn.commit()
+    conn.close()
+
+    return pattern_id
+
+
 # 导出路由器
 __all__ = ["router"]

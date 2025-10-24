@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI智能思维导图生成器 - 测试页面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            color: white;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 500px 1fr;
+            gap: 0;
+            height: calc(100vh - 160px);
+        }
+
+        .input-panel {
+            background: #f8f9fa;
+            padding: 30px;
+            border-right: 1px solid #dee2e6;
+            overflow-y: auto;
+        }
+
+        .output-panel {
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #495057;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .example-box {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #0066cc;
+        }
+
+        .example-box h4 {
+            color: #0066cc;
+            margin-bottom: 10px;
+        }
+
+        .example-box pre {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #333;
+            white-space: pre-wrap;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .result-header h2 {
+            color: #212529;
+        }
+
+        .badge {
+            background: #28a745;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .mindmap-canvas {
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            background: #f8f9fa;
+            width: 100%;
+            height: 600px;
+        }
+
+        .syndrome-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: box-shadow 0.3s;
+        }
+
+        .syndrome-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .syndrome-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .syndrome-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin-right: 12px;
+        }
+
+        .syndrome-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #212529;
+        }
+
+        .info-row {
+            margin-bottom: 10px;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #6c757d;
+            margin-right: 8px;
+        }
+
+        .herb-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .herb-tag {
+            background: #e7f3ff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            border: 1px solid #0066cc;
+        }
+
+        .modification-item {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 8px;
+            border-left: 3px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 AI智能思维导图生成器</h1>
+            <p>输入您的中医诊疗思路，AI自动分析并生成可视化思维导图式决策树</p>
+        </div>
+
+        <div class="content">
+            <!-- 输入面板 -->
+            <div class="input-panel">
+                <div class="example-box">
+                    <h4>📝 示例选择</h4>
+                    <select id="exampleSelector" onchange="loadExample()" style="width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 6px; border: 2px solid #0066cc;">
+                        <option value="single">单分支 - 风热感冒</option>
+                        <option value="multi2">双分支 - 胃痛（寒热两证）</option>
+                        <option value="multi3">三分支 - 失眠（多证型）</option>
+                        <option value="complex">复杂 - 咳嗽（四证型）</option>
+                    </select>
+                    <pre id="exampleText" style="max-height: 200px; overflow-y: auto;">风热感冒：外感风热，邪袭肺卫。症见发热恶风，汗出不畅，头痛鼻塞，咽喉肿痛，咳嗽痰黄，口渴欲饮。舌边尖红，苔薄黄，脉浮数。治疗用桑菊饮加减：桑叶10g、菊花10g、薄荷6g、桔梗6g、连翘10g、芦根15g、甘草3g。若热重加黄芩10g、板蓝根15g；若咽痛甚加射干10g、山豆根10g。</pre>
+                </div>
+
+                <div class="form-group">
+                    <label for="doctorInput">诊疗思路输入：</label>
+                    <textarea
+                        id="doctorInput"
+                        rows="12"
+                        placeholder="请输入您的诊疗思路，包括：&#10;1. 疾病名称和主证&#10;2. 症状描述、舌脉&#10;3. 处方药物&#10;4. 加减法&#10;&#10;AI将自动分析并生成思维导图..."
+                    ></textarea>
+                </div>
+
+                <button class="btn" onclick="generateMindMap()" id="generateBtn">
+                    🚀 AI生成思维导图
+                </button>
+            </div>
+
+            <!-- 输出面板 -->
+            <div class="output-panel" id="outputPanel">
+                <div style="text-align: center; padding: 100px 20px; color: #6c757d;">
+                    <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 20px;">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <circle cx="12" cy="12" r="6"></circle>
+                        <line x1="12" y1="2" x2="12" y2="6"></line>
+                        <line x1="12" y1="18" x2="12" y2="22"></line>
+                        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+                        <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+                        <line x1="2" y1="12" x2="6" y2="12"></line>
+                        <line x1="18" y1="12" x2="22" y2="12"></line>
+                        <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+                        <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+                    </svg>
+                    <h3>等待输入</h3>
+                    <p>在左侧输入您的诊疗思路，点击生成按钮即可</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 多分支测试用例
+        const examples = {
+            single: `风热感冒：外感风热，邪袭肺卫。症见发热恶风，汗出不畅，头痛鼻塞，咽喉肿痛，咳嗽痰黄，口渴欲饮。舌边尖红，苔薄黄，脉浮数。治疗用桑菊饮加减：桑叶10g、菊花10g、薄荷6g、桔梗6g、连翘10g、芦根15g、甘草3g。若热重加黄芩10g、板蓝根15g；若咽痛甚加射干10g、山豆根10g。`,
+
+            multi2: `胃痛的辨证论治：主证为胃脘疼痛。
+
+【证型一：脾胃虚寒证】
+病机：中阳不足，寒从中生。
+症见：胃脘隐痛，喜温喜按，空腹痛甚，得食则缓，泛吐清水，神疲乏力，手足不温，大便溏薄。舌淡苔白，脉沉细无力。
+治法：温中健脾，和胃止痛。
+方剂：黄芪建中汤加减。
+药物：黄芪15g（君药）、桂枝10g（臣药）、白芍15g（臣药）、炙甘草6g（使药）、生姜10g（佐药）、大枣12g（佐药）、饴糖30g（君药）。
+加减：若寒甚加干姜10g、吴茱萸6g；若气虚明显加党参15g、白术12g。
+煎服法：水煎服，饴糖烊化兑入，每日1剂，分2次温服。
+
+【证型二：肝胃郁热证】
+病机：肝郁化火，横逆犯胃。
+症见：胃脘灼痛，痛势急迫，心烦易怒，泛酸嘈杂，口干口苦，便秘尿黄。舌红苔黄，脉弦数。
+治法：疏肝泄热，和胃止痛。
+方剂：丹栀逍遥散合左金丸加减。
+药物：柴胡10g（君药）、白芍15g（臣药）、当归12g（臣药）、茯苓15g（佐药）、白术12g（佐药）、栀子10g（君药）、丹皮10g（臣药）、黄连6g（君药）、吴茱萸3g（佐药）、薄荷6g（佐药）、甘草6g（使药）。
+加减：若胃痛剧烈加川楝子10g、延胡索10g；若便秘加大黄6g（后下）、枳实10g。
+煎服法：水煎服，每日1剂，分2次服，薄荷后下。`,
+
+            multi3: `失眠的辨证论治：主证为夜寐不安。
+
+【证型一：心脾两虚证】
+病机：心脾不足，气血亏虚。
+症见：不易入睡，多梦易醒，心悸健忘，神疲乏力，面色少华，纳差便溏。舌淡苔薄，脉细弱。
+治法：补益心脾，养血安神。
+方剂：归脾汤加减。
+药物：人参10g（君药）、黄芪15g（君药）、白术12g（臣药）、茯神15g（臣药）、酸枣仁30g（君药）、龙眼肉15g（臣药）、当归12g（臣药）、远志10g（佐药）、木香6g（佐药）、炙甘草6g（使药）。
+加减：若心悸明显加柏子仁15g、夜交藤30g；若纳差加陈皮10g、砂仁6g（后下）。
+
+【证型二：阴虚火旺证】
+病机：肾阴亏虚，心火上亢。
+症见：心烦不寐，入睡困难，头晕耳鸣，健忘，腰膝酸软，五心烦热，男子遗精，女子月经不调。舌红少苔，脉细数。
+治法：滋阴降火，养心安神。
+方剂：黄连阿胶汤合六味地黄丸加减。
+药物：黄连6g（君药）、黄芩10g（臣药）、白芍15g（臣药）、阿胶10g（君药，烊化）、鸡子黄2枚（君药）、熟地15g（君药）、山药15g（臣药）、山萸肉12g（臣药）、茯苓15g（佐药）、丹皮10g（佐药）、泽泻10g（佐药）。
+加减：若五心烦热甚加知母12g、黄柏10g；若遗精加金樱子15g、芡实15g。
+
+【证型三：心胆气虚证】
+病机：心胆气虚，神魂不安。
+症见：虚烦不眠，触事易惊，终日惕惕，胆怯心悸，气短自汗。舌淡苔薄，脉弦细。
+治法：益气镇惊，安神定志。
+方剂：安神定志丸合酸枣仁汤加减。
+药物：茯神15g（君药）、茯苓15g（臣药）、人参10g（君药）、远志10g（臣药）、石菖蒲10g（佐药）、龙齿30g（君药，先煎）、酸枣仁30g（君药）、知母12g（臣药）、川芎10g（佐药）、甘草6g（使药）。
+加减：若惊悸明显加珍珠母30g（先煎）、琥珀粉3g（冲服）；若自汗加黄芪15g、浮小麦30g。`,
+
+            complex: `咳嗽的辨证论治：主证为咳嗽咯痰。
+
+【证型一：风寒袭肺证】
+病机：风寒外束，肺气失宣。
+症见：咳嗽声重，痰稀色白，恶寒无汗，头痛鼻塞，肢体酸痛。舌苔薄白，脉浮紧。
+治法：疏风散寒，宣肺止咳。
+方剂：三拗汤合止嗽散加减。
+药物：麻黄6g（君药）、杏仁10g（臣药）、甘草6g（使药）、荆芥10g（君药）、防风10g（臣药）、桔梗10g（佐药）、紫菀10g（臣药）、百部10g（臣药）、白前10g（佐药）、陈皮10g（佐药）。
+加减：若恶寒重加桂枝10g、生姜10g；若咳甚加紫苏子10g、款冬花10g。
+
+【证型二：风热犯肺证】
+病机：风热外袭，肺失清肃。
+症见：咳嗽频剧，痰黄稠粘，不易咯出，咽痛口渴，发热恶风，头痛鼻塞流黄涕。舌尖红苔薄黄，脉浮数。
+治法：疏风清热，宣肺止咳。
+方剂：桑菊饮加减。
+药物：桑叶10g（君药）、菊花10g（君药）、杏仁10g（臣药）、桔梗10g（佐药）、薄荷6g（臣药，后下）、连翘15g（臣药）、芦根20g（佐药）、甘草6g（使药）。
+加减：若痰黄稠加黄芩10g、瓜蒌15g；若咽痛甚加牛蒡子10g、射干10g。
+
+【证型三：痰湿蕴肺证】
+病机：痰湿内蕴，肺失宣降。
+症见：咳嗽反复发作，咳声重浊，痰多粘腻色白，胸闷脘痞，纳呆便溏。舌苔白腻，脉濡滑。
+治法：燥湿化痰，理气止咳。
+方剂：二陈汤合三子养亲汤加减。
+药物：半夏10g（君药）、陈皮10g（君药）、茯苓15g（臣药）、甘草6g（使药）、苏子10g（臣药）、白芥子6g（臣药）、莱菔子10g（臣药）、杏仁10g（臣药）、桔梗10g（佐药）、白术12g（臣药）。
+加减：若痰多加瓜蒌15g、浙贝母10g；若胸闷加枳壳10g、厚朴10g。
+
+【证型四：肺阴亏耗证】
+病机：肺阴不足，虚火灼肺。
+症见：干咳少痰，或痰中带血，口燥咽干，声音嘶哑，形体消瘦，午后潮热，盗汗颧红。舌红少津，脉细数。
+治法：滋阴润肺，化痰止咳。
+方剂：沙参麦冬汤加减。
+药物：沙参15g（君药）、麦冬15g（君药）、玉竹15g（臣药）、天花粉12g（臣药）、百合20g（臣药）、桑叶10g（佐药）、川贝母10g（臣药）、甘草6g（使药）。
+加减：若痰中带血加白及15g、阿胶10g（烊化）；若潮热盗汗加地骨皮15g、白薇10g。`
+        };
+
+        function loadExample() {
+            const selector = document.getElementById('exampleSelector');
+            const exampleText = document.getElementById('exampleText');
+            const doctorInput = document.getElementById('doctorInput');
+
+            const selectedExample = examples[selector.value];
+            exampleText.textContent = selectedExample;
+            doctorInput.value = selectedExample;
+        }
+
+        async function generateMindMap() {
+            const input = document.getElementById('doctorInput').value.trim();
+            const btn = document.getElementById('generateBtn');
+            const output = document.getElementById('outputPanel');
+
+            if (!input) {
+                alert('请输入诊疗思路！');
+                return;
+            }
+
+            // 显示加载状态
+            btn.disabled = true;
+            btn.textContent = '⏳ AI分析中...';
+            output.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <h3 style="margin-top: 20px;">AI正在分析您的诊疗思路...</h3>
+                    <p>请稍候，这可能需要5-10秒</p>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/api/ai_mindmap_generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        doctor_input: input,
+                        auto_save: true
+                    }),
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    renderMindMap(result.data);
+                } else {
+                    throw new Error(result.detail || '生成失败');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                output.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #dc3545;">
+                        <h3>❌ 生成失败</h3>
+                        <p>${error.message}</p>
+                        <p style="margin-top: 10px; font-size: 14px; color: #6c757d;">
+                            请检查您的输入格式或稍后重试
+                        </p>
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚀 AI生成思维导图';
+            }
+        }
+
+        function renderMindMap(data) {
+            const output = document.getElementById('outputPanel');
+
+            let html = `
+                <div class="result-header">
+                    <h2>🎯 ${data.disease_name}</h2>
+                    <span class="badge">✅ 生成成功</span>
+                </div>
+
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">📊 思维导图可视化</h3>
+                    <canvas id="mindMapCanvas" class="mindmap-canvas"></canvas>
+                </div>
+
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">🏥 主证</h3>
+                    <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; border-left: 4px solid #0066cc;">
+                        <strong>${data.main_syndrome}</strong>
+                    </div>
+                </div>
+
+                <h3 style="color: #667eea; margin-bottom: 15px;">🌿 证候分支</h3>
+            `;
+
+            // 渲染证候分支
+            data.syndrome_branches.forEach((syndrome, idx) => {
+                const prescription = syndrome.prescription || {};
+                const baseHerbs = prescription.base_herbs || [];
+                const modifications = prescription.modifications || [];
+
+                html += `
+                    <div class="syndrome-card">
+                        <div class="syndrome-header">
+                            <div class="syndrome-icon">${idx + 1}</div>
+                            <div class="syndrome-title">${syndrome.syndrome_name}</div>
+                        </div>
+
+                        <div class="info-row">
+                            <span class="info-label">病机：</span>
+                            <span>${syndrome.pathogenesis}</span>
+                        </div>
+
+                        <div class="info-row">
+                            <span class="info-label">症见：</span>
+                            <span>${syndrome.symptoms.join('、')}</span>
+                        </div>
+
+                        <div class="info-row">
+                            <span class="info-label">舌脉：</span>
+                            <span>${syndrome.tongue_pulse}</span>
+                        </div>
+
+                        <div style="margin-top: 15px;">
+                            <div class="info-label">💊 处方：${prescription.formula}</div>
+                            <div class="herb-list">
+                                ${baseHerbs.map(herb => `
+                                    <span class="herb-tag">
+                                        ${herb.name} ${herb.dosage}
+                                        <small>(${herb.role})</small>
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        ${modifications.length > 0 ? `
+                            <div style="margin-top: 15px;">
+                                <div class="info-label">🔧 加减法：</div>
+                                ${modifications.map(mod => `
+                                    <div class="modification-item">
+                                        <strong>若${mod.condition}：</strong>
+                                        加 ${mod.add.join('、')}
+                                        ${mod.remove && mod.remove.length > 0 ? `；减 ${mod.remove.join('、')}` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            output.innerHTML = html;
+
+            // 绘制思维导图
+            setTimeout(() => drawMindMap(data), 100);
+        }
+
+        function drawMindMap(data) {
+            const canvas = document.getElementById('mindMapCanvas');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            // 清空画布
+            ctx.fillStyle = '#f8f9fa';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制节点和连接
+            const nodes = data.nodes || [];
+            const connections = data.connections || [];
+
+            // 先绘制连接线
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 2;
+            connections.forEach(conn => {
+                const fromNode = nodes.find(n => n.id === conn.from);
+                const toNode = nodes.find(n => n.id === conn.to);
+                if (fromNode && toNode) {
+                    ctx.beginPath();
+                    ctx.moveTo(fromNode.x, fromNode.y + 25);
+                    ctx.lineTo(toNode.x, toNode.y - 25);
+                    ctx.stroke();
+                }
+            });
+
+            // 绘制节点
+            nodes.forEach(node => {
+                const typeColors = {
+                    'disease': '#dc3545',
+                    'syndrome': '#667eea',
+                    'syndrome_branch': '#28a745',
+                    'symptom': '#17a2b8',
+                    'prescription': '#ffc107',
+                    'modification': '#6c757d'
+                };
+
+                const color = typeColors[node.type] || '#6c757d';
+
+                // 绘制节点框
+                ctx.fillStyle = color;
+                ctx.fillRect(node.x - 80, node.y - 25, 160, 50);
+
+                // 绘制文字
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                const text = node.name.length > 12 ? node.name.substring(0, 12) + '...' : node.name;
+                ctx.fillText(text, node.x, node.y);
+            });
+        }
+
+        // 页面加载时填充示例
+        window.onload = function() {
+            loadExample(); // 加载默认示例
+        };
+    </script>
+</body>
+</html>

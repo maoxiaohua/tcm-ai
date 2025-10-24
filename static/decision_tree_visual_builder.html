@@ -1632,67 +1632,64 @@
             statusPanel.className = `generation-status ${source === 'ai' ? 'ai-mode' : 'template-mode'}`;
         }
 
-        // AI生成决策树（升级版）
+        // AI生成决策树（升级版 - 使用AI思维导图生成）
         async function generateAITree() {
             console.log('🚀 智能生成决策树被调用');
-            
-            // 直接使用getCurrentDiseaseName()，不声明局部变量
-            if (!getCurrentDiseaseName()) {
-                alert('请先输入疾病名称');
+
+            const doctorThought = document.getElementById('doctorThought').value.trim();
+
+            if (!doctorThought) {
+                alert('请先输入您的诊疗思路！\n\n请在"诊疗思路"输入框中描述您的中医诊疗方案，包括：\n1. 疾病名称和主证\n2. 症状描述、舌脉\n3. 处方药物\n4. 加减法');
                 return;
             }
 
-            const doctorThought = document.getElementById('doctorThought').value.trim();
             const useAI = document.getElementById('aiModeToggle').checked && aiStatus.ai_enabled;
-            
-            // 根据模式显示不同的loading信息
-            const loadingMessage = useAI ? 
-                (doctorThought ? 'AI正在根据您的思路生成决策树...' : 'AI正在生成标准决策树...') :
-                '正在加载标准模板...';
-            
-            showLoading(loadingMessage);
+
+            if (!useAI || !aiStatus.ai_enabled) {
+                alert('AI模式未启用，请确认AI功能已开启！');
+                return;
+            }
+
+            showLoading('AI正在分析您的诊疗思路并生成思维导图式决策树...');
 
             try {
-                const response = await fetch('/api/generate_visual_decision_tree', {
+                const response = await fetch('/api/ai_mindmap_generate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        disease_name: getCurrentDiseaseName(),
-                        thinking_process: doctorThought,
-                        use_ai: useAI,
-                        include_tcm_analysis: true,
-                        complexity_level: userPreferences.complexityLevel
-                    })
+                        doctor_input: doctorThought,
+                        auto_save: true
+                    }),
+                    credentials: 'include'
                 });
 
                 const result = await response.json();
-                
-                if (result.success && result.data && result.data.paths) {
-                    const pathsData = result.data.paths;
-                    const source = result.data.source || 'template';
-                    const generationTime = result.data.generation_time || '即时';
-                    
-                    generateNodesFromPaths(pathsData);
+
+                if (result.success && result.data) {
+                    const mindMapData = result.data;
+
+                    // 将思维导图数据转换为决策树节点
+                    generateNodesFromMindMap(mindMapData);
                     hideLoading();
-                    
+
                     // 显示生成状态
                     showGenerationStatus(
-                        source, 
-                        result.message,
-                        generationTime
+                        'ai',
+                        `✅ 成功生成思维导图：${mindMapData.disease_name}`,
+                        '5-10秒'
                     );
-                    
-                    showResult('成功', `✅ 成功生成了${pathsData.length}条诊疗路径！`, 'success');
+
+                    showResult('成功', `✅ 成功生成思维导图式决策树！\n疾病：${mindMapData.disease_name}\n分支：${mindMapData.syndrome_branches.length}个证候分支`, 'success');
                     console.log('📊 生成统计:', {
-                        source: source,
-                        pathCount: pathsData.length,
-                        aiEnabled: aiStatus.ai_enabled,
-                        userThinking: !!doctorThought
+                        source: 'ai_mindmap',
+                        diseaseName: mindMapData.disease_name,
+                        branchCount: mindMapData.syndrome_branches.length,
+                        nodeCount: mindMapData.nodes ? mindMapData.nodes.length : 0
                     });
                 } else {
-                    throw new Error(result.message || '生成失败');
+                    throw new Error(result.detail || result.message || '生成失败');
                 }
             } catch (error) {
                 console.error('❌ 生成失败:', error);
@@ -1767,6 +1764,63 @@
             }, 100);
             
             console.log(`✅ 节点生成完成，共 ${nodes.length} 个节点`);
+        }
+
+        // 从AI思维导图数据生成决策树节点
+        function generateNodesFromMindMap(mindMapData) {
+            console.log('🧠 开始从思维导图生成决策树节点:', mindMapData);
+            clearCanvas();
+
+            if (!mindMapData || !mindMapData.nodes) {
+                console.warn('⚠️ 没有思维导图节点数据');
+                return;
+            }
+
+            // 使用AI生成的节点数据直接渲染
+            const mindMapNodes = mindMapData.nodes || [];
+            const mindMapConnections = mindMapData.connections || [];
+
+            // 类型映射：将思维导图节点类型转换为决策树节点类型
+            const typeMapping = {
+                'disease': 'disease',
+                'syndrome': 'condition',
+                'syndrome_branch': 'condition',
+                'symptom': 'symptom',
+                'prescription': 'prescription',
+                'modification': 'action'
+            };
+
+            // 添加节点
+            mindMapNodes.forEach(mindMapNode => {
+                const node = {
+                    id: mindMapNode.id,
+                    name: mindMapNode.name,
+                    description: mindMapNode.description || mindMapNode.name,
+                    type: typeMapping[mindMapNode.type] || 'condition',
+                    x: mindMapNode.x || 100,
+                    y: mindMapNode.y || 100,
+                    data: mindMapNode.data || {}
+                };
+
+                nodes.push(node);
+                renderNode(node);
+                console.log(`  ✅ 添加节点: ${node.name} (${node.type})`);
+            });
+
+            // 添加连接
+            mindMapConnections.forEach(conn => {
+                connections.push({
+                    from: conn.from,
+                    to: conn.to
+                });
+            });
+
+            // 重新渲染所有连接线
+            setTimeout(() => {
+                drawConnections();
+            }, 100);
+
+            console.log(`✅ 思维导图节点生成完成，共 ${nodes.length} 个节点, ${connections.length} 条连接`);
         }
 
         // 分析当前决策树

@@ -812,15 +812,20 @@ class UnifiedConsultationService:
     
     def _get_stage_specific_context(self, stage: ConversationStage, state) -> str:
         """获取阶段特定的上下文"""
+        # 🔧 安全获取症状列表（避免类型错误）
+        symptoms = state.symptoms_collected if isinstance(state.symptoms_collected, list) else []
+        symptoms_preview = ', '.join(symptoms[:5]) if symptoms else "无"
+        symptoms_count = len(symptoms)
+
         context_map = {
             ConversationStage.INQUIRY: f"当前是初始问诊阶段（第{state.turn_count}轮），请重点收集患者的主要症状和基本情况。",
-            ConversationStage.DETAILED_INQUIRY: f"当前是详细问诊阶段（第{state.turn_count}轮），请深入了解症状细节，已收集症状：{', '.join(state.symptoms_collected[:5])}。",
+            ConversationStage.DETAILED_INQUIRY: f"当前是详细问诊阶段（第{state.turn_count}轮），请深入了解症状细节，已收集症状：{symptoms_preview}。",
             ConversationStage.INTERIM_ADVICE: f"当前是临时建议阶段（第{state.turn_count}轮），给出初步建议但需要更多信息确认。",
-            ConversationStage.DIAGNOSIS: f"当前是诊断阶段（第{state.turn_count}轮），请进行证候分析，已收集{len(state.symptoms_collected)}个症状。",
+            ConversationStage.DIAGNOSIS: f"当前是诊断阶段（第{state.turn_count}轮），请进行证候分析，已收集{symptoms_count}个症状。",
             ConversationStage.PRESCRIPTION: f"当前是处方阶段（第{state.turn_count}轮），请给出完整的治疗方案。",
             ConversationStage.PRESCRIPTION_CONFIRM: f"当前是处方确认阶段，等待患者确认处方方案。"
         }
-        
+
         return context_map.get(stage, f"当前对话阶段：{stage.value}，第{state.turn_count}轮。")
     
     async def _update_conversation_state(self, request, user_analysis, ai_analysis, processed_response):
