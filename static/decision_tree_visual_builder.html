@@ -1790,21 +1790,68 @@
                 'modification': 'action'
             };
 
+            // 优化节点内容显示函数
+            function optimizeNodeContent(mindMapNode) {
+                let content = mindMapNode.description || mindMapNode.name;
+
+                // 针对不同类型节点优化内容显示
+                if (mindMapNode.type === 'symptom' && mindMapNode.data) {
+                    // 症状节点：只显示关键信息
+                    const symptoms = mindMapNode.data.symptoms || [];
+                    const tongueP = mindMapNode.data.tongue_pulse || '';
+                    const pathogen = mindMapNode.data.pathogenesis || '';
+
+                    content = `【症见】\n`;
+                    if (pathogen) content += `病机：${pathogen}\n`;
+                    if (symptoms.length > 0) content += `症状：${symptoms.slice(0, 5).join('、')}${symptoms.length > 5 ? '等' : ''}\n`;
+                    if (tongueP) content += `舌脉：${tongueP}`;
+
+                } else if (mindMapNode.type === 'prescription' && mindMapNode.data) {
+                    // 处方节点：简化显示
+                    const formula = mindMapNode.data.formula || mindMapNode.name;
+                    const herbs = mindMapNode.data.base_herbs || [];
+
+                    content = `【处方】${formula}\n`;
+                    if (herbs.length > 0) {
+                        const herbNames = herbs.slice(0, 6).map(h => h.name).join('、');
+                        content += `药物：${herbNames}${herbs.length > 6 ? '等' : ''}`;
+                    }
+
+                } else if (mindMapNode.type === 'modification' && mindMapNode.data) {
+                    // 加减法节点：精简显示
+                    const condition = mindMapNode.data.condition || '';
+                    const addHerbs = mindMapNode.data.add || [];
+
+                    content = `【加减】若${condition}\n`;
+                    if (addHerbs.length > 0) {
+                        content += `加：${addHerbs.slice(0, 3).join('、')}${addHerbs.length > 3 ? '等' : ''}`;
+                    }
+                }
+
+                return content;
+            }
+
+            // 计算优化后的布局（确保节点不重叠）
+            const nodeWidth = 250;  // 节点宽度
+            const nodeHeight = 100; // 节点高度
+            const xPadding = 50;    // 水平内边距
+            const yPadding = 50;    // 垂直内边距
+
             // 添加节点
-            mindMapNodes.forEach(mindMapNode => {
+            mindMapNodes.forEach((mindMapNode, index) => {
                 const node = {
                     id: mindMapNode.id,
                     name: mindMapNode.name,
-                    description: mindMapNode.description || mindMapNode.name,
+                    description: optimizeNodeContent(mindMapNode),
                     type: typeMapping[mindMapNode.type] || 'condition',
-                    x: mindMapNode.x || 100,
-                    y: mindMapNode.y || 100,
+                    x: mindMapNode.x + xPadding,  // 使用AI生成的X坐标，加上内边距
+                    y: mindMapNode.y + yPadding,  // 使用AI生成的Y坐标，加上内边距
                     data: mindMapNode.data || {}
                 };
 
                 nodes.push(node);
                 renderNode(node);
-                console.log(`  ✅ 添加节点: ${node.name} (${node.type})`);
+                console.log(`  ✅ 添加节点 ${index + 1}/${mindMapNodes.length}: ${node.name} (${node.type}) at (${node.x}, ${node.y})`);
             });
 
             // 添加连接
@@ -1818,7 +1865,7 @@
             // 重新渲染所有连接线
             setTimeout(() => {
                 drawConnections();
-            }, 100);
+            }, 150);
 
             console.log(`✅ 思维导图节点生成完成，共 ${nodes.length} 个节点, ${connections.length} 条连接`);
         }
