@@ -248,32 +248,20 @@ class AIDecisionTreeGenerator:
         y_gap = 150    # 垂直间距
         x_gap = 300    # 水平间距（多分支时）
 
-        # 1. 疾病根节点
-        disease_node_id = "disease_root"
+        # 1. 主证根节点（合并疾病名称和主证）
+        main_syndrome_id = "main_syndrome"
+        main_syndrome_display = f"{disease_name}（{main_syndrome}）" if main_syndrome else disease_name
         nodes.append({
-            "id": disease_node_id,
-            "name": disease_name,
-            "description": disease_name,
+            "id": main_syndrome_id,
+            "name": main_syndrome_display,
+            "description": main_syndrome_display,
             "type": "disease",
             "x": start_x,
             "y": start_y,
-            "style": "root"  # 标记为根节点，前端可以特殊样式
+            "style": "root"  # 标记为根节点
         })
 
-        # 2. 主证节点
-        main_syndrome_id = "main_syndrome"
-        nodes.append({
-            "id": main_syndrome_id,
-            "name": main_syndrome,
-            "description": f"主证：{main_syndrome}",
-            "type": "syndrome",
-            "x": start_x,
-            "y": start_y + y_gap,
-            "style": "main"
-        })
-        connections.append({"from": disease_node_id, "to": main_syndrome_id})
-
-        # 3. 证候分支（可能有多个）
+        # 2. 证候分支（直接从主证开始）
         syndrome_count = len(syndromes)
         if syndrome_count == 0:
             logger.warning("未提取到任何证候分支")
@@ -301,9 +289,9 @@ class AIDecisionTreeGenerator:
             prescription_data = syndrome.get('prescription', {})
 
             branch_x = branch_x_positions[idx]
-            current_y = start_y + y_gap * 2
+            current_y = start_y + y_gap  # 减少一层，从主证后直接开始
 
-            # 3.1 证候节点
+            # 2.1 证候节点
             syndrome_id = f"syndrome_{idx}"
             nodes.append({
                 "id": syndrome_id,
@@ -316,7 +304,7 @@ class AIDecisionTreeGenerator:
             })
             connections.append({"from": main_syndrome_id, "to": syndrome_id})
 
-            # 3.2 症见节点（包含症状、舌脉、病机）
+            # 2.2 症见节点（包含症状、舌脉、病机）
             current_y += y_gap
             symptom_id = f"symptom_{idx}"
             symptom_desc = self._format_symptom_description(symptoms, tongue_pulse, pathogenesis)
@@ -335,7 +323,7 @@ class AIDecisionTreeGenerator:
             })
             connections.append({"from": syndrome_id, "to": symptom_id})
 
-            # 3.3 处方节点
+            # 2.3 处方节点
             current_y += y_gap
             prescription_id = f"prescription_{idx}"
             formula_name = prescription_data.get('formula', '未知方剂')
@@ -356,7 +344,7 @@ class AIDecisionTreeGenerator:
             })
             connections.append({"from": symptom_id, "to": prescription_id})
 
-            # 3.4 加减法节点（如果有多个加减法，可以展开为子节点）
+            # 2.4 加减法节点（如果有多个加减法，可以展开为子节点）
             modifications = prescription_data.get('modifications', [])
             if modifications:
                 current_y += y_gap

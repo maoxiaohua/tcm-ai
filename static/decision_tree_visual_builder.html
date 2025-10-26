@@ -829,22 +829,7 @@
                 </div>
             </div>
 
-            <!-- 分析结果区域 -->
-            <div id="analysisResultsContainer" style="display: none !important; margin-bottom: 15px;">
-                <div style="background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;">
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleAnalysisResults()">
-                        <div style="color: white; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                            <span>📊 分析结果</span>
-                            <span id="analysisResultsBadge" style="background: rgba(255,255,255,0.3); padding: 2px 8px; border-radius: 12px; font-size: 11px;"></span>
-                        </div>
-                        <span id="analysisResultsToggle" style="color: white; font-size: 18px;">▼</span>
-                    </div>
-                    <div id="analysisResultsContent" style="max-height: 300px; overflow-y: auto; padding: 15px;">
-                        <div id="analysisResults"></div>
-                    </div>
-                </div>
-            </div>
-
+  
             <div class="canvas-area">
                 <!-- 画布右上角的操作按钮组 -->
                 <div id="canvasToolbar" class="canvas-toolbar" style="display: none;">
@@ -1913,7 +1898,7 @@
                 
                 if (data.success && data.data) {
                     hideLoading();
-                    showAnalysisResult(data.data.analysis || '分析完成');
+                    console.log('理论分析完成:', data.data.analysis);
                 } else {
                     throw new Error(data.message || '分析失败');
                 }
@@ -2173,8 +2158,7 @@
                 </div>
             `;
             
-            clearResults();
-            hideSelectedNodeInfo();
+                  hideSelectedNodeInfo();
             showResult('成功', '✅ 画布已清空', 'success');
         }
 
@@ -3427,122 +3411,46 @@
 
         // 显示结果
         function showResult(title, message, type) {
-            const resultsDiv = document.getElementById('analysisResults');
-            const container = document.getElementById('analysisResultsContainer');
+            // 简化显示：使用console.log替代UI显示
+            console.log(`[${type.toUpperCase()}] ${title}: ${message}`);
 
-            const typeColors = {
-                success: '#22c55e',
-                error: '#ef4444',
-                warning: '#f59e0b',
-                info: '#3b82f6'
-            };
-
-            const color = typeColors[type] || typeColors.info;
-
-            const resultElement = document.createElement('div');
-            resultElement.className = 'result-panel';
-            resultElement.innerHTML = `
-                <div class="result-title" style="color: ${color};">${title}</div>
-                <div style="font-size: 13px; color: #374151;">${message}</div>
-            `;
-
-            resultsDiv.appendChild(resultElement);
-
-            // 显示分析结果容器
-            if (container) {
-                container.style.display = 'block';
-            }
-
-            // 5秒后自动移除成功消息
+            // 可选：在页面右上角显示临时通知
             if (type === 'success') {
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #22c55e;
+                    color: white;
+                    padding: 12px 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    z-index: 10000;
+                    font-size: 14px;
+                    max-width: 300px;
+                `;
+                notification.innerHTML = `✅ ${message}`;
+                document.body.appendChild(notification);
+
+                // 3秒后自动移除
                 setTimeout(() => {
-                    resultElement.remove();
-                }, 5000);
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 3000);
             }
         }
 
-        // 显示分析结果
-        function showAnalysisResult(analysisHtml) {
-            // 清除之前的结果，避免重复
-            clearResults();
-
-            const resultsDiv = document.getElementById('analysisResults');
-            const container = document.getElementById('analysisResultsContainer');
-
-            const resultElement = document.createElement('div');
-            resultElement.className = 'result-panel';
-            resultElement.innerHTML = `
-                <div class="result-title">🧠 中医理论分析结果</div>
-                <div style="font-size: 13px;">${analysisHtml}</div>
-            `;
-
-            resultsDiv.appendChild(resultElement);
-
-            // 显示分析结果容器
-            if (container) {
-                container.style.display = 'block';
-            }
-        }
-
-        // 切换分析结果显示/隐藏
-        function toggleAnalysisResults() {
-            const content = document.getElementById('analysisResultsContent');
-            const toggle = document.getElementById('analysisResultsToggle');
-
-            if (content.style.display === 'none') {
-                content.style.display = 'block';
-                toggle.textContent = '▼';
-            } else {
-                content.style.display = 'none';
-                toggle.textContent = '▶';
-            }
-        }
-
+  
+  
         // 显示遗漏逻辑结果
         function showMissingLogicResult(data) {
-            // 清除之前的结果，避免重复
-            clearResults();
-            
-            const resultsDiv = document.getElementById('analysisResults');
-            
-            let html = '<div class="result-title">💡 遗漏逻辑检测结果</div>';
-            
-            if (data.missing_analyses && data.missing_analyses.length > 0) {
-                data.missing_analyses.forEach(analysis => {
-                    html += `<div style="margin: 15px 0;"><strong>${analysis.category}:</strong><br>`;
-                    analysis.items.forEach(item => {
-                        html += `
-                            <div class="suggestion-item" onclick="addSuggestionToTree('${item.suggested_addition.step_type}', '${item.content}', '${item.description}')">
-                                <div class="suggestion-content">${item.content}</div>
-                                <div class="suggestion-desc">${item.description}</div>
-                            </div>
-                        `;
-                    });
-                    html += `</div>`;
-                });
-            } else {
-                html += '<div style="color: #22c55e;">✅ 当前决策树逻辑完整，未发现明显遗漏</div>';
-            }
-            
-            const resultElement = document.createElement('div');
-            resultElement.className = 'result-panel';
-            resultElement.innerHTML = html;
-            
-            resultsDiv.appendChild(resultElement);
+            // 功能已禁用 - 分析结果区域已移除
+            console.log('遗漏逻辑检测结果:', data);
         }
 
-        // 清除结果
-        function clearResults() {
-            const resultsDiv = document.getElementById('analysisResults');
-            const container = document.getElementById('analysisResultsContainer');
-            resultsDiv.innerHTML = '';
-
-            // 隐藏分析结果容器
-            if (container) {
-                container.style.display = 'none';
-            }
-        }
-
+  
 
         // 绘制连接线
         function drawConnections() {
@@ -4411,45 +4319,8 @@
 
         // 显示症状检测结果
         function showSymptomDetectionResult(data, existingSymptoms) {
-            clearResults();
-            
-            const resultsDiv = document.getElementById('analysisResults');
-            
-            // 生成常见症状建议
-            // 直接使用getCurrentDiseaseName()，不声明局部变量
-            const commonSymptoms = getCommonSymptomsForDisease(getCurrentDiseaseName());
-            const missingSymptoms = commonSymptoms.filter(symptom => 
-                !existingSymptoms.some(existing => existing.includes(symptom))
-            );
-            
-            let html = '<div class="result-title">🔍 症状遗漏检测结果</div>';
-            
-            if (missingSymptoms.length > 0) {
-                html += '<div style="margin: 15px 0;"><strong>建议补充的症状:</strong><br>';
-                missingSymptoms.forEach(symptom => {
-                    html += `
-                        <div class="suggestion-item" onclick="addSuggestionToTree('symptom', '${symptom}', '${getCurrentDiseaseName()}的常见症状')">
-                            <div class="suggestion-content">${symptom}</div>
-                            <div class="suggestion-desc">${getCurrentDiseaseName()}的常见症状表现</div>
-                        </div>
-                    `;
-                });
-                html += '</div>';
-            } else {
-                html += '<div style="color: #22c55e;">✅ 症状覆盖较为完整</div>';
-            }
-            
-            // 添加现有症状分析
-            if (existingSymptoms.length > 0) {
-                html += '<div style="margin: 15px 0;"><strong>现有症状:</strong><br>';
-                html += `<div style="font-size: 12px; color: #6b7280;">${existingSymptoms.join('、')}</div></div>`;
-            }
-            
-            const resultElement = document.createElement('div');
-            resultElement.className = 'result-panel';
-            resultElement.innerHTML = html;
-            
-            resultsDiv.appendChild(resultElement);
+            // 功能已禁用 - 分析结果区域已移除
+            console.log('症状检测结果:', data);
         }
 
         // 获取疾病常见症状
@@ -4752,83 +4623,8 @@
 
         // 显示证型分析结果
         function showSyndromeAnalysisResult(analysis) {
-            clearResults();
-            
-            const resultsDiv = document.getElementById('analysisResults');
-            
-            let html = '<div class="result-title">🎯 证型智能识别结果</div>';
-            
-            if (analysis.recommendation) {
-                html += `
-                    <div class="auto-analysis-panel">
-                        <div style="font-weight: 600; margin-bottom: 10px; color: #d97706;">
-                            🏆 推荐证型: ${analysis.recommendation.name} 
-                            <span style="font-size: 12px; color: #6b7280;">(匹配度: ${Math.round(analysis.recommendation.matchRate * 100)}%)</span>
-                        </div>
-                        <div style="margin-bottom: 8px;">
-                            <strong>病机:</strong> ${analysis.recommendation.description}
-                        </div>
-                        <div style="margin-bottom: 8px;">
-                            <strong>治法:</strong> ${analysis.recommendation.treatment}
-                        </div>
-                        <div style="margin-bottom: 10px;">
-                            <strong>推荐方剂:</strong> ${analysis.recommendation.formula}
-                        </div>
-                        <button class="add-pathway-btn" onclick="addSyndromeToTree('${analysis.recommendation.name}', '${analysis.recommendation.description}')">
-                            ➕ 添加证型到决策树
-                        </button>
-                        <button class="add-pathway-btn" onclick="addTreatmentToTree('${analysis.recommendation.treatment}', '${analysis.recommendation.formula}')">
-                            ➕ 添加治疗方案
-                        </button>
-                    </div>
-                `;
-            }
-
-            if (analysis.matchedSyndromes.length > 1) {
-                html += '<div style="margin-top: 15px;"><strong>其他可能证型:</strong><br>';
-                analysis.matchedSyndromes.slice(1, 3).forEach(syndrome => {
-                    html += `
-                        <div class="suggestion-item" onclick="addSyndromeToTree('${syndrome.name}', '${syndrome.description}')">
-                            <div class="suggestion-content">${syndrome.name}</div>
-                            <div class="suggestion-desc">匹配度: ${Math.round(syndrome.matchRate * 100)}% - ${syndrome.description}</div>
-                        </div>
-                    `;
-                });
-                html += '</div>';
-            }
-
-            if (analysis.matchedSyndromes.length === 0) {
-                // 提供更多帮助信息
-                // 直接使用getCurrentDiseaseName()，不声明局部变量
-                html += `
-                    <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; color: #92400e;">
-                        <div style="font-weight: 600; margin-bottom: 8px;">⚠️ 证型识别建议</div>
-                        <div style="font-size: 12px; margin-bottom: 8px;">
-                            当前${diseaseName}的症状信息不足，建议补充以下信息：
-                        </div>
-                        <div style="font-size: 11px; line-height: 1.4;">
-                            • 详细描述症状特点（如痛痛性质、发作时间）<br>
-                            • 添加伴随症状（如睡眠、饮食、大小便）<br>
-                            • 提供舌象脉象信息<br>
-                            • 记录情志因素和起病原因
-                        </div>
-                        <div style="margin-top: 10px;">
-                            <button onclick="showSymptomGuidance('${diseaseName}')" style="
-                                background: #f59e0b; color: white; border: none; border-radius: 6px; 
-                                padding: 6px 12px; font-size: 11px; cursor: pointer;
-                            ">
-                                📝 获取症状指导
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            const resultElement = document.createElement('div');
-            resultElement.className = 'result-panel';
-            resultElement.innerHTML = html;
-            
-            resultsDiv.appendChild(resultElement);
+            // 功能已禁用 - 分析结果区域已移除
+            console.log('证型分析结果:', analysis);
         }
 
         // 添加证型到决策树
@@ -5071,46 +4867,8 @@
 
         // 显示路径生成结果
         function showPathwayGenerationResult(pathwayData) {
-            clearResults();
-            
-            const resultsDiv = document.getElementById('analysisResults');
-            
-            let html = '<div class="result-title">🤖 智能诊疗路径</div>';
-            
-            if (pathwayData.pathway.length > 0) {
-                html += `<div style="margin-bottom: 15px; color: #059669; font-size: 12px;">${pathwayData.message}</div>`;
-                
-                pathwayData.pathway.forEach((step, index) => {
-                    html += `
-                        <div class="pathway-step">
-                            <div style="font-weight: 600; color: #1e40af; margin-bottom: 5px;">
-                                ${index + 1}. ${step.title}
-                            </div>
-                            <div style="font-size: 13px; margin-bottom: 8px;">${step.content}</div>
-                            ${step.description ? `<div style="font-size: 11px; color: #6b7280; margin-bottom: 8px;">${step.description}</div>` : ''}
-                            <button class="add-pathway-btn" onclick="executePathwayStep('${step.action}', '${step.title}', '${step.content.replace(/'/g, "\\'")}')">
-                                ➕ 添加到决策树
-                            </button>
-                        </div>
-                    `;
-                });
-
-                html += `
-                    <div style="margin-top: 15px; padding: 10px; background: #f0f9ff; border-radius: 6px;">
-                        <button class="apply-formula-btn" onclick="applyFullPathway('${JSON.stringify(pathwayData).replace(/"/g, "&quot;")}')">
-                            🚀 应用完整路径
-                        </button>
-                    </div>
-                `;
-            } else {
-                html += `<div style="color: #f59e0b;">${pathwayData.message}</div>`;
-            }
-            
-            const resultElement = document.createElement('div');
-            resultElement.className = 'result-panel';
-            resultElement.innerHTML = html;
-            
-            resultsDiv.appendChild(resultElement);
+            // 功能已禁用 - 分析结果区域已移除
+            console.log('路径生成结果:', pathwayData);
         }
 
         // 执行路径步骤
