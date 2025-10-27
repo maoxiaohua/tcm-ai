@@ -5388,7 +5388,6 @@
         // 生成TXT格式内容
         function generateTxtContent(pattern) {
             const divider = '═'.repeat(60);
-            const subDivider = '─'.repeat(60);
 
             let content = `
 ${divider}
@@ -5402,65 +5401,10 @@ ${divider}
 【导出时间】${new Date().toLocaleString('zh-CN')}
 
 ${divider}
-            一、诊疗思路
+            诊疗思路
 ${divider}
 
 ${pattern.thinking_process || '暂无诊疗思路描述'}
-
-${divider}
-            二、决策树结构
-${divider}
-
-节点总数：${pattern.tree_structure?.nodes?.length || 0}
-连接总数：${pattern.tree_structure?.connections?.length || 0}
-
-${subDivider}
-【节点详情】
-${subDivider}
-`;
-
-            // 处理节点信息
-            if (pattern.tree_structure?.nodes && pattern.tree_structure.nodes.length > 0) {
-                pattern.tree_structure.nodes.forEach((node, index) => {
-                    content += `
-${index + 1}. ${node.text || '未命名节点'}
-   位置：(${node.x}, ${node.y})
-   类型：${node.nodeType || '默认'}
-`;
-                });
-            } else {
-                content += '\n暂无节点信息\n';
-            }
-
-            // 处理连接信息
-            if (pattern.tree_structure?.connections && pattern.tree_structure.connections.length > 0) {
-                content += `
-${subDivider}
-【节点连接关系】
-${subDivider}
-`;
-                pattern.tree_structure.connections.forEach((conn, index) => {
-                    const fromNode = pattern.tree_structure.nodes.find(n => n.id === conn.from);
-                    const toNode = pattern.tree_structure.nodes.find(n => n.id === conn.to);
-                    content += `
-${index + 1}. ${fromNode?.text || conn.from} → ${toNode?.text || conn.to}
-   连接标签：${conn.label || '无'}
-`;
-                });
-            }
-
-            content += `
-${divider}
-            三、临床模式分析
-${divider}
-
-${formatClinicalPatterns(pattern.clinical_patterns)}
-
-${divider}
-            四、医生专业知识
-${divider}
-
-${formatDoctorExpertise(pattern.doctor_expertise)}
 
 ${divider}
 
@@ -5482,13 +5426,11 @@ ${divider}
 <meta charset='utf-8'>
 <title>特色诊疗方案 - ${pattern.disease_name}</title>
 <style>
-body { font-family: "Microsoft YaHei", "宋体", SimSun, Arial; line-height: 1.8; }
+body { font-family: "Microsoft YaHei", "宋体", SimSun, Arial; line-height: 1.8; padding: 30px; }
 h1 { color: #1e40af; border-bottom: 3px solid #1e40af; padding-bottom: 10px; }
 h2 { color: #2563eb; border-left: 4px solid #2563eb; padding-left: 10px; margin-top: 30px; }
-h3 { color: #3b82f6; margin-top: 20px; }
-.header { background: #eff6ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-.section { margin: 20px 0; padding: 15px; background: #f9fafb; border-left: 4px solid #60a5fa; }
-.node-item { margin: 10px 0; padding: 10px; background: white; border: 1px solid #e5e7eb; }
+.header { background: #eff6ff; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+.section { margin: 20px 0; padding: 20px; background: #f9fafb; border-left: 4px solid #60a5fa; line-height: 2.0; }
 table { width: 100%; border-collapse: collapse; margin: 15px 0; }
 td, th { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
 th { background: #f3f4f6; font-weight: bold; }
@@ -5502,31 +5444,12 @@ th { background: #f3f4f6; font-weight: bold; }
 <table>
 <tr><th>创建时间</th><td>${new Date(pattern.created_at).toLocaleString('zh-CN')}</td></tr>
 <tr><th>导出时间</th><td>${new Date().toLocaleString('zh-CN')}</td></tr>
-<tr><th>节点数量</th><td>${pattern.tree_structure?.nodes?.length || 0}</td></tr>
 </table>
 </div>
 
-<h2>一、诊疗思路</h2>
+<h2>诊疗思路</h2>
 <div class="section">
 ${(pattern.thinking_process || '暂无诊疗思路描述').replace(/\n/g, '<br>')}
-</div>
-
-<h2>二、决策树结构</h2>
-
-<h3>2.1 节点信息</h3>
-${generateNodeTableHTML(pattern.tree_structure?.nodes || [])}
-
-<h3>2.2 连接关系</h3>
-${generateConnectionTableHTML(pattern.tree_structure?.connections || [], pattern.tree_structure?.nodes || [])}
-
-<h2>三、临床模式分析</h2>
-<div class="section">
-${formatClinicalPatternsHTML(pattern.clinical_patterns)}
-</div>
-
-<h2>四、医生专业知识</h2>
-<div class="section">
-${formatDoctorExpertiseHTML(pattern.doctor_expertise)}
 </div>
 
 <div class="footer">
@@ -5551,61 +5474,12 @@ ${formatDoctorExpertiseHTML(pattern.doctor_expertise)}
 |------|------|
 | 创建时间 | ${new Date(pattern.created_at).toLocaleString('zh-CN')} |
 | 导出时间 | ${new Date().toLocaleString('zh-CN')} |
-| 节点数量 | ${pattern.tree_structure?.nodes?.length || 0} |
 
 ---
 
-## 一、诊疗思路
+## 诊疗思路
 
 ${pattern.thinking_process || '暂无诊疗思路描述'}
-
----
-
-## 二、决策树结构
-
-### 2.1 节点信息
-
-| 序号 | 节点内容 | 位置 | 类型 |
-|------|----------|------|------|
-`;
-
-            if (pattern.tree_structure?.nodes && pattern.tree_structure.nodes.length > 0) {
-                pattern.tree_structure.nodes.forEach((node, index) => {
-                    content += `| ${index + 1} | ${node.text || '未命名'} | (${node.x}, ${node.y}) | ${node.nodeType || '默认'} |\n`;
-                });
-            } else {
-                content += '| - | 暂无节点信息 | - | - |\n';
-            }
-
-            content += `
-### 2.2 连接关系
-
-| 序号 | 起始节点 | 目标节点 | 连接标签 |
-|------|----------|----------|----------|
-`;
-
-            if (pattern.tree_structure?.connections && pattern.tree_structure.connections.length > 0) {
-                pattern.tree_structure.connections.forEach((conn, index) => {
-                    const fromNode = pattern.tree_structure.nodes.find(n => n.id === conn.from);
-                    const toNode = pattern.tree_structure.nodes.find(n => n.id === conn.to);
-                    content += `| ${index + 1} | ${fromNode?.text || conn.from} | ${toNode?.text || conn.to} | ${conn.label || '无'} |\n`;
-                });
-            } else {
-                content += '| - | 暂无连接信息 | - | - |\n';
-            }
-
-            content += `
----
-
-## 三、临床模式分析
-
-${formatClinicalPatternsMarkdown(pattern.clinical_patterns)}
-
----
-
-## 四、医生专业知识
-
-${formatDoctorExpertiseMarkdown(pattern.doctor_expertise)}
 
 ---
 
