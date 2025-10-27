@@ -1642,20 +1642,41 @@
 
             showLoading('AI正在分析您的诊疗思路并生成思维导图式决策树...');
 
+            // 🔐 获取登录token
+            const token = localStorage.getItem('token') || localStorage.getItem('sessionToken') || '';
+            if (!token) {
+                hideLoading();
+                showResult('错误', '❌ 未登录或登录已过期，请重新登录医生账号', 'error');
+                console.error('❌ 未找到登录token，请先登录');
+                setTimeout(() => redirectToLogin(), 2000);
+                return;
+            }
+
             try {
                 const response = await fetch('/api/ai_mindmap_generate', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
                         doctor_input: doctorThought,
+                        disease_name: document.getElementById('diseaseName')?.value?.trim() || '',
                         auto_save: true
                     }),
                     credentials: 'include'
                 });
 
                 const result = await response.json();
+
+                // 🔐 处理401/403错误（未登录或权限不足）
+                if (response.status === 401 || response.status === 403) {
+                    hideLoading();
+                    showResult('错误', `❌ ${result.detail || '需要医生权限，请重新登录医生账号'}`, 'error');
+                    console.error('❌ 认证失败:', result);
+                    setTimeout(() => redirectToLogin(), 2000);
+                    return;
+                }
 
                 if (result.success && result.data) {
                     const mindMapData = result.data;

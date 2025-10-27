@@ -2380,6 +2380,7 @@ async def get_consultation_detail(
 class MindMapGenerationRequest(BaseModel):
     """AI思维导图生成请求"""
     doctor_input: str  # 医生的自然语言诊疗思路
+    disease_name: str = ""  # 疾病名称（可选，用于补充AI提取失败的情况）
     auto_save: bool = True  # 是否自动保存到思维库
 
 @router.post("/ai_mindmap_generate")
@@ -2413,12 +2414,13 @@ async def ai_mindmap_generate(
 
         generator = get_ai_decision_tree_generator()
 
-        logger.info(f"🧠 [AI思维导图]用户 {current_user.user_id} 请求生成决策树，输入长度: {len(request.doctor_input)}字")
+        logger.info(f"🧠 [AI思维导图]用户 {current_user.user_id} 请求生成决策树，输入长度: {len(request.doctor_input)}字, 疾病名称: {request.disease_name}")
 
         # AI分析并生成思维导图
         mind_map_tree = await generator.analyze_and_generate(
             doctor_input=request.doctor_input,
-            doctor_id=current_user.user_id
+            doctor_id=current_user.user_id,
+            disease_name_hint=request.disease_name  # 传递用户输入的疾病名称作为提示
         )
 
         # 转换为数据库格式

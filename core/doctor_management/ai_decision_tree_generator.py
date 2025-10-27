@@ -63,7 +63,8 @@ class AIDecisionTreeGenerator:
     async def analyze_and_generate(
         self,
         doctor_input: str,
-        doctor_id: str
+        doctor_id: str,
+        disease_name_hint: str = ""
     ) -> MindMapDecisionTree:
         """
         分析医生输入并生成思维导图式决策树
@@ -84,7 +85,7 @@ class AIDecisionTreeGenerator:
             raise ValueError("AI分析失败，无法提取诊疗思路")
 
         # Step 2: 构建思维导图式决策树
-        mind_map_tree = self._build_mind_map_tree(analysis_result, doctor_id)
+        mind_map_tree = self._build_mind_map_tree(analysis_result, doctor_id, doctor_input, disease_name_hint)
 
         logger.info(f"✅ 决策树生成完成: {mind_map_tree.disease_name}, {len(mind_map_tree.nodes)}个节点")
 
@@ -123,62 +124,64 @@ class AIDecisionTreeGenerator:
             logger.error("Dashscope不可用")
             return None
 
-        prompt = f"""你是一位资深中医专家，请分析以下医生的诊疗思路，提取结构化信息。
+        prompt = f"""你是一位资深中医文本分析专家，请**严格提取**以下医生输入的诊疗思路，将其结构化。
+
+⚠️ 核心原则：
+1. **只提取，不推理**：只从医生输入中提取明确存在的内容
+2. **不要添加任何医生没有提到的内容**
+3. **不要根据医学知识补充或优化**
+4. **保持医生的原始表达**
 
 【医生输入】
 {doctor_input}
 
 请识别以下内容并返回JSON格式：
-1. **主病名称**：如"风热感冒"、"脾胃虚寒型胃痛"
-2. **主证**：核心证候，如"风热犯表"
-3. **证候分支**：可能有多个分型，每个包含：
-   - 证候名称
-   - 症状列表（主症）
-   - 舌脉描述
-   - 病机分析
-   - 对应处方：
-     * 方剂名称
-     * 基础药物（君臣佐使）
-     * 加减法（条件→加什么药、减什么药）
+1. **主病名称**：医生提到的疾病名称
+2. **主证**：如果医生提到总体证候，提取出来；否则留空
+3. **分支路径**：医生描述的不同症状→处方路径，每个分支包含：
+   - **分支名称**：医生提到的症状描述或证候名称（原文提取）
+   - **症状描述**：该分支的具体症状表现（如果医生提到）
+   - **舌脉**：医生提到的舌脉信息（如果有）
+   - **病机**：医生提到的病机分析（如果有）
+   - **处方**：
+     * 方剂名称（医生提到的）
+     * 药物列表（医生列出的，保持原始剂量）
+     * 加减法（医生描述的条件和用药）
 
 ⚠️ 输出格式要求：
 ```json
 {{
-    "disease_name": "疾病名称",
-    "main_syndrome": "主证",
+    "disease_name": "医生输入的疾病名称（原文提取）",
+    "main_syndrome": "医生提到的主证（如果有，否则为空字符串）",
     "syndromes": [
         {{
-            "name": "证候名称（如：风热犯表证）",
-            "symptoms": ["发热", "恶风", "头痛", "咽痛", "咳嗽", "痰黄"],
-            "tongue_pulse": "舌边尖红，苔薄黄，脉浮数",
-            "pathogenesis": "外感风热，邪袭肺卫",
+            "name": "医生原文中的分支名称（如：前额痛、偏头痛、风寒证等）",
+            "symptoms": ["医生列出的症状1", "症状2", "症状3"],
+            "tongue_pulse": "医生提到的舌脉（如果有，否则为空）",
+            "pathogenesis": "医生提到的病机（如果有，否则为空）",
             "prescription": {{
-                "formula": "桑菊饮加减",
+                "formula": "医生提到的方剂名称",
                 "base_herbs": [
-                    {{"name": "桑叶", "dosage": "10g", "role": "君药"}},
-                    {{"name": "菊花", "dosage": "10g", "role": "君药"}},
-                    {{"name": "薄荷", "dosage": "6g", "role": "臣药"}},
-                    {{"name": "桔梗", "dosage": "6g", "role": "佐药"}},
-                    {{"name": "甘草", "dosage": "3g", "role": "使药"}}
+                    {{"name": "医生列出的药材", "dosage": "医生给的剂量", "role": "根据位置推测君臣佐使，如不确定填'其他'"}}
                 ],
                 "modifications": [
                     {{
-                        "condition": "热重",
-                        "add": ["黄芩 10g", "板蓝根 15g"],
-                        "remove": []
-                    }},
-                    {{
-                        "condition": "咽痛甚",
-                        "add": ["射干 10g", "山豆根 10g"],
+                        "condition": "医生描述的加减条件",
+                        "add": ["医生说要加的药物"],
                         "remove": []
                     }}
                 ],
-                "instructions": "水煎服，每日1剂，分2次温服"
+                "instructions": "医生提到的煎服法（如果有）"
             }}
         }}
     ]
 }}
 ```
+
+⚠️ 重要提醒：
+- 如果医生输入"头痛，前额痛用XX方"，则分支名称就是"前额痛"，不要改成"前额痛证"
+- 如果医生只提到处方没提症状，symptoms数组可以为空
+- 严格按照医生的原文提取，不要根据中医理论补充内容
 
 只返回JSON，不要其他内容。"""
 
@@ -212,7 +215,9 @@ class AIDecisionTreeGenerator:
     def _build_mind_map_tree(
         self,
         analysis_result: Dict[str, Any],
-        doctor_id: str
+        doctor_id: str,
+        doctor_input: str = "",
+        disease_name_hint: str = ""
     ) -> MindMapDecisionTree:
         """
         根据AI分析结果构建思维导图式决策树
@@ -235,8 +240,33 @@ class AIDecisionTreeGenerator:
         ```
         """
         disease_name = analysis_result.get('disease_name', '未知疾病')
-        main_syndrome = analysis_result.get('main_syndrome', '未知证候')
+        main_syndrome = analysis_result.get('main_syndrome', '')
         syndromes = analysis_result.get('syndromes', [])
+
+        # 🔍 调试日志：查看AI提取的内容
+        logger.info(f"📊 AI提取结果: disease_name='{disease_name}', main_syndrome='{main_syndrome}', 分支数={len(syndromes)}")
+
+        # 🔧 如果disease_name为空或无效，优先使用用户输入的提示，否则从诊疗思路中提取
+        if not disease_name or disease_name == '未知疾病' or disease_name.strip() == '':
+            logger.warning(f"⚠️ AI未提取到疾病名称，尝试使用备用方案...")
+
+            # 方案1: 使用用户在"疾病名称"输入框填写的值
+            if disease_name_hint and disease_name_hint.strip():
+                disease_name = disease_name_hint.strip()
+                logger.info(f"✅ 使用用户输入的疾病名称: '{disease_name}'")
+            # 方案2: 从医生诊疗思路中提取
+            elif doctor_input:
+                # 简单提取：取第一行或第一个逗号/句号前的内容
+                first_line = doctor_input.split('\n')[0].strip() if '\n' in doctor_input else doctor_input.strip()
+                if '，' in first_line:
+                    disease_name = first_line.split('，')[0].strip()
+                elif '。' in first_line:
+                    disease_name = first_line.split('。')[0].strip()
+                elif ' ' in first_line:
+                    disease_name = first_line.split(' ')[0].strip()
+                else:
+                    disease_name = first_line[:20] if len(first_line) > 20 else first_line
+                logger.info(f"✅ 从医生输入提取到疾病名称: '{disease_name}'")
 
         nodes = []
         connections = []
@@ -248,13 +278,21 @@ class AIDecisionTreeGenerator:
         y_gap = 150    # 垂直间距
         x_gap = 300    # 水平间距（多分支时）
 
-        # 1. 主证根节点（合并疾病名称和主证）
+        # 1. 主证根节点（智能显示：避免重复）
         main_syndrome_id = "main_syndrome"
-        main_syndrome_display = f"{disease_name}（{main_syndrome}）" if main_syndrome else disease_name
+
+        # 🔧 智能判断：如果主证和疾病名称相同或高度相似，只显示疾病名称
+        if not main_syndrome or main_syndrome == disease_name or main_syndrome in disease_name:
+            # 只显示疾病名称
+            main_syndrome_display = disease_name
+        else:
+            # 显示完整的：疾病名称 - 主证
+            main_syndrome_display = f"{disease_name} · {main_syndrome}"
+
         nodes.append({
             "id": main_syndrome_id,
             "name": main_syndrome_display,
-            "description": main_syndrome_display,
+            "description": f"疾病：{disease_name}\n主证：{main_syndrome}" if main_syndrome else disease_name,
             "type": "disease",
             "x": start_x,
             "y": start_y,
@@ -282,48 +320,46 @@ class AIDecisionTreeGenerator:
             branch_x_positions = [start_x - total_width / 2 + i * x_gap for i in range(syndrome_count)]
 
         for idx, syndrome in enumerate(syndromes):
-            syndrome_name = syndrome.get('name', f'证候{idx+1}')
+            syndrome_name = syndrome.get('name', f'分支{idx+1}')
             symptoms = syndrome.get('symptoms', [])
             tongue_pulse = syndrome.get('tongue_pulse', '')
             pathogenesis = syndrome.get('pathogenesis', '')
             prescription_data = syndrome.get('prescription', {})
 
             branch_x = branch_x_positions[idx]
-            current_y = start_y + y_gap  # 减少一层，从主证后直接开始
+            current_y = start_y + y_gap
 
-            # 2.1 证候节点
+            # 🔧 简化结构：症状/证候分支节点（合并症状描述到节点本身）
             syndrome_id = f"syndrome_{idx}"
+
+            # 构建分支节点的描述（包含症状、舌脉、病机）
+            branch_desc_parts = [syndrome_name]
+            if symptoms:
+                branch_desc_parts.append(f"症状：{' '.join(symptoms)}")
+            if tongue_pulse:
+                branch_desc_parts.append(f"舌脉：{tongue_pulse}")
+            if pathogenesis:
+                branch_desc_parts.append(f"病机：{pathogenesis}")
+
+            branch_description = "。".join(branch_desc_parts)
+
             nodes.append({
                 "id": syndrome_id,
                 "name": syndrome_name,
-                "description": syndrome_name,
+                "description": branch_description,
                 "type": "syndrome_branch",
                 "x": branch_x,
                 "y": current_y,
-                "style": "branch"
-            })
-            connections.append({"from": main_syndrome_id, "to": syndrome_id})
-
-            # 2.2 症见节点（包含症状、舌脉、病机）
-            current_y += y_gap
-            symptom_id = f"symptom_{idx}"
-            symptom_desc = self._format_symptom_description(symptoms, tongue_pulse, pathogenesis)
-            nodes.append({
-                "id": symptom_id,
-                "name": "症见",
-                "description": symptom_desc,
-                "type": "symptom",
-                "x": branch_x,
-                "y": current_y,
+                "style": "branch",
                 "data": {
                     "symptoms": symptoms,
                     "tongue_pulse": tongue_pulse,
                     "pathogenesis": pathogenesis
                 }
             })
-            connections.append({"from": syndrome_id, "to": symptom_id})
+            connections.append({"from": main_syndrome_id, "to": syndrome_id})
 
-            # 2.3 处方节点
+            # 🔧 直接连接到处方节点（去掉中间的"症见"节点）
             current_y += y_gap
             prescription_id = f"prescription_{idx}"
             formula_name = prescription_data.get('formula', '未知方剂')
@@ -342,7 +378,7 @@ class AIDecisionTreeGenerator:
                     "instructions": prescription_data.get('instructions', '')
                 }
             })
-            connections.append({"from": symptom_id, "to": prescription_id})
+            connections.append({"from": syndrome_id, "to": prescription_id})
 
             # 2.4 加减法节点（如果有多个加减法，可以展开为子节点）
             modifications = prescription_data.get('modifications', [])
