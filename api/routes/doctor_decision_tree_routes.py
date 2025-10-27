@@ -1875,6 +1875,85 @@ async def get_doctor_clinical_patterns(
             "data": None
         }
 
+@router.delete("/delete_clinical_pattern/{pattern_id}")
+async def delete_clinical_pattern(
+    pattern_id: str,
+    current_user: UserSession = Depends(get_current_user)
+):
+    """
+    删除指定的临床决策模式
+
+    Args:
+        pattern_id: 模式ID
+        current_user: 当前用户会话
+
+    Returns:
+        删除结果
+    """
+    try:
+        logger.info(f"删除临床模式请求 - pattern_id: {pattern_id}, user: {current_user.user_id}")
+
+        # 连接数据库
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        cursor = conn.cursor()
+
+        try:
+            # 先查询该模式是否存在，并验证所有权
+            cursor.execute("""
+                SELECT doctor_id, disease_name FROM doctor_clinical_patterns
+                WHERE id = ?
+            """, (pattern_id,))
+
+            result = cursor.fetchone()
+
+            if not result:
+                return {
+                    "success": False,
+                    "message": "未找到该诊疗方案"
+                }
+
+            doctor_id, disease_name = result
+
+            # 验证权限：只能删除自己的模式（或管理员）
+            roles = getattr(current_user, 'roles', [getattr(current_user, 'role', None)])
+            if isinstance(roles, str):
+                roles = [roles]
+
+            is_admin = any(role in ['ADMIN', UserRole.ADMIN] for role in roles if role)
+            is_owner = (doctor_id == current_user.user_id)
+
+            if not (is_admin or is_owner):
+                return {
+                    "success": False,
+                    "message": "您没有权限删除此诊疗方案"
+                }
+
+            # 执行删除
+            cursor.execute("DELETE FROM doctor_clinical_patterns WHERE id = ?", (pattern_id,))
+            conn.commit()
+
+            logger.info(f"✅ 成功删除临床模式: {pattern_id} ({disease_name})")
+
+            return {
+                "success": True,
+                "message": f"已成功删除诊疗方案：{disease_name}",
+                "data": {
+                    "pattern_id": pattern_id,
+                    "disease_name": disease_name,
+                    "deleted_at": datetime.now().isoformat()
+                }
+            }
+
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"删除临床模式失败: {e}")
+        return {
+            "success": False,
+            "message": f"删除失败: {str(e)}"
+        }
+
 async def _create_or_get_temp_doctor_identity(disease_name: str) -> str:
     """为匿名用户创建临时医生身份"""
     # 🔧 修复：使用固定的匿名医生ID，而不是每次生成新的
