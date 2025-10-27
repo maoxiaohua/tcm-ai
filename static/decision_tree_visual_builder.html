@@ -4105,15 +4105,18 @@
                 node.name = nameInput.value.trim();
                 node.type = typeSelect.value;
                 node.description = descTextarea.value.trim();
-                
+
                 // 更新显示
                 const nodeElement = document.getElementById(node.id);
                 nodeElement.className = `node ${node.type}`;
                 updateNodeDisplay(node);
-                
+
                 closeDialog();
                 showResult('成功', '✅ 节点信息已更新', 'success');
-                
+
+                // ✨ 新增：自动更新诊疗思路
+                updateThinkingProcessFromNodes();
+
                 // 移除ESC监听器
                 document.removeEventListener('keydown', escapeHandler);
             };
@@ -4138,6 +4141,178 @@
                 'modification': 'prognosis'
             };
             return typeFlow[currentType] || 'symptom';
+        }
+
+        // ✨ 新增：从节点内容自动生成/更新诊疗思路
+        function updateThinkingProcessFromNodes() {
+            if (nodes.length === 0) {
+                return; // 没有节点就不更新
+            }
+
+            console.log('🔄 自动更新诊疗思路...');
+
+            // 节点类型中文名称映射
+            const typeNames = {
+                'disease': '疾病',
+                'four_diagnosis': '四诊',
+                'symptom': '症状',
+                'pathogenesis': '病机',
+                'syndrome': '证候',
+                'principle': '治则',
+                'prescription': '方剂',
+                'modification': '加减',
+                'prognosis': '预后',
+                'condition': '条件',
+                'diagnosis': '诊断',
+                'treatment': '治疗'
+            };
+
+            // 按节点类型分组
+            const nodesByType = {};
+            nodes.forEach(node => {
+                const type = node.type || 'other';
+                if (!nodesByType[type]) {
+                    nodesByType[type] = [];
+                }
+                nodesByType[type].push(node);
+            });
+
+            // 生成诊疗思路文本
+            let thinkingText = '';
+
+            // 1. 疾病/主诉
+            if (nodesByType['disease'] && nodesByType['disease'].length > 0) {
+                thinkingText += '【疾病概况】\n';
+                nodesByType['disease'].forEach(node => {
+                    thinkingText += `${node.name}`;
+                    if (node.description) {
+                        thinkingText += `：${node.description}`;
+                    }
+                    thinkingText += '\n';
+                });
+                thinkingText += '\n';
+            }
+
+            // 2. 四诊信息
+            if (nodesByType['four_diagnosis'] && nodesByType['four_diagnosis'].length > 0) {
+                thinkingText += '【四诊信息】\n';
+                nodesByType['four_diagnosis'].forEach(node => {
+                    thinkingText += `${node.name}`;
+                    if (node.description) {
+                        thinkingText += `：${node.description}`;
+                    }
+                    thinkingText += '\n';
+                });
+                thinkingText += '\n';
+            }
+
+            // 3. 症状分析
+            if (nodesByType['symptom'] && nodesByType['symptom'].length > 0) {
+                thinkingText += '【症状分析】\n';
+                nodesByType['symptom'].forEach(node => {
+                    thinkingText += `• ${node.name}`;
+                    if (node.description) {
+                        thinkingText += `：${node.description}`;
+                    }
+                    thinkingText += '\n';
+                });
+                thinkingText += '\n';
+            }
+
+            // 4. 病机分析
+            if (nodesByType['pathogenesis'] && nodesByType['pathogenesis'].length > 0) {
+                thinkingText += '【病机分析】\n';
+                nodesByType['pathogenesis'].forEach(node => {
+                    thinkingText += `${node.name}`;
+                    if (node.description) {
+                        thinkingText += `：${node.description}`;
+                    }
+                    thinkingText += '\n';
+                });
+                thinkingText += '\n';
+            }
+
+            // 5. 辨证论治
+            if (nodesByType['syndrome'] && nodesByType['syndrome'].length > 0) {
+                thinkingText += '【辨证论治】\n';
+                nodesByType['syndrome'].forEach(node => {
+                    thinkingText += `证型：${node.name}`;
+                    if (node.description) {
+                        thinkingText += `\n分析：${node.description}`;
+                    }
+                    thinkingText += '\n';
+                });
+                thinkingText += '\n';
+            }
+
+            // 6. 治疗原则
+            if (nodesByType['principle'] && nodesByType['principle'].length > 0) {
+                thinkingText += '【治疗原则】\n';
+                nodesByType['principle'].forEach(node => {
+                    thinkingText += `${node.name}`;
+                    if (node.description) {
+                        thinkingText += `：${node.description}`;
+                    }
+                    thinkingText += '\n';
+                });
+                thinkingText += '\n';
+            }
+
+            // 7. 方药选择
+            if (nodesByType['prescription'] && nodesByType['prescription'].length > 0) {
+                thinkingText += '【方药选择】\n';
+                nodesByType['prescription'].forEach(node => {
+                    thinkingText += `方剂：${node.name}`;
+                    if (node.description) {
+                        thinkingText += `\n说明：${node.description}`;
+                    }
+                    thinkingText += '\n';
+                });
+                thinkingText += '\n';
+            }
+
+            // 8. 加减变化
+            if (nodesByType['modification'] && nodesByType['modification'].length > 0) {
+                thinkingText += '【加减变化】\n';
+                nodesByType['modification'].forEach(node => {
+                    thinkingText += `• ${node.name}`;
+                    if (node.description) {
+                        thinkingText += `：${node.description}`;
+                    }
+                    thinkingText += '\n';
+                });
+                thinkingText += '\n';
+            }
+
+            // 9. 其他节点类型
+            ['diagnosis', 'treatment', 'condition'].forEach(type => {
+                if (nodesByType[type] && nodesByType[type].length > 0) {
+                    thinkingText += `【${typeNames[type] || type}】\n`;
+                    nodesByType[type].forEach(node => {
+                        thinkingText += `• ${node.name}`;
+                        if (node.description) {
+                            thinkingText += `：${node.description}`;
+                        }
+                        thinkingText += '\n';
+                    });
+                    thinkingText += '\n';
+                }
+            });
+
+            // 更新到诊疗思路输入框
+            const thinkingTextarea = document.getElementById('doctorThought');
+            if (thinkingTextarea) {
+                thinkingTextarea.value = thinkingText.trim();
+                console.log('✅ 诊疗思路已自动更新');
+
+                // 添加视觉反馈
+                thinkingTextarea.style.borderColor = '#3b82f6';
+                thinkingTextarea.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)';
+                setTimeout(() => {
+                    thinkingTextarea.style.borderColor = '';
+                    thinkingTextarea.style.boxShadow = '';
+                }, 1500);
+            }
         }
         
         // 获取节点默认名称
