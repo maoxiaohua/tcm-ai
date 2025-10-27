@@ -5119,11 +5119,13 @@
                                 </div>
                             </div>
                             <div style="display: flex; gap: 8px; flex-shrink: 0;">
-                                <button onclick="event.stopPropagation(); exportSinglePattern('${pattern.pattern_id}')"
-                                        style="background: #dbeafe; color: #1e40af; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;"
-                                        title="导出此方案">
-                                    导出
-                                </button>
+                                <div style="position: relative;">
+                                    <button onclick="event.stopPropagation(); showExportMenu('${pattern.pattern_id}', this)"
+                                            style="background: #dbeafe; color: #1e40af; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;"
+                                            title="导出此方案">
+                                        导出 ▼
+                                    </button>
+                                </div>
                                 <button onclick="event.stopPropagation(); deleteHistoryTree('${pattern.pattern_id}', '${pattern.disease_name.replace(/'/g, "\\'")}')"
                                         style="background: #fee2e2; color: #dc2626; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;"
                                         title="删除此方案">
@@ -5244,9 +5246,77 @@
             }
         }
 
-        async function exportSinglePattern(patternId) {
+        // 显示导出格式选择菜单
+        function showExportMenu(patternId, buttonElement) {
+            // 移除已存在的菜单
+            const existingMenu = document.getElementById('exportFormatMenu');
+            if (existingMenu) {
+                existingMenu.remove();
+            }
+
+            // 创建菜单
+            const menu = document.createElement('div');
+            menu.id = 'exportFormatMenu';
+            menu.style.cssText = `
+                position: fixed;
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 10000;
+                padding: 8px 0;
+                min-width: 120px;
+            `;
+
+            const formats = [
+                { name: 'TXT文本', value: 'txt', icon: '📄' },
+                { name: 'Word文档', value: 'doc', icon: '📘' },
+                { name: 'Markdown', value: 'md', icon: '📝' }
+            ];
+
+            formats.forEach(format => {
+                const item = document.createElement('div');
+                item.style.cssText = `
+                    padding: 8px 16px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    transition: background 0.2s;
+                `;
+                item.innerHTML = `${format.icon} ${format.name}`;
+
+                item.onmouseover = () => item.style.background = '#f3f4f6';
+                item.onmouseout = () => item.style.background = 'white';
+
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    menu.remove();
+                    exportSinglePattern(patternId, format.value);
+                };
+
+                menu.appendChild(item);
+            });
+
+            // 定位菜单
+            const rect = buttonElement.getBoundingClientRect();
+            menu.style.left = rect.left + 'px';
+            menu.style.top = (rect.bottom + 5) + 'px';
+
+            document.body.appendChild(menu);
+
+            // 点击其他地方关闭菜单
+            setTimeout(() => {
+                document.addEventListener('click', function closeMenu(e) {
+                    if (!menu.contains(e.target)) {
+                        menu.remove();
+                        document.removeEventListener('click', closeMenu);
+                    }
+                });
+            }, 100);
+        }
+
+        async function exportSinglePattern(patternId, format = 'txt') {
             try {
-                showLoading('正在准备导出...');
+                showLoading(`正在导出为${format.toUpperCase()}格式...`);
 
                 // 获取当前医生的所有方案
                 const doctorId = getCurrentDoctorId();
@@ -5266,32 +5336,43 @@
                         return;
                     }
 
-                    // 准备导出数据
-                    const exportData = {
-                        disease_name: pattern.disease_name,
-                        thinking_process: pattern.thinking_process,
-                        tree_structure: pattern.tree_structure,
-                        clinical_patterns: pattern.clinical_patterns,
-                        doctor_expertise: pattern.doctor_expertise,
-                        exported_at: new Date().toLocaleString('zh-CN'),
-                        node_count: pattern.tree_structure?.nodes?.length || 0
-                    };
+                    // 根据格式生成内容
+                    let content, mimeType, extension;
+
+                    switch(format) {
+                        case 'txt':
+                            content = generateTxtContent(pattern);
+                            mimeType = 'text/plain;charset=utf-8';
+                            extension = 'txt';
+                            break;
+                        case 'doc':
+                            content = generateWordContent(pattern);
+                            mimeType = 'application/msword;charset=utf-8';
+                            extension = 'doc';
+                            break;
+                        case 'md':
+                            content = generateMarkdownContent(pattern);
+                            mimeType = 'text/markdown;charset=utf-8';
+                            extension = 'md';
+                            break;
+                        default:
+                            content = generateTxtContent(pattern);
+                            mimeType = 'text/plain;charset=utf-8';
+                            extension = 'txt';
+                    }
 
                     // 创建下载
-                    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-                        type: 'application/json'
-                    });
-
+                    const blob = new Blob([content], { type: mimeType });
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `特色诊疗方案_${pattern.disease_name}_${new Date().getTime()}.json`;
+                    a.download = `特色诊疗方案_${pattern.disease_name}_${new Date().getTime()}.${extension}`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                     window.URL.revokeObjectURL(url);
 
-                    showResult('成功', `已导出 "${pattern.disease_name}" 诊疗方案`, 'success');
+                    showResult('成功', `已导出 "${pattern.disease_name}" 诊疗方案（${format.toUpperCase()}格式）`, 'success');
                     hideLoading();
                 } else {
                     showResult('错误', data.message || '获取方案数据失败', 'error');
@@ -5302,6 +5383,390 @@
                 showResult('错误', `导出失败：${error.message}`, 'error');
                 hideLoading();
             }
+        }
+
+        // 生成TXT格式内容
+        function generateTxtContent(pattern) {
+            const divider = '═'.repeat(60);
+            const subDivider = '─'.repeat(60);
+
+            let content = `
+${divider}
+            特色诊疗方案
+${divider}
+
+【方案名称】${pattern.disease_name}
+
+【创建时间】${new Date(pattern.created_at).toLocaleString('zh-CN')}
+
+【导出时间】${new Date().toLocaleString('zh-CN')}
+
+${divider}
+            一、诊疗思路
+${divider}
+
+${pattern.thinking_process || '暂无诊疗思路描述'}
+
+${divider}
+            二、决策树结构
+${divider}
+
+节点总数：${pattern.tree_structure?.nodes?.length || 0}
+连接总数：${pattern.tree_structure?.connections?.length || 0}
+
+${subDivider}
+【节点详情】
+${subDivider}
+`;
+
+            // 处理节点信息
+            if (pattern.tree_structure?.nodes && pattern.tree_structure.nodes.length > 0) {
+                pattern.tree_structure.nodes.forEach((node, index) => {
+                    content += `
+${index + 1}. ${node.text || '未命名节点'}
+   位置：(${node.x}, ${node.y})
+   类型：${node.nodeType || '默认'}
+`;
+                });
+            } else {
+                content += '\n暂无节点信息\n';
+            }
+
+            // 处理连接信息
+            if (pattern.tree_structure?.connections && pattern.tree_structure.connections.length > 0) {
+                content += `
+${subDivider}
+【节点连接关系】
+${subDivider}
+`;
+                pattern.tree_structure.connections.forEach((conn, index) => {
+                    const fromNode = pattern.tree_structure.nodes.find(n => n.id === conn.from);
+                    const toNode = pattern.tree_structure.nodes.find(n => n.id === conn.to);
+                    content += `
+${index + 1}. ${fromNode?.text || conn.from} → ${toNode?.text || conn.to}
+   连接标签：${conn.label || '无'}
+`;
+                });
+            }
+
+            content += `
+${divider}
+            三、临床模式分析
+${divider}
+
+${formatClinicalPatterns(pattern.clinical_patterns)}
+
+${divider}
+            四、医生专业知识
+${divider}
+
+${formatDoctorExpertise(pattern.doctor_expertise)}
+
+${divider}
+
+导出说明：
+本文档由TCM-AI中医智能诊断系统自动生成
+系统网址：https://mxh0510.cn
+导出工具：特色诊疗方案可视化构建器
+
+${divider}
+`;
+            return content;
+        }
+
+        // 生成Word格式内容（使用HTML格式）
+        function generateWordContent(pattern) {
+            return `
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset='utf-8'>
+<title>特色诊疗方案 - ${pattern.disease_name}</title>
+<style>
+body { font-family: "Microsoft YaHei", "宋体", SimSun, Arial; line-height: 1.8; }
+h1 { color: #1e40af; border-bottom: 3px solid #1e40af; padding-bottom: 10px; }
+h2 { color: #2563eb; border-left: 4px solid #2563eb; padding-left: 10px; margin-top: 30px; }
+h3 { color: #3b82f6; margin-top: 20px; }
+.header { background: #eff6ff; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+.section { margin: 20px 0; padding: 15px; background: #f9fafb; border-left: 4px solid #60a5fa; }
+.node-item { margin: 10px 0; padding: 10px; background: white; border: 1px solid #e5e7eb; }
+table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+td, th { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+th { background: #f3f4f6; font-weight: bold; }
+.footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid #e5e7eb; color: #6b7280; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+<h1>📋 特色诊疗方案：${pattern.disease_name}</h1>
+<table>
+<tr><th>创建时间</th><td>${new Date(pattern.created_at).toLocaleString('zh-CN')}</td></tr>
+<tr><th>导出时间</th><td>${new Date().toLocaleString('zh-CN')}</td></tr>
+<tr><th>节点数量</th><td>${pattern.tree_structure?.nodes?.length || 0}</td></tr>
+</table>
+</div>
+
+<h2>一、诊疗思路</h2>
+<div class="section">
+${(pattern.thinking_process || '暂无诊疗思路描述').replace(/\n/g, '<br>')}
+</div>
+
+<h2>二、决策树结构</h2>
+
+<h3>2.1 节点信息</h3>
+${generateNodeTableHTML(pattern.tree_structure?.nodes || [])}
+
+<h3>2.2 连接关系</h3>
+${generateConnectionTableHTML(pattern.tree_structure?.connections || [], pattern.tree_structure?.nodes || [])}
+
+<h2>三、临床模式分析</h2>
+<div class="section">
+${formatClinicalPatternsHTML(pattern.clinical_patterns)}
+</div>
+
+<h2>四、医生专业知识</h2>
+<div class="section">
+${formatDoctorExpertiseHTML(pattern.doctor_expertise)}
+</div>
+
+<div class="footer">
+<p><strong>导出说明：</strong></p>
+<p>本文档由TCM-AI中医智能诊断系统自动生成</p>
+<p>系统网址：https://mxh0510.cn</p>
+<p>导出工具：特色诊疗方案可视化构建器</p>
+</div>
+
+</body>
+</html>
+`;
+        }
+
+        // 生成Markdown格式内容
+        function generateMarkdownContent(pattern) {
+            let content = `# 📋 特色诊疗方案：${pattern.disease_name}
+
+## 基本信息
+
+| 项目 | 内容 |
+|------|------|
+| 创建时间 | ${new Date(pattern.created_at).toLocaleString('zh-CN')} |
+| 导出时间 | ${new Date().toLocaleString('zh-CN')} |
+| 节点数量 | ${pattern.tree_structure?.nodes?.length || 0} |
+
+---
+
+## 一、诊疗思路
+
+${pattern.thinking_process || '暂无诊疗思路描述'}
+
+---
+
+## 二、决策树结构
+
+### 2.1 节点信息
+
+| 序号 | 节点内容 | 位置 | 类型 |
+|------|----------|------|------|
+`;
+
+            if (pattern.tree_structure?.nodes && pattern.tree_structure.nodes.length > 0) {
+                pattern.tree_structure.nodes.forEach((node, index) => {
+                    content += `| ${index + 1} | ${node.text || '未命名'} | (${node.x}, ${node.y}) | ${node.nodeType || '默认'} |\n`;
+                });
+            } else {
+                content += '| - | 暂无节点信息 | - | - |\n';
+            }
+
+            content += `
+### 2.2 连接关系
+
+| 序号 | 起始节点 | 目标节点 | 连接标签 |
+|------|----------|----------|----------|
+`;
+
+            if (pattern.tree_structure?.connections && pattern.tree_structure.connections.length > 0) {
+                pattern.tree_structure.connections.forEach((conn, index) => {
+                    const fromNode = pattern.tree_structure.nodes.find(n => n.id === conn.from);
+                    const toNode = pattern.tree_structure.nodes.find(n => n.id === conn.to);
+                    content += `| ${index + 1} | ${fromNode?.text || conn.from} | ${toNode?.text || conn.to} | ${conn.label || '无'} |\n`;
+                });
+            } else {
+                content += '| - | 暂无连接信息 | - | - |\n';
+            }
+
+            content += `
+---
+
+## 三、临床模式分析
+
+${formatClinicalPatternsMarkdown(pattern.clinical_patterns)}
+
+---
+
+## 四、医生专业知识
+
+${formatDoctorExpertiseMarkdown(pattern.doctor_expertise)}
+
+---
+
+## 导出说明
+
+- **系统名称**：TCM-AI中医智能诊断系统
+- **系统网址**：https://mxh0510.cn
+- **导出工具**：特色诊疗方案可视化构建器
+- **文档格式**：Markdown
+`;
+            return content;
+        }
+
+        // 辅助函数：格式化临床模式（文本）
+        function formatClinicalPatterns(patterns) {
+            if (!patterns || Object.keys(patterns).length === 0) {
+                return '暂无临床模式分析数据';
+            }
+
+            let text = '';
+            for (const [key, value] of Object.entries(patterns)) {
+                text += `\n【${key}】\n`;
+                if (typeof value === 'object') {
+                    text += JSON.stringify(value, null, 2);
+                } else {
+                    text += value;
+                }
+                text += '\n';
+            }
+            return text;
+        }
+
+        // 辅助函数：格式化医生专业知识（文本）
+        function formatDoctorExpertise(expertise) {
+            if (!expertise || Object.keys(expertise).length === 0) {
+                return '暂无医生专业知识数据';
+            }
+
+            let text = '';
+            for (const [key, value] of Object.entries(expertise)) {
+                text += `\n【${key}】\n`;
+                if (typeof value === 'object') {
+                    text += JSON.stringify(value, null, 2);
+                } else {
+                    text += value;
+                }
+                text += '\n';
+            }
+            return text;
+        }
+
+        // 辅助函数：生成节点表格HTML
+        function generateNodeTableHTML(nodes) {
+            if (!nodes || nodes.length === 0) {
+                return '<p>暂无节点信息</p>';
+            }
+
+            let html = '<table><tr><th>序号</th><th>节点内容</th><th>位置</th><th>类型</th></tr>';
+            nodes.forEach((node, index) => {
+                html += `<tr>
+                    <td>${index + 1}</td>
+                    <td>${node.text || '未命名节点'}</td>
+                    <td>(${node.x}, ${node.y})</td>
+                    <td>${node.nodeType || '默认'}</td>
+                </tr>`;
+            });
+            html += '</table>';
+            return html;
+        }
+
+        // 辅助函数：生成连接表格HTML
+        function generateConnectionTableHTML(connections, nodes) {
+            if (!connections || connections.length === 0) {
+                return '<p>暂无连接信息</p>';
+            }
+
+            let html = '<table><tr><th>序号</th><th>起始节点</th><th>目标节点</th><th>连接标签</th></tr>';
+            connections.forEach((conn, index) => {
+                const fromNode = nodes.find(n => n.id === conn.from);
+                const toNode = nodes.find(n => n.id === conn.to);
+                html += `<tr>
+                    <td>${index + 1}</td>
+                    <td>${fromNode?.text || conn.from}</td>
+                    <td>${toNode?.text || conn.to}</td>
+                    <td>${conn.label || '无'}</td>
+                </tr>`;
+            });
+            html += '</table>';
+            return html;
+        }
+
+        // 辅助函数：格式化临床模式（HTML）
+        function formatClinicalPatternsHTML(patterns) {
+            if (!patterns || Object.keys(patterns).length === 0) {
+                return '<p>暂无临床模式分析数据</p>';
+            }
+
+            let html = '';
+            for (const [key, value] of Object.entries(patterns)) {
+                html += `<h4>${key}</h4>`;
+                if (typeof value === 'object') {
+                    html += `<pre>${JSON.stringify(value, null, 2)}</pre>`;
+                } else {
+                    html += `<p>${value}</p>`;
+                }
+            }
+            return html;
+        }
+
+        // 辅助函数：格式化医生专业知识（HTML）
+        function formatDoctorExpertiseHTML(expertise) {
+            if (!expertise || Object.keys(expertise).length === 0) {
+                return '<p>暂无医生专业知识数据</p>';
+            }
+
+            let html = '';
+            for (const [key, value] of Object.entries(expertise)) {
+                html += `<h4>${key}</h4>`;
+                if (typeof value === 'object') {
+                    html += `<pre>${JSON.stringify(value, null, 2)}</pre>`;
+                } else {
+                    html += `<p>${value}</p>`;
+                }
+            }
+            return html;
+        }
+
+        // 辅助函数：格式化临床模式（Markdown）
+        function formatClinicalPatternsMarkdown(patterns) {
+            if (!patterns || Object.keys(patterns).length === 0) {
+                return '暂无临床模式分析数据';
+            }
+
+            let text = '';
+            for (const [key, value] of Object.entries(patterns)) {
+                text += `### ${key}\n\n`;
+                if (typeof value === 'object') {
+                    text += '```json\n' + JSON.stringify(value, null, 2) + '\n```\n\n';
+                } else {
+                    text += `${value}\n\n`;
+                }
+            }
+            return text;
+        }
+
+        // 辅助函数：格式化医生专业知识（Markdown）
+        function formatDoctorExpertiseMarkdown(expertise) {
+            if (!expertise || Object.keys(expertise).length === 0) {
+                return '暂无医生专业知识数据';
+            }
+
+            let text = '';
+            for (const [key, value] of Object.entries(expertise)) {
+                text += `### ${key}\n\n`;
+                if (typeof value === 'object') {
+                    text += '```json\n' + JSON.stringify(value, null, 2) + '\n```\n\n';
+                } else {
+                    text += `${value}\n\n`;
+                }
+            }
+            return text;
         }
 
         function closeHistoryModal() {
