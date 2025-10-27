@@ -2161,7 +2161,10 @@
             const diseaseName = getCurrentDiseaseName();
             const nodeCount = nodes.length;
             const connectionCount = connections.length;
-            
+
+            // 获取当前诊疗思路内容
+            const currentThinking = document.getElementById('doctorThought')?.value || '';
+
             dialog.innerHTML = `
                 <div style="background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%); color: white; padding: 24px; text-align: center;">
                     <div style="font-size: 36px; margin-bottom: 12px;">🧠</div>
@@ -2207,9 +2210,9 @@
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
                             📝 临床思维描述
                         </label>
-                        <textarea id="clinicalThinking" 
+                        <textarea id="clinicalThinking"
                                   style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; min-height: 120px; font-size: 14px; line-height: 1.5; resize: vertical; font-family: inherit;"
-                                  placeholder="请描述您在构建此特色诊疗方案时的临床思维过程、核心要点、注意事项等...&#10;例如：此特色诊疗方案基于张仲景六经辨证理论，重点突出..."></textarea>
+                                  placeholder="请描述您在构建此特色诊疗方案时的临床思维过程、核心要点、注意事项等...&#10;例如：此特色诊疗方案基于张仲景六经辨证理论，重点突出...">${currentThinking}</textarea>
                     </div>
                     
                     <div style="background: #fffbeb; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #f59e0b;">
