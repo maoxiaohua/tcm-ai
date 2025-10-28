@@ -2187,18 +2187,27 @@
             console.log('  新名称:', newName);
             console.log('  旧描述:', oldDescription);
             console.log('  新描述:', newDescription);
+            console.log('  当前诊疗思路文本（前200字符）:', currentText.substring(0, 200));
 
             let updated = false;
 
             // 1. 同步名称（如果名称改变）
             if (oldName !== newName && oldName) {
+                console.log('📝 尝试同步名称...');
+                console.log('  查找:', oldName);
+                console.log('  替换为:', newName);
                 const nameRegex = new RegExp(escapeRegExp(oldName), 'g');
                 const newText = currentText.replace(nameRegex, newName);
                 if (newText !== currentText) {
                     currentText = newText;
                     updated = true;
                     console.log('✅ 节点名称已同步');
+                    console.log('  更新后文本（前200字符）:', currentText.substring(0, 200));
+                } else {
+                    console.log('⚠️ 在诊疗思路中未找到"' + oldName + '"');
                 }
+            } else {
+                console.log('ℹ️ 名称未改变，跳过名称同步');
             }
 
             // 2. 同步描述内容（如果描述改变）
@@ -4723,6 +4732,12 @@
 
             console.log('🔄 开始生成专业中医格式的诊疗思路...');
 
+            // 调试：打印所有节点信息
+            console.log('📋 所有节点详情:');
+            nodes.forEach(node => {
+                console.log(`  - [${node.type}] ${node.name}`, node.description ? `(描述: ${node.description})` : '(无描述)');
+            });
+
             // 按类型分组节点
             const nodesByType = {};
             nodes.forEach(node => {
@@ -4798,7 +4813,12 @@
                 thinkingText += `处方：`;
                 const prescriptionChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'prescription') || [];
                 if (prescriptionChildren.length > 0) {
-                    thinkingText += prescriptionChildren[0].node.name;
+                    const prescription = prescriptionChildren[0].node;
+                    thinkingText += prescription.name;
+                    // 如果有描述内容，添加到下一行
+                    if (prescription.description && prescription.description.trim()) {
+                        thinkingText += `\n  ${prescription.description}`;
+                    }
                 }
                 thinkingText += '\n';
 
@@ -4826,7 +4846,7 @@
             if (syndromes.length === 0) {
                 thinkingText += '【诊疗方案】\n\n';
 
-                // 列出所有节点
+                // 列出所有节点（包含名称和描述）
                 ['symptom', 'pathogenesis', 'prescription', 'modification'].forEach(type => {
                     const typeNodes = nodesByType[type] || [];
                     if (typeNodes.length > 0) {
@@ -4837,7 +4857,23 @@
                             'modification': '加减'
                         }[type];
 
-                        thinkingText += `${typeName}：${typeNodes.map(n => n.name).join('、')}\n`;
+                        thinkingText += `${typeName}：`;
+
+                        // 对于处方类型，单独处理每个节点，包含描述
+                        if (type === 'prescription') {
+                            typeNodes.forEach((node, idx) => {
+                                if (idx > 0) thinkingText += '、';
+                                thinkingText += node.name;
+                                // 如果有描述，添加到括号中
+                                if (node.description && node.description.trim()) {
+                                    thinkingText += `（${node.description}）`;
+                                }
+                            });
+                            thinkingText += '\n';
+                        } else {
+                            // 其他类型保持原样
+                            thinkingText += `${typeNodes.map(n => n.name).join('、')}\n`;
+                        }
                     }
                 });
             }
