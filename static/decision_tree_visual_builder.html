@@ -2168,30 +2168,88 @@
             }
         }
 
-        // 增量同步：节点名称修改时，只更新诊疗思路中对应的文字
-        function syncNodeNameToThinking(oldName, newName) {
+        // 增量同步：节点名称和描述修改时，智能更新诊疗思路中对应的文字
+        function syncNodeToThinking(oldName, oldDescription, newName, newDescription) {
             const thinkingTextarea = document.getElementById('doctorThought');
             if (!thinkingTextarea) {
                 console.log('⚠️ 未找到诊疗思路输入框');
                 return;
             }
 
-            const currentText = thinkingTextarea.value;
+            let currentText = thinkingTextarea.value;
             if (!currentText || currentText.trim() === '') {
                 console.log('💡 诊疗思路为空，无需同步');
                 return;
             }
 
-            console.log('🔄 开始增量同步节点名称');
+            console.log('🔄 开始增量同步节点内容');
             console.log('  旧名称:', oldName);
             console.log('  新名称:', newName);
+            console.log('  旧描述:', oldDescription);
+            console.log('  新描述:', newDescription);
 
-            // 使用全局替换，但保持文本结构不变
-            // 这样可以替换所有出现的位置（可能在多个证候中引用同一个方剂）
-            const updatedText = currentText.replace(new RegExp(escapeRegExp(oldName), 'g'), newName);
+            let updated = false;
 
-            if (updatedText !== currentText) {
-                thinkingTextarea.value = updatedText;
+            // 1. 同步名称（如果名称改变）
+            if (oldName !== newName && oldName) {
+                const nameRegex = new RegExp(escapeRegExp(oldName), 'g');
+                const newText = currentText.replace(nameRegex, newName);
+                if (newText !== currentText) {
+                    currentText = newText;
+                    updated = true;
+                    console.log('✅ 节点名称已同步');
+                }
+            }
+
+            // 2. 同步描述内容（如果描述改变）
+            if (oldDescription !== newDescription) {
+                // 场景A: 旧描述不为空，在文本中查找并替换
+                if (oldDescription && oldDescription.trim() !== '') {
+                    const descRegex = new RegExp(escapeRegExp(oldDescription), 'g');
+                    const newText = currentText.replace(descRegex, newDescription);
+                    if (newText !== currentText) {
+                        currentText = newText;
+                        updated = true;
+                        console.log('✅ 节点描述已同步（替换模式）');
+                    }
+                }
+                // 场景B: 旧描述为空，新描述不为空，尝试在节点名称后插入
+                else if (newDescription && newDescription.trim() !== '') {
+                    // 智能插入：在节点名称后添加描述
+                    // 匹配格式：处方：处方名 → 处方：处方名\n  描述内容
+                    const insertPatterns = [
+                        // 模式1: "处方：XXX\n" → "处方：XXX\n  描述\n"
+                        {
+                            regex: new RegExp(`(处方[：:]\\s*${escapeRegExp(newName)})(\\s*\\n)`, 'g'),
+                            replacement: `$1\n  ${newDescription}$2`
+                        },
+                        // 模式2: "药物组成：XXX\n" → "药物组成：XXX\n  描述\n"
+                        {
+                            regex: new RegExp(`(药物组成[：:]\\s*${escapeRegExp(newName)})(\\s*\\n)`, 'g'),
+                            replacement: `$1\n  ${newDescription}$2`
+                        },
+                        // 模式3: 节点名称后直接添加（通用模式）
+                        {
+                            regex: new RegExp(`(${escapeRegExp(newName)})(\\s*\\n)`, 'g'),
+                            replacement: `$1\n  ${newDescription}$2`
+                        }
+                    ];
+
+                    for (const pattern of insertPatterns) {
+                        const newText = currentText.replace(pattern.regex, pattern.replacement);
+                        if (newText !== currentText) {
+                            currentText = newText;
+                            updated = true;
+                            console.log('✅ 节点描述已插入（智能插入模式）');
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 3. 如果有更新，应用到输入框并显示视觉反馈
+            if (updated) {
+                thinkingTextarea.value = currentText;
                 console.log('✅ 诊疗思路已同步更新');
 
                 // 视觉反馈
@@ -2202,7 +2260,7 @@
                     thinkingTextarea.style.boxShadow = '';
                 }, 1000);
             } else {
-                console.log('💡 诊疗思路中未找到该节点名称，无需更新');
+                console.log('💡 诊疗思路中未找到可同步的内容');
             }
         }
 
@@ -4604,14 +4662,16 @@
                     return;
                 }
                 
-                // 保存旧名称用于同步
+                // 保存旧数据用于同步
                 const oldName = node.name;
+                const oldDescription = node.description || '';
                 const newName = nameInput.value.trim();
+                const newDescription = descTextarea.value.trim();
 
                 // 更新节点数据
                 node.name = newName;
                 node.type = typeSelect.value;
-                node.description = descTextarea.value.trim();
+                node.description = newDescription;
 
                 // 更新显示
                 const nodeElement = document.getElementById(node.id);
@@ -4621,10 +4681,8 @@
                 closeDialog();
                 showResult('成功', '✅ 节点信息已更新', 'success');
 
-                // ✨ 增量同步：只更新诊疗思路中对应的文字
-                if (oldName !== newName) {
-                    syncNodeNameToThinking(oldName, newName);
-                }
+                // ✨ 增量同步：更新诊疗思路中对应的文字
+                syncNodeToThinking(oldName, oldDescription, newName, newDescription);
 
                 // 移除ESC监听器
                 document.removeEventListener('keydown', escapeHandler);
