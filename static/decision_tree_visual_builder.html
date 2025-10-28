@@ -848,7 +848,9 @@
                     <button id="connectionModeBtn" class="canvas-tool-btn canvas-tool-btn-info" title="连接两个节点" onclick="toggleConnectionMode()">
                         🔗 连接
                     </button>
-                    <!-- 🔄 更新思路按钮已移除 - 用户不需要自动生成功能 -->
+                    <button id="updateThinkingBtn" class="canvas-tool-btn canvas-tool-btn-warning" title="根据画布完整重新生成诊疗思路（会覆盖现有内容）" onclick="manualUpdateThinking()">
+                        🔄 重新生成
+                    </button>
                     <button id="arrangeBtn" class="canvas-tool-btn canvas-tool-btn-success" title="自动排列节点">
                         📐 排列
                     </button>
@@ -2164,6 +2166,49 @@
                 });
                 firstSelectedNodeForConnection = null;
             }
+        }
+
+        // 增量同步：节点名称修改时，只更新诊疗思路中对应的文字
+        function syncNodeNameToThinking(oldName, newName) {
+            const thinkingTextarea = document.getElementById('doctorThought');
+            if (!thinkingTextarea) {
+                console.log('⚠️ 未找到诊疗思路输入框');
+                return;
+            }
+
+            const currentText = thinkingTextarea.value;
+            if (!currentText || currentText.trim() === '') {
+                console.log('💡 诊疗思路为空，无需同步');
+                return;
+            }
+
+            console.log('🔄 开始增量同步节点名称');
+            console.log('  旧名称:', oldName);
+            console.log('  新名称:', newName);
+
+            // 使用全局替换，但保持文本结构不变
+            // 这样可以替换所有出现的位置（可能在多个证候中引用同一个方剂）
+            const updatedText = currentText.replace(new RegExp(escapeRegExp(oldName), 'g'), newName);
+
+            if (updatedText !== currentText) {
+                thinkingTextarea.value = updatedText;
+                console.log('✅ 诊疗思路已同步更新');
+
+                // 视觉反馈
+                thinkingTextarea.style.borderColor = '#10b981';
+                thinkingTextarea.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.1)';
+                setTimeout(() => {
+                    thinkingTextarea.style.borderColor = '';
+                    thinkingTextarea.style.boxShadow = '';
+                }, 1000);
+            } else {
+                console.log('💡 诊疗思路中未找到该节点名称，无需更新');
+            }
+        }
+
+        // 辅助函数：转义正则表达式特殊字符
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
         // 手动更新诊疗思路（用户主动触发）
@@ -4559,8 +4604,12 @@
                     return;
                 }
                 
+                // 保存旧名称用于同步
+                const oldName = node.name;
+                const newName = nameInput.value.trim();
+
                 // 更新节点数据
-                node.name = nameInput.value.trim();
+                node.name = newName;
                 node.type = typeSelect.value;
                 node.description = descTextarea.value.trim();
 
@@ -4572,9 +4621,10 @@
                 closeDialog();
                 showResult('成功', '✅ 节点信息已更新', 'success');
 
-                // ⚠️ 不自动更新诊疗思路，避免覆盖用户手动编辑的内容
-                // 用户可以通过点击"🔄 更新思路"按钮主动更新
-                console.log('💡 提示：节点已更新，如需同步诊疗思路，请点击"🔄 更新思路"按钮');
+                // ✨ 增量同步：只更新诊疗思路中对应的文字
+                if (oldName !== newName) {
+                    syncNodeNameToThinking(oldName, newName);
+                }
 
                 // 移除ESC监听器
                 document.removeEventListener('keydown', escapeHandler);
