@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>可视化特色诊疗方案构建器 v2.1</title>
+    <title>可视化特色诊疗方案构建器 v2.0-20251028</title>
     <style>
         * {
             margin: 0;
@@ -75,7 +75,7 @@
             top: 15px;
             right: 15px;
             z-index: 100;
-            display: none !important;  /* 隐藏工具栏 */
+            display: none;  /* 默认隐藏，有节点时通过JavaScript显示 */
             gap: 8px;
             background: rgba(255, 255, 255, 0.95);
             padding: 8px;
@@ -129,8 +129,61 @@
             transform: translateY(-2px);
         }
 
+        .canvas-tool-btn-info {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+        }
+
+        .canvas-tool-btn-info:hover {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .canvas-tool-btn-info.active {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+            animation: pulse 2s infinite;
+        }
+
         .canvas-tool-btn:active {
             transform: translateY(0);
+        }
+
+        .canvas-tool-btn-warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
+        }
+
+        .canvas-tool-btn-warning:hover {
+            background: linear-gradient(135deg, #d97706, #b45309);
+            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4);
+            transform: translateY(-2px);
+        }
+
+        /* 连接模式时第一个选中的节点样式 */
+        .node.connection-source {
+            border: 3px solid #10b981 !important;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2), 0 4px 12px rgba(0,0,0,0.15) !important;
+            animation: connectionPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes connectionPulse {
+            0%, 100% {
+                box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2), 0 4px 12px rgba(0,0,0,0.15);
+            }
+            50% {
+                box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.3), 0 6px 16px rgba(0,0,0,0.2);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.8;
+            }
         }
 
         .section-title {
@@ -792,6 +845,12 @@
             <div class="canvas-area">
                 <!-- 画布右上角的操作按钮组 -->
                 <div id="canvasToolbar" class="canvas-toolbar" style="display: none;">
+                    <button id="connectionModeBtn" class="canvas-tool-btn canvas-tool-btn-info" title="连接两个节点" onclick="toggleConnectionMode()">
+                        🔗 连接
+                    </button>
+                    <button id="updateThinkingBtn" class="canvas-tool-btn canvas-tool-btn-warning" title="根据连接关系重新生成诊疗思路" onclick="manualUpdateThinking()">
+                        🔄 更新思路
+                    </button>
                     <button id="arrangeBtn" class="canvas-tool-btn canvas-tool-btn-success" title="自动排列节点">
                         📐 排列
                     </button>
@@ -1043,6 +1102,10 @@
         let currentUser = null;
         let connections = [];
         let symptomClusters = new Map(); // 症状群存储
+
+        // 连接模式相关变量
+        let connectionMode = false; // 是否处于连接模式
+        let firstSelectedNodeForConnection = null; // 连接模式下第一个选中的节点
         
         // 症状群数据结构
         const SYMPTOM_CLUSTER_TEMPLATES = {
@@ -1093,6 +1156,11 @@
 
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('🚀 特色诊疗方案构建器 - 版本 v2.0');
+            console.log('📅 更新时间: 2025-10-28 11:30');
+            console.log('✨ 新功能: 连接线交互（透明热区技术）');
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             console.log('🚀 页面初始化开始...');
             
             // 初始化AI状态检查
@@ -2067,6 +2135,56 @@
         }
 
         // 清空画布
+        // 切换连接模式
+        function toggleConnectionMode() {
+            connectionMode = !connectionMode;
+            const btn = document.getElementById('connectionModeBtn');
+
+            if (connectionMode) {
+                // 进入连接模式
+                btn.classList.add('active');
+                btn.innerHTML = '🔗 连接中...';
+                showResult('连接模式', '✨ 已进入连接模式！请依次点击两个节点创建连接。', 'success');
+                console.log('🔗 进入连接模式');
+
+                // 清除之前的选择
+                document.querySelectorAll('.node').forEach(el => {
+                    el.classList.remove('selected', 'connection-source');
+                });
+                firstSelectedNodeForConnection = null;
+                selectedNode = null;
+            } else {
+                // 退出连接模式
+                btn.classList.remove('active');
+                btn.innerHTML = '🔗 连接';
+                showResult('退出', '已退出连接模式', 'info');
+                console.log('❌ 退出连接模式');
+
+                // 清除连接选择
+                document.querySelectorAll('.connection-source').forEach(el => {
+                    el.classList.remove('connection-source');
+                });
+                firstSelectedNodeForConnection = null;
+            }
+        }
+
+        // 手动更新诊疗思路（用户主动触发）
+        function manualUpdateThinking() {
+            if (nodes.length === 0) {
+                showResult('提示', '画布中没有节点', 'warning');
+                return;
+            }
+
+            // 弹出确认对话框
+            if (confirm('⚠️ 这将根据当前节点和连接关系重新生成诊疗思路。\n\n如果您手动编辑过诊疗思路，这些内容将被覆盖。\n\n是否继续？')) {
+                console.log('🔄 用户手动触发：更新诊疗思路');
+                updateThinkingProcessFromNodes();
+                showResult('成功', '✅ 诊疗思路已根据连接关系重新生成', 'success');
+            } else {
+                console.log('❌ 用户取消了更新操作');
+            }
+        }
+
         function clearCanvas() {
             console.log('清空画布被调用');
             
@@ -3235,18 +3353,214 @@
 
         // 选择节点
         function selectNode(node) {
+            // 如果处于连接模式
+            if (connectionMode) {
+                if (!firstSelectedNodeForConnection) {
+                    // 选择第一个节点
+                    firstSelectedNodeForConnection = node;
+                    document.getElementById(node.id).classList.add('connection-source');
+                    showResult('连接模式', `已选择起始节点：${node.name}。请点击目标节点完成连接。`, 'info');
+                    console.log('🔗 连接模式：已选择起始节点', node.name);
+                } else if (firstSelectedNodeForConnection.id === node.id) {
+                    // 点击同一个节点，取消连接模式
+                    document.getElementById(node.id).classList.remove('connection-source');
+                    firstSelectedNodeForConnection = null;
+                    connectionMode = false;
+
+                    // 更新按钮状态
+                    const btn = document.getElementById('connectionModeBtn');
+                    if (btn) {
+                        btn.classList.remove('active');
+                        btn.innerHTML = '🔗 连接';
+                    }
+
+                    showResult('取消', '已取消连接模式', 'info');
+                    console.log('❌ 取消连接模式');
+                } else {
+                    // 选择第二个节点，创建连接
+                    const fromNode = firstSelectedNodeForConnection;
+                    const toNode = node;
+
+                    // 检查连接是否已存在
+                    const existingConnection = connections.find(
+                        c => c.from === fromNode.id && c.to === toNode.id
+                    );
+
+                    if (existingConnection) {
+                        showResult('提示', '这两个节点之间已存在连接', 'warning');
+                        // 重置连接模式但不退出
+                        document.getElementById(fromNode.id).classList.remove('connection-source');
+                        firstSelectedNodeForConnection = null;
+                    } else {
+                        // 弹出对话框设置连接标签
+                        showConnectionLabelDialog(fromNode, toNode);
+                    }
+
+                    // 清除连接模式
+                    document.getElementById(fromNode.id).classList.remove('connection-source');
+                    firstSelectedNodeForConnection = null;
+                    connectionMode = false;
+
+                    // 更新按钮状态
+                    const btn = document.getElementById('connectionModeBtn');
+                    if (btn) {
+                        btn.classList.remove('active');
+                        btn.innerHTML = '🔗 连接';
+                    }
+                }
+                return;
+            }
+
+            // 正常选择模式
             // 清除其他选择
             document.querySelectorAll('.node').forEach(el => {
                 el.classList.remove('selected');
             });
-            
+
             // 选择当前节点
             document.getElementById(node.id).classList.add('selected');
             selectedNode = node;
-            
+
             showSelectedNodeInfo(node);
             console.log('选择了节点:', node.name);
         }
+
+        // 显示连接标签对话框
+        function showConnectionLabelDialog(fromNode, toNode) {
+            // 创建遮罩层
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 9999;
+                backdrop-filter: blur(2px);
+                animation: fadeIn 0.2s ease-out;
+            `;
+
+            // 创建对话框
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 0;
+                border-radius: 12px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+                z-index: 10000;
+                width: 480px;
+                max-width: 90vw;
+                animation: slideIn 0.3s ease-out;
+            `;
+
+            dialog.innerHTML = `
+                <div style="background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); color: white; padding: 24px; text-align: center;">
+                    <div style="font-size: 36px; margin-bottom: 12px;">🔗</div>
+                    <h3 style="margin: 0; font-size: 20px; font-weight: 600;">创建节点连接</h3>
+                    <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">设置两个节点之间的关系</p>
+                </div>
+
+                <div style="padding: 28px;">
+                    <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">起始节点</div>
+                                <div style="font-weight: 600; color: #374151;">${fromNode.name}</div>
+                            </div>
+                            <div style="font-size: 24px; color: #10b981;">→</div>
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">目标节点</div>
+                                <div style="font-weight: 600; color: #374151;">${toNode.name}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            🏷️ 连接关系标签（可选）
+                        </label>
+                        <input type="text" id="connectionLabel"
+                               style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;"
+                               placeholder="例如：若、则、或、同时、可加、可减等">
+                        <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
+                            💡 标签将显示在连接线上，帮助理解节点之间的逻辑关系
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-top: 24px;">
+                        <button onclick="cancelConnectionDialog()"
+                                style="flex: 1; padding: 12px 24px; border: 2px solid #e5e7eb; background: white; color: #374151; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s;">
+                            取消
+                        </button>
+                        <button onclick="confirmConnection('${fromNode.id}', '${toNode.id}')"
+                                style="flex: 1; padding: 12px 24px; border: none; background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); color: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); transition: all 0.2s;">
+                            创建连接
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+
+            // 点击遮罩层关闭
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    document.body.removeChild(overlay);
+                }
+            });
+
+            // 焦点设置到输入框
+            setTimeout(() => {
+                document.getElementById('connectionLabel')?.focus();
+            }, 100);
+        }
+
+        // 取消连接对话框
+        window.cancelConnectionDialog = function() {
+            const overlay = document.querySelector('div[style*="backdrop-filter"]');
+            if (overlay) {
+                document.body.removeChild(overlay);
+            }
+
+            // 取消对话框时不影响连接模式状态，用户可以继续连接其他节点
+            // 如果需要退出连接模式，用户可以再次点击连接按钮
+        };
+
+        // 确认创建连接
+        window.confirmConnection = function(fromId, toId) {
+            const label = document.getElementById('connectionLabel')?.value.trim() || '';
+
+            // 创建新连接
+            const newConnection = {
+                from: fromId,
+                to: toId,
+                label: label
+            };
+
+            connections.push(newConnection);
+            console.log('🔗 创建新连接:', newConnection);
+            console.log('📊 当前所有连接:', connections);
+
+            drawConnections();
+
+            // 关闭对话框
+            cancelConnectionDialog();
+
+            // 显示成功提示
+            const fromNode = nodes.find(n => n.id === fromId);
+            const toNode = nodes.find(n => n.id === toId);
+            const labelText = label ? ` (${label})` : '';
+            showResult('成功', `✅ 已创建连接：${fromNode.name} → ${toNode.name}${labelText}`, 'success');
+
+            // ⚠️ 不自动更新诊疗思路，避免覆盖用户手动编辑的内容
+            console.log('💡 提示：连接已创建，但未自动更新诊疗思路（保留您的手动编辑内容）');
+        };
 
         // 使节点可拖拽
         function makeNodeDraggable(element, node) {
@@ -3391,61 +3705,207 @@
         // 绘制连接线
         function drawConnections() {
             const svg = document.getElementById('branchSvg');
-            
-            // 清除现有连接线
-            const existingPaths = svg.querySelectorAll('.branch-line, .branch-path');
+
+            console.log('🎨 绘制连接线（带交互功能版本 v2.0）');
+            console.log('📊 连接数量:', connections.length);
+
+            // 清除现有连接线和标签
+            const existingPaths = svg.querySelectorAll('.branch-line, .branch-path, .connection-label, .connection-group');
             existingPaths.forEach(path => path.remove());
-            
-            connections.forEach(conn => {
+
+            connections.forEach((conn, index) => {
                 const fromNode = nodes.find(n => n.id === conn.from);
                 const toNode = nodes.find(n => n.id === conn.to);
-                
+
                 if (fromNode && toNode) {
                     const fromElement = document.getElementById(fromNode.id);
                     const toElement = document.getElementById(toNode.id);
-                    
+
                     if (fromElement && toElement) {
                         const fromRect = fromElement.getBoundingClientRect();
                         const toRect = toElement.getBoundingClientRect();
                         const canvasRect = document.getElementById('canvas').getBoundingClientRect();
-                        
+
                         // 计算连接点位置
                         const x1 = fromRect.left - canvasRect.left + fromRect.width;
                         const y1 = fromRect.top - canvasRect.top + fromRect.height / 2;
                         const x2 = toRect.left - canvasRect.left;
                         const y2 = toRect.top - canvasRect.top + toRect.height / 2;
-                        
+
                         // 使用贝塞尔曲线创建平滑连接
                         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                         const midX = (x1 + x2) / 2;
-                        
+                        const midY = (y1 + y2) / 2;
+
                         // 创建平滑的曲线路径
                         const d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
-                        
+
+                        // 创建连接ID用于标识
+                        const connectionId = `conn_${conn.from}_${conn.to}`;
+
                         path.setAttribute('d', d);
+                        path.setAttribute('id', connectionId);
                         path.setAttribute('class', 'branch-path');
                         path.setAttribute('fill', 'none');
                         path.setAttribute('stroke', '#3b82f6');
                         path.setAttribute('stroke-width', '2');
                         path.setAttribute('marker-end', 'url(#arrowhead)');
-                        
+                        path.setAttribute('data-from', conn.from);
+                        path.setAttribute('data-to', conn.to);
+                        path.style.pointerEvents = 'none';  // 可见路径不接收事件，避免干扰
+
+                        // 创建一个透明的、更宽的路径作为"热区"，方便点击
+                        const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        hitPath.setAttribute('d', d);
+                        hitPath.setAttribute('fill', 'none');
+                        hitPath.setAttribute('stroke', 'transparent');  // 完全透明，不可见但可交互
+                        hitPath.setAttribute('stroke-width', '20');  // 更宽的点击区域
+                        hitPath.style.cursor = 'pointer';
+                        hitPath.style.pointerEvents = 'all';  // 确保热区接收所有鼠标事件
+                        hitPath.setAttribute('data-from', conn.from);
+                        hitPath.setAttribute('data-to', conn.to);
+
+                        // 将事件绑定到透明热区，这样更容易触发
+                        hitPath.addEventListener('mouseenter', function() {
+                            console.log('🖱️ 鼠标进入连接线:', fromNode.name, '→', toNode.name);
+                            path.setAttribute('stroke', '#ef4444');
+                            path.setAttribute('stroke-width', '3');
+                        });
+
+                        hitPath.addEventListener('mouseleave', function() {
+                            console.log('🖱️ 鼠标离开连接线');
+                            path.setAttribute('stroke', '#3b82f6');
+                            path.setAttribute('stroke-width', '2');
+                        });
+
+                        // 添加右键菜单到热区
+                        hitPath.addEventListener('contextmenu', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            showConnectionContextMenu(e, conn.from, conn.to, fromNode, toNode);
+                        });
+
                         // 添加连接标签（如果需要）
                         if (conn.label) {
                             const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                             text.setAttribute('x', midX);
-                            text.setAttribute('y', (y1 + y2) / 2 - 10);
+                            text.setAttribute('y', midY - 10);
                             text.setAttribute('text-anchor', 'middle');
                             text.setAttribute('font-size', '12');
                             text.setAttribute('fill', '#6b7280');
+                            text.setAttribute('class', 'connection-label');
+                            text.style.cursor = 'pointer';
                             text.textContent = conn.label;
+
+                            // 标签也可以右键删除
+                            text.addEventListener('contextmenu', function(e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                showConnectionContextMenu(e, conn.from, conn.to, fromNode, toNode);
+                            });
+
                             svg.appendChild(text);
                         }
-                        
+
+                        // 先添加透明热区（在下层）
+                        svg.appendChild(hitPath);
+                        // 再添加可见路径（在上层）
                         svg.appendChild(path);
+
+                        console.log('✅ 已绘制连接线并添加交互:', fromNode.name, '→', toNode.name);
                     }
                 }
             });
+
+            console.log('🎨 连接线绘制完成，共', connections.length, '条');
         }
+
+        // 显示连接线右键菜单
+        function showConnectionContextMenu(e, fromId, toId, fromNode, toNode) {
+            // 移除现有菜单
+            const existingMenu = document.querySelector('.connection-context-menu');
+            if (existingMenu) {
+                existingMenu.remove();
+            }
+
+            // 创建菜单
+            const menu = document.createElement('div');
+            menu.className = 'connection-context-menu';
+            menu.style.cssText = `
+                position: fixed;
+                left: ${e.clientX}px;
+                top: ${e.clientY}px;
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 10000;
+                padding: 8px 0;
+                min-width: 180px;
+            `;
+
+            const conn = connections.find(c => c.from === fromId && c.to === toId);
+            const labelText = conn && conn.label ? ` (${conn.label})` : '';
+
+            menu.innerHTML = `
+                <div style="padding: 8px 16px; color: #6b7280; font-size: 12px; border-bottom: 1px solid #e5e7eb;">
+                    ${fromNode.name} → ${toNode.name}${labelText}
+                </div>
+                <div class="menu-item" onclick="deleteConnection('${fromId}', '${toId}')" style="padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                    <span style="color: #ef4444;">🗑️</span>
+                    <span>删除连接</span>
+                </div>
+            `;
+
+            // 添加菜单项悬停效果
+            const menuItems = menu.querySelectorAll('.menu-item');
+            menuItems.forEach(item => {
+                item.addEventListener('mouseenter', function() {
+                    this.style.background = '#f3f4f6';
+                });
+                item.addEventListener('mouseleave', function() {
+                    this.style.background = 'white';
+                });
+            });
+
+            document.body.appendChild(menu);
+
+            // 点击其他地方关闭菜单
+            setTimeout(() => {
+                document.addEventListener('click', function closeMenu() {
+                    menu.remove();
+                    document.removeEventListener('click', closeMenu);
+                }, 0);
+            }, 0);
+        }
+
+        // 删除连接
+        window.deleteConnection = function(fromId, toId) {
+            // 查找连接索引
+            const connectionIndex = connections.findIndex(c => c.from === fromId && c.to === toId);
+
+            if (connectionIndex !== -1) {
+                const deletedConnection = connections[connectionIndex];
+                const fromNode = nodes.find(n => n.id === fromId);
+                const toNode = nodes.find(n => n.id === toId);
+
+                // 删除连接
+                connections.splice(connectionIndex, 1);
+
+                console.log('🗑️ 删除连接:', deletedConnection);
+                console.log('📊 剩余连接:', connections);
+
+                // 重新绘制连接线
+                drawConnections();
+
+                // 显示成功提示
+                const labelText = deletedConnection.label ? ` (${deletedConnection.label})` : '';
+                showResult('成功', `✅ 已删除连接：${fromNode.name} → ${toNode.name}${labelText}`, 'success');
+
+                // ⚠️ 不自动更新诊疗思路，避免覆盖用户手动编辑的内容
+                console.log('💡 提示：连接已删除，但未自动更新诊疗思路（保留您的手动编辑内容）');
+            }
+        };
 
         // 显示选中节点信息
         function showSelectedNodeInfo(node) {
@@ -4114,8 +4574,9 @@
                 closeDialog();
                 showResult('成功', '✅ 节点信息已更新', 'success');
 
-                // ✨ 新增：自动更新诊疗思路
-                updateThinkingProcessFromNodes();
+                // ⚠️ 不自动更新诊疗思路，避免覆盖用户手动编辑的内容
+                // 用户可以通过点击"🔄 更新思路"按钮主动更新
+                console.log('💡 提示：节点已更新，如需同步诊疗思路，请点击"🔄 更新思路"按钮');
 
                 // 移除ESC监听器
                 document.removeEventListener('keydown', escapeHandler);
@@ -4143,167 +4604,150 @@
             return typeFlow[currentType] || 'symptom';
         }
 
-        // ✨ 新增：从节点内容自动生成/更新诊疗思路
+        // ✨ 新增：从节点内容自动生成/更新诊疗思路（专业中医格式）
         function updateThinkingProcessFromNodes() {
+            console.log('🔄 updateThinkingProcessFromNodes 函数被调用');
+            console.log('📦 当前节点数:', nodes.length);
+            console.log('🔗 当前连接数:', connections.length);
+
             if (nodes.length === 0) {
-                return; // 没有节点就不更新
+                console.log('⚠️ 没有节点，跳过更新');
+                return;
             }
 
-            console.log('🔄 自动更新诊疗思路...');
+            console.log('🔄 开始生成专业中医格式的诊疗思路...');
 
-            // 节点类型中文名称映射
-            const typeNames = {
-                'disease': '疾病',
-                'four_diagnosis': '四诊',
-                'symptom': '症状',
-                'pathogenesis': '病机',
-                'syndrome': '证候',
-                'principle': '治则',
-                'prescription': '方剂',
-                'modification': '加减',
-                'prognosis': '预后',
-                'condition': '条件',
-                'diagnosis': '诊断',
-                'treatment': '治疗'
-            };
-
-            // 按节点类型分组
+            // 按类型分组节点
             const nodesByType = {};
             nodes.forEach(node => {
-                const type = node.type || 'other';
-                if (!nodesByType[type]) {
-                    nodesByType[type] = [];
+                if (!nodesByType[node.type]) {
+                    nodesByType[node.type] = [];
                 }
-                nodesByType[type].push(node);
+                nodesByType[node.type].push(node);
             });
 
-            // 生成诊疗思路文本
+            // 构建节点关系图（用于查找子节点）
+            const nodeMap = {};
+            nodes.forEach(node => {
+                nodeMap[node.id] = {
+                    node: node,
+                    children: [],
+                    parents: []
+                };
+            });
+
+            connections.forEach(conn => {
+                if (nodeMap[conn.from] && nodeMap[conn.to]) {
+                    nodeMap[conn.from].children.push({
+                        nodeId: conn.to,
+                        node: nodes.find(n => n.id === conn.to),
+                        label: conn.label || ''
+                    });
+                    nodeMap[conn.to].parents.push(conn.from);
+                }
+            });
+
+            // 生成专业中医格式的诊疗思路
             let thinkingText = '';
 
-            // 1. 疾病/主诉
+            // 1. 主病（疾病节点）
             if (nodesByType['disease'] && nodesByType['disease'].length > 0) {
-                thinkingText += '【疾病概况】\n';
-                nodesByType['disease'].forEach(node => {
-                    thinkingText += `${node.name}`;
-                    if (node.description) {
-                        thinkingText += `：${node.description}`;
-                    }
-                    thinkingText += '\n';
-                });
-                thinkingText += '\n';
+                const disease = nodesByType['disease'][0];
+                thinkingText += `主病：${disease.name}\n`;
+                thinkingText += `主证：\n\n`;
             }
 
-            // 2. 四诊信息
-            if (nodesByType['four_diagnosis'] && nodesByType['four_diagnosis'].length > 0) {
-                thinkingText += '【四诊信息】\n';
-                nodesByType['four_diagnosis'].forEach(node => {
-                    thinkingText += `${node.name}`;
-                    if (node.description) {
-                        thinkingText += `：${node.description}`;
-                    }
-                    thinkingText += '\n';
-                });
-                thinkingText += '\n';
-            }
+            // 2. 遍历证候节点，生成每个证候块
+            const syndromes = nodesByType['syndrome'] || [];
+            syndromes.forEach((syndrome, index) => {
+                thinkingText += `【证候${index + 1}】${syndrome.name}\n`;
 
-            // 3. 症状分析
-            if (nodesByType['symptom'] && nodesByType['symptom'].length > 0) {
-                thinkingText += '【症状分析】\n';
-                nodesByType['symptom'].forEach(node => {
-                    thinkingText += `• ${node.name}`;
-                    if (node.description) {
-                        thinkingText += `：${node.description}`;
-                    }
-                    thinkingText += '\n';
-                });
-                thinkingText += '\n';
-            }
-
-            // 4. 病机分析
-            if (nodesByType['pathogenesis'] && nodesByType['pathogenesis'].length > 0) {
-                thinkingText += '【病机分析】\n';
-                nodesByType['pathogenesis'].forEach(node => {
-                    thinkingText += `${node.name}`;
-                    if (node.description) {
-                        thinkingText += `：${node.description}`;
-                    }
-                    thinkingText += '\n';
-                });
-                thinkingText += '\n';
-            }
-
-            // 5. 辨证论治
-            if (nodesByType['syndrome'] && nodesByType['syndrome'].length > 0) {
-                thinkingText += '【辨证论治】\n';
-                nodesByType['syndrome'].forEach(node => {
-                    thinkingText += `证型：${node.name}`;
-                    if (node.description) {
-                        thinkingText += `\n分析：${node.description}`;
-                    }
-                    thinkingText += '\n';
-                });
-                thinkingText += '\n';
-            }
-
-            // 6. 治疗原则
-            if (nodesByType['principle'] && nodesByType['principle'].length > 0) {
-                thinkingText += '【治疗原则】\n';
-                nodesByType['principle'].forEach(node => {
-                    thinkingText += `${node.name}`;
-                    if (node.description) {
-                        thinkingText += `：${node.description}`;
-                    }
-                    thinkingText += '\n';
-                });
-                thinkingText += '\n';
-            }
-
-            // 7. 方药选择
-            if (nodesByType['prescription'] && nodesByType['prescription'].length > 0) {
-                thinkingText += '【方药选择】\n';
-                nodesByType['prescription'].forEach(node => {
-                    thinkingText += `方剂：${node.name}`;
-                    if (node.description) {
-                        thinkingText += `\n说明：${node.description}`;
-                    }
-                    thinkingText += '\n';
-                });
-                thinkingText += '\n';
-            }
-
-            // 8. 加减变化
-            if (nodesByType['modification'] && nodesByType['modification'].length > 0) {
-                thinkingText += '【加减变化】\n';
-                nodesByType['modification'].forEach(node => {
-                    thinkingText += `• ${node.name}`;
-                    if (node.description) {
-                        thinkingText += `：${node.description}`;
-                    }
-                    thinkingText += '\n';
-                });
-                thinkingText += '\n';
-            }
-
-            // 9. 其他节点类型
-            ['diagnosis', 'treatment', 'condition'].forEach(type => {
-                if (nodesByType[type] && nodesByType[type].length > 0) {
-                    thinkingText += `【${typeNames[type] || type}】\n`;
-                    nodesByType[type].forEach(node => {
-                        thinkingText += `• ${node.name}`;
-                        if (node.description) {
-                            thinkingText += `：${node.description}`;
-                        }
-                        thinkingText += '\n';
-                    });
-                    thinkingText += '\n';
+                // 病机
+                thinkingText += `病机：`;
+                const pathogenesisChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'pathogenesis') || [];
+                if (pathogenesisChildren.length > 0) {
+                    thinkingText += pathogenesisChildren.map(c => c.node.name).join('、');
                 }
+                thinkingText += '\n';
+
+                // 症见
+                thinkingText += `症见：`;
+                const symptomChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'symptom') || [];
+                if (symptomChildren.length > 0) {
+                    thinkingText += symptomChildren.map(c => c.node.name).join('、');
+                } else {
+                    thinkingText += syndrome.name; // 如果没有症状子节点，使用证候名称
+                }
+                thinkingText += '\n';
+
+                // 舌脉
+                thinkingText += `舌脉：`;
+                const fourDiagnosisChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'four_diagnosis') || [];
+                if (fourDiagnosisChildren.length > 0) {
+                    thinkingText += fourDiagnosisChildren.map(c => c.node.name).join('、');
+                }
+                thinkingText += '\n';
+
+                // 处方
+                thinkingText += `处方：`;
+                const prescriptionChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'prescription') || [];
+                if (prescriptionChildren.length > 0) {
+                    thinkingText += prescriptionChildren[0].node.name;
+                }
+                thinkingText += '\n';
+
+                // 加减
+                thinkingText += `加减：\n`;
+                if (prescriptionChildren.length > 0) {
+                    const prescription = prescriptionChildren[0];
+                    const modificationChildren = nodeMap[prescription.nodeId]?.children.filter(c => c.node && c.node.type === 'modification') || [];
+
+                    modificationChildren.forEach(modChild => {
+                        // 查找条件节点
+                        const conditionLabel = modChild.label || '';
+                        if (conditionLabel) {
+                            thinkingText += `  ${conditionLabel}：${modChild.node.name}\n`;
+                        } else {
+                            thinkingText += `  ${modChild.node.name}\n`;
+                        }
+                    });
+                }
+
+                thinkingText += '\n';
             });
+
+            // 如果没有证候节点，使用简化格式
+            if (syndromes.length === 0) {
+                thinkingText += '【诊疗方案】\n\n';
+
+                // 列出所有节点
+                ['symptom', 'pathogenesis', 'prescription', 'modification'].forEach(type => {
+                    const typeNodes = nodesByType[type] || [];
+                    if (typeNodes.length > 0) {
+                        const typeName = {
+                            'symptom': '症状',
+                            'pathogenesis': '病机',
+                            'prescription': '方剂',
+                            'modification': '加减'
+                        }[type];
+
+                        thinkingText += `${typeName}：${typeNodes.map(n => n.name).join('、')}\n`;
+                    }
+                });
+            }
+
 
             // 更新到诊疗思路输入框
             const thinkingTextarea = document.getElementById('doctorThought');
+            console.log('📝 查找诊疗思路输入框:', thinkingTextarea ? '找到' : '未找到');
+
             if (thinkingTextarea) {
+                console.log('📄 生成的诊疗思路文本长度:', thinkingText.length);
+                console.log('📄 生成的诊疗思路内容:\n', thinkingText);
+
                 thinkingTextarea.value = thinkingText.trim();
-                console.log('✅ 诊疗思路已自动更新');
+                console.log('✅ 诊疗思路已写入输入框');
+                console.log('✅ 当前输入框内容:', thinkingTextarea.value);
 
                 // 添加视觉反馈
                 thinkingTextarea.style.borderColor = '#3b82f6';
@@ -4312,6 +4756,8 @@
                     thinkingTextarea.style.borderColor = '';
                     thinkingTextarea.style.boxShadow = '';
                 }, 1500);
+            } else {
+                console.error('❌ 找不到诊疗思路输入框！');
             }
         }
         
