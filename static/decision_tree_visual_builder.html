@@ -2213,67 +2213,79 @@
             // 2. 同步描述内容（如果描述改变）
             if (oldDescription !== newDescription) {
                 console.log('📝 尝试同步描述内容...');
+                console.log('  当前节点名称:', newName);
 
-                // 🔍 智能提取：如果描述是"方剂：XXX"格式，提取实际的处方名称
-                let extractedPrescriptionName = null;
-                const prescriptionMatch = newDescription.match(/^方剂[：:]\s*(.+)$/);
-                if (prescriptionMatch) {
-                    extractedPrescriptionName = prescriptionMatch[1].trim();
-                    console.log('  提取到处方名称:', extractedPrescriptionName);
-                }
+                // 🔍 智能处理描述内容
+                if (newDescription && newDescription.trim()) {
+                    // 场景1: 描述是"方剂：XXX"格式，提取处方名称
+                    const prescriptionMatch = newDescription.match(/^方剂[：:]\s*(.+)$/);
+                    if (prescriptionMatch) {
+                        const extractedName = prescriptionMatch[1].trim();
+                        console.log('  场景1: 提取到处方名称:', extractedName);
 
-                // 场景A: 提取到了处方名称，替换诊疗思路中的"处方：XXX"
-                if (extractedPrescriptionName && oldName) {
-                    const oldPattern = new RegExp(`(处方[：:]\\s*)${escapeRegExp(oldName)}(\\s|\\n|$)`, 'g');
-                    const newText = currentText.replace(oldPattern, `$1${extractedPrescriptionName}$2`);
-                    if (newText !== currentText) {
-                        currentText = newText;
-                        updated = true;
-                        console.log('✅ 处方名称已同步（从描述中提取）');
-                        console.log(`  旧: 处方：${oldName}`);
-                        console.log(`  新: 处方：${extractedPrescriptionName}`);
-                    }
-                }
-                // 场景B: 旧描述不为空，在文本中查找并替换
-                else if (oldDescription && oldDescription.trim() !== '') {
-                    const descRegex = new RegExp(escapeRegExp(oldDescription), 'g');
-                    const newText = currentText.replace(descRegex, newDescription);
-                    if (newText !== currentText) {
-                        currentText = newText;
-                        updated = true;
-                        console.log('✅ 节点描述已同步（完整替换模式）');
-                    }
-                }
-                // 场景B: 旧描述为空，新描述不为空，尝试在节点名称后插入
-                else if (newDescription && newDescription.trim() !== '') {
-                    // 智能插入：在节点名称后添加描述
-                    // 匹配格式：处方：处方名 → 处方：处方名\n  描述内容
-                    const insertPatterns = [
-                        // 模式1: "处方：XXX\n" → "处方：XXX\n  描述\n"
-                        {
-                            regex: new RegExp(`(处方[：:]\\s*${escapeRegExp(newName)})(\\s*\\n)`, 'g'),
-                            replacement: `$1\n  ${newDescription}$2`
-                        },
-                        // 模式2: "药物组成：XXX\n" → "药物组成：XXX\n  描述\n"
-                        {
-                            regex: new RegExp(`(药物组成[：:]\\s*${escapeRegExp(newName)})(\\s*\\n)`, 'g'),
-                            replacement: `$1\n  ${newDescription}$2`
-                        },
-                        // 模式3: 节点名称后直接添加（通用模式）
-                        {
-                            regex: new RegExp(`(${escapeRegExp(newName)})(\\s*\\n)`, 'g'),
-                            replacement: `$1\n  ${newDescription}$2`
-                        }
-                    ];
-
-                    for (const pattern of insertPatterns) {
-                        const newText = currentText.replace(pattern.regex, pattern.replacement);
+                        // 在诊疗思路中查找"处方：旧名称"并替换
+                        const oldPattern = new RegExp(`(处方[：:]\\s*)${escapeRegExp(oldName)}(\\s*(?:\\n|$))`, 'g');
+                        const newText = currentText.replace(oldPattern, `$1${extractedName}$2`);
                         if (newText !== currentText) {
                             currentText = newText;
                             updated = true;
-                            console.log('✅ 节点描述已插入（智能插入模式）');
-                            break;
+                            console.log('✅ 处方名称已同步');
                         }
+                    }
+                    // 场景2: 描述是普通内容（药物组成、剂量等），插入或更新
+                    else {
+                        console.log('  场景2: 处理描述内容，准备插入/更新');
+
+                        // 查找"处方：XXX"后面的内容
+                        // 匹配模式：处方：处方名\n(  旧描述内容\n)?
+                        const prescriptionLineRegex = new RegExp(
+                            `(处方[：:]\\s*${escapeRegExp(newName)})\\n(?:  [^\\n]+\\n)?`,
+                            'g'
+                        );
+
+                        // 替换为：处方：处方名\n  新描述内容\n
+                        const newText = currentText.replace(
+                            prescriptionLineRegex,
+                            `$1\n  ${newDescription}\n`
+                        );
+
+                        if (newText !== currentText) {
+                            currentText = newText;
+                            updated = true;
+                            console.log('✅ 处方描述已更新/插入');
+                        } else {
+                            // 如果没找到，尝试简单插入模式
+                            const simpleInsertRegex = new RegExp(
+                                `(处方[：:]\\s*${escapeRegExp(newName)})(\\s*\\n)`,
+                                'g'
+                            );
+                            const newText2 = currentText.replace(
+                                simpleInsertRegex,
+                                `$1\n  ${newDescription}$2`
+                            );
+                            if (newText2 !== currentText) {
+                                currentText = newText2;
+                                updated = true;
+                                console.log('✅ 处方描述已插入（简单模式）');
+                            }
+                        }
+                    }
+                }
+                // 场景3: 删除描述（新描述为空）
+                else if (!newDescription && oldDescription) {
+                    console.log('  场景3: 删除描述内容');
+
+                    // 查找并删除"处方：XXX\n  描述内容\n"中的描述行
+                    const removeDescRegex = new RegExp(
+                        `(处方[：:]\\s*${escapeRegExp(newName)})\\n  [^\\n]+\\n`,
+                        'g'
+                    );
+                    const newText = currentText.replace(removeDescRegex, '$1\n');
+
+                    if (newText !== currentText) {
+                        currentText = newText;
+                        updated = true;
+                        console.log('✅ 处方描述已删除');
                     }
                 }
             }
