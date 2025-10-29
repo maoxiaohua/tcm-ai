@@ -2212,14 +2212,36 @@
 
             // 2. 同步描述内容（如果描述改变）
             if (oldDescription !== newDescription) {
-                // 场景A: 旧描述不为空，在文本中查找并替换
-                if (oldDescription && oldDescription.trim() !== '') {
+                console.log('📝 尝试同步描述内容...');
+
+                // 🔍 智能提取：如果描述是"方剂：XXX"格式，提取实际的处方名称
+                let extractedPrescriptionName = null;
+                const prescriptionMatch = newDescription.match(/^方剂[：:]\s*(.+)$/);
+                if (prescriptionMatch) {
+                    extractedPrescriptionName = prescriptionMatch[1].trim();
+                    console.log('  提取到处方名称:', extractedPrescriptionName);
+                }
+
+                // 场景A: 提取到了处方名称，替换诊疗思路中的"处方：XXX"
+                if (extractedPrescriptionName && oldName) {
+                    const oldPattern = new RegExp(`(处方[：:]\\s*)${escapeRegExp(oldName)}(\\s|\\n|$)`, 'g');
+                    const newText = currentText.replace(oldPattern, `$1${extractedPrescriptionName}$2`);
+                    if (newText !== currentText) {
+                        currentText = newText;
+                        updated = true;
+                        console.log('✅ 处方名称已同步（从描述中提取）');
+                        console.log(`  旧: 处方：${oldName}`);
+                        console.log(`  新: 处方：${extractedPrescriptionName}`);
+                    }
+                }
+                // 场景B: 旧描述不为空，在文本中查找并替换
+                else if (oldDescription && oldDescription.trim() !== '') {
                     const descRegex = new RegExp(escapeRegExp(oldDescription), 'g');
                     const newText = currentText.replace(descRegex, newDescription);
                     if (newText !== currentText) {
                         currentText = newText;
                         updated = true;
-                        console.log('✅ 节点描述已同步（替换模式）');
+                        console.log('✅ 节点描述已同步（完整替换模式）');
                     }
                 }
                 // 场景B: 旧描述为空，新描述不为空，尝试在节点名称后插入
@@ -4813,12 +4835,7 @@
                 thinkingText += `处方：`;
                 const prescriptionChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'prescription') || [];
                 if (prescriptionChildren.length > 0) {
-                    const prescription = prescriptionChildren[0].node;
-                    thinkingText += prescription.name;
-                    // 如果有描述内容，添加到下一行
-                    if (prescription.description && prescription.description.trim()) {
-                        thinkingText += `\n  ${prescription.description}`;
-                    }
+                    thinkingText += prescriptionChildren[0].node.name;
                 }
                 thinkingText += '\n';
 
@@ -4846,7 +4863,7 @@
             if (syndromes.length === 0) {
                 thinkingText += '【诊疗方案】\n\n';
 
-                // 列出所有节点（包含名称和描述）
+                // 列出所有节点（只使用名称）
                 ['symptom', 'pathogenesis', 'prescription', 'modification'].forEach(type => {
                     const typeNodes = nodesByType[type] || [];
                     if (typeNodes.length > 0) {
@@ -4857,23 +4874,7 @@
                             'modification': '加减'
                         }[type];
 
-                        thinkingText += `${typeName}：`;
-
-                        // 对于处方类型，单独处理每个节点，包含描述
-                        if (type === 'prescription') {
-                            typeNodes.forEach((node, idx) => {
-                                if (idx > 0) thinkingText += '、';
-                                thinkingText += node.name;
-                                // 如果有描述，添加到括号中
-                                if (node.description && node.description.trim()) {
-                                    thinkingText += `（${node.description}）`;
-                                }
-                            });
-                            thinkingText += '\n';
-                        } else {
-                            // 其他类型保持原样
-                            thinkingText += `${typeNodes.map(n => n.name).join('、')}\n`;
-                        }
+                        thinkingText += `${typeName}：${typeNodes.map(n => n.name).join('、')}\n`;
                     }
                 });
             }
