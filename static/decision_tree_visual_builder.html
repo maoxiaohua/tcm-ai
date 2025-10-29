@@ -2332,8 +2332,8 @@
 
             let updated = false;
 
-            // 场景：证候 → 处方 的连接
-            if (fromNode.type === 'syndrome' && toNode.type === 'prescription') {
+            // 场景：证候 → 处方 的连接（支持 syndrome 和 syndrome_branch 类型）
+            if ((fromNode.type === 'syndrome' || fromNode.type === 'syndrome_branch') && toNode.type === 'prescription') {
                 console.log('📝 检测到证候-处方连接，尝试更新...');
 
                 // 构建正则：匹配 【证候X】证候名\n...处方：旧处方名
@@ -2343,20 +2343,133 @@
                 );
 
                 if (action === 'add') {
-                    // 添加连接：更新处方名称
-                    const newText = currentText.replace(syndromePattern, `$1${toNode.name}$3`);
+                    // 添加连接：增量追加处方（不覆盖已有处方）
+                    const newText = currentText.replace(syndromePattern, (match, prefix, currentPrescriptions, newline) => {
+                        const trimmed = currentPrescriptions.trim();
+                        console.log(`  当前处方列表: "${trimmed}"`);
+
+                        if (!trimmed) {
+                            // 当前为空，直接设置
+                            console.log(`  ➕ 设置新处方: ${toNode.name}`);
+                            return `${prefix}${toNode.name}${newline}`;
+                        } else if (!trimmed.includes(toNode.name)) {
+                            // 已有处方，且不包含当前处方名，追加（用顿号分隔）
+                            console.log(`  ➕ 追加新处方: ${trimmed} → ${trimmed}、${toNode.name}`);
+                            return `${prefix}${trimmed}、${toNode.name}${newline}`;
+                        } else {
+                            // 已包含该处方，不重复添加
+                            console.log(`  ⚠️ 处方已存在，跳过: ${toNode.name}`);
+                            return match;
+                        }
+                    });
                     if (newText !== currentText) {
                         currentText = newText;
                         updated = true;
-                        console.log(`✅ 已更新证候"${fromNode.name}"的处方为"${toNode.name}"`);
+                        console.log(`✅ 已更新证候"${fromNode.name}"的处方（增量追加）`);
                     }
                 } else if (action === 'delete') {
-                    // 删除连接：清空处方（但保留"处方："标签）
-                    const newText = currentText.replace(syndromePattern, '$1$3');
+                    // 删除连接：智能删除指定处方（保留其他处方）
+                    const newText = currentText.replace(syndromePattern, (match, prefix, currentPrescriptions, newline) => {
+                        const trimmed = currentPrescriptions.trim();
+                        console.log(`  当前处方列表: "${trimmed}"`);
+
+                        if (!trimmed) {
+                            // 当前已为空，无需删除
+                            console.log(`  ℹ️ 处方列表已为空，无需删除`);
+                            return match;
+                        }
+
+                        // 分割处方列表（支持顿号、逗号、空格等分隔符）
+                        const prescriptionList = trimmed.split(/[、，,\s]+/).filter(p => p.trim());
+                        console.log(`  解析出的处方列表:`, prescriptionList);
+
+                        // 移除目标处方
+                        const updatedList = prescriptionList.filter(p => p.trim() !== toNode.name);
+                        console.log(`  删除"${toNode.name}"后的列表:`, updatedList);
+
+                        // 重新拼接（用顿号）
+                        const newPrescriptions = updatedList.join('、');
+                        console.log(`  ➖ 删除处方: ${trimmed} → ${newPrescriptions}`);
+
+                        return `${prefix}${newPrescriptions}${newline}`;
+                    });
                     if (newText !== currentText) {
                         currentText = newText;
                         updated = true;
-                        console.log(`✅ 已清空证候"${fromNode.name}"的处方`);
+                        console.log(`✅ 已从证候"${fromNode.name}"的处方列表中移除"${toNode.name}"`);
+                    }
+                }
+            }
+
+            // 场景：处方 → 证候 的连接（反向连接，需要交换节点）
+            else if (fromNode.type === 'prescription' && (toNode.type === 'syndrome' || toNode.type === 'syndrome_branch')) {
+                console.log('🔄 检测到反向连接（处方→证候），自动交换节点处理...');
+
+                // 交换节点，按 证候→处方 的逻辑处理
+                const actualSyndrome = toNode;
+                const actualPrescription = fromNode;
+
+                // 构建正则：匹配 【证候X】证候名\n...处方：旧处方名
+                const syndromePattern = new RegExp(
+                    `(【证候\\d+】${escapeRegExp(actualSyndrome.name)}[\\s\\S]*?处方[：:]\\s*)([^\\n]*)(\\n)`,
+                    'g'
+                );
+
+                if (action === 'add') {
+                    // 添加连接：增量追加处方（不覆盖已有处方）
+                    const newText = currentText.replace(syndromePattern, (match, prefix, currentPrescriptions, newline) => {
+                        const trimmed = currentPrescriptions.trim();
+                        console.log(`  当前处方列表: "${trimmed}"`);
+
+                        if (!trimmed) {
+                            // 当前为空，直接设置
+                            console.log(`  ➕ 设置新处方: ${actualPrescription.name}`);
+                            return `${prefix}${actualPrescription.name}${newline}`;
+                        } else if (!trimmed.includes(actualPrescription.name)) {
+                            // 已有处方，且不包含当前处方名，追加（用顿号分隔）
+                            console.log(`  ➕ 追加新处方: ${trimmed} → ${trimmed}、${actualPrescription.name}`);
+                            return `${prefix}${trimmed}、${actualPrescription.name}${newline}`;
+                        } else {
+                            // 已包含该处方，不重复添加
+                            console.log(`  ⚠️ 处方已存在，跳过: ${actualPrescription.name}`);
+                            return match;
+                        }
+                    });
+                    if (newText !== currentText) {
+                        currentText = newText;
+                        updated = true;
+                        console.log(`✅ 已更新证候"${actualSyndrome.name}"的处方（增量追加）`);
+                    }
+                } else if (action === 'delete') {
+                    // 删除连接：智能删除指定处方（保留其他处方）
+                    const newText = currentText.replace(syndromePattern, (match, prefix, currentPrescriptions, newline) => {
+                        const trimmed = currentPrescriptions.trim();
+                        console.log(`  当前处方列表: "${trimmed}"`);
+
+                        if (!trimmed) {
+                            // 当前已为空，无需删除
+                            console.log(`  ℹ️ 处方列表已为空，无需删除`);
+                            return match;
+                        }
+
+                        // 分割处方列表（支持顿号、逗号、空格等分隔符）
+                        const prescriptionList = trimmed.split(/[、，,\s]+/).filter(p => p.trim());
+                        console.log(`  解析出的处方列表:`, prescriptionList);
+
+                        // 移除目标处方
+                        const updatedList = prescriptionList.filter(p => p.trim() !== actualPrescription.name);
+                        console.log(`  删除"${actualPrescription.name}"后的列表:`, updatedList);
+
+                        // 重新拼接（用顿号）
+                        const newPrescriptions = updatedList.join('、');
+                        console.log(`  ➖ 删除处方: ${trimmed} → ${newPrescriptions}`);
+
+                        return `${prefix}${newPrescriptions}${newline}`;
+                    });
+                    if (newText !== currentText) {
+                        currentText = newText;
+                        updated = true;
+                        console.log(`✅ 已从证候"${actualSyndrome.name}"的处方列表中移除"${actualPrescription.name}"`);
                     }
                 }
             }
@@ -4912,11 +5025,13 @@
                 }
                 thinkingText += '\n';
 
-                // 处方
+                // 处方（支持多个处方，用顿号分隔）
                 thinkingText += `处方：`;
                 const prescriptionChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'prescription') || [];
                 if (prescriptionChildren.length > 0) {
-                    thinkingText += prescriptionChildren[0].node.name;
+                    // 提取所有处方名称并用顿号连接
+                    const prescriptionNames = prescriptionChildren.map(c => c.node.name);
+                    thinkingText += prescriptionNames.join('、');
                 }
                 thinkingText += '\n';
 
