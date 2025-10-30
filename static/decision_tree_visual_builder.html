@@ -791,7 +791,7 @@
             </div>
 
             <!-- AI功能 -->
-            <div class="section-title">🤖</div>
+            <div class="section-title" style="display: none;">🤖</div>
 
             <!-- AI状态显示 -->
             <div style="margin-bottom: 15px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; display: none;">
@@ -1468,19 +1468,19 @@
                 });
                 document.addEventListener('click', function(e) {
                     console.log('Global click detected, target:', e.target);
-                    
+
                     // 检查点击目标
                     const isContextMenuClick = e.target.closest('.context-menu');
                     const isNodeClick = e.target.closest('.node');
                     const canvas = document.getElementById('canvas');
                     const isCanvasClick = canvas && (e.target === canvas || canvas.contains(e.target));
-                    
+
                     // 隐藏右键菜单（除非点击菜单本身）
                     if (!isContextMenuClick) {
                         console.log('Hiding context menu due to click outside menu');
                         hideContextMenu();
                     }
-                    
+
                     // 清除节点选择（如果点击画布空白区域）
                     if (isCanvasClick && !isNodeClick && !isContextMenuClick) {
                         console.log('Clearing node selection due to canvas click');
@@ -1491,7 +1491,29 @@
                         hideSelectedNodeInfo();
                     }
                 });
-                
+
+                // ✅ Phase 2: 监听诊疗思路文本框的变化
+                const doctorThoughtTextarea = document.getElementById('doctorThought');
+                if (doctorThoughtTextarea) {
+                    let thinkingModifiedTimer;
+                    window.thinkingModifiedByUser = false;
+
+                    doctorThoughtTextarea.addEventListener('input', function() {
+                        // 只有不是程序自动同步时才标记为用户修改
+                        if (!isSyncingToThinking) {
+                            // 防抖：用户停止输入500ms后才显示提示
+                            clearTimeout(thinkingModifiedTimer);
+                            thinkingModifiedTimer = setTimeout(() => {
+                                window.thinkingModifiedByUser = true;
+                                showApplyToCanvasButton();
+                                console.log('💡 检测到用户修改了诊疗思路');
+                            }, 500);
+                        }
+                    });
+
+                    console.log('✅ 诊疗思路文本框监听已启动');
+                }
+
                 console.log('事件监听器初始化完成');
             } catch (error) {
                 console.error('事件监听器初始化失败:', error);
@@ -2170,17 +2192,26 @@
 
         // 增量同步：节点名称和描述修改时，智能更新诊疗思路中对应的文字
         function syncNodeToThinking(oldName, oldDescription, newName, newDescription) {
+            // ✅ 防止循环触发：如果正在执行反向同步，则跳过
+            if (isSyncingToCanvas) {
+                console.log('🔄 正在执行反向同步，跳过正向同步');
+                return false;
+            }
+
             const thinkingTextarea = document.getElementById('doctorThought');
             if (!thinkingTextarea) {
                 console.log('⚠️ 未找到诊疗思路输入框');
-                return;
+                return false;
             }
 
             let currentText = thinkingTextarea.value;
             if (!currentText || currentText.trim() === '') {
                 console.log('💡 诊疗思路为空，无需同步');
-                return;
+                return false;
             }
+
+            // ✅ 设置正向同步标志
+            isSyncingToThinking = true;
 
             console.log('🔄 开始增量同步节点内容');
             console.log('  旧名称:', oldName);
@@ -2302,8 +2333,13 @@
                     thinkingTextarea.style.borderColor = '';
                     thinkingTextarea.style.boxShadow = '';
                 }, 1000);
+
+                isSyncingToThinking = false; // ✅ 清除标志
+                return true; // ✅ 同步成功
             } else {
                 console.log('💡 诊疗思路中未找到可同步的内容');
+                isSyncingToThinking = false; // ✅ 清除标志
+                return false; // ⚠️ 同步失败
             }
         }
 
@@ -2311,6 +2347,384 @@
         function escapeRegExp(string) {
             return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
+
+        // ==================== Phase 2: 反向同步功能 ====================
+        // 全局标志位：防止循环触发
+        let isSyncingToCanvas = false;   // 正在执行：文本 → 画布
+        let isSyncingToThinking = false; // 正在执行：画布 → 文本
+
+        /**
+         * 文本解析器：将诊疗思路文本解析为结构化数据
+         * @param {string} text - 诊疗思路文本
+         * @returns {Object} 解析后的结构化数据
+         */
+        function parseThinkingText(text) {
+            console.log('📖 开始解析诊疗思路文本...');
+
+            if (!text || text.trim() === '') {
+                console.log('⚠️ 文本为空');
+                return null;
+            }
+
+            const result = {
+                disease: null,
+                syndromes: []
+            };
+
+            // 1. 提取主病信息
+            const diseaseMatch = text.match(/主病[：:]\s*(.+?)(?:\n|$)/);
+            if (diseaseMatch) {
+                result.disease = {
+                    name: diseaseMatch[1].trim()
+                };
+                console.log('✅ 提取主病:', result.disease.name);
+            }
+
+            // 2. 按【证候X】分块提取证候信息
+            const syndromePattern = /【证候\d+】(.+?)(?=【证候\d+】|$)/gs;
+            const syndromeMatches = [...text.matchAll(syndromePattern)];
+
+            console.log(`📋 找到 ${syndromeMatches.length} 个证候块`);
+
+            syndromeMatches.forEach((match, index) => {
+                const syndromeBlock = match[0];
+                const syndromeName = match[1].split('\n')[0].trim();
+
+                const syndrome = {
+                    index: index,
+                    name: syndromeName,
+                    symptom: '',
+                    pathogenesis: '',
+                    prescriptions: [],
+                    modifications: []
+                };
+
+                // 提取症状
+                const symptomMatch = syndromeBlock.match(/症状[：:]\s*(.+?)(?:\n|$)/);
+                if (symptomMatch) {
+                    syndrome.symptom = symptomMatch[1].trim();
+                }
+
+                // 提取病机
+                const pathogenesisMatch = syndromeBlock.match(/病机[：:]\s*(.+?)(?:\n|$)/);
+                if (pathogenesisMatch) {
+                    syndrome.pathogenesis = pathogenesisMatch[1].trim();
+                }
+
+                // 提取处方（可能有多个，用顿号分隔）
+                const prescriptionMatch = syndromeBlock.match(/处方[：:]\s*(.+?)(?:\n|$)/);
+                if (prescriptionMatch) {
+                    const prescriptionText = prescriptionMatch[1].trim();
+                    syndrome.prescriptions = prescriptionText.split('、').map(p => p.trim()).filter(p => p);
+                }
+
+                // 提取加减（多行，以空格开头）
+                const modificationPattern = /加减[：:][\s\S]*?\n((?:  .+?\n?)+)/;
+                const modificationMatch = syndromeBlock.match(modificationPattern);
+                if (modificationMatch) {
+                    const modLines = modificationMatch[1].split('\n').filter(l => l.trim());
+                    syndrome.modifications = modLines.map(l => l.trim());
+                }
+
+                result.syndromes.push(syndrome);
+                console.log(`✅ 解析证候 ${index + 1}:`, syndrome.name);
+            });
+
+            console.log('📊 解析完成:', result);
+            return result;
+        }
+
+        /**
+         * 差异检测：比较解析后的数据与当前画布节点
+         * @param {Object} parsedData - 解析后的数据
+         * @param {Array} currentNodes - 当前画布节点
+         * @returns {Object} 差异信息
+         */
+        function detectDifferences(parsedData, currentNodes) {
+            console.log('🔍 开始检测差异...');
+
+            const changes = {
+                toUpdate: [],  // 需要更新的节点
+                summary: ''    // 变更摘要
+            };
+
+            if (!parsedData) {
+                return changes;
+            }
+
+            // ✅ 构建节点关系图（用于查找子节点）
+            const nodeMap = {};
+            currentNodes.forEach(node => {
+                nodeMap[node.id] = {
+                    node: node,
+                    children: [],
+                    parents: []
+                };
+            });
+
+            // 添加连接关系
+            connections.forEach(conn => {
+                if (nodeMap[conn.from] && nodeMap[conn.to]) {
+                    nodeMap[conn.from].children.push({
+                        nodeId: conn.to,
+                        node: currentNodes.find(n => n.id === conn.to),
+                        label: conn.label || ''
+                    });
+                    nodeMap[conn.to].parents.push(conn.from);
+                }
+            });
+
+            // 1. 检查主病节点
+            const diseaseNode = currentNodes.find(n => n.type === 'disease');
+            if (diseaseNode && parsedData.disease) {
+                if (diseaseNode.name !== parsedData.disease.name) {
+                    changes.toUpdate.push({
+                        nodeId: diseaseNode.id,
+                        type: 'disease',
+                        oldName: diseaseNode.name,
+                        newName: parsedData.disease.name,
+                        field: 'name'
+                    });
+                    console.log(`📝 主病名称变化: ${diseaseNode.name} → ${parsedData.disease.name}`);
+                }
+            }
+
+            // 2. 检查证候节点（按位置顺序匹配）
+            const syndromeNodes = currentNodes.filter(n =>
+                n.type === 'syndrome' || n.type === 'syndrome_branch'
+            );
+
+            parsedData.syndromes.forEach((parsedSyndrome, index) => {
+                if (index < syndromeNodes.length) {
+                    const node = syndromeNodes[index];
+
+                    // 检查名称变化
+                    if (node.name !== parsedSyndrome.name) {
+                        changes.toUpdate.push({
+                            nodeId: node.id,
+                            type: 'syndrome',
+                            oldName: node.name,
+                            newName: parsedSyndrome.name,
+                            field: 'name'
+                        });
+                        console.log(`📝 证候${index + 1}名称变化: ${node.name} → ${parsedSyndrome.name}`);
+                    }
+
+                    // 检查描述变化（症状、病机）
+                    const newDescription = [];
+                    if (parsedSyndrome.name) newDescription.push(parsedSyndrome.name);
+                    if (parsedSyndrome.symptom) newDescription.push(`症状：${parsedSyndrome.symptom}`);
+                    if (parsedSyndrome.pathogenesis) newDescription.push(`病机：${parsedSyndrome.pathogenesis}`);
+                    const newDescText = newDescription.join('。');
+
+                    if (node.description !== newDescText) {
+                        changes.toUpdate.push({
+                            nodeId: node.id,
+                            type: 'syndrome',
+                            oldDescription: node.description,
+                            newDescription: newDescText,
+                            field: 'description'
+                        });
+                        console.log(`📝 证候${index + 1}描述变化`);
+                    }
+
+                    // 3. 检查处方节点（通过连接关系查找）
+                    const prescriptionChildren = nodeMap[node.id]?.children.filter(
+                        c => c.node && c.node.type === 'prescription'
+                    ) || [];
+
+                    parsedSyndrome.prescriptions.forEach((prescName, pIndex) => {
+                        if (pIndex < prescriptionChildren.length) {
+                            const prescNode = prescriptionChildren[pIndex].node;
+                            if (prescNode.name !== prescName) {
+                                changes.toUpdate.push({
+                                    nodeId: prescNode.id,
+                                    type: 'prescription',
+                                    oldName: prescNode.name,
+                                    newName: prescName,
+                                    field: 'name'
+                                });
+                                console.log(`📝 处方名称变化: ${prescNode.name} → ${prescName}`);
+                            }
+                        }
+                    });
+                }
+            });
+
+            // 生成摘要
+            const updateCount = changes.toUpdate.length;
+            if (updateCount > 0) {
+                changes.summary = `将更新 ${updateCount} 个节点`;
+            } else {
+                changes.summary = '未检测到变化';
+            }
+
+            console.log('📊 差异检测完成:', changes);
+            return changes;
+        }
+
+        /**
+         * 应用变更到画布
+         * @param {Object} changes - 变更信息
+         */
+        function applyChangesToCanvas(changes) {
+            console.log('⬅️ 开始应用变更到画布...');
+
+            if (!changes || changes.toUpdate.length === 0) {
+                console.log('💡 没有需要应用的变更');
+                return;
+            }
+
+            // 设置标志，防止循环触发
+            isSyncingToCanvas = true;
+
+            try {
+                // 应用所有更新
+                changes.toUpdate.forEach(change => {
+                    const node = nodes.find(n => n.id === change.nodeId);
+                    if (!node) {
+                        console.warn(`⚠️ 未找到节点: ${change.nodeId}`);
+                        return;
+                    }
+
+                    if (change.field === 'name') {
+                        node.name = change.newName;
+                        console.log(`✅ 更新节点名称: ${change.oldName} → ${change.newName}`);
+                    } else if (change.field === 'description') {
+                        node.description = change.newDescription;
+                        console.log(`✅ 更新节点描述`);
+                    }
+
+                    // 更新画布显示
+                    updateNodeDisplay(node);
+                });
+
+                // 重新绘制连接线
+                drawConnections();
+
+                console.log('🎉 变更应用完成');
+                showResult('成功', `✅ 已应用文本修改到画布（${changes.toUpdate.length}个节点）`, 'success');
+
+            } catch (error) {
+                console.error('❌ 应用变更时出错:', error);
+                showResult('错误', '❌ 应用变更失败: ' + error.message, 'error');
+            } finally {
+                isSyncingToCanvas = false;
+            }
+        }
+
+        /**
+         * 显示"应用到画布"提示按钮
+         */
+        function showApplyToCanvasButton() {
+            // 检查是否已存在提示条
+            if (document.getElementById('applyToCanvasBar')) {
+                return;
+            }
+
+            const thinkingTextarea = document.getElementById('doctorThought');
+            if (!thinkingTextarea) return;
+
+            // 创建提示条
+            const bar = document.createElement('div');
+            bar.id = 'applyToCanvasBar';
+            bar.style.cssText = `
+                position: relative;
+                margin-bottom: 10px;
+                padding: 10px 15px;
+                background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+                border: 1px solid #f59e0b;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+            `;
+
+            bar.innerHTML = `
+                <span style="flex: 1; color: #92400e; font-size: 14px;">
+                    💡 检测到诊疗思路已修改
+                </span>
+                <button onclick="applyTextToCanvas()" style="
+                    padding: 6px 16px;
+                    background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 13px;
+                    font-weight: 600;
+                    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+                ">
+                    ⬅️ 应用到画布
+                </button>
+                <button onclick="hideApplyToCanvasButton()" style="
+                    padding: 6px 12px;
+                    background: transparent;
+                    color: #92400e;
+                    border: 1px solid #d97706;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 13px;
+                ">
+                    ✕
+                </button>
+            `;
+
+            // 插入到诊疗思路输入框之前
+            thinkingTextarea.parentNode.insertBefore(bar, thinkingTextarea);
+        }
+
+        /**
+         * 隐藏"应用到画布"提示按钮
+         */
+        window.hideApplyToCanvasButton = function() {
+            const bar = document.getElementById('applyToCanvasBar');
+            if (bar) {
+                bar.remove();
+            }
+            thinkingModifiedByUser = false;
+        };
+
+        /**
+         * 应用文本到画布（入口函数）
+         */
+        window.applyTextToCanvas = function() {
+            console.log('🚀 用户触发：应用文本到画布');
+
+            const thinkingTextarea = document.getElementById('doctorThought');
+            if (!thinkingTextarea) {
+                showResult('错误', '❌ 未找到诊疗思路文本框', 'error');
+                return;
+            }
+
+            const text = thinkingTextarea.value;
+
+            // 1. 解析文本
+            const parsedData = parseThinkingText(text);
+            if (!parsedData) {
+                showResult('错误', '❌ 文本解析失败，请检查格式', 'error');
+                return;
+            }
+
+            // 2. 检测差异
+            const changes = detectDifferences(parsedData, nodes);
+            if (changes.toUpdate.length === 0) {
+                showResult('提示', '💡 未检测到需要更新的内容', 'info');
+                hideApplyToCanvasButton();
+                return;
+            }
+
+            // 3. 显示确认对话框
+            const confirmMessage = `${changes.summary}\n\n确定要应用这些修改吗？`;
+            if (confirm(confirmMessage)) {
+                // 4. 应用变更
+                applyChangesToCanvas(changes);
+                hideApplyToCanvasButton();
+            }
+        };
+
+        // ==================== Phase 2 结束 ====================
 
         // 连接关系同步：智能更新证候对应的处方
         function syncConnectionToThinking(fromNode, toNode, action) {
@@ -4473,15 +4887,35 @@
         function updateNodeDisplay(node) {
             const nodeElement = document.getElementById(node.id);
             if (!nodeElement) return;
-            
+
+            // 🆕 更新节点标题（节点名称）
+            const titleDiv = nodeElement.querySelector('.node-title');
+            if (titleDiv) {
+                // 保留图标，只更新文字
+                const typeIcons = {
+                    'disease': '🔬',
+                    'four_diagnosis': '👁',
+                    'symptom': '📋',
+                    'pathogenesis': '⚡',
+                    'syndrome': '🎯',
+                    'syndrome_branch': '🎯',
+                    'principle': '📏',
+                    'prescription': '📝',
+                    'modification': '🔄',
+                    'prognosis': '💚'
+                };
+                const nodeIcon = typeIcons[node.type] || '📄';
+                titleDiv.innerHTML = `<span class="node-type-icon">${nodeIcon}</span>${node.name}`;
+            }
+
             const contentDiv = nodeElement.querySelector('.node-content');
             if (!contentDiv) return;
-            
+
             // 清理描述内容，移除已有的相关症状HTML
             let cleanDescription = node.description || '';
             // 移除之前添加的相关症状HTML，防止重复
             cleanDescription = cleanDescription.replace(/<div class="related-symptoms">[\s\S]*?<\/div>/g, '');
-            
+
             // 重新构建内容
             let nodeContent = cleanDescription;
             if (node.relatedSymptoms && node.relatedSymptoms.length > 0) {
@@ -4491,7 +4925,7 @@
                         <div class="symptoms-list">${node.relatedSymptoms.join(', ')}</div>
                     </div>`;
             }
-            
+
             contentDiv.innerHTML = nodeContent;
             
             // 关键修复：确保传递的是nodes数组中的实际节点对象
@@ -4575,17 +5009,17 @@
                 if (element) {
                     element.remove();
                 }
-                
+
                 // 如果删除的是选中节点，清除选择
                 if (selectedNode && selectedNode.id === nodeId) {
                     selectedNode = null;
                     hideSelectedNodeInfo();
                 }
-                
+
                 // 重绘连接线
                 drawConnections();
                 updateCanvas();
-                
+
                 showResult('成功', '✅ 节点已删除', 'success');
             }
         }
@@ -4601,19 +5035,19 @@
                 x: parentNode.x + 200,
                 y: parentNode.y + 150
             };
-            
+
             nodes.push(newNode);
             renderNode(newNode);
-            
+
             // 创建连接
             connections.push({
                 from: parentNode.id,
                 to: newNode.id
             });
-            
+
             drawConnections();
             updateCanvas();
-            
+
             // 自动选中新节点以便编辑
             selectNode(newNode);
             editNode(newNode);
@@ -4630,19 +5064,19 @@
                 x: parentNode.x + 250,
                 y: parentNode.y
             };
-            
+
             nodes.push(newNode);
             renderNode(newNode);
-            
+
             // 创建连接
             connections.push({
                 from: parentNode.id,
                 to: newNode.id
             });
-            
+
             drawConnections();
             updateCanvas();
-            
+
             // 自动选中新节点以便编辑
             selectNode(newNode);
             editNode(newNode);
@@ -4907,7 +5341,16 @@
                 showResult('成功', '✅ 节点信息已更新', 'success');
 
                 // ✨ 增量同步：更新诊疗思路中对应的文字
-                syncNodeToThinking(oldName, oldDescription, newName, newDescription);
+                const syncSuccess = syncNodeToThinking(oldName, oldDescription, newName, newDescription);
+
+                // ✅ 如果增量同步失败，自动执行完整重新生成
+                if (!syncSuccess) {
+                    console.log('⚠️ 增量同步未找到匹配内容，执行完整重新生成...');
+                    setTimeout(() => {
+                        updateThinkingProcessFromNodes();
+                        showResult('提示', '✅ 已根据画布节点重新生成诊疗思路', 'info');
+                    }, 500);
+                }
 
                 // 移除ESC监听器
                 document.removeEventListener('keydown', escapeHandler);
@@ -4937,6 +5380,12 @@
 
         // ✨ 新增：从节点内容自动生成/更新诊疗思路（专业中医格式）
         function updateThinkingProcessFromNodes() {
+            // ✅ 防止循环触发：如果正在执行反向同步，则跳过
+            if (isSyncingToCanvas) {
+                console.log('🔄 正在执行反向同步，跳过完整重新生成');
+                return;
+            }
+
             console.log('🔄 updateThinkingProcessFromNodes 函数被调用');
             console.log('📦 当前节点数:', nodes.length);
             console.log('🔗 当前连接数:', connections.length);
@@ -4945,6 +5394,9 @@
                 console.log('⚠️ 没有节点，跳过更新');
                 return;
             }
+
+            // ✅ 设置正向同步标志
+            isSyncingToThinking = true;
 
             console.log('🔄 开始生成专业中医格式的诊疗思路...');
 
@@ -4991,75 +5443,182 @@
             if (nodesByType['disease'] && nodesByType['disease'].length > 0) {
                 const disease = nodesByType['disease'][0];
                 thinkingText += `主病：${disease.name}\n`;
-                thinkingText += `主证：\n\n`;
+
+                // ✅ 修复：如果疾病节点有详细描述，也使用它
+                if (disease.description && disease.description.trim()) {
+                    console.log('✅ 使用疾病节点的详细描述:', disease.description);
+                    thinkingText += disease.description + '\n\n';
+                } else {
+                    thinkingText += `主证：\n\n`;
+                }
             }
 
             // 2. 遍历证候节点，生成每个证候块
-            const syndromes = nodesByType['syndrome'] || [];
+            // ✅ 支持 syndrome 和 syndrome_branch 两种类型
+            const syndromes = [
+                ...(nodesByType['syndrome'] || []),
+                ...(nodesByType['syndrome_branch'] || [])
+            ];
             syndromes.forEach((syndrome, index) => {
                 thinkingText += `【证候${index + 1}】${syndrome.name}\n`;
 
-                // 病机
-                thinkingText += `病机：`;
-                const pathogenesisChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'pathogenesis') || [];
-                if (pathogenesisChildren.length > 0) {
-                    thinkingText += pathogenesisChildren.map(c => c.node.name).join('、');
-                }
-                thinkingText += '\n';
+                // ✅ 修复：优先使用节点的详细描述，避免数据丢失
+                if (syndrome.description && syndrome.description.trim()) {
+                    // 节点有详细描述 - 直接使用（保留用户手动编辑的所有内容）
+                    console.log(`✅ 使用证候 ${index + 1} 的详细描述:`, syndrome.description);
 
-                // 症见
-                thinkingText += `症见：`;
-                const symptomChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'symptom') || [];
-                if (symptomChildren.length > 0) {
-                    thinkingText += symptomChildren.map(c => c.node.name).join('、');
-                } else {
-                    thinkingText += syndrome.name; // 如果没有症状子节点，使用证候名称
-                }
-                thinkingText += '\n';
+                    // 智能格式化描述内容
+                    let description = syndrome.description;
 
-                // 舌脉
-                thinkingText += `舌脉：`;
-                const fourDiagnosisChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'four_diagnosis') || [];
-                if (fourDiagnosisChildren.length > 0) {
-                    thinkingText += fourDiagnosisChildren.map(c => c.node.name).join('、');
-                }
-                thinkingText += '\n';
-
-                // 处方（支持多个处方，用顿号分隔）
-                thinkingText += `处方：`;
-                const prescriptionChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'prescription') || [];
-                if (prescriptionChildren.length > 0) {
-                    // 提取所有处方名称并用顿号连接
-                    const prescriptionNames = prescriptionChildren.map(c => c.node.name);
-                    thinkingText += prescriptionNames.join('、');
-                }
-                thinkingText += '\n';
-
-                // 加减
-                thinkingText += `加减：\n`;
-                if (prescriptionChildren.length > 0) {
-                    const prescription = prescriptionChildren[0];
-                    const modificationChildren = nodeMap[prescription.nodeId]?.children.filter(c => c.node && c.node.type === 'modification') || [];
-
-                    modificationChildren.forEach(modChild => {
-                        // 查找条件节点
-                        const conditionLabel = modChild.label || '';
-                        if (conditionLabel) {
-                            thinkingText += `  ${conditionLabel}：${modChild.node.name}\n`;
-                        } else {
-                            thinkingText += `  ${modChild.node.name}\n`;
+                    // 如果描述包含"。"分隔符,进行格式化
+                    if (description.includes('。')) {
+                        // 分割并清理每个部分
+                        const parts = description.split('。').filter(p => p.trim());
+                        // 跳过第一个部分(通常是重复的节点名称)
+                        const contentParts = parts.slice(1);
+                        if (contentParts.length > 0) {
+                            description = contentParts.join('\n');
+                        } else if (parts.length > 0) {
+                            description = parts[0];
                         }
-                    });
-                }
+                    }
 
-                thinkingText += '\n';
+                    thinkingText += description + '\n';
+
+                    // ✅ 查找关联的处方节点
+                    const prescriptionChildren = nodeMap[syndrome.id]?.children.filter(
+                        c => c.node && c.node.type === 'prescription'
+                    ) || [];
+
+                    if (prescriptionChildren.length > 0) {
+                        thinkingText += `处方：${prescriptionChildren.map(c => c.node.name).join('、')}\n`;
+
+                        // ✅ 输出每个处方的详细内容（方剂组成、用量等）
+                        prescriptionChildren.forEach(prescChild => {
+                            if (prescChild.node.description && prescChild.node.description.trim()) {
+                                // 智能处理描述格式
+                                let prescDesc = prescChild.node.description.trim();
+
+                                // 如果描述是"方剂：XXX"格式，跳过（避免重复）
+                                if (prescDesc.match(/^方剂[：:]/)) {
+                                    return;
+                                }
+
+                                // 添加缩进，使其成为处方的子内容
+                                const indentedDesc = prescDesc.split('\n').map(line => `  ${line}`).join('\n');
+                                thinkingText += indentedDesc + '\n';
+                            }
+                        });
+
+                        // ✅ 输出加减内容（查找处方节点的 modification 子节点）
+                        thinkingText += `加减：\n`;
+                        prescriptionChildren.forEach(prescChild => {
+                            const modificationChildren = nodeMap[prescChild.nodeId]?.children.filter(
+                                c => c.node && c.node.type === 'modification'
+                            ) || [];
+
+                            modificationChildren.forEach(modChild => {
+                                // 输出加减条件和内容
+                                if (modChild.node.description && modChild.node.description.trim()) {
+                                    // 使用描述内容（通常包含"若...：加/减..."格式）
+                                    thinkingText += `  ${modChild.node.description}\n`;
+                                } else if (modChild.label) {
+                                    // 使用连接标签 + 节点名称
+                                    thinkingText += `  ${modChild.label}：${modChild.node.name}\n`;
+                                } else {
+                                    // 只有节点名称
+                                    thinkingText += `  ${modChild.node.name}\n`;
+                                }
+                            });
+                        });
+                    }
+
+                    thinkingText += '\n';
+                } else {
+                    // 节点无描述 - 从子节点构建（原有逻辑）
+                    console.log(`📋 证候 ${index + 1} 无描述，从子节点构建`);
+
+                    // 病机
+                    thinkingText += `病机：`;
+                    const pathogenesisChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'pathogenesis') || [];
+                    if (pathogenesisChildren.length > 0) {
+                        thinkingText += pathogenesisChildren.map(c => c.node.name).join('、');
+                    }
+                    thinkingText += '\n';
+
+                    // 症见
+                    thinkingText += `症见：`;
+                    const symptomChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'symptom') || [];
+                    if (symptomChildren.length > 0) {
+                        thinkingText += symptomChildren.map(c => c.node.name).join('、');
+                    } else {
+                        thinkingText += syndrome.name; // 如果没有症状子节点，使用证候名称
+                    }
+                    thinkingText += '\n';
+
+                    // 舌脉
+                    thinkingText += `舌脉：`;
+                    const fourDiagnosisChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'four_diagnosis') || [];
+                    if (fourDiagnosisChildren.length > 0) {
+                        thinkingText += fourDiagnosisChildren.map(c => c.node.name).join('、');
+                    }
+                    thinkingText += '\n';
+
+                    // 处方（支持多个处方，用顿号分隔）
+                    thinkingText += `处方：`;
+                    const prescriptionChildren = nodeMap[syndrome.id]?.children.filter(c => c.node && c.node.type === 'prescription') || [];
+                    if (prescriptionChildren.length > 0) {
+                        // 提取所有处方名称并用顿号连接
+                        const prescriptionNames = prescriptionChildren.map(c => c.node.name);
+                        thinkingText += prescriptionNames.join('、');
+                        thinkingText += '\n';
+
+                        // ✅ 输出每个处方的详细内容（方剂组成、用量等）
+                        prescriptionChildren.forEach(prescChild => {
+                            if (prescChild.node.description && prescChild.node.description.trim()) {
+                                // 智能处理描述格式
+                                let prescDesc = prescChild.node.description.trim();
+
+                                // 如果描述是"方剂：XXX"格式，跳过（避免重复）
+                                if (prescDesc.match(/^方剂[：:]/)) {
+                                    return;
+                                }
+
+                                // 添加缩进，使其成为处方的子内容
+                                const indentedDesc = prescDesc.split('\n').map(line => `  ${line}`).join('\n');
+                                thinkingText += indentedDesc + '\n';
+                            }
+                        });
+                    } else {
+                        thinkingText += '\n';
+                    }
+
+                    // 加减
+                    thinkingText += `加减：\n`;
+                    if (prescriptionChildren.length > 0) {
+                        const prescription = prescriptionChildren[0];
+                        const modificationChildren = nodeMap[prescription.nodeId]?.children.filter(c => c.node && c.node.type === 'modification') || [];
+
+                        modificationChildren.forEach(modChild => {
+                            // 查找条件节点
+                            const conditionLabel = modChild.label || '';
+                            if (conditionLabel) {
+                                thinkingText += `  ${conditionLabel}：${modChild.node.name}\n`;
+                            } else {
+                                thinkingText += `  ${modChild.node.name}\n`;
+                            }
+                        });
+                    }
+
+                    thinkingText += '\n';
+                }
             });
 
             // 如果没有证候节点，使用简化格式
             if (syndromes.length === 0) {
                 thinkingText += '【诊疗方案】\n\n';
 
-                // 列出所有节点（只使用名称）
+                // ✅ 修复：对于其他节点类型，也优先使用description
                 ['symptom', 'pathogenesis', 'prescription', 'modification'].forEach(type => {
                     const typeNodes = nodesByType[type] || [];
                     if (typeNodes.length > 0) {
@@ -5070,7 +5629,23 @@
                             'modification': '加减'
                         }[type];
 
-                        thinkingText += `${typeName}：${typeNodes.map(n => n.name).join('、')}\n`;
+                        // 检查是否有节点包含详细描述
+                        const hasDescriptions = typeNodes.some(n => n.description && n.description.trim());
+
+                        if (hasDescriptions) {
+                            // 如果有描述，分别列出每个节点的详细内容
+                            thinkingText += `${typeName}：\n`;
+                            typeNodes.forEach(n => {
+                                if (n.description && n.description.trim()) {
+                                    thinkingText += `  ${n.name}：${n.description}\n`;
+                                } else {
+                                    thinkingText += `  ${n.name}\n`;
+                                }
+                            });
+                        } else {
+                            // 如果没有描述，使用简洁格式（原有逻辑）
+                            thinkingText += `${typeName}：${typeNodes.map(n => n.name).join('、')}\n`;
+                        }
                     }
                 });
             }
@@ -5098,6 +5673,9 @@
             } else {
                 console.error('❌ 找不到诊疗思路输入框！');
             }
+
+            // ✅ 清除正向同步标志
+            isSyncingToThinking = false;
         }
         
         // 获取节点默认名称
@@ -6153,6 +6731,16 @@
                             nodes.forEach(node => renderNode(node));
                             drawConnections();
                             updateCanvas();
+
+                            // 🆕 自动格式化诊疗思路（如果左侧内容为空或格式不规范）
+                            const currentThinking = thinkingTextarea.value.trim();
+                            if (!currentThinking || !currentThinking.includes('【证候')) {
+                                console.log('🔄 检测到诊疗思路为空或格式不规范，自动生成标准格式...');
+                                updateThinkingProcessFromNodes();
+                                console.log('✅ 已自动生成标准格式诊疗思路');
+                            } else {
+                                console.log('✅ 保留原有诊疗思路内容');
+                            }
                         }
 
                         hideLoading();

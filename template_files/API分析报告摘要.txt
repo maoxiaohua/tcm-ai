@@ -1,0 +1,220 @@
+================================================================================
+TCM-AI 项目前端API调用全面分析报告摘要
+================================================================================
+
+分析时间: 2025-10-29
+分析深度: Medium (全面扫描 + 详细分析)
+扫描范围: 所有HTML和JS文件 (共50+个文件)
+发现API总数: 60+ 个不同的API端点
+
+================================================================================
+快速统计
+================================================================================
+
+API按类别分布:
+- 认证相关API: 10个 (/api/v2/auth/*, /api/auth/*)
+- 问诊相关API: 3个  (/api/consultation/*)
+- 医生API: 7个      (/api/doctor/*, /api/doctors/*)
+- 处方相关API: 4个  (/api/prescription/*)
+- 数据同步API: 3个  (/api/conversation/*, /api/user-sync/*)
+- 支付API: 3个      (/api/payment/*)
+- 医疗记录API: 1个  (/api/medical-records/*)
+- 管理员API: 9个    (/api/admin/*)
+- 安全和追踪API: 5个 (/api/security/*, /api/review/*)
+- 随访API: 3个      (/api/follow-up/*)
+- 会话API: 2个      (/api/session/*)
+- 其他API: 6个      (/api/auth/*, /api/user/*)
+
+核心前端文件API调用数:
+1. index_smart_workflow.html - 26个API调用 (问诊工作流)
+2. doctor/index.html - 13个API调用 (医生工作台)
+3. admin/index.html - 9个API调用 (管理后台)
+4. auth_portal.html - 8个API调用 (认证登录)
+5. js/conversation_state_manager.js - 2个API调用 (对话同步)
+
+================================================================================
+7个核心发现
+================================================================================
+
+发现1: API响应格式不统一 [高优先级]
+问题: 
+  - 新API格式: {success: true, data: {reply: "..."}}
+  - 旧API格式: {reply: "...", success: bool}
+  - 前端需要同时兼容两种格式
+影响: 代码复杂度增加，容易出现解析错误
+建议: 统一所有API为 {success, data, message} 格式
+
+发现2: 医生ID参数名混乱 [中优先级]
+问题:
+  - 前端使用: selected_doctor
+  - 某些API: doctor_id
+  - 数据库: doctor_code
+  - 还有specialty字段可能是JSON字符串或字符串
+影响: 前后端需要复杂的转换和容错处理
+建议: 统一参数名为 doctor_id 或 selected_doctor
+
+发现3: 用户ID的多种形式 [中优先级]
+问题:
+  - currentUser.id (登录用户固定ID)
+  - getCurrentUserId() (函数获取)
+  - patient_id / user_id (不同API使用)
+  - 临时用户: temp_user_*, device_* 前缀
+影响: 用户追踪复杂，临时用户数据易丢失
+建议: 统一为 user_id，为临时用户提供注册升级机制
+
+发现4: 认证方式混乱 [中优先级]
+问题:
+  - localStorage: session_token, patientToken, doctorToken, adminToken
+  - Cookie: session_token
+  - HTTP头: Authorization: Bearer
+  - 方式过多，容易造成不一致
+影响: 安全性降低，维护复杂度增加
+建议: 仅使用 session_token，删除角色专用token
+
+发现5: 处方状态管理复杂 [高优先级]
+问题:
+  - 前端通过文本解析判断是否包含完整处方
+  - 检查关键词"暂拟"、"待确认"等来判断临时建议
+  - 后端虽返回 contains_prescription，但前端仍做额外判断
+影响: 逻辑分散，容易判断错误，支付流程可能出现问题
+建议: 后端在 /api/consultation/chat 中返回明确标记
+
+发现6: 对话状态同步机制缺陷 [高优先级]
+问题:
+  - 临时用户 (temp_user_*) 的数据不会同步到服务器
+  - 跨浏览器/跨设备时临时用户数据会丢失
+  - 升级注册后可能无法恢复临时对话
+影响: 用户体验差，数据丢失风险高
+建议: 为临时用户提供注册升级流程，自动迁移数据
+
+发现7: 医疗安全检查双向不同步 [中优先级]
+问题:
+  - 前端进行: detectSymptomFabrication(), checkMedicalSafety()
+  - 后端可能缺少相同的检查
+  - 只通过 /api/security/log-event 记录，未进行主动防护
+影响: 安全保护不够全面，容易绕过
+建议: 后端也进行相同检查，设置主动拦截
+
+================================================================================
+10大建议优先级排列
+================================================================================
+
+立即行动 (优先级最高)
+1. [高] 统一API响应格式 - 所有API返回 {success, data, message}
+2. [高] 明确处方标记 - /api/consultation/chat 返回contains_prescription标记
+3. [高] 临时用户数据保护 - 实现注册升级时的数据迁移
+4. [高] 后端安全检查 - 重复前端的医疗安全检查逻辑
+
+短期改进 (1-2周)
+5. [中] 统一参数名 - doctor_id, user_id 标准化
+6. [中] 认证方式简化 - 仅使用 session_token
+7. [中] API文档生成 - 自动生成标准格式的API文档
+
+长期优化 (1个月+)
+8. [低] API版本控制 - 为API添加版本号 (/api/v1/, /api/v2/)
+9. [低] 监控和告警 - 添加API调用监控和错误告警
+10. [低] SDK提供 - 为前端提供规范化的API调用SDK
+
+================================================================================
+关键API详情 (Top 5)
+================================================================================
+
+API1: POST /api/v2/auth/login [认证核心]
+  文件: auth_portal.html (第1072行)
+  发送: {username, password, remember_me}
+  返回: {success, data: {user: {...}, session: {session_id}}, redirect_url}
+  问题: 需要保存到 localStorage 和 Cookie，需要兼容 authManager
+  
+API2: POST /api/consultation/chat [问诊核心]
+  文件: index_smart_workflow.html (第4317行)
+  发送: {message, conversation_id, selected_doctor, patient_id, conversation_history}
+  返回: {success, data: {reply, contains_prescription, stage, conversation_id}}
+  问题: 需要兼容两种响应格式，处方判断逻辑复杂
+
+API3: GET /api/doctors/list [医生列表]
+  文件: index_smart_workflow.html (第2689行)
+  返回: {success, doctors: [{doctor_code, name, specialties, introduction}]}
+  问题: specialties 可能是 JSON 字符串或直接字符串，需要转换
+
+API4: POST /api/conversation/sync [对话同步]
+  文件: js/conversation_state_manager.js (第696行)
+  发送: {user_id, doctor_id, state_data, device_info}
+  返回: {success, message}
+  问题: 临时用户不同步，数据易丢失
+
+API5: POST /api/prescription/create [处方创建]
+  文件: index_smart_workflow.html (第4420行)
+  发送: {doctor, patient_id, symptoms, diagnosis, prescription, remarks}
+  返回: {success, prescription_id}
+  问题: 处方ID生成逻辑需要在服务器端，前端备用方案使用临时ID
+
+================================================================================
+文件位置总结
+================================================================================
+
+主要涉及的HTML文件:
+- /opt/tcm-ai/static/index_smart_workflow.html (问诊工作流) - 26个API
+- /opt/tcm-ai/static/doctor/index.html (医生工作台) - 13个API
+- /opt/tcm-ai/static/admin/index.html (管理后台) - 9个API
+- /opt/tcm-ai/static/auth_portal.html (认证) - 8个API
+- /opt/tcm-ai/static/user_history.html (用户历史) - 6个API
+
+主要涉及的JS文件:
+- /opt/tcm-ai/static/js/auth_manager.js (认证管理)
+- /opt/tcm-ai/static/js/conversation_state_manager.js (对话状态)
+- /opt/tcm-ai/static/js/simple_prescription_manager.js (处方管理)
+- /opt/tcm-ai/static/js/prescription_renderer.js (处方渲染)
+
+================================================================================
+测试建议
+================================================================================
+
+登录流程测试:
+- 验证 session_token 保存到 localStorage 和 Cookie
+- 验证 currentUser 保存格式正确
+- 验证重定向URL正确
+
+问诊流程测试:
+- 验证 /api/consultation/chat 的新旧格式都能处理
+- 验证 /api/conversation/sync 定期同步成功
+- 验证临时用户数据不会丢失
+
+处方流程测试:
+- AI生成完整处方时验证 contains_prescription 标记
+- 验证支付API调用成功
+- 验证支付失败时的降级处理
+
+数据同步测试:
+- 刷新页面，验证对话状态恢复
+- 跨浏览器验证数据同步
+- 临时用户升级注册时验证数据迁移
+
+================================================================================
+完整文档位置
+================================================================================
+
+详细文档已生成到:
+/opt/tcm-ai/template_files/前端API调用完整清单.md
+
+包含内容:
+- 60+ API端点的完整详情
+- 发送数据格式和响应结构
+- 代码示例和错误处理方式
+- 7个核心发现详细分析
+- 10大建议优先级排列
+- 附录: 测试清单
+
+================================================================================
+结论
+================================================================================
+
+TCM-AI 前端的 API 调用虽然功能完整，但存在以下主要问题:
+
+1. **标准化缺失**: API 响应格式、参数名、认证方式不统一
+2. **安全风险**: 临时用户数据易丢失，医疗安全检查不双向同步
+3. **复杂度高**: 前端需要处理多种格式和特殊情况，代码难以维护
+4. **用户体验**: 跨设备使用时数据丢失，升级注册时无法保留临时数据
+
+建议按优先级进行改进，特别是处理格式统一和数据保护问题。
+
+================================================================================
