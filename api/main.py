@@ -1091,6 +1091,7 @@ from api.routes.unified_auth_routes import router as unified_auth_router
 from api.routes.unified_login_routes import router as unified_login_router  # ⭐ 新的统一登录路由
 from api.routes.doctor_decision_tree_routes import router as decision_tree_router
 from api.routes.decision_tree_usage_routes import router as decision_tree_usage_router
+from api.routes.decision_tree_data_routes import router as decision_tree_data_router  # ⭐ 决策树数据驱动v3.0
 from api.routes.symptom_analysis_routes import router as symptom_analysis_router
 # from api.routes.doctor_matching_routes import router as doctor_matching_router  # AI推荐医生功能已移除
 from api.routes.review_routes import router as review_router
@@ -2144,6 +2145,7 @@ app.include_router(prescription_ai_router)
 app.include_router(payment_router)
 app.include_router(decoction_router)
 app.include_router(decision_tree_router)
+app.include_router(decision_tree_data_router)  # ⭐ 决策树数据驱动v3.0
 app.include_router(symptom_analysis_router)
 # app.include_router(doctor_matching_router)  # AI推荐医生功能已移除
 app.include_router(review_router)
