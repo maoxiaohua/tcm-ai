@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>数据驱动决策树构建器 v3.0-Beta（测试版）</title>
+    <title>数据驱动决策树构建器 v3.1-结构化版本</title>
     <style>
         * {
             margin: 0;
@@ -788,9 +788,31 @@
                 <label class="form-label">疾病名称</label>
                 <input type="text" class="form-input" id="diseaseName" placeholder="如：失眠、胃痛、头痛">
             </div>
-            <div class="form-group">
-                <label class="form-label">诊疗思路</label>
-                <textarea class="form-input form-textarea" id="doctorThought" placeholder="简述您的诊疗思路..."></textarea>
+
+            <!-- 结构化诊疗思路区域 -->
+            <div id="structuredThoughtContainer" style="margin-top: 15px;">
+                <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>📋 诊疗思路</span>
+                    <button id="toggleViewBtn" class="btn" style="padding: 4px 8px; font-size: 11px; background: #6b7280;" title="切换视图">
+                        📝 文本
+                    </button>
+                </div>
+
+                <!-- 结构化视图（默认显示） -->
+                <div id="structuredView" style="display: block;">
+                    <div id="structuredContent" style="max-height: 600px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; background: white; padding: 10px;">
+                        <div style="text-align: center; color: #9ca3af; padding: 40px 20px;">
+                            <div style="font-size: 48px; margin-bottom: 10px;">📋</div>
+                            <div>暂无内容</div>
+                            <div style="font-size: 12px; margin-top: 5px;">在画布中添加节点或点击"重新生成"</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 文本视图（隐藏） -->
+                <div id="textView" style="display: none;">
+                    <textarea class="form-input form-textarea" id="doctorThought" placeholder="简述您的诊疗思路..." style="min-height: 600px;"></textarea>
+                </div>
             </div>
 
             <!-- AI功能 -->
@@ -1080,6 +1102,189 @@
             border-bottom: none;
         }
 
+        /* 结构化诊疗思路样式 */
+        .structured-section {
+            margin-bottom: 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .structured-section-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            padding: 10px 12px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #1f2937;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .structured-section-header:hover {
+            background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%);
+        }
+
+        .structured-section-body {
+            background: white;
+            padding: 10px;
+        }
+
+        .structured-field {
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            background: #fafbfc;
+            transition: all 0.2s;
+        }
+
+        .structured-field:hover {
+            border-color: #3b82f6;
+            background: white;
+        }
+
+        .structured-field-label {
+            font-size: 11px;
+            color: #6b7280;
+            font-weight: 500;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .structured-field-value {
+            font-size: 13px;
+            color: #1f2937;
+            line-height: 1.5;
+            word-wrap: break-word;
+            min-height: 20px;
+        }
+
+        .structured-field-value.editable {
+            cursor: text;
+            padding: 4px 6px;
+            border-radius: 3px;
+        }
+
+        .structured-field-value.editable:hover {
+            background: #f0f9ff;
+            outline: 1px solid #3b82f6;
+        }
+
+        .structured-field-value.editing {
+            background: white;
+            outline: 2px solid #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .structured-field-value input,
+        .structured-field-value textarea {
+            width: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 13px;
+            font-family: inherit;
+            padding: 0;
+            resize: none;
+        }
+
+        .syndrome-card {
+            margin-bottom: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .syndrome-card-header {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            padding: 10px 12px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #1e40af;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .syndrome-card-body {
+            padding: 12px;
+        }
+
+        .add-syndrome-btn {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            border: 2px dashed #cbd5e1;
+            border-radius: 6px;
+            background: #f8fafc;
+            color: #6b7280;
+            font-size: 12px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .add-syndrome-btn:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            color: #3b82f6;
+        }
+
+        .field-action-btn {
+            padding: 2px 6px;
+            font-size: 10px;
+            border: none;
+            border-radius: 3px;
+            background: #e5e7eb;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .field-action-btn:hover {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .prescription-item {
+            margin-top: 10px;
+            padding: 10px;
+            border-left: 3px solid #a855f7;
+            background: #faf5ff;
+            border-radius: 4px;
+        }
+
+        .prescription-name {
+            font-weight: 600;
+            color: #7c3aed;
+            margin-bottom: 6px;
+        }
+
+        .modification-item {
+            margin-top: 6px;
+            padding: 6px 8px;
+            background: #fef3c7;
+            border-left: 3px solid #f59e0b;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .modification-condition {
+            color: #92400e;
+            font-weight: 500;
+        }
+
+        .modification-action {
+            color: #78350f;
+            margin-top: 2px;
+        }
+
         .progress-bar {
             width: 100%;
             height: 8px;
@@ -1105,6 +1310,8 @@
         let currentUser = null;
         let connections = [];
         let symptomClusters = new Map(); // 症状群存储
+        let structuredData = null; // 结构化数据缓存
+        let isStructuredView = true; // 当前视图模式（true=结构化，false=文本）
 
         // 连接模式相关变量
         let connectionMode = false; // 是否处于连接模式
@@ -1139,6 +1346,13 @@
             return value;
         }
 
+        // 🆕 当前加载的思维模式信息
+        let currentLoadedPattern = {
+            patternId: null,
+            patternName: null,
+            scenario: null
+        };
+
         // 全局AI状态变量
         let aiStatus = {
             ai_enabled: false,
@@ -1150,7 +1364,7 @@
                 hybrid_mode: false
             }
         };
-        
+
         // 用户模式偏好
         let userPreferences = {
             aiModePreferred: true,
@@ -1160,9 +1374,9 @@
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
             console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            console.log('🚀 特色诊疗方案构建器 - 版本 v2.0');
-            console.log('📅 更新时间: 2025-10-28 11:30');
-            console.log('✨ 新功能: 连接线交互（透明热区技术）');
+            console.log('🚀 特色诊疗方案构建器 - 版本 v3.1');
+            console.log('📅 更新时间: 2025-10-31 11:45');
+            console.log('✨ 新功能: 结构化可编辑诊疗思路');
             console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             console.log('🚀 页面初始化开始...');
             
@@ -1494,6 +1708,16 @@
                         hideSelectedNodeInfo();
                     }
                 });
+
+                // 🆕 视图切换按钮
+                const toggleViewBtn = document.getElementById('toggleViewBtn');
+                if (toggleViewBtn) {
+                    toggleViewBtn.addEventListener('click', function() {
+                        console.log('🔄 切换视图模式');
+                        toggleView();
+                    });
+                    console.log('✅ 视图切换按钮已绑定');
+                }
 
                 // ✅ Phase 2: 监听诊疗思路文本框的变化
                 const doctorThoughtTextarea = document.getElementById('doctorThought');
@@ -2927,11 +3151,19 @@
 
         function clearCanvas() {
             console.log('清空画布被调用');
-            
+
             nodes = [];
             selectedNode = null;
             connections = [];
-            
+
+            // 🔧 重置当前加载的模式信息
+            currentLoadedPattern = {
+                patternId: null,
+                patternName: null,
+                scenario: null
+            };
+            console.log('✅ 已重置当前模式信息');
+
             const canvas = document.getElementById('canvas');
             canvas.innerHTML = `
                 <svg id="branchSvg">
@@ -2948,7 +3180,7 @@
                     <p style="color: #9ca3af; font-size: 12px;">或点击"标准路径"快速开始</p>
                 </div>
             `;
-            
+
                   hideSelectedNodeInfo();
             showResult('成功', '✅ 画布已清空', 'success');
         }
@@ -3020,6 +3252,13 @@
             const nodeCount = nodes.length;
             const connectionCount = connections.length;
 
+            // 🔧 使用当前加载的模式名称，如果没有则使用默认值
+            const defaultPatternName = currentLoadedPattern.patternName || `${diseaseName}临床决策模式`;
+            const defaultScenario = currentLoadedPattern.scenario || 'clinical_diagnosis';
+
+            console.log('💾 准备保存对话框 - 当前模式信息:', currentLoadedPattern);
+            console.log('💾 使用的默认名称:', defaultPatternName);
+
             // 获取当前诊疗思路内容
             const currentThinking = document.getElementById('doctorThought')?.value || '';
 
@@ -3029,7 +3268,7 @@
                     <h3 style="margin: 0; font-size: 20px; font-weight: 600;">保存到医生思维库</h3>
                     <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">将您的临床决策经验保存为可复用的思维模式</p>
                 </div>
-                
+
                 <div style="padding: 28px;">
                     <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #7c3aed;">
                         <h4 style="margin: 0 0 12px; color: #374151; font-size: 16px;">📊 特色诊疗方案信息</h4>
@@ -3040,27 +3279,27 @@
                             <div><strong>创建时间:</strong> ${new Date().toLocaleDateString()}</div>
                         </div>
                     </div>
-                    
+
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
                             🏷️ 思维模式名称
                         </label>
-                        <input type="text" id="thinkingPatternName" 
-                               value="${diseaseName}临床决策模式" 
+                        <input type="text" id="thinkingPatternName"
+                               value="${defaultPatternName}"
                                style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; transition: all 0.2s ease;"
                                placeholder="请输入思维模式名称">
                     </div>
-                    
+
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
                             🎯 应用场景
                         </label>
                         <select id="applicationScenario" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; background: white;">
-                            <option value="clinical_diagnosis">临床诊断决策</option>
-                            <option value="treatment_planning">治疗方案规划</option>
-                            <option value="symptom_analysis">症状分析流程</option>
-                            <option value="formula_selection">方剂选择指导</option>
-                            <option value="teaching_case">教学案例模板</option>
+                            <option value="clinical_diagnosis" ${defaultScenario === 'clinical_diagnosis' ? 'selected' : ''}>临床诊断决策</option>
+                            <option value="treatment_planning" ${defaultScenario === 'treatment_planning' ? 'selected' : ''}>治疗方案规划</option>
+                            <option value="symptom_analysis" ${defaultScenario === 'symptom_analysis' ? 'selected' : ''}>症状分析流程</option>
+                            <option value="formula_selection" ${defaultScenario === 'formula_selection' ? 'selected' : ''}>方剂选择指导</option>
+                            <option value="teaching_case" ${defaultScenario === 'teaching_case' ? 'selected' : ''}>教学案例模板</option>
                         </select>
                     </div>
                     
@@ -5213,19 +5452,19 @@
                 <div style="padding: 24px;">
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
-                            🏷️ 节点名称
+                            ${node.type === 'prescription' ? '💊 处方名称' : '🏷️ 节点名称'}
                         </label>
-                        <input type="text" id="editNodeName" value="${node.name}" 
+                        <input type="text" id="editNodeName" value="${node.name}"
                                class="edit-input"
                                style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; transition: all 0.2s ease;"
-                               placeholder="请输入节点名称">
+                               placeholder="${node.type === 'prescription' ? '如：天麻钩藤饮' : '请输入节点名称'}">
                     </div>
-                    
+
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
                             🎯 节点类型
                         </label>
-                        <select id="editNodeType" 
+                        <select id="editNodeType"
                                 class="edit-input"
                                 style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; background: white; transition: all 0.2s ease;">
                             <option value="disease" ${node.type === 'disease' ? 'selected' : ''}>🔬 病种识别</option>
@@ -5239,15 +5478,15 @@
                             <option value="prognosis" ${node.type === 'prognosis' ? 'selected' : ''}>💚 预后调理</option>
                         </select>
                     </div>
-                    
+
                     <div style="margin-bottom: 24px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
-                            📝 详细描述
+                            ${node.type === 'prescription' ? '💊 方剂组成' : '📝 详细描述'}
                         </label>
-                        <textarea id="editNodeDesc" 
+                        <textarea id="editNodeDesc"
                                   class="edit-input"
                                   style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; min-height: 100px; font-size: 14px; line-height: 1.5; resize: vertical; transition: all 0.2s ease; font-family: inherit;"
-                                  placeholder="请输入详细的节点描述信息...">${node.description || ''}</textarea>
+                                  placeholder="${node.type === 'prescription' ? '如：天麻10g, 钩藤12g, 石决明15g...' : '请输入详细的节点描述信息...'}">${node.description || ''}</textarea>
                     </div>
                     
                     <div style="display: flex; gap: 12px; justify-content: flex-end;">
@@ -5381,6 +5620,737 @@
             return typeFlow[currentType] || 'symptom';
         }
 
+        // ============================================
+        // 🆕 结构化数据核心函数
+        // ============================================
+
+        /**
+         * 从画布节点构建结构化数据
+         * @returns {Object} 结构化的诊疗数据
+         */
+        function buildStructuredData() {
+            console.log('🏗️ 开始构建结构化数据...');
+
+            const data = {
+                disease: null,
+                syndromes: [],
+                node_types_used: new Set()
+            };
+
+            if (nodes.length === 0) {
+                console.log('⚠️ 没有节点，返回空数据');
+                return data;
+            }
+
+            // 按类型分组节点
+            const nodesByType = {};
+            nodes.forEach(node => {
+                if (!nodesByType[node.type]) {
+                    nodesByType[node.type] = [];
+                }
+                nodesByType[node.type].push(node);
+            });
+
+            console.log('📦 节点类型统计:', Object.keys(nodesByType).map(type => `${type}:${nodesByType[type].length}`).join(', '));
+
+            // 构建节点关系图
+            const nodeMap = {};
+            nodes.forEach(node => {
+                nodeMap[node.id] = {
+                    node: node,
+                    children: [],
+                    parents: []
+                };
+            });
+
+            connections.forEach(conn => {
+                if (nodeMap[conn.from] && nodeMap[conn.to]) {
+                    nodeMap[conn.from].children.push({
+                        nodeId: conn.to,
+                        node: nodes.find(n => n.id === conn.to),
+                        label: conn.label || ''
+                    });
+                    nodeMap[conn.to].parents.push(conn.from);
+                }
+            });
+
+            // 1. 构建disease信息
+            if (nodesByType['disease']?.length > 0) {
+                const disease = nodesByType['disease'][0];
+                data.disease = {
+                    id: disease.id,
+                    name: disease.name,
+                    description: disease.description || ''
+                };
+                data.node_types_used.add('disease');
+                console.log('✅ 病种:', disease.name);
+            }
+
+            // 2. 构建syndrome结构（支持多种节点类型作为证候/分支）
+            let syndromes = [
+                ...(nodesByType['syndrome'] || []),
+                ...(nodesByType['syndrome_branch'] || [])
+            ];
+
+            // 🔧 智能过滤：跳过只作为容器的 syndrome 节点
+            // 如果一个 syndrome 的子节点全是其他 syndrome，说明它只是容器，不是真正的证候
+            syndromes = syndromes.filter(syndrome => {
+                const children = nodeMap[syndrome.id]?.children || [];
+                const hasSyndromeChildren = children.some(child =>
+                    child.node && (child.node.type === 'syndrome' || child.node.type === 'syndrome_branch')
+                );
+                const hasContentChildren = children.some(child =>
+                    child.node && (
+                        child.node.type === 'symptom' ||
+                        child.node.type === 'prescription' ||
+                        child.node.type === 'pathogenesis' ||
+                        child.node.type === 'four_diagnosis'
+                    )
+                );
+
+                // 如果只有 syndrome 子节点，没有实际内容，说明是容器节点
+                if (hasSyndromeChildren && !hasContentChildren) {
+                    console.log(`⚠️ 跳过容器节点: ${syndrome.name} (只包含子证候，无实际内容)`);
+                    return false;
+                }
+                return true;
+            });
+
+            // 🆕 如果没有syndrome类型节点，将disease的直接子节点作为分支节点
+            if (syndromes.length === 0 && data.disease) {
+                const diseaseChildren = nodeMap[data.disease.id]?.children || [];
+                diseaseChildren.forEach(child => {
+                    if (child.node) {
+                        syndromes.push(child.node);
+                        console.log(`📋 使用非标准节点作为分支: ${child.node.type} - ${child.node.name}`);
+                    }
+                });
+            }
+
+            syndromes.forEach((syndrome, index) => {
+                console.log(`📋 处理证候/分支 ${index + 1}:`, syndrome.name, `(${syndrome.type})`);
+
+                const syndromeData = {
+                    id: syndrome.id,
+                    name: syndrome.name,
+                    type: syndrome.type,  // 🆕 保存节点类型
+                    description: syndrome.description || '',
+                    pathogenesis: [],
+                    symptoms: [],
+                    four_diagnosis: [],
+                    prescriptions: [],
+                    other_nodes: []  // 🆕 其他类型节点
+                };
+
+                // 查找子节点
+                const children = nodeMap[syndrome.id]?.children || [];
+                console.log(`   → 子节点数量: ${children.length}, 子节点类型:`, children.map(c => c.node?.type + ':' + c.node?.name).join(', '));
+
+                // 🔧 递归函数：查找某个节点下所有的prescription节点（包括深层嵌套的）
+                function findPrescriptionsRecursively(nodeId, depth = 0, visited = new Set()) {
+                    if (visited.has(nodeId) || depth > 10) return []; // 防止循环引用
+                    visited.add(nodeId);
+
+                    const prescriptions = [];
+                    const nodeChildren = nodeMap[nodeId]?.children || [];
+
+                    nodeChildren.forEach(child => {
+                        if (!child.node) return;
+
+                        if (child.node.type === 'prescription') {
+                            // 找到处方节点
+                            const prescData = {
+                                id: child.node.id,
+                                name: child.node.name,
+                                description: child.node.description || '',
+                                ingredients: child.node.description || '',
+                                modifications: []
+                            };
+
+                            // 查找处方的加减子节点
+                            const modChildren = nodeMap[child.node.id]?.children || [];
+                            console.log(`      → 处方"${child.node.name}"的子节点数: ${modChildren.length}`);
+                            modChildren.forEach(modChild => {
+                                if (modChild.node && modChild.node.type === 'modification') {
+                                    prescData.modifications.push({
+                                        id: modChild.node.id,
+                                        condition: modChild.label || '',
+                                        action: modChild.node.description || modChild.node.name,
+                                        name: modChild.node.name
+                                    });
+                                    console.log(`         ✅ 找到加减: ${modChild.node.name} (条件: ${modChild.label || '无'})`);
+                                }
+                            });
+
+                            if (prescData.modifications.length > 0) {
+                                console.log(`      → 处方"${child.node.name}"共收集到 ${prescData.modifications.length} 个加减`);
+                            }
+                            prescriptions.push(prescData);
+                        } else if (child.node.type !== 'syndrome' && child.node.type !== 'syndrome_branch' && child.node.type !== 'disease') {
+                            // 继续递归查找（但不进入其他syndrome节点）
+                            const deepPrescriptions = findPrescriptionsRecursively(child.node.id, depth + 1, visited);
+                            prescriptions.push(...deepPrescriptions);
+                        }
+                    });
+
+                    return prescriptions;
+                }
+
+                children.forEach(child => {
+                    const childNode = child.node;
+                    if (!childNode) return;
+
+                    switch (childNode.type) {
+                        case 'pathogenesis':
+                            syndromeData.pathogenesis.push({
+                                id: childNode.id,
+                                name: childNode.name,
+                                description: childNode.description || ''
+                            });
+                            data.node_types_used.add('pathogenesis');
+                            break;
+
+                        case 'symptom':
+                            syndromeData.symptoms.push({
+                                id: childNode.id,
+                                name: childNode.name,
+                                description: childNode.description || ''
+                            });
+                            data.node_types_used.add('symptom');
+
+                            // 🔧 查找symptom节点下的所有处方（递归）
+                            const symptomPrescriptions = findPrescriptionsRecursively(childNode.id);
+                            if (symptomPrescriptions.length > 0) {
+                                console.log(`   → 在症见"${childNode.name}"下找到 ${symptomPrescriptions.length} 个处方:`,
+                                    symptomPrescriptions.map(p => p.name).join(', '));
+                                syndromeData.prescriptions.push(...symptomPrescriptions);
+                                data.node_types_used.add('prescription');
+                            }
+                            break;
+
+                        case 'four_diagnosis':
+                            syndromeData.four_diagnosis.push({
+                                id: childNode.id,
+                                name: childNode.name,
+                                description: childNode.description || ''
+                            });
+                            data.node_types_used.add('four_diagnosis');
+                            break;
+
+                        case 'prescription':
+                            const prescData = {
+                                id: childNode.id,
+                                name: childNode.name,
+                                description: childNode.description || '',
+                                ingredients: childNode.description || '',
+                                modifications: []
+                            };
+
+                            // 查找处方的加减子节点
+                            const modChildren = nodeMap[childNode.id]?.children || [];
+                            modChildren.forEach(modChild => {
+                                if (modChild.node && modChild.node.type === 'modification') {
+                                    prescData.modifications.push({
+                                        id: modChild.node.id,
+                                        condition: modChild.label || '',
+                                        action: modChild.node.description || modChild.node.name,
+                                        name: modChild.node.name
+                                    });
+                                    data.node_types_used.add('modification');
+                                }
+                            });
+
+                            syndromeData.prescriptions.push(prescData);
+                            data.node_types_used.add('prescription');
+                            break;
+
+                        case 'syndrome':
+                        case 'syndrome_branch':
+                        case 'disease':
+                            // 🔧 跳过嵌套的syndrome/disease节点，避免重复处理
+                            console.log(`⚠️ 跳过嵌套的${childNode.type}节点: ${childNode.name}`);
+                            break;
+
+                        default:
+                            // 🆕 其他类型节点也保存
+                            syndromeData.other_nodes.push({
+                                id: childNode.id,
+                                type: childNode.type,
+                                name: childNode.name,
+                                description: childNode.description || ''
+                            });
+                            data.node_types_used.add(childNode.type);
+                            break;
+                    }
+                });
+
+                data.syndromes.push(syndromeData);
+                data.node_types_used.add(syndrome.type);
+            });
+
+            data.node_types_used = Array.from(data.node_types_used);
+            console.log('✅ 结构化数据构建完成, 使用的节点类型:', data.node_types_used.join(', '));
+
+            return data;
+        }
+
+        /**
+         * 渲染结构化视图
+         * @param {Object} data - 结构化数据
+         */
+        function renderStructuredView(data) {
+            console.log('🎨 开始渲染结构化视图...');
+
+            const container = document.getElementById('structuredContent');
+            if (!container) {
+                console.error('❌ 找不到structuredContent容器');
+                return;
+            }
+
+            if (!data || (!data.disease && data.syndromes.length === 0)) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #9ca3af; padding: 40px 20px;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">📋</div>
+                        <div>暂无内容</div>
+                        <div style="font-size: 12px; margin-top: 5px;">在画布中添加节点或点击"重新生成"</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+
+            // 1. 基本信息区域
+            if (data.disease) {
+                html += `
+                    <div class="structured-section">
+                        <div class="structured-section-header">
+                            <span>🏥 基本信息</span>
+                        </div>
+                        <div class="structured-section-body">
+                            <div class="structured-field">
+                                <div class="structured-field-label">疾病名称</div>
+                                <div class="structured-field-value editable"
+                                     contenteditable="true"
+                                     data-field="disease.name"
+                                     onblur="handleFieldEdit(this, '${data.disease.id}', 'name')"
+                                     onkeydown="handleFieldKeydown(event, this)">
+                                    ${data.disease.name || ''}
+                                </div>
+                            </div>
+                `;
+
+                if (data.disease.description) {
+                    html += `
+                        <div class="structured-field">
+                            <div class="structured-field-label">病症描述</div>
+                            <div class="structured-field-value editable"
+                                 contenteditable="true"
+                                 data-field="disease.description"
+                                 onblur="handleFieldEdit(this, '${data.disease.id}', 'description')"
+                                 onkeydown="handleFieldKeydown(event, this)">
+                                ${data.disease.description || ''}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 2. 证候卡片
+            if (data.syndromes.length > 0) {
+                data.syndromes.forEach((syndrome, index) => {
+                    html += `
+                        <div class="syndrome-card">
+                            <div class="syndrome-card-header">
+                                <span>📋 证候${index + 1}: ${syndrome.name}</span>
+                                <button class="field-action-btn" onclick="deleteSyndrome('${syndrome.id}')">🗑️ 删除</button>
+                            </div>
+                            <div class="syndrome-card-body">
+                    `;
+
+                    // 证候名称
+                    html += `
+                        <div class="structured-field">
+                            <div class="structured-field-label">证候名称</div>
+                            <div class="structured-field-value editable"
+                                 contenteditable="true"
+                                 onblur="handleFieldEdit(this, '${syndrome.id}', 'name')"
+                                 onkeydown="handleFieldKeydown(event, this)">
+                                ${syndrome.name}
+                            </div>
+                        </div>
+                    `;
+
+                    // 病机
+                    if (syndrome.pathogenesis.length > 0) {
+                        html += `
+                            <div class="structured-field">
+                                <div class="structured-field-label">⚙️ 病机</div>
+                                <div class="structured-field-value">
+                                    ${syndrome.pathogenesis.map(p => `
+                                        <span contenteditable="true"
+                                              style="display: inline-block; margin: 2px 4px 2px 0; padding: 2px 6px; background: #fef3c7; border-radius: 3px;"
+                                              onblur="handleFieldEdit(this, '${p.id}', 'name')"
+                                              onkeydown="handleFieldKeydown(event, this)">
+                                            ${p.name}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // 症状
+                    if (syndrome.symptoms.length > 0) {
+                        html += `
+                            <div class="structured-field">
+                                <div class="structured-field-label">🤒 症见</div>
+                                <div class="structured-field-value">
+                                    ${syndrome.symptoms.map(s => `
+                                        <span contenteditable="true"
+                                              style="display: inline-block; margin: 2px 4px 2px 0; padding: 2px 6px; background: #dbeafe; border-radius: 3px;"
+                                              onblur="handleFieldEdit(this, '${s.id}', 'name')"
+                                              onkeydown="handleFieldKeydown(event, this)">
+                                            ${s.name}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // 四诊
+                    if (syndrome.four_diagnosis.length > 0) {
+                        html += `
+                            <div class="structured-field">
+                                <div class="structured-field-label">👁️ 舌脉</div>
+                                <div class="structured-field-value">
+                                    ${syndrome.four_diagnosis.map(f => `
+                                        <span contenteditable="true"
+                                              style="display: inline-block; margin: 2px 4px 2px 0; padding: 2px 6px; background: #e0e7ff; border-radius: 3px;"
+                                              onblur="handleFieldEdit(this, '${f.id}', 'name')"
+                                              onkeydown="handleFieldKeydown(event, this)">
+                                            ${f.name}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // 处方
+                    if (syndrome.prescriptions.length > 0) {
+                        syndrome.prescriptions.forEach(presc => {
+                            html += `
+                                <div class="prescription-item">
+                                    <div class="prescription-name">
+                                        💊 处方:
+                                        <span contenteditable="true"
+                                              onblur="handleFieldEdit(this, '${presc.id}', 'name')"
+                                              onkeydown="handleFieldKeydown(event, this)">
+                                            ${presc.name}
+                                        </span>
+                                    </div>
+                            `;
+
+                            if (presc.ingredients) {
+                                html += `
+                                    <div style="margin-top: 6px; font-size: 12px; color: #6b7280;">
+                                        <div style="font-weight: 500; margin-bottom: 3px;">方剂组成:</div>
+                                        <div contenteditable="true"
+                                             style="padding: 4px; background: white; border-radius: 3px;"
+                                             onblur="handleFieldEdit(this, '${presc.id}', 'description')"
+                                             onkeydown="handleFieldKeydown(event, this)">
+                                            ${presc.ingredients}
+                                        </div>
+                                    </div>
+                                `;
+                            }
+
+                            // 加减
+                            if (presc.modifications.length > 0) {
+                                html += `<div style="margin-top: 8px; font-weight: 500; font-size: 12px;">➕ 加减:</div>`;
+                                presc.modifications.forEach(mod => {
+                                    html += `
+                                        <div class="modification-item">
+                                            ${mod.condition ? `
+                                                <div class="modification-condition">
+                                                    ${mod.condition}:
+                                                </div>
+                                            ` : ''}
+                                            <div class="modification-action"
+                                                 contenteditable="true"
+                                                 onblur="handleFieldEdit(this, '${mod.id}', 'description')"
+                                                 onkeydown="handleFieldKeydown(event, this)">
+                                                ${mod.action}
+                                            </div>
+                                        </div>
+                                    `;
+                                });
+                            }
+
+                            html += `</div>`;
+                        });
+                    }
+
+                    // 🆕 其他类型节点（灵活显示非标准节点）
+                    if (syndrome.other_nodes && syndrome.other_nodes.length > 0) {
+                        syndrome.other_nodes.forEach(node => {
+                            const nodeTypeIcon = {
+                                'principle': '📏',
+                                'prognosis': '💚',
+                                'modification': '🔄'
+                            }[node.type] || '📌';
+
+                            html += `
+                                <div class="structured-field" style="margin-top: 12px;">
+                                    <div class="structured-field-label">${nodeTypeIcon} ${node.type}</div>
+                                    <div class="structured-field-value editable"
+                                         contenteditable="true"
+                                         onblur="handleFieldEdit(this, '${node.id}', 'name')"
+                                         onkeydown="handleFieldKeydown(event, this)">
+                                        ${node.name}
+                                    </div>
+                                    ${node.description ? `
+                                        <div contenteditable="true"
+                                             style="margin-top: 4px; padding: 6px; background: #f9fafb; border-radius: 3px; font-size: 13px;"
+                                             onblur="handleFieldEdit(this, '${node.id}', 'description')"
+                                             onkeydown="handleFieldKeydown(event, this)">
+                                            ${node.description}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        });
+                    }
+
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            container.innerHTML = html;
+            console.log('✅ 结构化视图渲染完成');
+        }
+
+        /**
+         * 处理字段编辑
+         * @param {HTMLElement} element - 编辑的元素
+         * @param {string} nodeId - 节点ID
+         * @param {string} field - 字段名（name/description）
+         */
+        function handleFieldEdit(element, nodeId, field) {
+            const newValue = element.innerText.trim();
+            console.log(`✏️ 编辑字段: nodeId=${nodeId}, field=${field}, newValue=${newValue}`);
+
+            // 查找对应节点并更新
+            const node = nodes.find(n => n.id === nodeId);
+            if (node) {
+                node[field] = newValue;
+                console.log(`✅ 节点数据已更新:`, node);
+
+                // 🔧 修正：使用getElementById直接查找节点（节点使用id属性）
+                const nodeElement = document.getElementById(nodeId);
+                if (nodeElement) {
+                    console.log('✅ 找到画布节点元素:', nodeElement);
+
+                    if (field === 'name') {
+                        // 更新节点标题（保留图标）
+                        const titleElement = nodeElement.querySelector('.node-title');
+                        if (titleElement) {
+                            const iconElement = titleElement.querySelector('.node-type-icon');
+                            const iconHTML = iconElement ? iconElement.outerHTML : '';
+                            titleElement.innerHTML = iconHTML + newValue;
+                            console.log('✅ 画布节点标题已更新');
+                        }
+                    } else if (field === 'description') {
+                        // 更新节点内容
+                        const contentElement = nodeElement.querySelector('.node-content');
+                        if (contentElement) {
+                            contentElement.textContent = newValue;
+                            console.log('✅ 画布节点内容已更新');
+                        }
+                    }
+                } else {
+                    console.warn('⚠️ 找不到画布节点元素:', nodeId);
+                }
+
+                // 🆕 重建结构化数据缓存，确保切换到文本视图时数据是最新的
+                structuredData = buildStructuredData();
+                console.log('✅ 结构化数据缓存已更新');
+
+                // 显示保存提示
+                showResult('提示', '内容已更新，记得保存', 'info');
+            } else {
+                console.error(`❌ 找不到节点数据: ${nodeId}`);
+            }
+        }
+
+        /**
+         * 处理键盘事件（回车保存）
+         * @param {Event} event - 键盘事件
+         * @param {HTMLElement} element - 当前元素
+         */
+        function handleFieldKeydown(event, element) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                element.blur(); // 触发onblur保存
+            }
+        }
+
+        /**
+         * 删除证候
+         * @param {string} syndromeId - 证候节点ID
+         */
+        function deleteSyndrome(syndromeId) {
+            if (!confirm('确定要删除这个证候吗？相关的子节点也会被删除。')) {
+                return;
+            }
+
+            // 删除节点及其子节点
+            const nodeIdsToDelete = [syndromeId];
+
+            // 查找所有子节点
+            function findChildNodes(parentId) {
+                connections.forEach(conn => {
+                    if (conn.from === parentId && !nodeIdsToDelete.includes(conn.to)) {
+                        nodeIdsToDelete.push(conn.to);
+                        findChildNodes(conn.to);
+                    }
+                });
+            }
+            findChildNodes(syndromeId);
+
+            // 删除节点
+            nodes = nodes.filter(n => !nodeIdsToDelete.includes(n.id));
+
+            // 删除连接
+            connections = connections.filter(c =>
+                !nodeIdsToDelete.includes(c.from) && !nodeIdsToDelete.includes(c.to)
+            );
+
+            console.log(`🗑️ 已删除证候及其子节点，共 ${nodeIdsToDelete.length} 个节点`);
+
+            // 重新渲染画布
+            const canvas = document.getElementById('canvas');
+            canvas.innerHTML = '';  // 清空画布
+            nodes.forEach(node => renderNode(node));  // 重新渲染所有节点
+            drawConnections();  // 重新绘制连接线
+
+            // 重新渲染结构化视图
+            structuredData = buildStructuredData();
+            renderStructuredView(structuredData);
+
+            showResult('成功', '证候已删除', 'success');
+        }
+
+        /**
+         * 切换视图模式
+         */
+        function toggleView() {
+            isStructuredView = !isStructuredView;
+            const structuredView = document.getElementById('structuredView');
+            const textView = document.getElementById('textView');
+            const toggleBtn = document.getElementById('toggleViewBtn');
+
+            if (isStructuredView) {
+                structuredView.style.display = 'block';
+                textView.style.display = 'none';
+                toggleBtn.innerHTML = '📝 文本';
+
+                // 从结构化数据渲染
+                if (!structuredData) {
+                    structuredData = buildStructuredData();
+                }
+                renderStructuredView(structuredData);
+            } else {
+                structuredView.style.display = 'none';
+                textView.style.display = 'block';
+                toggleBtn.innerHTML = '📋 结构';
+
+                // 从结构化数据生成文本
+                if (!structuredData) {
+                    structuredData = buildStructuredData();
+                }
+                const textarea = document.getElementById('doctorThought');
+                textarea.value = convertStructuredDataToText(structuredData);
+            }
+        }
+
+        /**
+         * 将结构化数据转换为文本格式
+         * @param {Object} data - 结构化数据
+         * @returns {string} 文本格式的诊疗思路
+         */
+        function convertStructuredDataToText(data) {
+            let text = '';
+
+            if (data.disease) {
+                text += `主病：${data.disease.name}\n`;
+                if (data.disease.description) {
+                    text += `${data.disease.description}\n`;
+                }
+                text += '\n';
+            }
+
+            data.syndromes.forEach((syndrome, index) => {
+                text += `【${syndrome.type === 'syndrome' ? '证候' : '分支'}${index + 1}】${syndrome.name}\n`;
+
+                // 🔧 修复：输出证候/分支的详细描述
+                if (syndrome.description && syndrome.description.trim()) {
+                    text += `${syndrome.description}\n`;
+                }
+
+                if (syndrome.pathogenesis.length > 0) {
+                    text += `病机：${syndrome.pathogenesis.map(p => p.name).join('、')}\n`;
+                }
+
+                if (syndrome.symptoms.length > 0) {
+                    text += `症见：${syndrome.symptoms.map(s => s.name).join('、')}\n`;
+                }
+
+                if (syndrome.four_diagnosis.length > 0) {
+                    text += `舌脉：${syndrome.four_diagnosis.map(f => f.name).join('、')}\n`;
+                }
+
+                if (syndrome.prescriptions.length > 0) {
+                    syndrome.prescriptions.forEach(presc => {
+                        text += `处方：${presc.name}\n`;
+                        if (presc.ingredients) {
+                            text += `  ${presc.ingredients}\n`;
+                        }
+                        if (presc.modifications.length > 0) {
+                            text += `加减：\n`;
+                            presc.modifications.forEach(mod => {
+                                text += `  ${mod.condition ? mod.condition + '：' : ''}${mod.action}\n`;
+                            });
+                        }
+                    });
+                }
+
+                // 🆕 其他类型节点
+                if (syndrome.other_nodes && syndrome.other_nodes.length > 0) {
+                    syndrome.other_nodes.forEach(node => {
+                        text += `${node.type}: ${node.name}\n`;
+                        if (node.description) {
+                            text += `  ${node.description}\n`;
+                        }
+                    });
+                }
+
+                text += '\n';
+            });
+
+            return text.trim();
+        }
+
         // ✨ 新增：从节点内容自动生成/更新诊疗思路（专业中医格式）
         function updateThinkingProcessFromNodes() {
             // ✅ 防止循环触发：如果正在执行反向同步，则跳过
@@ -5401,7 +6371,33 @@
             // ✅ 设置正向同步标志
             isSyncingToThinking = true;
 
-            console.log('🔄 开始生成专业中医格式的诊疗思路...');
+            console.log('🔄 使用新的结构化渲染方式...');
+
+            // 🆕 使用新的结构化数据方式
+            structuredData = buildStructuredData();
+
+            // 根据当前视图模式渲染
+            if (isStructuredView) {
+                // 结构化视图
+                renderStructuredView(structuredData);
+                console.log('✅ 结构化视图已更新');
+            } else {
+                // 文本视图
+                const textarea = document.getElementById('doctorThought');
+                if (textarea) {
+                    textarea.value = convertStructuredDataToText(structuredData);
+                    console.log('✅ 文本视图已更新');
+                }
+            }
+
+            // ✅ 清除正向同步标志
+            isSyncingToThinking = false;
+
+            return; // 🔚 新逻辑结束，下面的代码不再执行
+
+            // ==========================================
+            // 以下是原有的文本拼接逻辑（保留作为降级方案）
+            // ==========================================
 
             // 调试：打印所有节点信息
             console.log('📋 所有节点详情:');
@@ -7388,6 +8384,14 @@ ${pattern.thinking_process || '暂无诊疗思路描述'}
                     if (pattern && pattern.tree_structure) {
                         // 清空当前画布
                         clearCanvas();
+
+                        // 🆕 保存当前加载的模式信息
+                        currentLoadedPattern = {
+                            patternId: pattern.pattern_id,
+                            patternName: pattern.metadata?.pattern_name || pattern.disease_name,
+                            scenario: pattern.clinical_patterns?.scenario_type || 'clinical_diagnosis'
+                        };
+                        console.log('✅ 已保存当前加载的模式信息:', currentLoadedPattern);
 
                         // 设置疾病名称
                         document.getElementById('diseaseName').value = pattern.disease_name;

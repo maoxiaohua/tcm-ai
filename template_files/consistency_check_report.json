@@ -1,9 +1,9 @@
 {
-  "timestamp": "2025-10-30T20:48:46.386219",
+  "timestamp": "2025-11-05T17:13:30.511188",
   "statistics": {
-    "backend_apis": 154,
+    "backend_apis": 162,
     "frontend_apis": 94,
-    "database_tables": 68
+    "database_tables": 75
   },
   "summary": {
     "errors": 56,
@@ -39,6 +39,11 @@
       },
       {
         "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/v2/auth/profile",
+        "details": "调用文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, doctor/index_optimized.html"
+      },
+      {
+        "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/auth/login",
         "details": "调用文件: debug_login_token.html, test_doctor_login.html, login_portal.html"
       },
@@ -56,11 +61,6 @@
         "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/generate_paths_from_thinking",
         "details": "调用文件: decision_tree_v3.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/v2/auth/profile",
-        "details": "调用文件: decision_tree_visual_builder.html, doctor/index_optimized.html, doctor/index_optimized_backup.html"
       },
       {
         "category": "API一致性",
@@ -296,7 +296,7 @@
     "warnings": [
       {
         "category": "API一致性",
-        "message": "发现 112 个未被使用的后端API",
+        "message": "发现 120 个未被使用的后端API",
         "details": "/api/doctor/register\n/api/doctor/logout\n/api/doctor/prescription/{prescription_id}\n/api/doctor/prescription/{prescription_id}/review\n/api/doctor/today-reviewed\n/api/doctor/all-prescriptions\n/api/prescription/by-consultation/{consultation_id}\n/api/prescription/detail/{session_id}\n/api/prescription/{prescription_id}/patient-confirm\n/api/prescription/patient/{patient_id}/prescriptions"
       },
       {
@@ -343,7 +343,7 @@
     "info": [
       {
         "category": "Backend",
-        "message": "扫描到 154 个API端点"
+        "message": "扫描到 162 个API端点"
       },
       {
         "category": "Frontend",
@@ -351,7 +351,7 @@
       },
       {
         "category": "Database",
-        "message": "扫描到 68 张表"
+        "message": "扫描到 75 张表"
       }
     ]
   }

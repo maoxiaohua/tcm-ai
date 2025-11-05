@@ -20,19 +20,31 @@ def setup_exception_handlers(app: FastAPI):
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
         """HTTP异常处理器 - 统一响应格式"""
-        logger.warning(f"HTTP Exception: {exc.status_code} - {exc.detail}")
-        
+
+        # 🔧 增强日志：404错误记录详细的请求信息
+        if exc.status_code == 404:
+            client_ip = request.client.host if request.client else "unknown"
+            user_agent = request.headers.get('User-Agent', 'Unknown')
+            logger.warning(
+                f"HTTP 404 - Path: {request.url.path} | "
+                f"Method: {request.method} | "
+                f"Client: {client_ip} | "
+                f"User-Agent: {user_agent[:100]}"
+            )
+        else:
+            logger.warning(f"HTTP Exception: {exc.status_code} - {exc.detail}")
+
         # 映射状态码到错误代码
         error_codes = {
             400: "BAD_REQUEST",
-            401: "UNAUTHORIZED", 
+            401: "UNAUTHORIZED",
             403: "FORBIDDEN",
             404: "NOT_FOUND",
             422: "VALIDATION_ERROR",
             500: "INTERNAL_ERROR",
             503: "SERVICE_UNAVAILABLE"
         }
-        
+
         error_code = error_codes.get(exc.status_code, "UNKNOWN_ERROR")
         
         return JSONResponse(

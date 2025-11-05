@@ -2061,6 +2061,13 @@ async def admin_main():
     from fastapi.responses import FileResponse
     return FileResponse('/opt/tcm-ai/static/admin/index.html')
 
+# 思维导图系统路由
+@app.get("/mindmap")
+async def mindmap_main():
+    """AI智能思维导图生成器"""
+    from fastapi.responses import FileResponse
+    return FileResponse('/opt/tcm-ai/static/mindmap/index.html')
+
 @app.get("/decision_tree_visual_builder.html")
 async def decision_tree_builder():
     """决策树可视化构建器 - 向后兼容路由"""
@@ -2127,6 +2134,19 @@ async def debug_user_api_page():
     from fastapi.responses import FileResponse
     return FileResponse('/opt/tcm-ai/debug_user_api.html')
 
+# 🔧 处理浏览器常见自动请求 - 避免不必要的404日志
+from fastapi.responses import Response
+
+@app.get("/favicon.ico")
+@app.get("/robots.txt")
+@app.get("/sitemap.xml")
+@app.get("/ads.txt")
+@app.get("/apple-touch-icon.png")
+@app.get("/apple-touch-icon-precomposed.png")
+async def common_browser_files():
+    """处理浏览器常见自动请求 - 返回204减少404日志噪音"""
+    return Response(status_code=204)
+
 # 集成所有路由
 app.include_router(auth_router)
 app.include_router(unified_auth_router)  # 新的统一认证系统
@@ -2162,6 +2182,10 @@ app.include_router(security_router)
 app.include_router(decision_tree_usage_router)  # 🧠 决策树使用记录
 app.include_router(prescription_review_router)
 app.include_router(prescription_structured_edit_router)
+
+# 思维导图路由
+from api.routes.mindmap_routes import router as mindmap_router
+app.include_router(mindmap_router)
 
 # WebSocket实时同步路由
 from api.routes.websocket_sync_routes import router as websocket_sync_router

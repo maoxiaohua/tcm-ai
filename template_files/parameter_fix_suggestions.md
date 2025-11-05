@@ -1,6 +1,6 @@
 # 参数一致性修复建议
 
-**生成时间**: 2025-10-31 09:25:29
+**生成时间**: 2025-11-05 17:13:35
 
 ---
 
@@ -15,14 +15,14 @@
 标准名称: doctor_id
 描述: 医生唯一标识
 当前使用情况:
-  - doctor_id: 76 次使用 ✓ 标准
+  - doctor_id: 84 次使用 ✓ 标准
     文件: doctor_management.html, doctor_management.html, doctor_management.html
-  - doctor_name: 68 次使用 ✗ 别名
+  - doctor_name: 70 次使用 ✗ 别名
     文件: doctor_management.html, doctor_management.html, doctor_management.html
+  - doctorId: 22 次使用 ✗ 别名
+    文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, index_smart_workflow.html
   - selected_doctor: 16 次使用 ✗ 别名
     文件: index_smart_workflow_backup.html, index_smart_workflow_backup.html, index_v2.html
-  - doctorId: 13 次使用 ✗ 别名
-    文件: decision_tree_visual_builder.html, index_smart_workflow.html, js/conversation_state_manager.js
   - doctor_code: 4 次使用 ✗ 别名
     文件: user_history.html, index_smart_workflow.html
 
@@ -57,13 +57,13 @@
 标准名称: message
 描述: 消息内容
 当前使用情况:
-  - content: 1028 次使用 ✗ 别名
+  - content: 1114 次使用 ✗ 别名
     文件: doctor_management.html, doctor_management.html, doctor_portal.html
-  - message: 497 次使用 ✓ 标准
+  - message: 548 次使用 ✓ 标准
     文件: doctor_management.html, doctor_portal.html, phone_binding.html
-  - body: 366 次使用 ✗ 别名
+  - body: 398 次使用 ✗ 别名
     文件: phone_binding.html, phone_binding.html, prescription_checker_v2.html
-  - text: 103 次使用 ✗ 别名
+  - text: 147 次使用 ✗ 别名
     文件: prescription_checker_v2.html, prescription_checker_v2.html, prescription_checker_v2.html
   - msg: 14 次使用 ✗ 别名
     文件: simple_mobile_test.html, auth_portal.html, index_smart_workflow_backup.html
@@ -96,12 +96,12 @@
 标准名称: user_id
 描述: 用户/患者唯一标识
 当前使用情况:
-  - user_id: 88 次使用 ✓ 标准
-    文件: decision_tree_visual_builder.html, decision_tree_visual_builder.html, decision_tree_visual_builder.html
+  - user_id: 101 次使用 ✓ 标准
+    文件: decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html
   - userId: 66 次使用 ✗ 别名
     文件: index_v2.html, user_history.html, index_smart_workflow.html
-  - patient_id: 46 次使用 ✗ 别名
-    文件: doctor_review_portal.html, decision_tree_visual_builder.html, doctor_dashboard.html
+  - patient_id: 48 次使用 ✗ 别名
+    文件: doctor_review_portal.html, decision_tree_v3_data_driven.html, decision_tree_visual_builder.html
   - uid: 3 次使用 ✗ 别名
     文件: index_smart_workflow_backup.html
   - patientId: 2 次使用 ✗ 别名

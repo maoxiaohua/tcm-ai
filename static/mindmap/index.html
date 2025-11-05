@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI智能思维导图生成器</title>
+
+    <!-- Vue 3 -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+    <!-- Element Plus -->
+    <link href="https://cdn.jsdelivr.net/npm/element-plus@2.4.2/dist/index.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/element-plus@2.4.2/dist/index.full.min.js"></script>
+
+    <!-- Element Plus 图标 -->
+    <script src="https://cdn.jsdelivr.net/npm/@element-plus/icons-vue@2.1.0/dist/index.iife.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        #app {
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* 头部样式 */
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* 主容器 */
+        .main-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            gap: 20px;
+        }
+
+        /* 左侧面板 */
+        .left-panel {
+            width: 400px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .panel-content {
+            padding: 24px;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        /* 右侧画布 */
+        .canvas-panel {
+            flex: 1;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .canvas-header {
+            background: #f5f7fa;
+            padding: 16px 24px;
+            border-bottom: 1px solid #e4e7ed;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .canvas-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #303133;
+        }
+
+        .canvas-content {
+            flex: 1;
+            position: relative;
+            min-height: 600px;
+        }
+
+        #mindmap-chart {
+            width: 100%;
+            height: 100%;
+            min-height: 600px;
+        }
+
+        /* 表单样式优化 */
+        .el-form-item {
+            margin-bottom: 24px;
+        }
+
+        .el-form-item__label {
+            font-weight: 500;
+            color: #303133;
+        }
+
+        /* 域标签样式 */
+        .domain-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .domain-tag {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 2px solid #e4e7ed;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+            background: white;
+        }
+
+        .domain-tag:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .domain-tag.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: transparent;
+        }
+
+        /* 按钮样式 */
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .action-buttons .el-button {
+            flex: 1;
+        }
+
+        /* 加载动画 */
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #909399;
+        }
+
+        .loading-text {
+            margin-top: 16px;
+            font-size: 1rem;
+        }
+
+        /* 空状态 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #909399;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+
+        .empty-state-hint {
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        /* 历史记录 */
+        .history-section {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #e4e7ed;
+        }
+
+        .history-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #303133;
+            margin-bottom: 16px;
+        }
+
+        .history-item {
+            padding: 12px;
+            border: 1px solid #e4e7ed;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .history-item:hover {
+            border-color: #667eea;
+            background: #f5f7fa;
+        }
+
+        .history-item-title {
+            font-weight: 500;
+            color: #303133;
+            margin-bottom: 4px;
+        }
+
+        .history-item-meta {
+            font-size: 0.85rem;
+            color: #909399;
+        }
+
+        /* 响应式 */
+        @media (max-width: 1200px) {
+            .main-container {
+                flex-direction: column;
+            }
+
+            .left-panel {
+                width: 100%;
+            }
+        }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c0c4cc;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #909399;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="header">
+            <h1>🎨 AI智能思维导图生成器</h1>
+            <p>支持医疗诊断、技术方案、商业决策等多领域的智能思维导图生成</p>
+        </div>
+
+        <div class="main-container">
+            <!-- 左侧配置面板 -->
+            <div class="left-panel">
+                <div class="panel-header">
+                    创建思维导图
+                </div>
+                <div class="panel-content">
+                    <el-form :model="formData" label-position="top" size="large">
+                        <el-form-item label="主题标题">
+                            <el-input
+                                v-model="formData.topic"
+                                placeholder="例如：感冒诊断流程"
+                                maxlength="100"
+                                show-word-limit
+                            />
+                        </el-form-item>
+
+                        <el-form-item label="详细描述">
+                            <el-input
+                                v-model="formData.description"
+                                type="textarea"
+                                :rows="4"
+                                placeholder="请描述思维导图的核心内容和目标..."
+                                maxlength="1000"
+                                show-word-limit
+                            />
+                        </el-form-item>
+
+                        <el-form-item label="应用领域">
+                            <div class="domain-tags">
+                                <div
+                                    v-for="domain in domains"
+                                    :key="domain.value"
+                                    :class="['domain-tag', { active: formData.domain === domain.value }]"
+                                    @click="formData.domain = domain.value"
+                                >
+                                    {{ domain.icon }} {{ domain.label }}
+                                </div>
+                            </div>
+                        </el-form-item>
+
+                        <el-form-item label="层级设置">
+                            <el-slider
+                                v-model="formData.maxLevels"
+                                :min="2"
+                                :max="6"
+                                :marks="{ 2: '2层', 4: '4层', 6: '6层' }"
+                                show-stops
+                            />
+                        </el-form-item>
+
+                        <el-form-item label="分支数量">
+                            <el-slider
+                                v-model="formData.maxChildren"
+                                :min="2"
+                                :max="10"
+                                :marks="{ 2: '2个', 5: '5个', 10: '10个' }"
+                                show-stops
+                            />
+                        </el-form-item>
+
+                        <div class="action-buttons">
+                            <el-button
+                                type="primary"
+                                size="large"
+                                :loading="generating"
+                                @click="generateMindMap"
+                                :disabled="!canGenerate"
+                            >
+                                {{ generating ? '生成中...' : '🚀 生成思维导图' }}
+                            </el-button>
+                        </div>
+
+                        <div class="action-buttons">
+                            <el-button
+                                size="large"
+                                @click="saveMindMap"
+                                :disabled="!currentMindMap"
+                            >
+                                💾 保存
+                            </el-button>
+                            <el-button
+                                size="large"
+                                @click="exportImage"
+                                :disabled="!currentMindMap"
+                            >
+                                📥 导出图片
+                            </el-button>
+                        </div>
+                    </el-form>
+
+                    <!-- 历史记录 -->
+                    <div class="history-section" v-if="historyList.length > 0">
+                        <div class="history-title">📚 历史记录</div>
+                        <div
+                            v-for="item in historyList"
+                            :key="item.id"
+                            class="history-item"
+                            @click="loadMindMap(item.id)"
+                        >
+                            <div class="history-item-title">{{ item.title }}</div>
+                            <div class="history-item-meta">
+                                {{ item.domain }} · {{ formatDate(item.updated_at) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧画布 -->
+            <div class="canvas-panel">
+                <div class="canvas-header">
+                    <div class="canvas-title">
+                        {{ currentMindMap ? currentMindMap.title : '思维导图画布' }}
+                    </div>
+                    <div>
+                        <el-button
+                            size="small"
+                            @click="resetZoom"
+                            :disabled="!currentMindMap"
+                        >
+                            🔄 重置视图
+                        </el-button>
+                    </div>
+                </div>
+                <div class="canvas-content">
+                    <!-- 加载状态 -->
+                    <div v-if="generating" class="loading-container">
+                        <el-icon :size="48" class="is-loading">
+                            <Loading />
+                        </el-icon>
+                        <div class="loading-text">AI正在生成思维导图，请稍候...</div>
+                    </div>
+
+                    <!-- 空状态 -->
+                    <div v-else-if="!currentMindMap" class="empty-state">
+                        <div class="empty-state-icon">🎯</div>
+                        <div class="empty-state-text">开始创建你的第一个思维导图</div>
+                        <div class="empty-state-hint">在左侧填写主题和描述，点击生成按钮</div>
+                    </div>
+
+                    <!-- ECharts 画布 -->
+                    <div
+                        v-show="currentMindMap && !generating"
+                        id="mindmap-chart"
+                    ></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+        const { ElMessage, ElMessageBox } = ElementPlus;
+
+        createApp({
+            setup() {
+                // 表单数据
+                const formData = ref({
+                    topic: '',
+                    description: '',
+                    domain: 'general',
+                    maxLevels: 4,
+                    maxChildren: 5
+                });
+
+                // 领域选项
+                const domains = ref([
+                    { label: '医疗诊断', value: 'medical', icon: '🏥' },
+                    { label: '技术方案', value: 'technical', icon: '💻' },
+                    { label: '商业决策', value: 'business', icon: '💼' },
+                    { label: '通用主题', value: 'general', icon: '📊' }
+                ]);
+
+                // 状态
+                const generating = ref(false);
+                const currentMindMap = ref(null);
+                const historyList = ref([]);
+                const chart = ref(null);
+
+                // 计算属性
+                const canGenerate = computed(() => {
+                    return formData.value.topic.trim().length >= 2 &&
+                           formData.value.description.trim().length >= 5;
+                });
+
+                // 初始化图表
+                const initChart = () => {
+                    const chartDom = document.getElementById('mindmap-chart');
+                    chart.value = echarts.init(chartDom);
+                };
+
+                // 生成思维导图
+                const generateMindMap = async () => {
+                    if (!canGenerate.value) {
+                        ElMessage.warning('请填写完整的主题和描述');
+                        return;
+                    }
+
+                    generating.value = true;
+
+                    try {
+                        const response = await fetch('/api/mindmap/generate', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                topic: formData.value.topic,
+                                description: formData.value.description,
+                                domain: formData.value.domain,
+                                max_levels: formData.value.maxLevels,
+                                max_children: formData.value.maxChildren
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            currentMindMap.value = result.data.mindmap;
+                            renderMindMap(result.data.echarts);
+                            ElMessage.success('思维导图生成成功！');
+                        } else {
+                            throw new Error(result.message);
+                        }
+                    } catch (error) {
+                        console.error('生成失败:', error);
+                        ElMessage.error('生成失败: ' + error.message);
+                    } finally {
+                        generating.value = false;
+                    }
+                };
+
+                // 渲染思维导图
+                const renderMindMap = (echartsData) => {
+                    if (!chart.value) {
+                        initChart();
+                    }
+
+                    const option = {
+                        tooltip: {
+                            trigger: 'item',
+                            triggerOn: 'mousemove',
+                            formatter: function(params) {
+                                return `<strong>${params.name}</strong><br/>${params.value || ''}`;
+                            }
+                        },
+                        series: [
+                            {
+                                type: 'tree',
+                                data: [echartsData.data],
+                                top: '5%',
+                                left: '10%',
+                                bottom: '5%',
+                                right: '20%',
+                                symbolSize: function(value, params) {
+                                    return params.data.symbolSize || 50;
+                                },
+                                label: {
+                                    position: 'inside',
+                                    verticalAlign: 'middle',
+                                    align: 'center',
+                                    fontSize: 12,
+                                    formatter: function(params) {
+                                        const name = params.name;
+                                        if (name.length > 10) {
+                                            return name.substring(0, 10) + '...';
+                                        }
+                                        return name;
+                                    }
+                                },
+                                leaves: {
+                                    label: {
+                                        position: 'right',
+                                        verticalAlign: 'middle',
+                                        align: 'left'
+                                    }
+                                },
+                                emphasis: {
+                                    focus: 'descendant'
+                                },
+                                expandAndCollapse: true,
+                                animationDuration: 550,
+                                animationDurationUpdate: 750,
+                                lineStyle: {
+                                    width: 2,
+                                    curveness: 0.5
+                                }
+                            }
+                        ]
+                    };
+
+                    chart.value.setOption(option);
+                };
+
+                // 保存思维导图
+                const saveMindMap = async () => {
+                    if (!currentMindMap.value) {
+                        ElMessage.warning('没有可保存的思维导图');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch('/api/mindmap/save', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                mindmap_id: currentMindMap.value.id,
+                                title: currentMindMap.value.title,
+                                description: currentMindMap.value.description,
+                                domain: currentMindMap.value.domain,
+                                data: currentMindMap.value
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            ElMessage.success('保存成功！');
+                            loadHistory();
+                        } else {
+                            throw new Error(result.message);
+                        }
+                    } catch (error) {
+                        console.error('保存失败:', error);
+                        ElMessage.error('保存失败: ' + error.message);
+                    }
+                };
+
+                // 加载历史记录
+                const loadHistory = async () => {
+                    try {
+                        const response = await fetch('/api/mindmap/list?limit=10');
+                        const result = await response.json();
+
+                        if (result.success) {
+                            historyList.value = result.data.mindmaps;
+                        }
+                    } catch (error) {
+                        console.error('加载历史记录失败:', error);
+                    }
+                };
+
+                // 加载思维导图
+                const loadMindMap = async (mindmapId) => {
+                    try {
+                        const response = await fetch(`/api/mindmap/load/${mindmapId}`);
+                        const result = await response.json();
+
+                        if (result.success) {
+                            const mindmapData = result.data;
+                            currentMindMap.value = mindmapData.data;
+
+                            // 重新生成ECharts数据并渲染
+                            const echartsData = convertToEChartsFormat(mindmapData.data);
+                            renderMindMap(echartsData);
+
+                            ElMessage.success('加载成功！');
+                        }
+                    } catch (error) {
+                        console.error('加载失败:', error);
+                        ElMessage.error('加载失败: ' + error.message);
+                    }
+                };
+
+                // 转换为ECharts格式
+                const convertToEChartsFormat = (mindmapData) => {
+                    const nodes = mindmapData.nodes;
+                    const rootNodeId = mindmapData.root_node;
+
+                    function buildTree(nodeId) {
+                        const node = nodes[nodeId];
+                        if (!node) return null;
+
+                        const treeNode = {
+                            name: node.title,
+                            value: node.content,
+                            itemStyle: { color: node.color },
+                            symbolSize: Math.max(60 - node.level * 10, 30),
+                            children: []
+                        };
+
+                        if (node.children && node.children.length > 0) {
+                            node.children.forEach(childId => {
+                                const childNode = buildTree(childId);
+                                if (childNode) {
+                                    treeNode.children.push(childNode);
+                                }
+                            });
+                        }
+
+                        return treeNode;
+                    }
+
+                    return {
+                        title: mindmapData.title,
+                        data: buildTree(rootNodeId)
+                    };
+                };
+
+                // 导出图片
+                const exportImage = () => {
+                    if (!chart.value) return;
+
+                    const url = chart.value.getDataURL({
+                        type: 'png',
+                        pixelRatio: 2,
+                        backgroundColor: '#fff'
+                    });
+
+                    const link = document.createElement('a');
+                    link.download = `${currentMindMap.value.title}_思维导图.png`;
+                    link.href = url;
+                    link.click();
+
+                    ElMessage.success('图片导出成功！');
+                };
+
+                // 重置视图
+                const resetZoom = () => {
+                    if (chart.value) {
+                        chart.value.dispatchAction({
+                            type: 'restore'
+                        });
+                    }
+                };
+
+                // 格式化日期
+                const formatDate = (dateString) => {
+                    const date = new Date(dateString);
+                    return date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                };
+
+                // 窗口大小变化时重新渲染
+                const handleResize = () => {
+                    if (chart.value) {
+                        chart.value.resize();
+                    }
+                };
+
+                // 组件挂载
+                onMounted(() => {
+                    initChart();
+                    loadHistory();
+                    window.addEventListener('resize', handleResize);
+                });
+
+                return {
+                    formData,
+                    domains,
+                    generating,
+                    currentMindMap,
+                    historyList,
+                    canGenerate,
+                    generateMindMap,
+                    saveMindMap,
+                    loadMindMap,
+                    exportImage,
+                    resetZoom,
+                    formatDate
+                };
+            }
+        })
+        .use(ElementPlus)
+        .mount('#app');
+    </script>
+</body>
+</html>

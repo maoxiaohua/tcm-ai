@@ -212,17 +212,23 @@ class SessionManager:
         self.active_sessions[session_token] = session
         self._save_session_to_db(session)
         
-        # 记录登录事件
-        self._log_security_event(
-            event_type="USER_LOGIN",
-            user_id=user_id,
-            ip_address=ip_address,
-            user_agent=user_agent,
-            details={"role": role.value},
-            risk_level="LOW"
-        )
-        
-        logger.info(f"Created session for user {user_id} with role {role.value}")
+        # 记录登录事件（匿名会话不记录，减少数据库写入）
+        if role != UserRole.ANONYMOUS:
+            self._log_security_event(
+                event_type="USER_LOGIN",
+                user_id=user_id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                details={"role": role.value},
+                risk_level="LOW"
+            )
+
+        # 🔧 优化日志级别：匿名会话改为DEBUG，减少日志噪音
+        if role == UserRole.ANONYMOUS:
+            logger.debug(f"Created anonymous session from {ip_address}")
+        else:
+            logger.info(f"Created session for user {user_id} with role {role.value}")
+
         return session
     
     def get_session(self, session_token: str) -> Optional[UserSession]:
