@@ -1,12 +1,12 @@
 {
-  "timestamp": "2025-11-05T17:13:30.511188",
+  "timestamp": "2025-11-05T17:28:43.499015",
   "statistics": {
     "backend_apis": 162,
-    "frontend_apis": 94,
-    "database_tables": 75
+    "frontend_apis": 97,
+    "database_tables": 76
   },
   "summary": {
-    "errors": 56,
+    "errors": 59,
     "warnings": 9,
     "info": 3
   },
@@ -254,6 +254,21 @@
       },
       {
         "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/mindmap/generate",
+        "details": "调用文件: mindmap/index.html"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/mindmap/save",
+        "details": "调用文件: mindmap/index.html"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/mindmap/list?limit=10",
+        "details": "调用文件: mindmap/index.html"
+      },
+      {
+        "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/user-sync/full-sync",
         "details": "调用文件: js/conversation_state_manager.js"
       },
@@ -347,11 +362,11 @@
       },
       {
         "category": "Frontend",
-        "message": "扫描到 94 个API调用"
+        "message": "扫描到 97 个API调用"
       },
       {
         "category": "Database",
-        "message": "扫描到 75 张表"
+        "message": "扫描到 76 张表"
       }
     ]
   }

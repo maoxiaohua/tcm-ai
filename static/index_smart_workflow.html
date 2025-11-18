@@ -11357,7 +11357,20 @@ ${data.analysis_result}`;
                 // 3. 设置医生（如果指定了）
                 if (consultation.doctor_name) {
                     console.log('👨‍⚕️ 设置医生:', consultation.doctor_name);
-                    selectDoctor(consultation.doctor_name);
+
+                    // 🔑 修复：将医生中文名映射到doctor_code
+                    const doctorNameToCode = {
+                        '金大夫': 'jin_daifu',
+                        '张仲景': 'zhang_zhongjing',
+                        '叶天士': 'ye_tianshi',
+                        '李东垣': 'li_dongyuan',
+                        '刘渡舟': 'liu_duzhou',
+                        '郑钦安': 'zheng_qin_an'
+                    };
+
+                    const doctorCode = doctorNameToCode[consultation.doctor_name] || consultation.doctor_name;
+                    console.log('👨‍⚕️ 映射后的医生代码:', doctorCode);
+                    selectDoctor(doctorCode);
                 }
                 
                 // 4. 清空当前消息并恢复对话

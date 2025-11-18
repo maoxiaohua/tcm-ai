@@ -1467,8 +1467,8 @@
                 const loadingModal = createLoadingModal('正在加载对话详情...');
                 document.body.appendChild(loadingModal);
                 
-                // 🔑 从服务端获取完整的对话数据
-                const response = await fetch(`/api/consultation/detail/${sessionId}`, {
+                // 🔑 从服务端获取完整的对话数据（修复：使用正确的API路由）
+                const response = await fetch(`/api/user/conversation/${sessionId}`, {
                     headers: getAuthHeaders()
                 });
                 
@@ -1478,14 +1478,25 @@
                 
                 const result = await response.json();
                 console.log('📄 获取到的对话详情:', result);
-                
+
                 if (!result.success) {
                     throw new Error(result.message || '获取对话详情失败');
                 }
-                
-                // 解析详细的对话数据
-                const conversationData = result.data;
-                const detail = await parseConversationDetail(conversationData, sessionId);
+
+                // 🔑 修复：API返回的就是完整数据，不需要再解析.data
+                // result结构: {success, session_id, doctor_name, conversation_history, chief_complaint, ...}
+                const detail = {
+                    session_id: result.session_id || sessionId,
+                    doctor_name: result.doctor_name || '未知医生',
+                    conversation_history: result.conversation_history || [],
+                    chief_complaint: result.chief_complaint || '未记录',
+                    diagnosis_summary: result.diagnosis_summary || '暂无诊断信息',
+                    prescription_given: result.prescription_given || '未知',
+                    has_prescription: result.has_prescription || false,
+                    status: result.status || 'completed',
+                    created_at: result.created_at,
+                    prescription: result.prescription || {}
+                };
                 
                 // 移除加载状态
                 loadingModal.remove();
@@ -1672,21 +1683,36 @@
                 </div>
             ` : '<div class="detail-section"><h3>🌿 中医处方</h3><p class="no-prescription">本次问诊未开具处方</p></div>';
             
-            // 处理对话历史
-            const conversationHistory = detail.conversation_history && detail.conversation_history.length > 0 ? 
-                detail.conversation_history.map((conv, index) => `
-                    <div class="conversation-turn">
-                        <div class="patient-message">
-                            <strong>患者 (第${index + 1}轮):</strong>
-                            <p>${conv.patient_query}</p>
+            // 🔑 修复：处理对话历史，清理HTML标签并提取纯文本诊断信息
+            const conversationHistory = detail.conversation_history && detail.conversation_history.length > 0 ?
+                detail.conversation_history.map((conv, index) => {
+                    // 清理AI响应中的HTML标签，提取纯文本内容
+                    let cleanResponse = conv.ai_response || '';
+
+                    // 如果包含prescription-locked div，说明是处方锁定的HTML
+                    if (cleanResponse.includes('prescription-locked')) {
+                        cleanResponse = '【此问诊包含处方信息，需在智能问诊页面查看完整内容】';
+                    } else {
+                        // 移除所有HTML标签
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = cleanResponse;
+                        cleanResponse = tempDiv.textContent || tempDiv.innerText || cleanResponse;
+                    }
+
+                    return `
+                        <div class="conversation-turn">
+                            <div class="patient-message">
+                                <strong>患者 (第${index + 1}轮):</strong>
+                                <p>${conv.patient_query || '未记录'}</p>
+                            </div>
+                            <div class="doctor-message">
+                                <strong>${doctorName}:</strong>
+                                <p style="white-space: pre-wrap;">${cleanResponse}</p>
+                            </div>
+                            ${conv.timestamp ? `<div class="turn-timestamp">${new Date(conv.timestamp).toLocaleString('zh-CN')}</div>` : ''}
                         </div>
-                        <div class="doctor-message">
-                            <strong>${doctorName}:</strong>
-                            <p>${conv.ai_response}</p>
-                        </div>
-                        <div class="turn-timestamp">${new Date(conv.timestamp).toLocaleString('zh-CN')}</div>
-                    </div>
-                `).join('')
+                    `;
+                }).join('')
                 : '<p>暂无详细对话记录</p>';
             
             modal.innerHTML = `

@@ -122,16 +122,31 @@ async def get_user_sessions(user_id: str = None):
                             conversation_history = log_data.get('conversation_history', [])
                             if conversation_history and len(conversation_history) > 0:
                                 message_count = len(conversation_history)
-                                # 取第一条用户消息作为主诉
+                                # 🔑 修复：取第一条用户消息作为主诉，兼容新旧格式
                                 for item in conversation_history:
+                                    # 新格式：patient_query
                                     if item.get('patient_query'):
                                         chief_complaint = item['patient_query'][:50] + ("..." if len(item['patient_query']) > 50 else "")
                                         break
+                                    # 旧格式：type + content
+                                    elif item.get('type') == 'user' and item.get('content'):
+                                        chief_complaint = item['content'][:50] + ("..." if len(item['content']) > 50 else "")
+                                        break
                                         
-                                # 提取诊断信息 - 使用完整的辨证分析内容
+                                # 🔑 修复：提取诊断信息，清理HTML内容，兼容新旧格式
                                 for item in conversation_history:
-                                    if item.get('ai_response'):
-                                        ai_response = item['ai_response']
+                                    # 新格式：ai_response
+                                    ai_response = item.get('ai_response')
+                                    # 旧格式：type + content
+                                    if not ai_response and item.get('type') == 'ai':
+                                        ai_response = item.get('content')
+
+                                    if ai_response:
+                                        # 🔑 如果包含HTML标签，跳过
+                                        if 'prescription-locked' in ai_response or '<div' in ai_response:
+                                            diagnosis_summary = '【包含处方信息】'
+                                            break
+
                                         if '辨证分析' in ai_response or '证' in ai_response or '诊断' in ai_response:
                                             # 提取辨证分析段落
                                             if '【辨证分析】' in ai_response:
@@ -172,11 +187,17 @@ async def get_user_sessions(user_id: str = None):
                                 if 'content' in first_user_msg:
                                     chief_complaint = first_user_msg['content'][:50] + ("..." if len(first_user_msg['content']) > 50 else "")
                                 
-                                # 查找AI回复中的诊断信息
+                                # 🔑 修复：查找AI回复中的诊断信息，同时检查HTML
                                 ai_messages = [msg for msg in log_data if msg.get('type') == 'ai']
                                 for ai_msg in ai_messages:
                                     if ai_msg.get('content'):
                                         ai_content = ai_msg['content']
+
+                                        # 🔑 如果包含HTML标签，跳过
+                                        if 'prescription-locked' in ai_content or '<div' in ai_content:
+                                            diagnosis_summary = '【包含处方信息】'
+                                            break
+
                                         if '辨证分析' in ai_content or '证' in ai_content or '诊断' in ai_content:
                                             # 提取辨证分析段落
                                             if '【辨证分析】' in ai_content:
@@ -330,10 +351,16 @@ async def get_conversation_detail(session_id: str):
                     chief_complaint = item['patient_query'][:50] + "..." if len(item['patient_query']) > 50 else item['patient_query']
                     break
             
-            # 检查是否有AI给出的诊断 - 提取完整辨证分析
+            # 🔑 修复：检查是否有AI给出的诊断 - 提取完整辨证分析并清理HTML
             for item in conversation_history:
                 if item.get('ai_response'):
                     ai_response = item['ai_response']
+
+                    # 🔑 如果包含prescription-locked说明是HTML格式，跳过
+                    if 'prescription-locked' in ai_response or '<div' in ai_response:
+                        diagnosis_summary = '【此问诊包含处方信息，请在智能问诊页面查看完整内容】'
+                        break
+
                     if '辨证分析' in ai_response or '证' in ai_response or '诊断' in ai_response:
                         # 提取辨证分析段落
                         if '【辨证分析】' in ai_response:
