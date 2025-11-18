@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-18T16:23:55.606944",
+  "timestamp": "2025-11-18T17:38:04.072472",
   "statistics": {
     "backend_apis": 162,
     "frontend_apis": 97,
@@ -140,7 +140,7 @@
       {
         "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/user/info",
-        "details": "调用文件: register.html, user_history.html"
+        "details": "调用文件: register.html"
       },
       {
         "category": "API一致性",
@@ -149,18 +149,8 @@
       },
       {
         "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/auth/profile-fixed",
-        "details": "调用文件: user_history.html"
-      },
-      {
-        "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/doctors/list",
-        "details": "调用文件: user_history.html, index_smart_workflow.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/user/devices",
-        "details": "调用文件: user_history.html"
+        "details": "调用文件: index_smart_workflow.html"
       },
       {
         "category": "API一致性",
@@ -271,6 +261,16 @@
         "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/user-sync/full-sync",
         "details": "调用文件: js/conversation_state_manager.js"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/v2/auth/me",
+        "details": "调用文件: js/modules/history_api.js"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/user/sessions/export",
+        "details": "调用文件: js/modules/history_api.js"
       },
       {
         "category": "数据库字段",

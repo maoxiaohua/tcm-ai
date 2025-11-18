@@ -1,6 +1,6 @@
 # 参数一致性修复建议
 
-**生成时间**: 2025-11-18 16:24:00
+**生成时间**: 2025-11-18 17:38:08
 
 ---
 
@@ -15,16 +15,16 @@
 标准名称: doctor_id
 描述: 医生唯一标识
 当前使用情况:
-  - doctor_id: 84 次使用 ✓ 标准
+  - doctor_id: 83 次使用 ✓ 标准
     文件: doctor_management.html, doctor_management.html, doctor_management.html
-  - doctor_name: 74 次使用 ✗ 别名
+  - doctor_name: 60 次使用 ✗ 别名
     文件: doctor_management.html, doctor_management.html, doctor_management.html
   - doctorId: 22 次使用 ✗ 别名
     文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, index_smart_workflow.html
   - selected_doctor: 16 次使用 ✗ 别名
     文件: index_smart_workflow_backup.html, index_smart_workflow_backup.html, index_v2.html
   - doctor_code: 4 次使用 ✗ 别名
-    文件: user_history.html, index_smart_workflow.html
+    文件: index_smart_workflow.html, js/modules/history_data.js
 
 建议: 统一使用 'doctor_id'
 ```
@@ -57,13 +57,13 @@
 标准名称: message
 描述: 消息内容
 当前使用情况:
-  - content: 1122 次使用 ✗ 别名
+  - content: 1018 次使用 ✗ 别名
     文件: doctor_management.html, doctor_management.html, doctor_portal.html
-  - message: 553 次使用 ✓ 标准
+  - message: 511 次使用 ✓ 标准
     文件: doctor_management.html, doctor_portal.html, phone_binding.html
-  - body: 402 次使用 ✗ 别名
+  - body: 395 次使用 ✗ 别名
     文件: phone_binding.html, phone_binding.html, prescription_checker_v2.html
-  - text: 147 次使用 ✗ 别名
+  - text: 143 次使用 ✗ 别名
     文件: prescription_checker_v2.html, prescription_checker_v2.html, prescription_checker_v2.html
   - msg: 14 次使用 ✗ 别名
     文件: simple_mobile_test.html, auth_portal.html, index_smart_workflow_backup.html
@@ -96,10 +96,10 @@
 标准名称: user_id
 描述: 用户/患者唯一标识
 当前使用情况:
-  - user_id: 101 次使用 ✓ 标准
+  - user_id: 81 次使用 ✓ 标准
     文件: decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html
-  - userId: 66 次使用 ✗ 别名
-    文件: index_v2.html, user_history.html, index_smart_workflow.html
+  - userId: 65 次使用 ✗ 别名
+    文件: index_v2.html, index_smart_workflow.html, index_smart_workflow.html
   - patient_id: 48 次使用 ✗ 别名
     文件: doctor_review_portal.html, decision_tree_v3_data_driven.html, decision_tree_visual_builder.html
   - uid: 3 次使用 ✗ 别名
@@ -137,7 +137,7 @@
 当前使用情况:
   - prescriptionId: 84 次使用 ✗ 别名
     文件: debug_prescription_payment.html, prescription_structured_editor.html, test_prescription_unlock.html
-  - prescription_id: 54 次使用 ✓ 标准
+  - prescription_id: 50 次使用 ✓ 标准
     文件: patient_prescription_confirm.html, patient_prescription_confirm.html, prescription_structured_editor.html
 
 建议: 统一使用 'prescription_id'
@@ -170,8 +170,8 @@
 当前使用情况:
   - conversation_id: 54 次使用 ✓ 标准
     文件: index_smart_workflow_backup.html, index_smart_workflow_backup.html, index_v2.html
-  - session_id: 41 次使用 ✗ 别名
-    文件: auth_portal.html, user_history.html, user_history.html
+  - session_id: 26 次使用 ✗ 别名
+    文件: auth_portal.html, index_smart_workflow.html, index_smart_workflow.html
   - conversationId: 13 次使用 ✗ 别名
     文件: index_smart_workflow_backup.html, index_smart_workflow.html, index_smart_workflow.html
   - sessionId: 1 次使用 ✗ 别名

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工具模块测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-result {
+            background: #f5f5f5;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        h2 { color: #333; margin-top: 0; }
+        button {
+            padding: 8px 16px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 工具模块功能测试</h1>
+
+    <div class="test-section">
+        <h2>📦 StorageUtils 测试</h2>
+        <button onclick="testStorage()">运行测试</button>
+        <div id="storageResult" class="test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 FormatUtils 测试</h2>
+        <button onclick="testFormat()">运行测试</button>
+        <div id="formatResult" class="test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎨 DOMUtils 测试</h2>
+        <button onclick="testDOM()">运行测试</button>
+        <div id="domResult" class="test-result"></div>
+        <div id="testDiv" style="margin-top: 10px; padding: 10px; background: #e0e0e0;">
+            测试DOM元素
+        </div>
+    </div>
+
+    <script type="module">
+        import { StorageUtils, FormatUtils, DOMUtils } from '/static/js/modules/utils/index.js';
+
+        // 暴露到全局供按钮调用
+        window.StorageUtils = StorageUtils;
+        window.FormatUtils = FormatUtils;
+        window.DOMUtils = DOMUtils;
+
+        window.testStorage = function() {
+            const result = document.getElementById('storageResult');
+            let output = '';
+
+            try {
+                // 测试用户ID
+                const userId = StorageUtils.getCurrentUserId();
+                output += `✓ 当前用户ID: ${userId}\n`;
+
+                // 测试会话ID生成
+                const conversationId = StorageUtils.generateConversationId();
+                output += `✓ 生成会话ID: ${conversationId}\n`;
+
+                // 测试数据保存和读取
+                StorageUtils.saveUserData('test_key', { value: 'test' });
+                const data = StorageUtils.getUserData('test_key');
+                output += `✓ 保存并读取数据: ${JSON.stringify(data)}\n`;
+
+                // 测试统计
+                const stats = StorageUtils.getStorageStats();
+                output += `✓ 存储统计: ${JSON.stringify(stats)}\n`;
+
+                result.innerHTML = output;
+                result.className = 'test-result success';
+            } catch (error) {
+                result.innerHTML = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        window.testFormat = function() {
+            const result = document.getElementById('formatResult');
+            let output = '';
+
+            try {
+                // 测试时间格式化
+                const now = new Date();
+                output += `✓ 完整日期时间: ${FormatUtils.formatDateTime(now)}\n`;
+                output += `✓ 日期: ${FormatUtils.formatDate(now)}\n`;
+                output += `✓ 时间: ${FormatUtils.formatTime(now)}\n`;
+
+                // 测试相对时间
+                const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+                output += `✓ 相对时间: ${FormatUtils.formatConversationTime(oneHourAgo)}\n`;
+
+                // 测试文本处理
+                const longText = '这是一段很长的文本内容，需要被截断处理';
+                output += `✓ 文本截断: ${FormatUtils.truncate(longText, 15)}\n`;
+
+                // 测试数字格式化
+                output += `✓ 数字格式化: ${FormatUtils.formatNumber(1234567)}\n`;
+
+                // 测试文件大小
+                output += `✓ 文件大小: ${FormatUtils.formatFileSize(1048576)}\n`;
+
+                // 测试电话号码
+                output += `✓ 电话格式化: ${FormatUtils.formatPhone('13812345678')}\n`;
+                output += `✓ 电话脱敏: ${FormatUtils.maskPhone('13812345678')}\n`;
+                output += `✓ 电话验证: ${FormatUtils.isValidPhone('13812345678')}\n`;
+
+                result.innerHTML = output;
+                result.className = 'test-result success';
+            } catch (error) {
+                result.innerHTML = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        window.testDOM = function() {
+            const result = document.getElementById('domResult');
+            const testDiv = document.getElementById('testDiv');
+            let output = '';
+
+            try {
+                // 测试元素查询
+                const elem = DOMUtils.$('#testDiv');
+                output += `✓ 元素查询: ${elem ? '成功' : '失败'}\n`;
+
+                // 测试class操作
+                DOMUtils.addClass(testDiv, 'test-class');
+                output += `✓ 添加class: ${DOMUtils.hasClass(testDiv, 'test-class')}\n`;
+
+                // 测试元素创建
+                const newDiv = DOMUtils.createElement('div', {
+                    className: 'created-element',
+                    style: { color: 'blue', padding: '5px' }
+                }, '动态创建的元素');
+                output += `✓ 创建元素: ${newDiv.tagName}\n`;
+
+                // 测试属性操作
+                DOMUtils.attr(testDiv, 'data-test', 'value');
+                output += `✓ 设置属性: ${DOMUtils.attr(testDiv, 'data-test')}\n`;
+
+                // 测试设备检测
+                output += `✓ 移动设备: ${DOMUtils.isMobile()}\n`;
+                output += `✓ iOS设备: ${DOMUtils.isIOS()}\n`;
+                output += `✓ 微信浏览器: ${DOMUtils.isWeChat()}\n`;
+
+                // 测试防抖/节流
+                const debouncedFunc = DOMUtils.debounce(() => console.log('debounced'), 300);
+                const throttledFunc = DOMUtils.throttle(() => console.log('throttled'), 300);
+                output += `✓ 防抖函数: ${typeof debouncedFunc === 'function'}\n`;
+                output += `✓ 节流函数: ${typeof throttledFunc === 'function'}\n`;
+
+                result.innerHTML = output;
+                result.className = 'test-result success';
+            } catch (error) {
+                result.innerHTML = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        // 页面加载完成后显示就绪信息
+        DOMUtils.ready(() => {
+            console.log('✅ 工具模块测试页面已就绪');
+        });
+    </script>
+</body>
+</html>
