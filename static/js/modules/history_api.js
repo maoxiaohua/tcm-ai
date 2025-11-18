@@ -1,0 +1,172 @@
+/**
+ * 患者历史记录 - API调用层
+ * 负责所有与后端的HTTP通信
+ */
+
+export class HistoryAPI {
+    constructor() {
+        this.baseURL = '';
+    }
+
+    /**
+     * 获取认证头
+     */
+    getAuthHeaders() {
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('session_token');
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        return headers;
+    }
+
+    /**
+     * 获取用户会话列表
+     * @param {string} userId - 用户ID
+     * @returns {Promise<Object>} 会话列表数据
+     */
+    async getSessions(userId) {
+        try {
+            const url = userId
+                ? `/api/user/sessions?user_id=${encodeURIComponent(userId)}`
+                : '/api/user/sessions';
+
+            const response = await fetch(url, {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('❌ 获取会话列表失败:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 获取单个会话的详细信息
+     * @param {string} sessionId - 会话ID
+     * @returns {Promise<Object>} 会话详情数据
+     */
+    async getConversationDetail(sessionId) {
+        try {
+            const response = await fetch(`/api/user/conversation/${sessionId}`, {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.message || '获取会话详情失败');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('❌ 获取会话详情失败:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 加载医生信息列表
+     * @returns {Promise<Object>} 医生信息数据
+     */
+    async loadDoctorInfo() {
+        try {
+            const response = await fetch('/api/doctor/list');
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error('加载医生信息失败');
+            }
+
+            return data;
+        } catch (error) {
+            console.warn('⚠️ 加载医生信息失败:', error);
+            // 返回空数据而不是抛出错误，让应用继续运行
+            return { success: false, doctors: [] };
+        }
+    }
+
+    /**
+     * 获取当前用户信息
+     * @returns {Promise<Object>} 用户信息
+     */
+    async getCurrentUser() {
+        try {
+            const response = await fetch('/api/v2/auth/me', {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                // 未登录或token过期
+                return null;
+            }
+
+            const data = await response.json();
+            return data.success ? data.user : null;
+        } catch (error) {
+            console.warn('⚠️ 获取用户信息失败:', error);
+            return null;
+        }
+    }
+
+    /**
+     * 清空用户历史记录
+     * @returns {Promise<Object>} 清空结果
+     */
+    async clearHistory() {
+        try {
+            const response = await fetch('/api/user/sessions/clear', {
+                method: 'DELETE',
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('❌ 清空历史记录失败:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 导出历史记录
+     * @returns {Promise<Blob>} 导出的文件数据
+     */
+    async exportHistory() {
+        try {
+            const response = await fetch('/api/user/sessions/export', {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return await response.blob();
+        } catch (error) {
+            console.error('❌ 导出历史记录失败:', error);
+            throw error;
+        }
+    }
+}

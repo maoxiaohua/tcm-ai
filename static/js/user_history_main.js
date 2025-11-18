@@ -1,0 +1,267 @@
+/**
+ * 患者历史记录 - 主入口文件
+ * 整合API、数据处理和UI渲染层
+ */
+
+import { HistoryAPI } from './modules/history_api.js';
+import { HistoryDataProcessor } from './modules/history_data.js';
+import { HistoryUI } from './modules/history_ui.js';
+
+class UserHistoryApp {
+    constructor() {
+        this.api = new HistoryAPI();
+        this.dataProcessor = new HistoryDataProcessor();
+        this.ui = new HistoryUI(document.getElementById('historyContent'));
+
+        this.currentUserId = null;
+    }
+
+    /**
+     * 初始化应用
+     */
+    async init() {
+        console.log('🚀 用户历史记录应用初始化...');
+
+        try {
+            // 1. 加载医生信息
+            await this.loadDoctorInfo();
+
+            // 2. 获取当前用户
+            await this.loadCurrentUser();
+
+            // 3. 加载会话列表
+            await this.loadSessions();
+
+            // 4. 绑定全局事件
+            this.bindGlobalEvents();
+
+            console.log('✅ 应用初始化完成');
+        } catch (error) {
+            console.error('❌ 应用初始化失败:', error);
+            this.ui.renderError('加载失败，请刷新页面重试');
+        }
+    }
+
+    /**
+     * 加载医生信息
+     */
+    async loadDoctorInfo() {
+        try {
+            const data = await this.api.loadDoctorInfo();
+            if (data.success && data.doctors) {
+                this.dataProcessor.setDoctorInfo(data.doctors);
+            }
+        } catch (error) {
+            console.warn('⚠️ 加载医生信息失败，使用默认配置');
+        }
+    }
+
+    /**
+     * 加载当前用户
+     */
+    async loadCurrentUser() {
+        try {
+            const user = await this.api.getCurrentUser();
+            if (user) {
+                this.currentUserId = user.id || user.user_id;
+                console.log('✅ 当前用户:', this.currentUserId);
+
+                // 更新UI中的用户信息
+                this.updateUserInfo(user);
+            } else {
+                // 未登录，使用设备ID
+                this.currentUserId = localStorage.getItem('device_id') || 'guest';
+                console.log('⚠️ 使用设备ID:', this.currentUserId);
+            }
+        } catch (error) {
+            console.warn('⚠️ 获取用户信息失败');
+            this.currentUserId = localStorage.getItem('device_id') || 'guest';
+        }
+    }
+
+    /**
+     * 加载会话列表
+     */
+    async loadSessions() {
+        this.ui.renderLoading();
+
+        try {
+            const data = await this.api.getSessions(this.currentUserId);
+
+            if (!data || !data.sessions || data.sessions.length === 0) {
+                this.ui.renderEmptyState();
+                this.ui.updateStats({ totalSessions: 0, doctorCount: 0, usageDays: 0 });
+                return;
+            }
+
+            // 处理数据
+            const sessions = this.dataProcessor.processSessionData(data);
+
+            // 计算统计
+            const stats = this.dataProcessor.calculateStats(sessions);
+            this.ui.updateStats(stats);
+
+            // 渲染列表
+            this.renderSessionHistory();
+
+            // 更新医生标签
+            const doctorsWithData = this.dataProcessor.getDoctorsWithData();
+            this.ui.updateDoctorTabs(doctorsWithData, this.dataProcessor);
+
+        } catch (error) {
+            console.error('❌ 加载会话失败:', error);
+            this.ui.renderError(`加载失败: ${error.message}`);
+        }
+    }
+
+    /**
+     * 渲染会话历史
+     */
+    renderSessionHistory() {
+        const filtered = this.dataProcessor.filterSessions(this.dataProcessor.currentFilter);
+        const grouped = this.dataProcessor.groupByDoctor(filtered);
+        this.ui.renderSessionList(grouped, this.dataProcessor);
+    }
+
+    /**
+     * 更新用户信息UI
+     */
+    updateUserInfo(user) {
+        const avatarEl = document.getElementById('userAvatar');
+        const nameEl = document.getElementById('userName');
+        const typeEl = document.getElementById('userType');
+
+        if (avatarEl) avatarEl.textContent = user.name ? user.name[0] : '用';
+        if (nameEl) nameEl.textContent = user.name || user.phone || '游客用户';
+        if (typeEl) typeEl.textContent = user.phone ? '已绑定手机' : '设备用户';
+    }
+
+    /**
+     * 绑定全局事件
+     */
+    bindGlobalEvents() {
+        // 暴露全局函数供HTML调用
+        window.filterSessions = this.filterSessions.bind(this);
+        window.toggleDoctorGroup = this.toggleDoctorGroup.bind(this);
+        window.showConversationDetail = this.showConversationDetail.bind(this);
+        window.viewSession = this.viewSession.bind(this);
+        window.startNewConsultation = this.startNewConsultation.bind(this);
+        window.exportHistory = this.exportHistory.bind(this);
+        window.clearHistory = this.clearHistory.bind(this);
+        window.upgradeAccount = this.upgradeAccount.bind(this);
+    }
+
+    /**
+     * 过滤会话
+     */
+    filterSessions(filter) {
+        this.dataProcessor.currentFilter = filter;
+
+        // 更新按钮状态
+        document.querySelectorAll('.filter-tab').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+
+        // 重新渲染
+        this.renderSessionHistory();
+    }
+
+    /**
+     * 切换医生分组展开/折叠
+     */
+    toggleDoctorGroup(element) {
+        element.classList.toggle('expanded');
+    }
+
+    /**
+     * 显示对话详情
+     */
+    async showConversationDetail(sessionId) {
+        const loadingModal = this.ui.createLoadingModal('正在加载对话详情...');
+        document.body.appendChild(loadingModal);
+
+        try {
+            const detail = await this.api.getConversationDetail(sessionId);
+            loadingModal.remove();
+
+            // 清理HTML标签
+            const cleanedDetail = this.dataProcessor.cleanConversationDetail(detail);
+
+            // 显示详情弹窗
+            this.ui.showConversationDetailModal(cleanedDetail, this.dataProcessor);
+
+        } catch (error) {
+            console.error('❌ 获取对话详情失败:', error);
+            loadingModal.remove();
+            alert('获取对话详情失败，请重试');
+        }
+    }
+
+    /**
+     * 恢复对话
+     */
+    viewSession(sessionId) {
+        const restoreUrl = `/smart?restore_session=${encodeURIComponent(sessionId)}`;
+
+        if (confirm('是否在新窗口中查看完整的问诊对话（包括已解锁的处方内容）？\n\n点击"确定"新窗口打开，点击"取消"当前窗口跳转')) {
+            window.open(restoreUrl, '_blank');
+        } else {
+            window.location.href = restoreUrl;
+        }
+    }
+
+    /**
+     * 开始新问诊
+     */
+    startNewConsultation() {
+        window.location.href = '/smart';
+    }
+
+    /**
+     * 导出历史记录
+     */
+    async exportHistory() {
+        try {
+            const blob = await this.api.exportHistory();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `问诊历史_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            alert('导出失败：' + error.message);
+        }
+    }
+
+    /**
+     * 清空历史记录
+     */
+    async clearHistory() {
+        if (!confirm('确定要清空所有问诊历史吗？此操作不可恢复！')) {
+            return;
+        }
+
+        try {
+            await this.api.clearHistory();
+            alert('历史记录已清空');
+            location.reload();
+        } catch (error) {
+            alert('清空失败：' + error.message);
+        }
+    }
+
+    /**
+     * 升级账户
+     */
+    upgradeAccount() {
+        window.location.href = '/phone-binding';
+    }
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', () => {
+    const app = new UserHistoryApp();
+    app.init();
+});

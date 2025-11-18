@@ -1,6 +1,6 @@
 # 参数一致性修复建议
 
-**生成时间**: 2025-11-05 17:28:48
+**生成时间**: 2025-11-18 16:24:00
 
 ---
 
@@ -17,7 +17,7 @@
 当前使用情况:
   - doctor_id: 84 次使用 ✓ 标准
     文件: doctor_management.html, doctor_management.html, doctor_management.html
-  - doctor_name: 70 次使用 ✗ 别名
+  - doctor_name: 74 次使用 ✗ 别名
     文件: doctor_management.html, doctor_management.html, doctor_management.html
   - doctorId: 22 次使用 ✗ 别名
     文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, index_smart_workflow.html
@@ -170,7 +170,7 @@
 当前使用情况:
   - conversation_id: 54 次使用 ✓ 标准
     文件: index_smart_workflow_backup.html, index_smart_workflow_backup.html, index_v2.html
-  - session_id: 38 次使用 ✗ 别名
+  - session_id: 41 次使用 ✗ 别名
     文件: auth_portal.html, user_history.html, user_history.html
   - conversationId: 13 次使用 ✗ 别名
     文件: index_smart_workflow_backup.html, index_smart_workflow.html, index_smart_workflow.html
