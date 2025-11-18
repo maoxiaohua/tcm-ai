@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户模块测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #f5f7fa;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            background: #f5f5f5;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .info { color: #3b82f6; }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #667eea;
+            margin-top: 0;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-1px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .stats-card {
+            display: inline-block;
+            padding: 10px 15px;
+            background: #eff6ff;
+            border-radius: 5px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .stats-label {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .stats-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 用户管理模块功能测试</h1>
+
+    <!-- 认证模块测试 -->
+    <div class="test-section">
+        <h2>🔐 UserAuth - 用户认证模块</h2>
+        <div class="button-group">
+            <button onclick="testAuth()">🧪 测试认证功能</button>
+            <button onclick="testUserInfo()">👤 获取用户信息</button>
+            <button onclick="testPermissions()">🔑 测试权限检查</button>
+            <button onclick="testPreferences()">⚙️ 测试用户偏好</button>
+        </div>
+        <div id="authResult" class="test-result"></div>
+    </div>
+
+    <!-- 会话模块测试 -->
+    <div class="test-section">
+        <h2>💬 UserSession - 会话管理模块</h2>
+        <div class="button-group">
+            <button onclick="testCreateSession()">➕ 创建新会话</button>
+            <button onclick="testAddMessages()">💬 添加消息</button>
+            <button onclick="testLoadSession()">📥 加载会话</button>
+            <button onclick="testGetAllSessions()">📋 获取所有会话</button>
+            <button onclick="testSessionStats()">📊 会话统计</button>
+            <button onclick="testSearchSessions()">🔍 搜索会话</button>
+            <button onclick="testExportSession()">📤 导出会话</button>
+        </div>
+        <div id="sessionResult" class="test-result"></div>
+    </div>
+
+    <!-- 综合测试 -->
+    <div class="test-section">
+        <h2>🔄 综合功能测试</h2>
+        <div class="button-group">
+            <button onclick="testFullWorkflow()">🚀 完整工作流测试</button>
+            <button onclick="testCleanup()">🧹 清理测试数据</button>
+        </div>
+        <div id="integratedResult" class="test-result"></div>
+    </div>
+
+    <!-- 统一认证管理器脚本 -->
+    <script src="/static/js/auth_manager.js"></script>
+
+    <script type="module">
+        import { UserAuth, UserSession } from '/static/js/modules/user/index.js';
+        import { StorageUtils } from '/static/js/modules/utils/storage_utils.js';
+
+        // 创建实例
+        const userAuth = new UserAuth();
+        const userSession = new UserSession();
+
+        // 暴露到全局供按钮调用
+        window.userAuth = userAuth;
+        window.userSession = userSession;
+        window.StorageUtils = StorageUtils;
+
+        // === UserAuth 测试函数 ===
+        window.testAuth = async function() {
+            const result = document.getElementById('authResult');
+            let output = '=== 用户认证模块测试 ===\n\n';
+
+            try {
+                output += '1. 检查登录状态\n';
+                const isLoggedIn = await userAuth.checkLoginStatus();
+                output += `   ✓ 登录状态: ${isLoggedIn}\n\n`;
+
+                output += '2. 获取用户Token\n';
+                const token = userAuth.getToken();
+                output += `   ✓ Token: ${token ? token.substring(0, 20) + '...' : '无'}\n\n`;
+
+                output += '3. 检查访客模式\n';
+                const requiresLogin = userAuth.requiresLogin();
+                output += `   ✓ 需要登录: ${requiresLogin}\n\n`;
+
+                result.textContent = output;
+                result.className = 'test-result success';
+            } catch (error) {
+                result.textContent = `✗ 错误: ${error.message}\n${error.stack}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        window.testUserInfo = function() {
+            const result = document.getElementById('authResult');
+            let output = '=== 用户信息测试 ===\n\n';
+
+            try {
+                const user = userAuth.getCurrentUser();
+                output += `1. 当前用户: ${user ? JSON.stringify(user, null, 2) : '未登录'}\n\n`;
+
+                output += `2. 用户ID: ${userAuth.getUserId()}\n`;
+                output += `3. 显示名称: ${userAuth.getDisplayName()}\n`;
+                output += `4. 头像首字母: ${userAuth.getAvatarInitial()}\n`;
+                output += `5. 用户角色: ${userAuth.getUserRole()}\n\n`;
+
+                output += '6. 角色检查:\n';
+                output += `   - 是否为医生: ${userAuth.isDoctor()}\n`;
+                output += `   - 是否为患者: ${userAuth.isPatient()}\n`;
+                output += `   - 是否为管理员: ${userAuth.isAdmin()}\n`;
+
+                result.textContent = output;
+                result.className = 'test-result info';
+            } catch (error) {
+                result.textContent = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        window.testPermissions = function() {
+            const result = document.getElementById('authResult');
+            let output = '=== 权限检查测试 ===\n\n';
+
+            try {
+                const permissions = userAuth.getPermissions();
+                output += `权限列表: ${JSON.stringify(permissions)}\n\n`;
+
+                const testPerms = ['view_prescription', 'edit_profile', 'admin_access'];
+                testPerms.forEach(perm => {
+                    output += `${perm}: ${userAuth.hasPermission(perm) ? '✓' : '✗'}\n`;
+                });
+
+                result.textContent = output;
+                result.className = 'test-result info';
+            } catch (error) {
+                result.textContent = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        window.testPreferences = function() {
+            const result = document.getElementById('authResult');
+            let output = '=== 用户偏好测试 ===\n\n';
+
+            try {
+                // 保存偏好
+                userAuth.savePreference('theme', 'dark');
+                userAuth.savePreference('language', 'zh-CN');
+                userAuth.savePreference('notifications', true);
+                output += '✓ 已保存偏好设置\n\n';
+
+                // 读取偏好
+                output += `主题: ${userAuth.getPreference('theme')}\n`;
+                output += `语言: ${userAuth.getPreference('language')}\n`;
+                output += `通知: ${userAuth.getPreference('notifications')}\n`;
+                output += `不存在的键: ${userAuth.getPreference('nonexistent', 'default_value')}\n`;
+
+                result.textContent = output;
+                result.className = 'test-result success';
+            } catch (error) {
+                result.textContent = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        // === UserSession 测试函数 ===
+        window.testCreateSession = function() {
+            const result = document.getElementById('sessionResult');
+            let output = '=== 创建新会话测试 ===\n\n';
+
+            try {
+                const sessionId = userSession.startNewSession('zhang_zhongjing');
+                output += `✓ 会话已创建\n`;
+                output += `会话ID: ${sessionId}\n`;
+                output += `开始时间: ${userSession.sessionStartTime}\n`;
+
+                result.textContent = output;
+                result.className = 'test-result success';
+            } catch (error) {
+                result.textContent = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        window.testAddMessages = function() {
+            const result = document.getElementById('sessionResult');
+            let output = '=== 添加消息测试 ===\n\n';
+
+            try {
+                if (!userSession.getCurrentSessionId()) {
+                    userSession.startNewSession('zhang_zhongjing');
+                }
+
+                userSession.addMessage('user', '我最近总是头痛，特别是太阳穴位置');
+                userSession.addMessage('ai', '根据您的描述，这可能是肝阳上亢的表现...');
+                userSession.addMessage('user', '我还有点失眠');
+                userSession.addMessage('ai', '肝火旺盛也会导致失眠...');
+
+                output += `✓ 已添加 4 条消息\n`;
+                output += `当前消息数: ${userSession.conversationHistory.length}\n`;
+                output += `会话持续时间: ${userSession.getSessionDuration()}秒\n`;
+
+                result.textContent = output;
+                result.className = 'test-result success';
+            } catch (error) {
+                result.textContent = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        window.testLoadSession = function() {
+            const result = document.getElementById('sessionResult');
+            let output = '=== 加载会话测试 ===\n\n';
+
+            try {
+                const currentId = userSession.getCurrentSessionId();
+                if (!currentId) {
+                    output += '⚠️ 请先创建会话\n';
+                } else {
+                    const history = userSession.loadConversationHistory(currentId);
+                    output += `✓ 加载成功\n`;
+                    output += `会话ID: ${currentId}\n`;
+                    output += `消息数量: ${history.length}\n\n`;
+
+                    history.forEach((msg, i) => {
+                        output += `${i + 1}. [${msg.type}] ${msg.content.substring(0, 50)}...\n`;
+                    });
+                }
+
+                result.textContent = output;
+                result.className = 'test-result info';
+            } catch (error) {
+                result.textContent = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        window.testGetAllSessions = function() {
+            const result = document.getElementById('sessionResult');
+            let output = '=== 获取所有会话测试 ===\n\n';
+
+            try {
+                const sessions = userSession.getAllSessions();
+                output += `找到 ${sessions.length} 个会话\n\n`;
+
+                sessions.forEach((session, i) => {
+                    const summary = userSession.getSessionSummary(session.conversationId);
+                    output += `${i + 1}. 会话 ${session.conversationId.substring(0, 8)}...\n`;
+                    output += `   医生: ${session.doctor || '未知'}\n`;
+                    output += `   消息数: ${session.messageCount || 0}\n`;
+                    output += `   主诉: ${summary?.chiefComplaint || '未记录'}\n`;
+                    output += `   状态: ${session.status || 'unknown'}\n\n`;
+                });
+
+                result.textContent = output;
+                result.className = 'test-result info';
+            } catch (error) {
+                result.textContent = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        window.testSessionStats = function() {
+            const result = document.getElementById('sessionResult');
+            let output = '=== 会话统计测试 ===\n\n';
+
+            try {
+                const stats = userSession.getStatistics();
+                output += `总会话数: ${stats.totalSessions}\n`;
+                output += `活跃会话: ${stats.activeSessions}\n`;
+                output += `已完成: ${stats.completedSessions}\n`;
+                output += `总消息数: ${stats.totalMessages}\n\n`;
+
+                output += '按医生统计:\n';
+                Object.entries(stats.doctorBreakdown).forEach(([doctor, count]) => {
+                    output += `  ${doctor}: ${count} 个会话\n`;
+                });
+
+                result.textContent = output;
+                result.className = 'test-result info';
+            } catch (error) {
+                result.textContent = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        window.testSearchSessions = function() {
+            const result = document.getElementById('sessionResult');
+            let output = '=== 搜索会话测试 ===\n\n';
+
+            try {
+                const keyword = '头痛';
+                const results = userSession.searchSessions(keyword);
+                output += `搜索关键词: "${keyword}"\n`;
+                output += `找到 ${results.length} 个匹配会话\n\n`;
+
+                results.forEach((session, i) => {
+                    const summary = userSession.getSessionSummary(session.conversationId);
+                    output += `${i + 1}. ${summary.chiefComplaint}\n`;
+                });
+
+                result.textContent = output;
+                result.className = 'test-result info';
+            } catch (error) {
+                result.textContent = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        window.testExportSession = function() {
+            const result = document.getElementById('sessionResult');
+            let output = '=== 导出会话测试 ===\n\n';
+
+            try {
+                const currentId = userSession.getCurrentSessionId();
+                if (!currentId) {
+                    output += '⚠️ 请先创建会话\n';
+                } else {
+                    const exportData = userSession.exportSession(currentId);
+                    output += '✓ 导出成功\n\n';
+                    output += JSON.stringify(exportData, null, 2);
+                }
+
+                result.textContent = output;
+                result.className = 'test-result info';
+            } catch (error) {
+                result.textContent = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        // === 综合测试 ===
+        window.testFullWorkflow = async function() {
+            const result = document.getElementById('integratedResult');
+            let output = '=== 完整工作流测试 ===\n\n';
+
+            try {
+                // 1. 认证检查
+                output += '1️⃣ 检查认证状态\n';
+                const isLoggedIn = await userAuth.checkLoginStatus();
+                output += `   登录状态: ${isLoggedIn}\n`;
+                output += `   用户: ${userAuth.getDisplayName()}\n\n`;
+
+                // 2. 创建会话
+                output += '2️⃣ 创建新会话\n';
+                const sessionId = userSession.startNewSession('zhang_zhongjing');
+                output += `   会话ID: ${sessionId.substring(0, 12)}...\n\n`;
+
+                // 3. 模拟对话
+                output += '3️⃣ 模拟问诊对话\n';
+                userSession.addMessage('user', '医生您好，我最近感觉疲劳乏力');
+                userSession.addMessage('ai', '您好，我是张仲景。请问您疲劳多久了？');
+                userSession.addMessage('user', '大概一个月了');
+                userSession.addMessage('ai', '除了疲劳，还有其他症状吗？');
+                output += `   已添加 ${userSession.conversationHistory.length} 条消息\n\n`;
+
+                // 4. 获取会话摘要
+                output += '4️⃣ 获取会话摘要\n';
+                const summary = userSession.getSessionSummary(sessionId);
+                output += `   主诉: ${summary.chiefComplaint}\n`;
+                output += `   消息数: ${summary.messageCount}\n\n`;
+
+                // 5. 保存偏好
+                output += '5️⃣ 保存用户偏好\n';
+                userAuth.savePreference('favorite_doctor', 'zhang_zhongjing');
+                output += `   偏好医生: ${userAuth.getPreference('favorite_doctor')}\n\n`;
+
+                // 6. 统计信息
+                output += '6️⃣ 获取统计信息\n';
+                const stats = userSession.getStatistics();
+                output += `   总会话: ${stats.totalSessions}\n`;
+                output += `   总消息: ${stats.totalMessages}\n\n`;
+
+                output += '✅ 所有测试通过！\n';
+
+                result.textContent = output;
+                result.className = 'test-result success';
+            } catch (error) {
+                result.textContent = output + `\n✗ 错误: ${error.message}\n${error.stack}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        window.testCleanup = function() {
+            const result = document.getElementById('integratedResult');
+
+            if (!confirm('确定要清理所有测试数据吗？')) {
+                return;
+            }
+
+            try {
+                userSession.clearAllSessions();
+                result.textContent = '✅ 测试数据已清理';
+                result.className = 'test-result success';
+            } catch (error) {
+                result.textContent = `✗ 错误: ${error.message}`;
+                result.className = 'test-result error';
+            }
+        };
+
+        // 页面加载完成提示
+        console.log('✅ 用户管理模块测试页面已就绪');
+    </script>
+</body>
+</html>
