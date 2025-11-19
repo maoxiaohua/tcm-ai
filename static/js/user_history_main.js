@@ -61,20 +61,25 @@ class UserHistoryApp {
      */
     async loadCurrentUser() {
         try {
+            console.log('🔄 loadCurrentUser: 开始加载用户信息...');
             const user = await this.api.getCurrentUser();
+            console.log('🔄 loadCurrentUser: API返回用户数据:', user);
+
             if (user) {
                 this.currentUserId = user.id || user.user_id;
-                console.log('✅ 当前用户:', this.currentUserId);
+                console.log('✅ 当前用户ID:', this.currentUserId);
 
-                // 更新UI中的用户信息
+                // 🔑 关键修复：确保调用updateUserInfo
+                console.log('🔄 loadCurrentUser: 调用updateUserInfo更新UI...');
                 this.updateUserInfo(user);
+                console.log('✅ loadCurrentUser: UI更新完成');
             } else {
                 // 未登录，使用设备ID
                 this.currentUserId = localStorage.getItem('device_id') || 'guest';
-                console.log('⚠️ 使用设备ID:', this.currentUserId);
+                console.warn('⚠️ 无用户数据，使用设备ID:', this.currentUserId);
             }
         } catch (error) {
-            console.warn('⚠️ 获取用户信息失败');
+            console.error('❌ 获取用户信息失败:', error);
             this.currentUserId = localStorage.getItem('device_id') || 'guest';
         }
     }
@@ -148,20 +153,31 @@ class UserHistoryApp {
 
         // 🔧 修复：优先使用username或display_name，而不是name字段
         // name字段可能被错误地设置为医生名称
-        const displayName = user.username || user.display_name || user.phone || user.name || '游客用户';
+        const displayName = user.username || user.display_name || user.phone_number || user.phone || user.name || '游客用户';
         const avatarText = displayName.charAt(0).toUpperCase();
 
         console.log('🔍 updateUserInfo - 用户数据:', {
             username: user.username,
             display_name: user.display_name,
             name: user.name,
+            phone_number: user.phone_number,
             phone: user.phone,
             最终显示名: displayName
         });
 
-        if (avatarEl) avatarEl.textContent = avatarText;
-        if (nameEl) nameEl.textContent = displayName;
-        if (typeEl) typeEl.textContent = user.phone ? '已绑定手机' : '设备用户';
+        if (avatarEl) {
+            avatarEl.textContent = avatarText;
+            console.log('✅ 更新头像:', avatarText);
+        }
+        if (nameEl) {
+            nameEl.textContent = displayName;
+            console.log('✅ 更新用户名:', displayName);
+        }
+        if (typeEl) {
+            const userType = (user.phone_number || user.phone) ? '已绑定手机' : '设备用户';
+            typeEl.textContent = userType;
+            console.log('✅ 更新用户类型:', userType);
+        }
     }
 
     /**
