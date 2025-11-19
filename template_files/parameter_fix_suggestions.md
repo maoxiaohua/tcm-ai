@@ -1,6 +1,6 @@
 # 参数一致性修复建议
 
-**生成时间**: 2025-11-18 17:38:08
+**生成时间**: 2025-11-18 18:08:08
 
 ---
 
@@ -57,15 +57,15 @@
 标准名称: message
 描述: 消息内容
 当前使用情况:
-  - content: 1018 次使用 ✗ 别名
+  - content: 1021 次使用 ✗ 别名
     文件: doctor_management.html, doctor_management.html, doctor_portal.html
-  - message: 511 次使用 ✓ 标准
+  - message: 514 次使用 ✓ 标准
     文件: doctor_management.html, doctor_portal.html, phone_binding.html
-  - body: 395 次使用 ✗ 别名
+  - body: 397 次使用 ✗ 别名
     文件: phone_binding.html, phone_binding.html, prescription_checker_v2.html
-  - text: 143 次使用 ✗ 别名
+  - text: 157 次使用 ✗ 别名
     文件: prescription_checker_v2.html, prescription_checker_v2.html, prescription_checker_v2.html
-  - msg: 14 次使用 ✗ 别名
+  - msg: 15 次使用 ✗ 别名
     文件: simple_mobile_test.html, auth_portal.html, index_smart_workflow_backup.html
 
 建议: 统一使用 'message'
@@ -96,10 +96,10 @@
 标准名称: user_id
 描述: 用户/患者唯一标识
 当前使用情况:
-  - user_id: 81 次使用 ✓ 标准
-    文件: decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html
-  - userId: 65 次使用 ✗ 别名
+  - userId: 85 次使用 ✗ 别名
     文件: index_v2.html, index_smart_workflow.html, index_smart_workflow.html
+  - user_id: 82 次使用 ✓ 标准
+    文件: decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html
   - patient_id: 48 次使用 ✗ 别名
     文件: doctor_review_portal.html, decision_tree_v3_data_driven.html, decision_tree_visual_builder.html
   - uid: 3 次使用 ✗ 别名
@@ -172,7 +172,7 @@
     文件: index_smart_workflow_backup.html, index_smart_workflow_backup.html, index_v2.html
   - session_id: 26 次使用 ✗ 别名
     文件: auth_portal.html, index_smart_workflow.html, index_smart_workflow.html
-  - conversationId: 13 次使用 ✗ 别名
+  - conversationId: 25 次使用 ✗ 别名
     文件: index_smart_workflow_backup.html, index_smart_workflow.html, index_smart_workflow.html
   - sessionId: 1 次使用 ✗ 别名
     文件: index_smart_workflow.html

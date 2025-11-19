@@ -83,33 +83,48 @@ class UserHistoryApp {
      * 加载会话列表
      */
     async loadSessions() {
+        console.log('🔄 loadSessions: 开始加载会话列表...');
         this.ui.renderLoading();
 
         try {
+            console.log('🔄 loadSessions: 调用 getSessions API, userId =', this.currentUserId);
             const data = await this.api.getSessions(this.currentUserId);
+            console.log('✅ loadSessions: API返回数据', data);
 
             if (!data || !data.sessions || data.sessions.length === 0) {
+                console.log('⚠️ loadSessions: 无会话数据，显示空状态');
                 this.ui.renderEmptyState();
                 this.ui.updateStats({ totalSessions: 0, doctorCount: 0, usageDays: 0 });
                 return;
             }
 
             // 处理数据
+            console.log('🔄 loadSessions: 处理会话数据...');
             const sessions = this.dataProcessor.processSessionData(data);
+            console.log('✅ loadSessions: 数据处理完成，会话数:', sessions.length);
 
             // 计算统计
+            console.log('🔄 loadSessions: 计算统计信息...');
             const stats = this.dataProcessor.calculateStats(sessions);
+            console.log('✅ loadSessions: 统计信息:', stats);
             this.ui.updateStats(stats);
 
             // 渲染列表
+            console.log('🔄 loadSessions: 渲染会话列表...');
             this.renderSessionHistory();
+            console.log('✅ loadSessions: 列表渲染完成');
 
             // 更新医生标签
+            console.log('🔄 loadSessions: 更新医生标签...');
             const doctorsWithData = this.dataProcessor.getDoctorsWithData();
+            console.log('✅ loadSessions: 医生列表:', doctorsWithData);
             this.ui.updateDoctorTabs(doctorsWithData, this.dataProcessor);
+
+            console.log('✅ ===== loadSessions 完成 =====');
 
         } catch (error) {
             console.error('❌ 加载会话失败:', error);
+            console.error('❌ 错误堆栈:', error.stack);
             this.ui.renderError(`加载失败: ${error.message}`);
         }
     }

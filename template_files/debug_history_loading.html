@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>历史记录加载调试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .log {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>🔍 历史记录加载调试工具</h1>
+
+    <div class="section">
+        <h2>测试步骤</h2>
+        <button onclick="testAPI()">1. 测试API端点</button>
+        <button onclick="testDataProcessing()">2. 测试数据处理</button>
+        <button onclick="testUIRendering()">3. 测试UI渲染</button>
+        <button onclick="testFullFlow()">4. 完整流程测试</button>
+        <button onclick="clearLog()">清空日志</button>
+    </div>
+
+    <div class="section">
+        <h2>日志输出</h2>
+        <div id="logOutput" class="log"></div>
+    </div>
+
+    <div class="section">
+        <h2>测试结果</h2>
+        <div id="testResult" class="log"></div>
+    </div>
+
+    <script type="module">
+        import { HistoryAPI } from '/static/js/modules/history_api.js';
+        import { HistoryDataProcessor } from '/static/js/modules/history_data.js';
+        import { HistoryUI } from '/static/js/modules/history_ui.js';
+
+        const api = new HistoryAPI();
+        const processor = new HistoryDataProcessor();
+        const testContainer = document.getElementById('testResult');
+        const ui = new HistoryUI(testContainer);
+
+        window.clearLog = function() {
+            document.getElementById('logOutput').textContent = '';
+        };
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : (type === 'warning' ? 'warning' : (type === 'success' ? 'success' : ''));
+            logEl.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(message);
+        }
+
+        window.testAPI = async function() {
+            log('========== 开始测试API端点 ==========');
+
+            try {
+                // 测试获取会话列表
+                log('📡 测试 /api/user/sessions ...');
+                const data = await api.getSessions();
+
+                log(`✅ API响应成功`, 'success');
+                log(`  - 会话总数: ${data.sessions?.length || 0}`);
+                log(`  - 数据结构: ${JSON.stringify(Object.keys(data)).slice(0, 100)}...`);
+
+                if (data.sessions && data.sessions.length > 0) {
+                    log(`  - 第一个会话示例:`);
+                    log(`    session_id: ${data.sessions[0].session_id}`);
+                    log(`    doctor_name: ${data.sessions[0].doctor_name}`);
+                    log(`    chief_complaint: ${data.sessions[0].chief_complaint}`);
+                }
+
+                // 测试医生信息API
+                log('📡 测试 /api/doctor/list ...');
+                const doctorData = await api.loadDoctorInfo();
+                log(`✅ 医生信息API响应成功`, 'success');
+                log(`  - 医生数量: ${doctorData.doctors?.length || 0}`);
+
+                return data;
+            } catch (error) {
+                log(`❌ API测试失败: ${error.message}`, 'error');
+                log(`   堆栈: ${error.stack}`, 'error');
+                throw error;
+            }
+        };
+
+        window.testDataProcessing = async function() {
+            log('========== 开始测试数据处理 ==========');
+
+            try {
+                // 先获取数据
+                const rawData = await api.getSessions();
+                log(`📊 原始数据获取成功，会话数: ${rawData.sessions?.length || 0}`);
+
+                // 加载医生信息
+                const doctorData = await api.loadDoctorInfo();
+                if (doctorData.success && doctorData.doctors) {
+                    processor.setDoctorInfo(doctorData.doctors);
+                    log(`✅ 医生信息设置成功`, 'success');
+                }
+
+                // 处理会话数据
+                log('🔄 开始处理会话数据...');
+                const processed = processor.processSessionData(rawData);
+                log(`✅ 数据处理完成`, 'success');
+                log(`  - 处理后会话数: ${processed.length}`);
+
+                // 计算统计
+                const stats = processor.calculateStats(processed);
+                log(`📈 统计信息:`);
+                log(`  - 总会话数: ${stats.totalSessions}`);
+                log(`  - 咨询医生数: ${stats.doctorCount}`);
+                log(`  - 使用天数: ${stats.usageDays}`);
+
+                // 测试过滤
+                const filtered = processor.filterSessions('all');
+                log(`🔍 过滤测试 (all): ${filtered.length} 条记录`);
+
+                // 测试分组
+                const grouped = processor.groupByDoctor(filtered);
+                log(`📦 分组测试: ${Object.keys(grouped).length} 个医生组`);
+                Object.entries(grouped).forEach(([doctor, sessions]) => {
+                    log(`  - ${doctor}: ${sessions.length} 次问诊`);
+                });
+
+                return { processed, stats, grouped };
+            } catch (error) {
+                log(`❌ 数据处理测试失败: ${error.message}`, 'error');
+                log(`   堆栈: ${error.stack}`, 'error');
+                throw error;
+            }
+        };
+
+        window.testUIRendering = async function() {
+            log('========== 开始测试UI渲染 ==========');
+
+            try {
+                // 先处理数据
+                const { processed, stats, grouped } = await window.testDataProcessing();
+
+                log('🎨 开始渲染UI...');
+
+                // 测试更新统计
+                ui.updateStats(stats);
+                log(`✅ 统计信息更新成功`, 'success');
+
+                // 测试渲染会话列表
+                log('🎨 渲染会话列表...');
+                ui.renderSessionList(grouped, processor);
+                log(`✅ UI渲染完成`, 'success');
+
+                // 检查渲染结果
+                const renderedHTML = testContainer.innerHTML;
+                log(`  - 渲染HTML长度: ${renderedHTML.length} 字符`);
+                log(`  - 包含 doctor-group: ${renderedHTML.includes('doctor-group')}`);
+                log(`  - 包含 session-item: ${renderedHTML.includes('session-item')}`);
+
+            } catch (error) {
+                log(`❌ UI渲染测试失败: ${error.message}`, 'error');
+                log(`   堆栈: ${error.stack}`, 'error');
+                throw error;
+            }
+        };
+
+        window.testFullFlow = async function() {
+            log('========== 开始完整流程测试 ==========');
+            log('⏱️ 模拟用户访问历史记录页面...');
+
+            try {
+                // 显示加载状态
+                log('1️⃣ 显示加载状态');
+                ui.renderLoading();
+
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // 获取会话数据
+                log('2️⃣ 获取会话数据');
+                const rawData = await api.getSessions();
+                log(`   获得 ${rawData.sessions?.length || 0} 条会话`);
+
+                if (!rawData || !rawData.sessions || rawData.sessions.length === 0) {
+                    log('⚠️ 无会话数据，显示空状态', 'warning');
+                    ui.renderEmptyState();
+                    ui.updateStats({ totalSessions: 0, doctorCount: 0, usageDays: 0 });
+                    return;
+                }
+
+                // 加载医生信息
+                log('3️⃣ 加载医生信息');
+                const doctorData = await api.loadDoctorInfo();
+                if (doctorData.success && doctorData.doctors) {
+                    processor.setDoctorInfo(doctorData.doctors);
+                }
+
+                // 处理数据
+                log('4️⃣ 处理会话数据');
+                const sessions = processor.processSessionData(rawData);
+
+                // 计算统计
+                log('5️⃣ 计算统计信息');
+                const stats = processor.calculateStats(sessions);
+                ui.updateStats(stats);
+
+                // 渲染列表
+                log('6️⃣ 渲染会话列表');
+                const filtered = processor.filterSessions('all');
+                const grouped = processor.groupByDoctor(filtered);
+                ui.renderSessionList(grouped, processor);
+
+                log('✅ ===== 完整流程测试成功！ =====', 'success');
+
+            } catch (error) {
+                log(`❌ 完整流程测试失败: ${error.message}`, 'error');
+                log(`   堆栈: ${error.stack}`, 'error');
+                ui.renderError(`测试失败: ${error.message}`);
+            }
+        };
+
+        // 页面加载后自动运行完整测试
+        log('📱 调试工具已就绪');
+        log('💡 点击"完整流程测试"按钮查看历史记录加载过程');
+    </script>
+</body>
+</html>
