@@ -146,8 +146,21 @@ class UserHistoryApp {
         const nameEl = document.getElementById('userName');
         const typeEl = document.getElementById('userType');
 
-        if (avatarEl) avatarEl.textContent = user.name ? user.name[0] : '用';
-        if (nameEl) nameEl.textContent = user.name || user.phone || '游客用户';
+        // 🔧 修复：优先使用username或display_name，而不是name字段
+        // name字段可能被错误地设置为医生名称
+        const displayName = user.username || user.display_name || user.phone || user.name || '游客用户';
+        const avatarText = displayName.charAt(0).toUpperCase();
+
+        console.log('🔍 updateUserInfo - 用户数据:', {
+            username: user.username,
+            display_name: user.display_name,
+            name: user.name,
+            phone: user.phone,
+            最终显示名: displayName
+        });
+
+        if (avatarEl) avatarEl.textContent = avatarText;
+        if (nameEl) nameEl.textContent = displayName;
         if (typeEl) typeEl.textContent = user.phone ? '已绑定手机' : '设备用户';
     }
 
