@@ -110,17 +110,27 @@ export class HistoryAPI {
      */
     async getCurrentUser() {
         try {
-            const response = await fetch('/api/v2/auth/me', {
-                headers: this.getAuthHeaders()
-            });
-
-            if (!response.ok) {
-                // 未登录或token过期
-                return null;
+            // 使用全局 authManager 获取用户信息
+            if (window.authManager && window.authManager.isLoggedIn()) {
+                const user = window.authManager.getCurrentUser();
+                console.log('✅ 从authManager获取用户信息:', user);
+                return user;
             }
 
-            const data = await response.json();
-            return data.success ? data.user : null;
+            // 降级方案：从localStorage获取
+            const userDataStr = localStorage.getItem('userData') || localStorage.getItem('currentUser');
+            if (userDataStr) {
+                try {
+                    const userData = JSON.parse(userDataStr);
+                    console.log('✅ 从localStorage获取用户信息:', userData);
+                    return userData;
+                } catch (e) {
+                    console.warn('⚠️ 解析localStorage用户数据失败');
+                }
+            }
+
+            console.log('⚠️ 无用户信息，返回null');
+            return null;
         } catch (error) {
             console.warn('⚠️ 获取用户信息失败:', error);
             return null;

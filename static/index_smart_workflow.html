@@ -9024,6 +9024,38 @@ ${data.analysis_result}`;
     </script>
     
     <script>
+        // 🔧 辅助函数：直接添加消息（不经过处方管理器处理）
+        // 用于恢复历史会话时保持原始格式
+        function addMessageDirectly(type, senderName, htmlContent) {
+            const container = document.getElementById('messagesContainer');
+            if (!container) {
+                console.error('❌ 找不到messagesContainer');
+                return;
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+
+            // 🔑 关键：直接使用innerHTML渲染，保持HTML格式
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${type === 'user' ? '👤' : (selectedDoctor ? doctors[selectedDoctor].avatar : '🤖')}</div>
+                <div class="message-content">
+                    <div class="message-text">${htmlContent}</div>
+                    <div class="message-time">${timeStr}</div>
+                </div>
+            `;
+
+            container.appendChild(messageDiv);
+
+            // 滚动到底部
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight;
+            }, 100);
+        }
+
         // 🔑 会话恢复功能 - 从历史记录重新加载完整对话
         async function restoreSessionFromHistory(sessionId) {
             try {
@@ -9093,64 +9125,15 @@ ${data.analysis_result}`;
                 for (const message of conversationHistory) {
                     // 添加用户消息
                     if (message.patient_query) {
-                        addMessage('您', message.patient_query, 'user', false);
+                        addMessageDirectly('user', '您', message.patient_query);
                     }
-                    
+
                     // 添加AI回复消息
                     if (message.ai_response) {
-                        // 🔑 简化方案：直接使用conversation_log中的完整内容
-                        // 这是最准确的数据来源，包含了完整的处方详情
-                        let processedContent = message.ai_response;
-                        
-                        // 检查是否包含处方内容
-                        if (window.simplePrescriptionManager && 
-                            window.simplePrescriptionManager.containsPrescription(message.ai_response)) {
-                            console.log('💊 检测到处方内容，检查支付状态');
-                            
-                            // 简化逻辑：直接查询是否有已支付的处方
-                            try {
-                                const prescriptionResponse = await fetch(`/api/prescription/by-consultation/${sessionId}`);
-                                if (prescriptionResponse.ok) {
-                                    const prescriptionData = await prescriptionResponse.json();
-                                    if (prescriptionData.success && prescriptionData.prescriptions?.length > 0) {
-                                        const paidPrescription = prescriptionData.prescriptions.find(p => 
-                                            p.is_visible_to_patient === 1 && p.payment_status === 'paid'
-                                        );
-                                        
-                                        if (paidPrescription) {
-                                            console.log(`✅ 处方已支付，直接显示完整内容，ID: ${paidPrescription.id}`);
-                                            // 🔑 关键：直接显示原始内容，不需要处理
-                                            // 因为conversation_log中保存的就是完整的处方内容
-                                            processedContent = message.ai_response;
-                                            
-                                            // 标记为已支付状态，供处方管理器识别
-                                            if (window.simplePrescriptionManager) {
-                                                await window.simplePrescriptionManager.markAsPaid(paidPrescription.id);
-                                            }
-                                        } else {
-                                            // 未支付，使用处方管理器处理（隐藏详情）
-                                            processedContent = await window.simplePrescriptionManager.processContent(
-                                                message.ai_response, 
-                                                null
-                                            );
-                                        }
-                                    }
-                                }
-                            } catch (error) {
-                                console.warn('⚠️ 查找处方状态失败，使用默认处理:', error);
-                                processedContent = await window.simplePrescriptionManager.processContent(
-                                    message.ai_response, 
-                                    null
-                                );
-                            }
-                        }
-                        
-                        addMessage(
-                            doctors[consultation.doctor_name]?.name || consultation.doctor_display_name || '中医专家',
-                            processedContent,
-                            'ai',
-                            false  // 不保存到历史记录，因为这是恢复操作
-                        );
+                        // 🔑 直接渲染conversation_log中保存的HTML内容
+                        // conversation_log中的内容已经是格式化好的HTML，包含完整的层次结构
+                        const doctorName = doctors[consultation.doctor_name]?.name || consultation.doctor_display_name || '中医专家';
+                        addMessageDirectly('ai', doctorName, message.ai_response);
                     }
                 }
                 
