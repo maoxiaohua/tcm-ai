@@ -294,36 +294,71 @@ async def create_prescription(request: CreatePrescriptionRequest):
     """创建新处方（AI问诊完成后调用）"""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
+        # 🔑 查找或创建consultation记录
+        import json
+        import uuid as uuid_lib
+        consultation_uuid = None
+
+        # 🔑 核心修复：优先使用uuid精确查找，再使用conversation_log模糊查找
+        cursor.execute("""
+            SELECT uuid FROM consultations
+            WHERE uuid = ? OR conversation_log LIKE ?
+            ORDER BY created_at DESC LIMIT 1
+        """, (request.conversation_id, f'%"conversation_id": "{request.conversation_id}"%'))
+        result = cursor.fetchone()
+
+        if result:
+            consultation_uuid = result['uuid']
+        else:
+            # 🔑 关键修复：统一使用conversation_id作为consultation UUID
+            consultation_uuid = request.conversation_id
+            cursor.execute("""
+                INSERT INTO consultations (
+                    uuid, patient_id, selected_doctor_id, conversation_log,
+                    status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+            """, (
+                consultation_uuid,
+                request.patient_id,
+                request.doctor_id,
+                json.dumps({"conversation_id": request.conversation_id, "conversation_history": []}),
+                'in_progress'
+            ))
+
         # 插入处方记录
         cursor.execute("""
             INSERT INTO prescriptions (
-                patient_id, conversation_id, doctor_id, patient_name, patient_phone,
-                symptoms, diagnosis, ai_prescription, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                patient_id, conversation_id, consultation_id, doctor_id, patient_name, patient_phone,
+                symptoms, diagnosis, ai_prescription, status, payment_status, review_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             request.patient_id,
-            request.conversation_id, 
-            request.doctor_id,  # 🆕 添加医生ID
+            request.conversation_id,
+            consultation_uuid,  # 🔑 关键：添加consultation_id
+            request.doctor_id,
             request.patient_name,
             request.patient_phone,
             request.symptoms,
             request.diagnosis,
             request.ai_prescription,
-            PrescriptionStatus.PENDING.value
+            'ai_generated',  # 🔑 使用标准状态
+            'pending',  # 待支付
+            'not_submitted'  # 未提交审核
         ))
-        
+
         prescription_id = cursor.lastrowid
         conn.commit()
-        
+
         return {
             "success": True,
-            "message": "处方创建成功，等待医生审查",
+            "message": "处方创建成功，等待患者支付",
             "prescription_id": prescription_id,
-            "status": PrescriptionStatus.PENDING.value
+            "consultation_id": consultation_uuid,
+            "status": 'ai_generated'
         }
-        
+
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"创建处方失败: {e}")

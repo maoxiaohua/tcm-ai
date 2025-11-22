@@ -468,35 +468,67 @@ class UnifiedConsultationService:
                 if user_messages:
                     symptoms = user_messages[-1][:200]  # 截取最后症状描述
             
-            # 创建处方记录
+            # 🔑 创建处方记录 - 包含consultation_id
+            # 需要先创建或找到对应的consultation记录
+            import uuid as uuid_lib
+            consultation_uuid = None
+
+            # 🔑 核心修复：优先使用uuid精确查找，再使用conversation_log模糊查找
+            cursor.execute("""
+                SELECT uuid FROM consultations
+                WHERE uuid = ? OR conversation_log LIKE ?
+                ORDER BY created_at DESC LIMIT 1
+            """, (request.conversation_id, f'%"conversation_id": "{request.conversation_id}"%'))
+            result = cursor.fetchone()
+
+            if result:
+                consultation_uuid = result[0]
+            else:
+                # 🔑 关键修复：统一使用conversation_id作为consultation UUID
+                consultation_uuid = request.conversation_id
+                cursor.execute("""
+                    INSERT INTO consultations (
+                        uuid, patient_id, selected_doctor_id, conversation_log,
+                        status, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+                """, (
+                    consultation_uuid,
+                    request.patient_id,
+                    request.selected_doctor,  # 🔑 使用字符串格式的doctor_id
+                    json.dumps({"conversation_id": request.conversation_id, "conversation_history": []}),
+                    'in_progress'
+                ))
+
             cursor.execute("""
                 INSERT INTO prescriptions (
-                    patient_id, conversation_id, doctor_id, patient_name,
+                    patient_id, conversation_id, consultation_id, doctor_id, patient_name,
                     symptoms, diagnosis, ai_prescription, status, payment_status,
-                    is_visible_to_patient, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                    is_visible_to_patient, review_status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
             """, (
                 request.patient_id,
                 request.conversation_id,
-                doctor_id,
+                consultation_uuid,  # 🔑 关键：添加consultation_id
+                request.selected_doctor,  # 🔑 使用字符串格式的doctor_id
                 request.patient_id,  # 使用patient_id作为姓名
                 symptoms,
                 diagnosis,
                 ai_response,  # 完整的AI回复作为处方内容
-                'pending_review',  # 🔑 关键：直接设为待审核状态
-                'pending',
-                0  # 患者暂时不可见，等审核通过后可见
+                'ai_generated',  # 🔑 使用标准状态
+                'pending',  # 待支付
+                0,  # 患者暂时不可见，等审核通过后可见
+                'not_submitted'  # 未提交审核
             ))
-            
+
             prescription_id = cursor.lastrowid
-            
+
             # 🔑 关键：自动提交到医生审核队列
             cursor.execute("""
                 INSERT INTO doctor_review_queue (
                     prescription_id, doctor_id, consultation_id,
                     submitted_at, status, priority
                 ) VALUES (?, ?, ?, datetime('now'), 'pending', 'normal')
-            """, (prescription_id, str(doctor_id), request.conversation_id))
+            """, (prescription_id, request.selected_doctor, consultation_uuid))
             
             conn.commit()
             conn.close()

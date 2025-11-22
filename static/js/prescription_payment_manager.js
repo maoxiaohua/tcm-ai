@@ -102,9 +102,12 @@ class PrescriptionPaymentManager {
             
             // 🔧 修复支付ID映射问题：保存原始处方ID用于后续处理
             this.currentPrescriptionId = prescriptionId;
-            
+
+            // 🔑 关键修复：确保prescriptionId是字符串类型
+            const idStr = String(prescriptionId || '');
+
             // 🔧 修复支付系统不可用问题：优先使用简化支付流程
-            if (prescriptionId === 'temp' || !prescriptionId || prescriptionId.startsWith('temp') || prescriptionId.startsWith('prescription_')) {
+            if (prescriptionId === 'temp' || !prescriptionId || idStr.startsWith('temp') || idStr.startsWith('prescription_')) {
                 console.log('🎭 检测到临时处方ID，启用演示支付模式');
                 
                 // 显示支付确认对话框
@@ -248,9 +251,12 @@ class PrescriptionPaymentManager {
      */
     handlePaymentSuccess(prescriptionId) {
         console.log('🎉 支付成功处理:', prescriptionId);
-        
+
+        // 🔑 关键修复：确保prescriptionId是字符串类型
+        const idStr = String(prescriptionId || '');
+
         // 🔧 处理临时ID的情况：需要找到实际的处方元素并更新
-        if (prescriptionId === 'temp' || prescriptionId.startsWith('temp') || prescriptionId.startsWith('prescription_')) {
+        if (prescriptionId === 'temp' || idStr.startsWith('temp') || idStr.startsWith('prescription_')) {
             // 找到包含处方的消息元素并重新渲染
             const messages = document.querySelectorAll('.message.ai');
             let targetMessage = null;
@@ -270,7 +276,8 @@ class PrescriptionPaymentManager {
                 
                 // 🔧 使用原始的处方ID，如果有的话，否则基于内容生成一致的ID
                 let realPrescriptionId = targetMessage.getAttribute('data-prescription-id');
-                if (!realPrescriptionId || realPrescriptionId === 'temp' || realPrescriptionId.startsWith('temp')) {
+                const realIdStr = String(realPrescriptionId || '');
+                if (!realPrescriptionId || realPrescriptionId === 'temp' || realIdStr.startsWith('temp')) {
                     // 基于内容生成一致的处方ID
                     realPrescriptionId = this.extractOrGeneratePrescriptionId(originalContent);
                     console.log(`🔧 生成基于内容的处方ID: ${realPrescriptionId}`);

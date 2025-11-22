@@ -33,10 +33,23 @@ class SimplePrescriptionManager {
 
         // 判断传入的ID类型
         if (prescriptionId) {
-            if (prescriptionId.startsWith('rx_') || prescriptionId.startsWith('prescription_')) {
+            // 🔑 关键修复：确保prescriptionId是字符串类型再调用startsWith
+            const idStr = String(prescriptionId);
+
+            if (idStr.startsWith('rx_') || idStr.startsWith('prescription_')) {
                 // 这是前端生成的哈希ID
-                hashId = prescriptionId;
-                dbId = this.prescriptionIdMapping.get(hashId); // 尝试获取对应的数据库ID
+                hashId = idStr;
+                // 🔑 先尝试从内存Map获取
+                dbId = this.prescriptionIdMapping.get(hashId);
+                // 🔑 如果内存中没有，从localStorage恢复
+                if (!dbId) {
+                    const storedMapping = localStorage.getItem(`prescription_mapping_${hashId}`);
+                    if (storedMapping) {
+                        dbId = parseInt(storedMapping);
+                        this.prescriptionIdMapping.set(hashId, dbId);
+                        console.log(`📋 从localStorage恢复映射: ${hashId} -> ${dbId}`);
+                    }
+                }
             } else if (!isNaN(prescriptionId)) {
                 // 这是数据库ID
                 dbId = prescriptionId;
@@ -44,7 +57,7 @@ class SimplePrescriptionManager {
                 this.prescriptionIdMapping.set(hashId, dbId); // 建立映射关系
             } else {
                 // 其他类型，当作哈希ID处理
-                hashId = prescriptionId;
+                hashId = idStr;
             }
         } else {
             // 没有提供ID，生成哈希ID
@@ -70,13 +83,27 @@ class SimplePrescriptionManager {
         console.log(`🔍 处方内容处理: 哈希ID=${hashId}, 数据库ID=${dbId}, 检查ID=${checkId}, 已支付=${isPaid}`);
 
         // 🔑 关键修复：正确检查处方状态
+        // 如果没有数据库ID，尝试从当前对话ID查询
+        if (!dbId && window.currentConversationId) {
+            console.log(`🔍 尝试根据对话ID查询处方: ${window.currentConversationId}`);
+            dbId = await this.getPrescriptionIdByConversation(window.currentConversationId);
+            if (dbId) {
+                console.log(`✅ 根据对话ID ${window.currentConversationId} 找到处方ID: ${dbId}`);
+                // 建立映射关系
+                this.prescriptionIdMapping.set(hashId, dbId);
+                // 同时保存映射到localStorage
+                this.storePrescriptionIdMapping(hashId, dbId);
+            }
+        }
+
         const prescriptionStatus = await this.checkPrescriptionStatus(dbId);
         console.log(`📋 处方状态检查: ID=${dbId}, 状态=${prescriptionStatus}`);
 
         // 根据处方状态决定显示内容（优先考虑审核状态）
         if (prescriptionStatus === 'pending_review') {
             return this.renderReviewPendingContent(content, hashId);
-        } else if (prescriptionStatus === 'doctor_approved' || prescriptionStatus === 'doctor_modified') {
+        } else if (prescriptionStatus === 'approved' || prescriptionStatus === 'doctor_approved' || prescriptionStatus === 'doctor_modified') {
+            // 🔑 关键修复：添加 'approved' 状态检查（数据库实际返回的状态）
             return this.renderApprovedContent(content, hashId, prescriptionStatus);
         } else if (isPaid) {
             // 已支付但状态未知，检查服务器状态
@@ -110,6 +137,35 @@ class SimplePrescriptionManager {
             console.warn(`⚠️ 获取处方状态失败: ${prescriptionId}`, error);
         }
         
+        return null;
+    }
+
+    /**
+     * 根据对话ID查询处方数据库ID
+     */
+    async getPrescriptionIdByConversation(conversationId) {
+        try {
+            // 调用API查询对话相关的处方
+            const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${window.userToken}`
+            };
+
+            const response = await fetch(`/api/prescriptions/consultation/${conversationId}`, {
+                headers: headers
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.data && result.data.id) {
+                    console.log(`✅ 找到对话 ${conversationId} 的处方ID: ${result.data.id}`);
+                    return result.data.id;
+                }
+            }
+        } catch (error) {
+            console.warn(`⚠️ 查询对话处方失败: ${conversationId}`, error);
+        }
+
         return null;
     }
 
@@ -395,13 +451,19 @@ class SimplePrescriptionManager {
     
     /**
      * 获取真实的数据库处方ID
+     * 🔧 修复：不再从哈希ID中提取随机数字，避免订单编号混乱
      */
     getRealPrescriptionId(hashId) {
+        // 🔑 如果hashId本身就是数字ID，直接返回
+        if (!isNaN(hashId) && hashId !== null && hashId !== '') {
+            return parseInt(hashId);
+        }
+
         // 首先检查映射表
         if (this.prescriptionIdMapping.has(hashId)) {
             return this.prescriptionIdMapping.get(hashId);
         }
-        
+
         // 检查localStorage中是否存储了映射
         const storedMapping = localStorage.getItem(`prescription_mapping_${hashId}`);
         if (storedMapping) {
@@ -409,10 +471,11 @@ class SimplePrescriptionManager {
             this.prescriptionIdMapping.set(hashId, realId);
             return realId;
         }
-        
-        // 尝试从哈希ID中提取数字（降级方案）
-        const numericId = parseInt(hashId.replace(/\D/g, ''));
-        return numericId || null;
+
+        // 🔧 修复：不再使用降级方案提取随机数字
+        // 如果找不到真实ID，返回null
+        console.warn(`⚠️ 未找到处方ID映射: ${hashId}`);
+        return null;
     }
     
     /**
@@ -432,7 +495,10 @@ class SimplePrescriptionManager {
         const diagnosis = this.extractDiagnosis(content);
         // 🔑 新增：获取真实处方ID用于显示
         const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
-        
+
+        // 🔧 修复：只有当realPrescriptionId存在时才显示编号
+        const prescriptionIdDisplay = realPrescriptionId ? `#${realPrescriptionId}` : '待生成';
+
         return `
             <div class="prescription-locked" data-prescription-id="${prescriptionId}">
                 ${diagnosis ? `
@@ -441,11 +507,11 @@ class SimplePrescriptionManager {
                         <p style="margin: 0; color: #374151; line-height: 1.6;">${diagnosis}</p>
                     </div>
                 ` : ''}
-                
+
                 <!-- 🔑 新增：处方ID显示 -->
                 <div style="margin-bottom: 15px; padding: 10px; background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; text-align: center;">
                     <span style="color: #0369a1; font-size: 12px; font-weight: 500;">处方编号：</span>
-                    <span style="color: #1e40af; font-weight: bold; font-family: monospace;">#${realPrescriptionId || prescriptionId}</span>
+                    <span style="color: #1e40af; font-weight: bold; font-family: monospace;">${prescriptionIdDisplay}</span>
                 </div>
                 
                 <div style="padding: 20px; background: linear-gradient(135deg, #fef3c7, #fbbf24); border-radius: 12px; text-align: center; border: 2px solid #f59e0b;">
@@ -473,7 +539,10 @@ class SimplePrescriptionManager {
         const diagnosis = this.extractDiagnosis(content);
         // 🔑 新增：获取真实处方ID用于显示
         const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
-        
+
+        // 🔧 修复：只有当realPrescriptionId存在时才显示编号
+        const prescriptionIdDisplay = realPrescriptionId ? `#${realPrescriptionId}` : '待生成';
+
         return `
             <div class="prescription-review-pending" data-prescription-id="${prescriptionId}">
                 ${diagnosis ? `
@@ -482,11 +551,11 @@ class SimplePrescriptionManager {
                         <p style="margin: 0; color: #374151; line-height: 1.6;">${diagnosis}</p>
                     </div>
                 ` : ''}
-                
+
                 <!-- 🔑 新增：处方ID显示 -->
                 <div style="margin-bottom: 15px; padding: 10px; background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; text-align: center;">
                     <span style="color: #0369a1; font-size: 12px; font-weight: 500;">处方编号：</span>
-                    <span style="color: #1e40af; font-weight: bold; font-family: monospace;">#${realPrescriptionId || prescriptionId}</span>
+                    <span style="color: #1e40af; font-weight: bold; font-family: monospace;">${prescriptionIdDisplay}</span>
                 </div>
                 
                 <div style="padding: 20px; background: linear-gradient(135deg, #fef3c7, #f59e0b); border-radius: 12px; text-align: center; border: 2px solid #d97706;">
@@ -515,7 +584,10 @@ class SimplePrescriptionManager {
         const diagnosis = this.extractDiagnosis(content);
         const herbs = this.extractHerbs(content);
         const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
-        
+
+        // 🔧 修复：只有当realPrescriptionId存在时才显示编号
+        const prescriptionIdDisplay = realPrescriptionId ? `#${realPrescriptionId}` : '待生成';
+
         // 获取医生修改的处方（如果有）
         let finalPrescription = '';
         if (window.lastPrescriptionData && window.lastPrescriptionData.prescription_id == realPrescriptionId) {
@@ -523,17 +595,17 @@ class SimplePrescriptionManager {
         } else {
             finalPrescription = content;
         }
-        
+
         // 提取最终处方的药材信息
         const finalHerbs = this.extractHerbs(finalPrescription);
-        
+
         return `
             <div class="prescription-approved" data-prescription-id="${prescriptionId}">
                 <!-- 🔑 处方ID和状态显示 -->
                 <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 2px solid #22c55e; border-radius: 12px; text-align: center;">
                     <div style="margin-bottom: 10px;">
                         <span style="color: #0369a1; font-size: 12px; font-weight: 500;">处方编号：</span>
-                        <span style="color: #1e40af; font-weight: bold; font-family: monospace;">#${realPrescriptionId || prescriptionId}</span>
+                        <span style="color: #1e40af; font-weight: bold; font-family: monospace;">${prescriptionIdDisplay}</span>
                     </div>
                     <div style="color: #059669; font-weight: bold; font-size: 16px;">
                         ✅ ${status === 'doctor_modified' ? '医生已调整处方' : '医生审核通过'} - 可以配药
@@ -601,7 +673,10 @@ class SimplePrescriptionManager {
         const herbs = this.extractHerbs(content);
         // 🔑 新增：获取真实处方ID用于显示
         const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
-        
+
+        // 🔧 修复：只有当realPrescriptionId存在时才显示编号
+        const prescriptionIdDisplay = realPrescriptionId ? `#${realPrescriptionId}` : '待生成';
+
         let herbsHtml = '';
         if (herbs.length > 0) {
             herbsHtml = `
@@ -609,7 +684,7 @@ class SimplePrescriptionManager {
                     <!-- 🔑 新增：处方ID显示 -->
                     <div style="margin-bottom: 15px; padding: 10px; background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; text-align: center;">
                         <span style="color: #0369a1; font-size: 12px; font-weight: 500;">处方编号：</span>
-                        <span style="color: #1e40af; font-weight: bold; font-family: monospace;">#${realPrescriptionId || prescriptionId}</span>
+                        <span style="color: #1e40af; font-weight: bold; font-family: monospace;">${prescriptionIdDisplay}</span>
                         <span style="color: #059669; font-size: 12px; margin-left: 10px;">✅ 已完成审核</span>
                     </div>
                     
@@ -741,7 +816,8 @@ class SimplePrescriptionManager {
                 
                 console.log(`📋 审核状态: ${status}`);
                 
-                if (status === 'completed' || status === 'doctor_approved') {
+                if (status === 'approved' || status === 'completed' || status === 'doctor_approved') {
+                    // 🔑 关键修复：添加 'approved' 状态检查
                     // 审核完成，刷新页面或重新渲染
                     alert('处方审核已完成！页面将刷新显示最新状态。');
                     window.location.reload();

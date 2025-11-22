@@ -57,6 +57,22 @@ export class HistoryUI {
         const statusClass = session.status === 'completed' ? 'completed' : 'active';
         const statusText = session.status === 'completed' ? '已完成' : '进行中';
 
+        // 🔍 调试日志：检查session_id
+        console.log('🔍 renderSessionItem - session数据:', {
+            session_id: session.session_id,
+            session_count: session.session_count,
+            chief_complaint: session.chief_complaint
+        });
+
+        // 🛡️ 安全检查：如果session_id为空，禁用详情和恢复按钮
+        const hasValidSessionId = session.session_id && session.session_id.trim() !== '';
+        const detailButton = hasValidSessionId
+            ? `<button class="btn-detail" onclick="showConversationDetail('${session.session_id}')" title="查看详情">📋 详情</button>`
+            : `<button class="btn-detail" disabled title="数据异常，无法查看" style="opacity: 0.5; cursor: not-allowed;">📋 详情</button>`;
+        const restoreButton = hasValidSessionId
+            ? `<button class="btn-detail" onclick="viewSession('${session.session_id}')" title="恢复对话" style="margin-left: 5px;">💬 恢复</button>`
+            : `<button class="btn-detail" disabled title="数据异常，无法恢复" style="margin-left: 5px; opacity: 0.5; cursor: not-allowed;">💬 恢复</button>`;
+
         return `
             <div class="session-item ${recentClass}">
                 <div class="session-header">
@@ -69,12 +85,8 @@ export class HistoryUI {
                 <div class="session-footer">
                     <div class="conversation-count">${session.total_conversations || 0}轮对话</div>
                     <div class="session-actions">
-                        <button class="btn-detail" onclick="showConversationDetail('${session.session_id}')" title="查看详情">
-                            📋 详情
-                        </button>
-                        <button class="btn-detail" onclick="viewSession('${session.session_id}')" title="恢复对话" style="margin-left: 5px;">
-                            💬 恢复
-                        </button>
+                        ${detailButton}
+                        ${restoreButton}
                         <div class="session-status ${statusClass}">
                             ${statusText}
                         </div>

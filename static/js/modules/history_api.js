@@ -110,14 +110,8 @@ export class HistoryAPI {
      */
     async getCurrentUser() {
         try {
-            // 使用全局 authManager 获取用户信息
-            if (window.authManager && window.authManager.isLoggedIn()) {
-                const user = window.authManager.getCurrentUser();
-                console.log('✅ 从authManager获取用户信息:', user);
-                return user;
-            }
-
-            // 降级方案：从localStorage获取
+            // 🔧 修复：直接从localStorage获取用户信息，不依赖authManager
+            // authManager在历史记录页面可能未加载
             const userDataStr = localStorage.getItem('userData') || localStorage.getItem('currentUser');
             if (userDataStr) {
                 try {
@@ -127,6 +121,13 @@ export class HistoryAPI {
                 } catch (e) {
                     console.warn('⚠️ 解析localStorage用户数据失败');
                 }
+            }
+
+            // 备选方案：使用全局 authManager（如果可用）
+            if (window.authManager && typeof window.authManager.isLoggedIn === 'function' && window.authManager.isLoggedIn()) {
+                const user = window.authManager.getCurrentUser();
+                console.log('✅ 从authManager获取用户信息:', user);
+                return user;
             }
 
             console.log('⚠️ 无用户信息，返回null');

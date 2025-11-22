@@ -179,16 +179,28 @@ async def get_user_sessions(user_id: str = None):
                                         if matches:
                                             diagnosis_summary = matches[0][:30] + ("..." if len(matches[0]) > 30 else "")
                         elif isinstance(log_data, list) and len(log_data) > 0:
-                            # 如果是数组格式，过滤掉只有欢迎消息的记录
+                            # 如果是数组格式，先尝试找用户消息
                             user_messages = [msg for msg in log_data if msg.get('type') == 'user']
+                            ai_messages = [msg for msg in log_data if msg.get('type') == 'ai']
+
                             if user_messages:
                                 # 有用户消息，取第一条用户消息作为主诉
                                 first_user_msg = user_messages[0]
                                 if 'content' in first_user_msg:
                                     chief_complaint = first_user_msg['content'][:50] + ("..." if len(first_user_msg['content']) > 50 else "")
-                                
-                                # 🔑 修复：查找AI回复中的诊断信息，同时检查HTML
-                                ai_messages = [msg for msg in log_data if msg.get('type') == 'ai']
+                            elif ai_messages:
+                                # 🔑 修复：如果没有user类型消息，但有AI消息
+                                # 可能是旧数据格式问题（用户输入被错误标记为AI类型）
+                                # 使用第一条AI消息作为主诉（通常第一条是用户症状描述）
+                                first_ai_msg = ai_messages[0]
+                                if 'content' in first_ai_msg:
+                                    content = first_ai_msg['content']
+                                    # 如果第一条消息不像欢迎语，就当作症状描述
+                                    if not any(keyword in content for keyword in ['您好', '欢迎', '请问', '能否', '什么', '如何']):
+                                        chief_complaint = content[:50] + ("..." if len(content) > 50 else "")
+
+                            # 🔑 查找AI回复中的诊断信息
+                            if ai_messages:
                                 for ai_msg in ai_messages:
                                     if ai_msg.get('content'):
                                         ai_content = ai_msg['content']
@@ -210,10 +222,11 @@ async def get_user_sessions(user_id: str = None):
                                                 diagnosis_content = ai_content[start:end].strip()
                                                 diagnosis_summary = diagnosis_content[:100] + ("..." if len(diagnosis_content) > 100 else "")
                                             break
-                                
-                                message_count = len(log_data)
-                            else:
-                                # 只有AI消息（可能是欢迎消息），跳过这条记录
+
+                            message_count = len(log_data)
+
+                            # 🔑 只有当完全没有有效内容时才跳过（避免误删有用记录）
+                            if message_count == 0 or (chief_complaint == "问诊记录" and diagnosis_summary == "问诊记录"):
                                 continue
                     except:
                         pass

@@ -576,14 +576,16 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
         
         # 1. 存储到 consultations 表（问诊主记录）
         # 🔑 修复：强化查重逻辑，避免重复记录
+        # 优先使用uuid精确查找，确保能找到已存在的consultation
         cursor.execute("""
-            SELECT uuid, conversation_log FROM consultations 
+            SELECT uuid, conversation_log FROM consultations
             WHERE patient_id = ? AND (
-                conversation_log LIKE ? OR 
+                uuid = ? OR
+                conversation_log LIKE ? OR
                 (selected_doctor_id = ? AND ABS(strftime('%s', 'now') - strftime('%s', created_at)) < 3600)
             )
             ORDER BY created_at DESC LIMIT 1
-        """, (user_id, f'%"conversation_id": "{request.conversation_id}"%', request.selected_doctor))
+        """, (user_id, request.conversation_id, f'%"conversation_id": "{request.conversation_id}"%', request.selected_doctor))
         
         existing = cursor.fetchone()
         
@@ -648,8 +650,8 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
             ))
             consultation_uuid = existing[0]
         else:
-            # 创建新记录
-            consultation_uuid = str(uuid.uuid4())
+            # 🔑 关键修复：统一使用conversation_id作为consultation UUID
+            consultation_uuid = request.conversation_id
             conversation_log = json.dumps({
                 "conversation_id": request.conversation_id,
                 "conversation_history": [{

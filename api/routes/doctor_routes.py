@@ -360,19 +360,37 @@ async def get_pending_prescriptions(current_doctor: Doctor = Depends(get_current
     cursor = conn.cursor()
     
     try:
-        # 🔑 修复：从doctor_review_queue表获取待审核处方，使用字符串类型的doctor_id
+        # 🔑 修复：从doctor_review_queue表获取待审核处方
+        # 🔧 支持多种doctor_id格式：数字ID(1)、字符串ID("1")、代码("jin_daifu")
+
+        # 建立医生ID到代码的映射
+        doctor_code_mapping = {
+            1: "jin_daifu",
+            2: "ye_tianshi",
+            3: "li_dongyuan",
+            4: "zhang_zhongjing",
+            5: "liu_duzhou",
+            6: "zheng_qin_an"
+        }
+
+        # 获取所有可能的doctor_id格式
+        doctor_id_num = current_doctor.id
+        doctor_id_str = str(current_doctor.id)
+        doctor_code = doctor_code_mapping.get(doctor_id_num, f"doctor_{doctor_id_num}")
+
         # 🔧 防重复：使用DISTINCT和GROUP BY避免重复记录
         cursor.execute("""
             SELECT p.*,
                    MIN(q.submitted_at) as submitted_at,
                    MAX(q.priority) as priority,
-                   CASE WHEN q.doctor_id = ? THEN 1 ELSE 0 END as is_assigned_to_me
+                   CASE WHEN q.doctor_id IN (?, ?, ?) THEN 1 ELSE 0 END as is_assigned_to_me
             FROM prescriptions p
             JOIN doctor_review_queue q ON p.id = q.prescription_id
-            WHERE q.status = 'pending' AND q.doctor_id = ?
+            WHERE q.status = 'pending' AND q.doctor_id IN (?, ?, ?)
             GROUP BY p.id
             ORDER BY priority DESC, submitted_at ASC
-        """, (str(current_doctor.id), str(current_doctor.id)))
+        """, (doctor_id_str, str(doctor_id_num), doctor_code,
+              doctor_id_str, str(doctor_id_num), doctor_code))
         
         rows = cursor.fetchall()
         prescriptions = [dict(row) for row in rows]

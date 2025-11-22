@@ -222,10 +222,20 @@ class UserHistoryApp {
      * 显示对话详情
      */
     async showConversationDetail(sessionId) {
+        console.log('🔍 showConversationDetail - 接收到的sessionId:', sessionId, '类型:', typeof sessionId);
+
+        // 🛡️ 安全检查：验证sessionId有效性
+        if (!sessionId || sessionId.trim() === '') {
+            console.error('❌ sessionId无效:', sessionId);
+            alert('数据异常：无法加载对话详情（会话ID为空）');
+            return;
+        }
+
         const loadingModal = this.ui.createLoadingModal('正在加载对话详情...');
         document.body.appendChild(loadingModal);
 
         try {
+            console.log('🔍 准备调用getConversationDetail，sessionId:', sessionId);
             const detail = await this.api.getConversationDetail(sessionId);
             loadingModal.remove();
 
@@ -246,6 +256,13 @@ class UserHistoryApp {
      * 恢复对话
      */
     viewSession(sessionId) {
+        // 🛡️ 安全检查：验证sessionId有效性
+        if (!sessionId || sessionId.trim() === '') {
+            console.error('❌ sessionId无效:', sessionId);
+            alert('数据异常：无法恢复对话（会话ID为空）');
+            return;
+        }
+
         const restoreUrl = `/smart?restore_session=${encodeURIComponent(sessionId)}`;
 
         if (confirm('是否在新窗口中查看完整的问诊对话（包括已解锁的处方内容）？\n\n点击"确定"新窗口打开，点击"取消"当前窗口跳转')) {
