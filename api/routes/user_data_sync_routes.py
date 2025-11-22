@@ -314,26 +314,49 @@ async def get_complete_user_data(user_id: str) -> Dict[str, Any]:
     return user_data
 
 def detect_data_conflicts(client_data: Dict, server_data: Dict, client_timestamp: int) -> List[Dict]:
-    """检测数据冲突"""
+    """
+    检测数据冲突
+    🔧 修复：优化冲突检测逻辑，避免误报
+    - 只有当时间差异超过阈值（60秒）才视为冲突
+    - 排除正常的同步延迟导致的时间差异
+    """
     conflicts = []
-    
+
     # 检查对话状态冲突
     client_conversations = client_data.get("conversations", [])
     server_conversations = server_data.get("conversations", [])
-    
+
+    # 🔧 修复：使用时间阈值（60秒）来判断真正的冲突
+    TIME_THRESHOLD_SECONDS = 60
+
     for client_conv in client_conversations:
         for server_conv in server_conversations:
-            if (client_conv.get("conversation_id") == server_conv.get("conversation_id") and
-                client_conv.get("last_activity") != server_conv.get("last_activity")):
-                
-                conflicts.append({
-                    "type": "conversation_conflict",
-                    "conversation_id": client_conv.get("conversation_id"),
-                    "client_version": client_conv,
-                    "server_version": server_conv,
-                    "conflict_field": "last_activity"
-                })
-    
+            if client_conv.get("conversation_id") == server_conv.get("conversation_id"):
+                client_activity = client_conv.get("last_activity", "")
+                server_activity = server_conv.get("last_activity", "")
+
+                # 🔧 只有当活动时间差异显著时才判定为冲突
+                if client_activity and server_activity and client_activity != server_activity:
+                    try:
+                        from datetime import datetime
+                        client_time = datetime.fromisoformat(client_activity.replace('Z', '+00:00'))
+                        server_time = datetime.fromisoformat(server_activity.replace('Z', '+00:00'))
+                        time_diff = abs((client_time - server_time).total_seconds())
+
+                        # 只有时间差超过阈值才视为真正的冲突
+                        if time_diff > TIME_THRESHOLD_SECONDS:
+                            conflicts.append({
+                                "type": "conversation_conflict",
+                                "conversation_id": client_conv.get("conversation_id"),
+                                "client_version": client_conv,
+                                "server_version": server_conv,
+                                "conflict_field": "last_activity",
+                                "time_diff_seconds": time_diff
+                            })
+                    except (ValueError, AttributeError):
+                        # 日期格式解析失败，跳过此冲突检测
+                        pass
+
     return conflicts
 
 def merge_user_data(client_data: Dict, server_data: Dict) -> Dict:
