@@ -241,24 +241,42 @@ async def batch_prescription_operation(
 
 @router.get("/risk-analysis")
 async def get_risk_analysis(authorization: Optional[str] = Header(None)):
-    """获取风险分析报告"""
+    """获取风险分析报告
+
+    从中医诊疗角度，分析以下处方：
+    1. 待审查处方：AI生成但未经医生确认，需优先关注
+    2. 近期已审查处方：识别共性问题和改进趋势
+    """
     user, session = await get_current_user_from_header(authorization)
-    
+
     conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     try:
         cursor = conn.cursor()
-        
-        # 获取待审查处方
+
+        # 🔑 获取两类处方进行全面风险分析
+        # 1. 待审查处方（优先级最高）
         cursor.execute("""
-            SELECT id, ai_prescription, doctor_prescription, diagnosis, symptoms, patient_name, created_at
+            SELECT id, ai_prescription, doctor_prescription, diagnosis, symptoms,
+                   patient_name, created_at, status
             FROM prescriptions
-            WHERE status IN ('pending', 'ai_generated', 'awaiting_review')
+            WHERE status IN ('pending', 'ai_generated', 'awaiting_review', 'doctor_reviewing')
             ORDER BY created_at DESC
-            LIMIT 50
+            LIMIT 30
         """)
-        
-        prescriptions = cursor.fetchall()
+        pending_prescriptions = cursor.fetchall()
+
+        # 2. 近7天已审查处方（识别趋势和共性问题）
+        cursor.execute("""
+            SELECT id, ai_prescription, doctor_prescription, diagnosis, symptoms,
+                   patient_name, created_at, status, reviewed_at
+            FROM prescriptions
+            WHERE status IN ('approved', 'rejected')
+              AND reviewed_at >= datetime('now', '-7 days')
+            ORDER BY reviewed_at DESC
+            LIMIT 30
+        """)
+        recent_reviewed = cursor.fetchall()
 
         # 🔑 使用真实的AI风险评估
         from core.ai_prescription_analyzer import get_ai_analyzer
@@ -266,14 +284,37 @@ async def get_risk_analysis(authorization: Optional[str] = Header(None)):
 
         # 准备处方数据
         prescriptions_data = []
-        for p in prescriptions:
+
+        # 添加待审查处方（标记为高优先级）
+        for p in pending_prescriptions:
             prescriptions_data.append({
+                'id': p['id'],
                 'prescription_content': p['ai_prescription'] or p['doctor_prescription'] or '',
                 'diagnosis': p['diagnosis'] or '',
-                'symptoms': p['symptoms'] or ''
+                'symptoms': p['symptoms'] or '',
+                'status': p['status'],
+                'priority': 'high'  # 待审查=高优先级
+            })
+
+        # 添加近期已审查处方（用于趋势分析）
+        for p in recent_reviewed:
+            prescriptions_data.append({
+                'id': p['id'],
+                'prescription_content': p['ai_prescription'] or p['doctor_prescription'] or '',
+                'diagnosis': p['diagnosis'] or '',
+                'symptoms': p['symptoms'] or '',
+                'status': p['status'],
+                'priority': 'normal'  # 已审查=正常优先级
             })
 
         risk_analysis = ai_analyzer.analyze_risk_assessment(prescriptions_data)
+
+        # 添加统计信息
+        risk_analysis['prescription_counts'] = {
+            'pending': len(pending_prescriptions),
+            'recent_reviewed': len(recent_reviewed),
+            'total_analyzed': len(prescriptions_data)
+        }
 
         return {
             "success": True,

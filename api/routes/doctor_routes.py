@@ -659,37 +659,48 @@ async def get_doctor_statistics(current_doctor: Doctor = Depends(get_current_doc
     """获取医生工作统计"""
     conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
     cursor = conn.cursor()
-    
+
     try:
+        # 🔑 医生ID映射：数据库中doctor_id是字符串类型（如"jin_daifu"）
+        doctor_id_mapping = {
+            1: "jin_daifu",
+            2: "ye_tianshi",
+            3: "li_dongyuan",
+            4: "zhang_zhongjing",
+            5: "liu_duzhou",
+            6: "zheng_qin_an"
+        }
+        doctor_id_str = doctor_id_mapping.get(current_doctor.id, str(current_doctor.id))
+
         # 统计各种状态的处方数量
         cursor.execute("""
-            SELECT 
+            SELECT
                 COUNT(*) as total_reviewed,
                 SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
                 SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
                 COUNT(DISTINCT DATE(reviewed_at)) as active_days
-            FROM prescriptions 
+            FROM prescriptions
             WHERE doctor_id = ? AND reviewed_at IS NOT NULL
-        """, (current_doctor.id,))
-        
+        """, (doctor_id_str,))
+
         stats = cursor.fetchone()
-        
+
         # 今日审查数量
         cursor.execute("""
-            SELECT COUNT(*) FROM prescriptions 
+            SELECT COUNT(*) FROM prescriptions
             WHERE doctor_id = ? AND DATE(reviewed_at) = DATE('now')
-        """, (current_doctor.id,))
-        
+        """, (doctor_id_str,))
+
         today_count = cursor.fetchone()[0]
-        
+
         # 待审查处方数量（全局，不限医生）
         cursor.execute("""
-            SELECT COUNT(*) FROM prescriptions 
-            WHERE status IN ('pending', 'doctor_reviewing')
+            SELECT COUNT(*) FROM prescriptions
+            WHERE status IN ('pending', 'doctor_reviewing', 'ai_generated', 'awaiting_review')
         """)
-        
+
         pending_count = cursor.fetchone()[0]
-        
+
         return {
             "success": True,
             "statistics": {
