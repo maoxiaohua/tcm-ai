@@ -82,12 +82,28 @@ async def analyze_prescription_with_ai(
         prescription = cursor.fetchone()
         if not prescription:
             raise HTTPException(status_code=404, detail="处方不存在")
-        
-        # 模拟AI分析过程
-        analysis_result = simulate_ai_analysis(
-            prescription['ai_prescription'] or '',
-            request.analysis_type
-        )
+
+        # 🔑 使用真实的AI分析服务
+        from core.ai_prescription_analyzer import get_ai_analyzer
+        ai_analyzer = get_ai_analyzer()
+
+        if request.analysis_type == "comprehensive":
+            analysis_result = ai_analyzer.analyze_prescription_comprehensive(
+                prescription_content=prescription['ai_prescription'] or prescription['doctor_prescription'] or '',
+                diagnosis=prescription['diagnosis'] or '',
+                symptoms=prescription['symptoms'] or ''
+            )
+        elif request.analysis_type == "safety":
+            analysis_result = ai_analyzer.analyze_prescription_safety(
+                prescription_content=prescription['ai_prescription'] or prescription['doctor_prescription'] or ''
+            )
+        else:
+            # 其他类型使用全面分析
+            analysis_result = ai_analyzer.analyze_prescription_comprehensive(
+                prescription_content=prescription['ai_prescription'] or prescription['doctor_prescription'] or '',
+                diagnosis=prescription['diagnosis'] or '',
+                symptoms=prescription['symptoms'] or ''
+            )
         
         # 保存分析结果
         cursor.execute("""
@@ -222,10 +238,22 @@ async def get_risk_analysis(authorization: Optional[str] = Header(None)):
         """)
         
         prescriptions = cursor.fetchall()
-        
-        # 模拟风险分析
-        risk_analysis = simulate_risk_analysis(prescriptions)
-        
+
+        # 🔑 使用真实的AI风险评估
+        from core.ai_prescription_analyzer import get_ai_analyzer
+        ai_analyzer = get_ai_analyzer()
+
+        # 准备处方数据
+        prescriptions_data = []
+        for p in prescriptions:
+            prescriptions_data.append({
+                'prescription_content': p['ai_prescription'] or p['doctor_prescription'] or '',
+                'diagnosis': p['diagnosis'] or '',
+                'symptoms': p['symptoms'] or ''
+            })
+
+        risk_analysis = ai_analyzer.analyze_risk_assessment(prescriptions_data)
+
         return {
             "success": True,
             "risk_analysis": risk_analysis,
@@ -259,10 +287,22 @@ async def get_ai_insights(authorization: Optional[str] = Header(None)):
         """, (user.global_user_id,))
         
         stats = cursor.fetchone()
-        
-        # 生成AI洞察
-        insights = generate_ai_insights(stats)
-        
+
+        # 获取近期处方用于AI分析
+        cursor.execute("""
+            SELECT diagnosis, symptoms, ai_prescription
+            FROM prescriptions
+            WHERE created_at >= date('now', '-7 days')
+            ORDER BY created_at DESC
+            LIMIT 20
+        """)
+        recent_prescriptions = [dict(row) for row in cursor.fetchall()]
+
+        # 🔑 使用真实的AI洞察分析
+        from core.ai_prescription_analyzer import get_ai_analyzer
+        ai_analyzer = get_ai_analyzer()
+        insights = ai_analyzer.generate_insights(dict(stats) if stats else {}, recent_prescriptions)
+
         return {
             "success": True,
             "insights": insights,

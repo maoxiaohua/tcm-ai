@@ -110,20 +110,45 @@ export class HistoryAPI {
      */
     async getCurrentUser() {
         try {
-            // 🔧 修复：直接从localStorage获取用户信息，不依赖authManager
-            // authManager在历史记录页面可能未加载
+            // 🔑 关键修复：优先从服务器API获取最新用户信息，避免localStorage缓存错误
+            const token = localStorage.getItem('auth_token') || localStorage.getItem('session_token');
+
+            if (token) {
+                try {
+                    const response = await fetch('/api/unified-auth/me', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.user) {
+                            console.log('✅ 从服务器API获取用户信息:', data.user);
+                            // 更新localStorage缓存
+                            localStorage.setItem('currentUser', JSON.stringify(data.user));
+                            return data.user;
+                        }
+                    }
+                } catch (apiError) {
+                    console.warn('⚠️ API获取用户信息失败，尝试使用缓存:', apiError);
+                }
+            }
+
+            // 备选方案1：从localStorage读取缓存（可能过期）
             const userDataStr = localStorage.getItem('userData') || localStorage.getItem('currentUser');
             if (userDataStr) {
                 try {
                     const userData = JSON.parse(userDataStr);
-                    console.log('✅ 从localStorage获取用户信息:', userData);
+                    console.log('⚠️ 从localStorage缓存获取用户信息（可能不是最新）:', userData);
                     return userData;
                 } catch (e) {
                     console.warn('⚠️ 解析localStorage用户数据失败');
                 }
             }
 
-            // 备选方案：使用全局 authManager（如果可用）
+            // 备选方案2：使用全局 authManager（如果可用）
             if (window.authManager && typeof window.authManager.isLoggedIn === 'function' && window.authManager.isLoggedIn()) {
                 const user = window.authManager.getCurrentUser();
                 console.log('✅ 从authManager获取用户信息:', user);

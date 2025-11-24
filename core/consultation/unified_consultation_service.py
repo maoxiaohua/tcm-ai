@@ -458,15 +458,9 @@ class UnifiedConsultationService:
             conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
             cursor = conn.cursor()
             
-            # 从conversation_history中提取症状和诊断
-            symptoms = "AI问诊症状分析"
-            diagnosis = "AI中医辨证诊断" 
-            
-            if request.conversation_history:
-                # 提取用户最后的症状描述
-                user_messages = [msg.get('content', '') for msg in request.conversation_history if msg.get('role') == 'user']
-                if user_messages:
-                    symptoms = user_messages[-1][:200]  # 截取最后症状描述
+            # 🔑 从AI响应和对话历史中提取症状和诊断
+            symptoms = self._extract_symptoms_description(ai_response, request.conversation_history or [])
+            diagnosis = self._extract_diagnosis_description(ai_response)
             
             # 🔑 创建处方记录 - 包含consultation_id
             # 需要先创建或找到对应的consultation记录
@@ -1683,6 +1677,109 @@ class UnifiedConsultationService:
             Tuple[pattern_id, match_score] or None
         """
         return self.pattern_match_cache.get(conversation_id)
+
+    def _extract_symptoms_description(self, ai_response: str, conversation_history: List[Dict]) -> str:
+        """
+        从AI响应和对话历史中提取症状描述
+
+        Args:
+            ai_response: AI完整响应
+            conversation_history: 对话历史
+
+        Returns:
+            症状描述字符串
+        """
+        import re
+
+        # 方法1: 从AI响应中提取"根据患者描述"部分
+        pattern1 = r'根据患者描述[，,：:](.*?)(?:[。；\n]|$)'
+        match = re.search(pattern1, ai_response, re.DOTALL)
+        if match:
+            symptoms_text = match.group(1).strip()
+            # 截取前200字符
+            if len(symptoms_text) > 200:
+                symptoms_text = symptoms_text[:200] + "..."
+            return symptoms_text
+
+        # 方法2: 从AI响应的【辨证分析】部分提取前几句
+        pattern2 = r'【辨证分析】\s*(.*?)(?:【|$)'
+        match = re.search(pattern2, ai_response, re.DOTALL)
+        if match:
+            analysis_text = match.group(1).strip()
+            # 提取第一段（通常包含症状描述）
+            first_paragraph = analysis_text.split('\n\n')[0] if '\n\n' in analysis_text else analysis_text.split('\n')[0]
+            if len(first_paragraph) > 200:
+                first_paragraph = first_paragraph[:200] + "..."
+            return first_paragraph
+
+        # 方法3: 从对话历史中合并用户的症状描述
+        if conversation_history:
+            user_messages = [msg.get('content', '') for msg in conversation_history if msg.get('role') == 'user']
+            if user_messages:
+                # 合并所有用户消息，用分号分隔
+                combined = "; ".join([msg[:50] for msg in user_messages[-3:]])  # 最近3条
+                if len(combined) > 200:
+                    combined = combined[:200] + "..."
+                return combined
+
+        # 降级：返回占位符
+        return "患者症状描述（详见AI分析）"
+
+    def _extract_diagnosis_description(self, ai_response: str) -> str:
+        """
+        从AI响应中提取辨证诊断描述
+
+        Args:
+            ai_response: AI完整响应
+
+        Returns:
+            辨证诊断字符串
+        """
+        import re
+
+        # 方法1: 提取【治法治则】部分
+        pattern1 = r'【治法治则】\s*([^\n【]+)'
+        match = re.search(pattern1, ai_response)
+        if match:
+            treatment_principle = match.group(1).strip()
+            # 去除多余空格和标点
+            treatment_principle = re.sub(r'\s+', ' ', treatment_principle).strip('，,。. ')
+            if treatment_principle:
+                return treatment_principle
+
+        # 方法2: 从【辨证分析】结尾提取证型
+        pattern2 = r'(?:考虑为|属于|诊断为|证型为|辨证为)[：:]?\s*([^，。\n]{4,30})'
+        match = re.search(pattern2, ai_response)
+        if match:
+            diagnosis = match.group(1).strip()
+            # 清理常见的无关词汇
+            diagnosis = re.sub(r'之证|之象|证候|型', '', diagnosis).strip()
+            if diagnosis:
+                return diagnosis
+
+        # 方法3: 提取关键证型词汇
+        syndrome_patterns = [
+            r'(脾虚[湿困]{0,2})',
+            r'(肝郁[脾虚气滞]{0,4})',
+            r'(肾[阳阴]{1}虚)',
+            r'(气[血]{0,1}[虚不足两虚]{1,3})',
+            r'([痰湿寒]{1,2}[热困]{1,2})',
+            r'([阴阳]{1}虚)'
+        ]
+
+        found_syndromes = []
+        for pattern in syndrome_patterns:
+            matches = re.findall(pattern, ai_response)
+            found_syndromes.extend(matches)
+
+        if found_syndromes:
+            # 去重并合并
+            unique_syndromes = list(dict.fromkeys(found_syndromes))  # 保持顺序去重
+            diagnosis_text = "、".join(unique_syndromes[:3])  # 最多3个
+            return diagnosis_text
+
+        # 降级：返回占位符
+        return "中医辨证诊断（详见AI分析）"
 
     def clear_pattern_match_result(self, conversation_id: str):
         """

@@ -778,6 +778,61 @@ ${data.analysis_result}`;
         }
     }
 
+    /**
+     * 退出登录
+     * 清除所有用户数据并跳转到登录页面
+     */
+    function logout() {
+        console.log('🚪 用户退出登录');
+
+        // 使用统一认证管理器清除登录状态
+        if (window.authManager && typeof window.authManager.clearLoginState === 'function') {
+            window.authManager.clearLoginState();
+        }
+
+        // 清除所有用户相关的localStorage数据
+        const keysToRemove = [
+            'userData',
+            'userToken',
+            'currentUser',
+            'patientToken',
+            'doctorToken',
+            'adminToken',
+            'auth_token',
+            'session_token'
+        ];
+
+        keysToRemove.forEach(key => {
+            localStorage.removeItem(key);
+            console.log(`🧹 已清除: ${key}`);
+        });
+
+        // 清除所有对话相关数据
+        const allKeys = Object.keys(localStorage);
+        const conversationKeys = allKeys.filter(key =>
+            key.startsWith('tcm_doctor_history_') ||
+            key.startsWith('conversationId_') ||
+            key.startsWith('followup_shown_') ||
+            key.includes('conversation')
+        );
+
+        conversationKeys.forEach(key => {
+            localStorage.removeItem(key);
+            console.log(`🧹 已清除对话数据: ${key}`);
+        });
+
+        // 清空sessionStorage
+        sessionStorage.clear();
+
+        console.log('✅ 用户数据清除完成');
+
+        // 显示退出提示并跳转到登录页面
+        alert('已退出登录');
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 500);
+    }
+
     // ===================== 键盘事件处理 =====================
 
     /**
@@ -835,6 +890,7 @@ ${data.analysis_result}`;
     // 用户认证
     window.verifyTokenAndLoadUserData = verifyTokenAndLoadUserData;
     window.performLogin = performLogin;
+    window.logout = logout;
     window.openRegisterPage = openRegisterPage;
     window.openHistoryPage = openHistoryPage;
 

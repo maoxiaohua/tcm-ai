@@ -76,13 +76,7 @@ class SimplePrescriptionManager {
         // 同时保存到本地存储，确保页面刷新后能恢复
         this.saveOriginalContentToStorage(hashId, content);
 
-        // 检查支付状态（优先使用数据库ID，回退到哈希ID）
-        const checkId = dbId || hashId;
-        const isPaid = await this.isPaid(checkId);
-        
-        console.log(`🔍 处方内容处理: 哈希ID=${hashId}, 数据库ID=${dbId}, 检查ID=${checkId}, 已支付=${isPaid}`);
-
-        // 🔑 关键修复：正确检查处方状态
+        // 🔑 关键修复：先获取数据库ID，再检查状态
         // 如果没有数据库ID，尝试从当前对话ID查询
         if (!dbId && window.currentConversationId) {
             console.log(`🔍 尝试根据对话ID查询处方: ${window.currentConversationId}`);
@@ -96,17 +90,51 @@ class SimplePrescriptionManager {
             }
         }
 
+        // 检查处方状态（必须先获取数据库ID）
         const prescriptionStatus = await this.checkPrescriptionStatus(dbId);
         console.log(`📋 处方状态检查: ID=${dbId}, 状态=${prescriptionStatus}`);
 
+        // 检查支付状态（优先使用数据库ID，回退到哈希ID）
+        const checkId = dbId || hashId;
+        const isPaid = await this.isPaid(checkId);
+
+        console.log(`🔍 处方内容处理: 哈希ID=${hashId}, 数据库ID=${dbId}, 检查ID=${checkId}, 已支付=${isPaid}`);
+
         // 根据处方状态决定显示内容（优先考虑审核状态）
-        if (prescriptionStatus === 'pending_review') {
+        if (prescriptionStatus === 'pending_review' || prescriptionStatus === 'pending' || prescriptionStatus === 'awaiting_review') {
             return this.renderReviewPendingContent(content, hashId);
-        } else if (prescriptionStatus === 'approved' || prescriptionStatus === 'doctor_approved' || prescriptionStatus === 'doctor_modified') {
+        } else if (prescriptionStatus === 'approved' || prescriptionStatus === 'doctor_approved' || prescriptionStatus === 'doctor_modified' || prescriptionStatus === 'completed') {
             // 🔑 关键修复：添加 'approved' 状态检查（数据库实际返回的状态）
             return this.renderApprovedContent(content, hashId, prescriptionStatus);
-        } else if (isPaid) {
-            // 已支付但状态未知，检查服务器状态
+        } else if (isPaid && !prescriptionStatus) {
+            // 🔑 已支付但状态未知，强制重新查询实时状态
+            console.warn(`⚠️ 处方${dbId}状态查询失败，但已支付。强制重新查询...`);
+
+            // 绕过缓存，直接查询API
+            try {
+                const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${window.userToken}`
+                };
+
+                const response = await fetch(`/api/prescription-review/status/${dbId}`, { headers });
+                const data = await response.json();
+
+                if (data.success && data.data && data.data.status) {
+                    const realStatus = data.data.status;
+                    console.log(`✅ 强制查询获取实时状态: ${dbId} -> ${realStatus}`);
+
+                    if (realStatus === 'approved' || realStatus === 'completed') {
+                        return this.renderApprovedContent(content, hashId, realStatus);
+                    } else {
+                        return this.renderReviewPendingContent(content, hashId);
+                    }
+                }
+            } catch (error) {
+                console.error(`❌ 强制查询状态失败:`, error);
+            }
+
+            // 降级：显示审核中
             return this.renderReviewPendingContent(content, hashId);
         } else {
             return this.renderUnpaidContent(content, hashId);
@@ -118,25 +146,48 @@ class SimplePrescriptionManager {
      */
     async checkPrescriptionStatus(prescriptionId) {
         if (!prescriptionId) return null;
-        
-        // 先检查全局处方数据
-        if (window.lastPrescriptionData && window.lastPrescriptionData.prescription_id == prescriptionId) {
-            return window.lastPrescriptionData.status || null;
+
+        // 先检查全局处方数据（但只在状态有效时使用缓存）
+        if (window.lastPrescriptionData &&
+            window.lastPrescriptionData.prescription_id == prescriptionId &&
+            window.lastPrescriptionData.status) {  // 🔑 关键：只有状态非空时才使用缓存
+            console.log(`📋 从全局数据获取处方状态: ${prescriptionId} -> ${window.lastPrescriptionData.status}`);
+            return window.lastPrescriptionData.status;
         }
-        
+
         // 从服务器获取实时状态
         try {
-            const response = await fetch(`/api/prescription-review/status/${prescriptionId}`);
+            console.log(`🔍 开始查询处方状态: ${prescriptionId}`);
+
+            const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${window.userToken}`
+            };
+
+            const response = await fetch(`/api/prescription-review/status/${prescriptionId}`, {
+                headers: headers
+            });
+
+            console.log(`📡 状态API响应: ${response.status} ${response.statusText}`);
+
+            if (!response.ok) {
+                console.warn(`⚠️ 状态API返回非200: ${response.status}`);
+                return null;
+            }
+
             const data = await response.json();
-            
+            console.log(`📊 状态API返回数据:`, data);
+
             if (data.success && data.data) {
-                console.log(`🔍 从服务器获取处方状态: ${prescriptionId} -> ${data.data.status}`);
+                console.log(`✅ 从服务器获取处方状态: ${prescriptionId} -> ${data.data.status}`);
                 return data.data.status;
+            } else {
+                console.warn(`⚠️ 状态API返回格式错误:`, data);
             }
         } catch (error) {
-            console.warn(`⚠️ 获取处方状态失败: ${prescriptionId}`, error);
+            console.error(`❌ 获取处方状态异常: ${prescriptionId}`, error);
         }
-        
+
         return null;
     }
 
@@ -151,15 +202,18 @@ class SimplePrescriptionManager {
                 'Authorization': `Bearer ${window.userToken}`
             };
 
-            const response = await fetch(`/api/prescriptions/consultation/${conversationId}`, {
+            // 🔑 修复: 使用正确的API路径 /api/prescription/conversation/ (不是 /api/prescriptions/consultation/)
+            const response = await fetch(`/api/prescription/conversation/${conversationId}`, {
                 headers: headers
             });
 
             if (response.ok) {
                 const result = await response.json();
-                if (result.success && result.data && result.data.id) {
-                    console.log(`✅ 找到对话 ${conversationId} 的处方ID: ${result.data.id}`);
-                    return result.data.id;
+                // 🔑 修复：后端返回 result.prescription，不是 result.data
+                const prescription = result.prescription || result.data;
+                if (result.success && prescription && prescription.id) {
+                    console.log(`✅ 找到对话 ${conversationId} 的处方ID: ${prescription.id}, 状态: ${prescription.status}`);
+                    return prescription.id;
                 }
             }
         } catch (error) {
@@ -582,6 +636,7 @@ class SimplePrescriptionManager {
      */
     renderApprovedContent(content, prescriptionId, status) {
         const diagnosis = this.extractDiagnosis(content);
+        const formattedDiagnosis = this.formatDiagnosisContent(diagnosis);
         const herbs = this.extractHerbs(content);
         const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
 
@@ -612,22 +667,23 @@ class SimplePrescriptionManager {
                     </div>
                 </div>
 
-                ${diagnosis ? `
+                ${formattedDiagnosis ? `
                 <!-- 🩺 中医诊断分析 -->
-                <div style="margin-bottom: 20px; padding: 15px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                    <h4 style="color: #1e40af; margin: 0 0 10px 0; font-size: 16px;">🩺 中医诊断分析</h4>
-                    <div style="color: #1e3a8a; line-height: 1.5; font-size: 14px;">${diagnosis}</div>
+                <div style="margin-bottom: 20px; padding: 20px; background: linear-gradient(135deg, #f8fafc, #eff6ff); border-radius: 12px; border-left: 4px solid #3b82f6; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);">
+                    <h4 style="color: #1e40af; margin: 0 0 15px 0; font-size: 17px; border-bottom: 2px solid #bfdbfe; padding-bottom: 8px;">🩺 中医诊断分析</h4>
+                    <div style="color: #1e3a8a; line-height: 1.8; font-size: 14px;">${formattedDiagnosis}</div>
                 </div>
                 ` : ''}
 
                 <!-- 💊 最终处方配方 -->
                 <div style="margin: 20px 0; padding: 20px; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-radius: 12px; border: 2px solid #22c55e;">
                     <h4 style="color: #166534; margin: 0 0 15px 0; font-size: 18px;">💊 最终处方配方 (共${finalHerbs.length}味药材)</h4>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
                         ${finalHerbs.map(herb => `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: white; border-radius: 8px; border: 1px solid #22c55e; font-size: 14px; box-shadow: 0 2px 4px rgba(34,197,94,0.1);">
-                                <span style="font-weight: 600; color: #166534;">${herb.name}</span>
-                                <span style="background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${herb.dosage}</span>
+                            <div style="display: flex; align-items: center; padding: 12px 15px; background: white; border-radius: 8px; border: 1px solid #22c55e; box-shadow: 0 2px 4px rgba(34,197,94,0.1);">
+                                <span style="font-weight: 600; color: #166534; min-width: 80px; font-size: 15px;">${herb.name}</span>
+                                <span style="background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 4px; font-weight: bold; margin: 0 15px; min-width: 50px; text-align: center;">${herb.dosage}g</span>
+                                <span style="color: #6b7280; font-size: 13px; flex: 1;">${herb.effect || ''}</span>
                             </div>
                         `).join('')}
                     </div>
@@ -850,54 +906,204 @@ class SimplePrescriptionManager {
      * 提取诊断信息
      */
     extractDiagnosis(content) {
+        // 尝试提取完整的辨证分析内容
+        const diagnosisSections = [];
+
+        // 方法1: 提取【辨证论治分析】或【辨证分析】到下一个【】或"【处方用药】"之间的内容
+        const sectionMatch = content.match(/【辨证(?:论治)?分析】\s*([\s\S]*?)(?=【处方|【用药|$)/);
+        if (sectionMatch && sectionMatch[1].trim().length > 20) {
+            return sectionMatch[1].trim();
+        }
+
+        // 方法2: 提取【治法治则】
+        const treatmentMatch = content.match(/【治[法则]+[治则]*】\s*([^\n【]+)/);
+        if (treatmentMatch) {
+            diagnosisSections.push(`<b>治法治则：</b>${treatmentMatch[1].trim()}`);
+        }
+
+        // 方法3: 提取证型/证候
+        const syndromeMatch = content.match(/(?:证[型候]|辨证)[：:]\s*([^\n]+)/);
+        if (syndromeMatch) {
+            diagnosisSections.push(`<b>证型：</b>${syndromeMatch[1].trim()}`);
+        }
+
+        // 方法4: 提取病因病机
+        const etiologyMatch = content.match(/(?:病因病机|病机)[：:]\s*([^\n]+)/);
+        if (etiologyMatch) {
+            diagnosisSections.push(`<b>病机：</b>${etiologyMatch[1].trim()}`);
+        }
+
+        // 方法5: 查找包含"辨证为"的句子
+        const diagnosisMatch = content.match(/辨证为[：:]?\s*\*?\*?([^*\n。]+)/);
+        if (diagnosisMatch) {
+            diagnosisSections.push(`<b>辨证：</b>${diagnosisMatch[1].trim()}`);
+        }
+
+        // 方法6: 直接从内容开头提取（如果以辨证分析开头）
         const lines = content.split('\n');
         for (const line of lines) {
             if (line.includes('证候') || line.includes('诊断') || line.includes('辨证')) {
-                // 提取冒号后的内容
                 const colonIndex = line.indexOf('：') !== -1 ? line.indexOf('：') : line.indexOf(':');
                 if (colonIndex !== -1) {
-                    return line.substring(colonIndex + 1).trim();
+                    const extracted = line.substring(colonIndex + 1).trim();
+                    if (extracted.length > 5 && !diagnosisSections.some(s => s.includes(extracted))) {
+                        diagnosisSections.push(extracted);
+                    }
                 }
-                return line.trim();
             }
         }
+
+        // 返回合并的内容
+        if (diagnosisSections.length > 0) {
+            return diagnosisSections.join('<br><br>');
+        }
+
         return null;
     }
 
     /**
-     * 提取药材信息
+     * 格式化辨证分析内容，增加层次感
+     */
+    formatDiagnosisContent(diagnosis) {
+        if (!diagnosis) return '';
+
+        let formatted = diagnosis;
+
+        // 格式化标题（一、二、三、四、五等）
+        formatted = formatted.replace(/([一二三四五六七八九十]+)、([^\n]+)/g,
+            '<div style="margin-top: 15px; margin-bottom: 8px;"><strong style="color: #1e40af; font-size: 15px;">$1、$2</strong></div>');
+
+        // 格式化数字列表（1. 2. 3.等）
+        formatted = formatted.replace(/^(\d+)\.\s+([^\n]+)/gm,
+            '<div style="margin-left: 15px; margin-bottom: 6px; padding-left: 10px; border-left: 2px solid #bfdbfe;"><span style="color: #3b82f6; font-weight: 600;">$1.</span> $2</div>');
+
+        // 格式化破折号列表（- 开头的行）
+        formatted = formatted.replace(/^-\s+([^\n]+)/gm,
+            '<div style="margin-left: 15px; margin-bottom: 6px; padding-left: 10px;"><span style="color: #6b7280;">• </span>$1</div>');
+
+        // 格式化冒号后的内容（病机分析：xxx）
+        formatted = formatted.replace(/([^>\n]+)：([^\n<]+)/g,
+            '<span style="color: #475569; font-weight: 500;">$1：</span><span style="color: #1e3a8a;">$2</span>');
+
+        // 处理换行
+        formatted = formatted.replace(/\n\n/g, '<br>');
+        formatted = formatted.replace(/\n/g, '<br>');
+
+        return formatted;
+    }
+
+    /**
+     * 提取药材信息（增强版：包含功效说明）
      */
     extractHerbs(content) {
         const herbs = [];
         const lines = content.split('\n');
-        
-        // 常用中药剂量
-        const defaultDosages = {
-            '人参': 10, '党参': 15, '黄芪': 20, '白术': 12, '茯苓': 15,
-            '当归': 10, '白芍': 12, '川芎': 6, '熟地': 15, '干姜': 6,
-            '甘草': 6, '桂枝': 9, '麻黄': 6, '柴胡': 12, '黄芩': 9,
-            '半夏': 9, '陈皮': 9, '枳实': 10, '厚朴': 9, '大枣': 12
+
+        // 常用中药功效数据库
+        const herbInfo = {
+            '人参': { dosage: 10, effect: '大补元气，补脾益肺' },
+            '党参': { dosage: 15, effect: '补中益气，健脾益肺' },
+            '黄芪': { dosage: 20, effect: '补气固表，利水消肿' },
+            '白术': { dosage: 12, effect: '健脾益气，燥湿利水' },
+            '茯苓': { dosage: 15, effect: '利水渗湿，健脾宁心' },
+            '当归': { dosage: 10, effect: '补血活血，调经止痛' },
+            '白芍': { dosage: 12, effect: '养血柔肝，缓急止痛' },
+            '川芎': { dosage: 6, effect: '活血行气，祛风止痛' },
+            '熟地': { dosage: 15, effect: '滋阴补血，益精填髓' },
+            '生地': { dosage: 15, effect: '清热凉血，养阴生津' },
+            '生地黄': { dosage: 15, effect: '清热凉血，养阴生津' },
+            '干姜': { dosage: 6, effect: '温中散寒，回阳通脉' },
+            '生姜': { dosage: 6, effect: '解表散寒，温中止呕' },
+            '甘草': { dosage: 6, effect: '调和诸药，缓急止痛' },
+            '桂枝': { dosage: 9, effect: '发汗解肌，温通经脉' },
+            '麻黄': { dosage: 6, effect: '发汗解表，宣肺平喘' },
+            '柴胡': { dosage: 12, effect: '疏肝解郁，升举阳气' },
+            '黄芩': { dosage: 9, effect: '清热燥湿，泻火解毒' },
+            '半夏': { dosage: 9, effect: '燥湿化痰，降逆止呕' },
+            '陈皮': { dosage: 9, effect: '理气健脾，燥湿化痰' },
+            '枳实': { dosage: 10, effect: '破气消积，化痰散痞' },
+            '厚朴': { dosage: 9, effect: '燥湿消痰，下气除满' },
+            '大枣': { dosage: 12, effect: '补中益气，养血安神' },
+            '附子': { dosage: 10, effect: '回阳救逆，补火助阳' },
+            '麦冬': { dosage: 12, effect: '养阴生津，润肺清心' },
+            '五味子': { dosage: 6, effect: '收敛固涩，益气生津' },
+            '知母': { dosage: 12, effect: '清热泻火，滋阴润燥' },
+            '玄参': { dosage: 12, effect: '清热凉血，滋阴解毒' },
+            '山药': { dosage: 15, effect: '健脾益肾，补肺固精' },
+            '芡实': { dosage: 12, effect: '益肾固精，健脾止泻' },
+            '丹参': { dosage: 15, effect: '活血祛瘀，凉血消痈' },
+            '泽泻': { dosage: 12, effect: '利水渗湿，泄热' },
+            '桑螵蛸': { dosage: 10, effect: '固精缩尿，补肾助阳' },
+            '菟丝子': { dosage: 12, effect: '补肾益精，养肝明目' },
+            '枸杞子': { dosage: 12, effect: '滋补肝肾，益精明目' },
+            '杜仲': { dosage: 12, effect: '补肝肾，强筋骨' },
+            '牛膝': { dosage: 12, effect: '活血祛瘀，补肝肾' },
+            '黄连': { dosage: 6, effect: '清热燥湿，泻火解毒' },
+            '黄柏': { dosage: 9, effect: '清热燥湿，泻火除蒸' },
+            '栀子': { dosage: 9, effect: '泻火除烦，清热利湿' },
+            '连翘': { dosage: 12, effect: '清热解毒，消肿散结' },
+            '金银花': { dosage: 15, effect: '清热解毒，疏散风热' },
+            '薄荷': { dosage: 6, effect: '疏散风热，清利头目' },
+            '菊花': { dosage: 10, effect: '疏散风热，清肝明目' },
+            '防风': { dosage: 9, effect: '祛风解表，胜湿止痛' },
+            '羌活': { dosage: 9, effect: '散寒祛风，除湿止痛' },
+            '独活': { dosage: 9, effect: '祛风除湿，通痹止痛' },
+            '威灵仙': { dosage: 10, effect: '祛风湿，通经络' },
+            '苍术': { dosage: 9, effect: '燥湿健脾，祛风散寒' },
+            '薏苡仁': { dosage: 20, effect: '健脾渗湿，清热排脓' },
+            '车前子': { dosage: 12, effect: '清热利尿，渗湿止泻' },
+            '木通': { dosage: 6, effect: '利尿通淋，清心降火' },
+            '滑石': { dosage: 15, effect: '利尿通淋，清热解暑' },
+            '猪苓': { dosage: 12, effect: '利水渗湿' },
+            '赤芍': { dosage: 12, effect: '清热凉血，散瘀止痛' },
+            '桃仁': { dosage: 10, effect: '活血祛瘀，润肠通便' },
+            '红花': { dosage: 6, effect: '活血通经，散瘀止痛' },
+            '三七': { dosage: 3, effect: '化瘀止血，活血定痛' },
+            '延胡索': { dosage: 10, effect: '活血行气，止痛' },
+            '乳香': { dosage: 6, effect: '活血行气，消肿止痛' },
+            '没药': { dosage: 6, effect: '活血止痛，消肿生肌' },
+            '香附': { dosage: 10, effect: '疏肝解郁，理气调经' },
+            '木香': { dosage: 6, effect: '行气止痛，健脾消食' },
+            '砂仁': { dosage: 6, effect: '化湿开胃，温脾止泻' },
+            '白豆蔻': { dosage: 6, effect: '化湿行气，温中止呕' },
+            '草果': { dosage: 6, effect: '燥湿温中，除痰截疟' },
+            '肉桂': { dosage: 3, effect: '补火助阳，散寒止痛' },
+            '小茴香': { dosage: 6, effect: '散寒止痛，理气和胃' },
+            '吴茱萸': { dosage: 3, effect: '散寒止痛，降逆止呕' },
+            '高良姜': { dosage: 6, effect: '温胃散寒，消食止痛' },
+            '丁香': { dosage: 3, effect: '温中降逆，补肾助阳' },
+            '远志': { dosage: 6, effect: '安神益智，祛痰开窍' },
+            '酸枣仁': { dosage: 15, effect: '养心安神，敛汗生津' },
+            '柏子仁': { dosage: 10, effect: '养心安神，润肠通便' },
+            '龙眼肉': { dosage: 12, effect: '补益心脾，养血安神' },
+            '合欢皮': { dosage: 12, effect: '解郁安神，活血消肿' }
         };
 
         for (const line of lines) {
-            // 匹配格式：药材名 剂量g
-            const matches = line.match(/([一-龟\u4e00-\u9fff]{2,5})\s*(\d+)\s*[克g]/g);
+            // 匹配格式：药材名 剂量g 或 药材名 剂量克 或 **药材名 剂量g**
+            const matches = line.match(/\*?\*?([一-龟\u4e00-\u9fff]{2,6})\*?\*?\s*(\d+)\s*[克g]/g);
             if (matches) {
                 for (const match of matches) {
-                    const parts = match.match(/([一-龟\u4e00-\u9fff]{2,5})\s*(\d+)/);
+                    const parts = match.match(/\*?\*?([一-龟\u4e00-\u9fff]{2,6})\*?\*?\s*(\d+)/);
                     if (parts) {
                         const name = parts[1];
                         const dosage = parseInt(parts[2]);
                         if (!herbs.find(h => h.name === name)) {
-                            herbs.push({ name, dosage });
+                            // 尝试从括号中提取功效
+                            const effectMatch = line.match(new RegExp(name + '[^(（]*[(（]([^)）]+)[)）]'));
+                            let effect = effectMatch ? effectMatch[1] : (herbInfo[name]?.effect || '');
+                            herbs.push({ name, dosage, effect });
                         }
                     }
                 }
             } else {
-                // 如果没有剂量，从默认剂量表中查找
-                for (const [herbName, defaultDosage] of Object.entries(defaultDosages)) {
+                // 如果没有剂量，从默认数据中查找
+                for (const [herbName, info] of Object.entries(herbInfo)) {
                     if (line.includes(herbName) && !herbs.find(h => h.name === herbName)) {
-                        herbs.push({ name: herbName, dosage: defaultDosage });
+                        // 尝试从括号中提取功效
+                        const effectMatch = line.match(new RegExp(herbName + '[^(（]*[(（]([^)）]+)[)）]'));
+                        let effect = effectMatch ? effectMatch[1] : info.effect;
+                        herbs.push({ name: herbName, dosage: info.dosage, effect });
                     }
                 }
             }

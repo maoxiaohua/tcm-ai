@@ -297,3 +297,139 @@ async def get_prescription_review_status(prescription_id: int):
             "success": False,
             "message": f"获取状态失败: {str(e)}"
         }
+
+@router.get("/all-prescriptions")
+async def get_all_prescriptions(
+    status: Optional[str] = None,
+    payment_status: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0
+):
+    """
+    获取所有处方列表（医生端）- 支持筛选
+
+    参数:
+    - status: 处方状态筛选 (ai_generated, pending_review, approved, completed等)
+    - payment_status: 支付状态筛选 (unpaid, paid)
+    - limit: 返回数量限制
+    - offset: 分页偏移量
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 构建查询条件
+        where_conditions = []
+        params = []
+
+        if status:
+            where_conditions.append("p.status = ?")
+            params.append(status)
+
+        where_clause = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
+
+        # 查询处方列表
+        query = f"""
+            SELECT
+                p.id as prescription_id,
+                p.consultation_id,
+                p.patient_id,
+                p.ai_prescription,
+                p.doctor_prescription,
+                p.diagnosis,
+                p.symptoms,
+                p.status,
+                p.created_at,
+                p.reviewed_at,
+                p.confirmed_at,
+                p.doctor_notes,
+                p.is_visible_to_patient,
+                p.prescription_fee,
+                c.conversation_log,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1 FROM prescription_payment_logs
+                        WHERE prescription_id = p.id AND status = 'completed'
+                    ) THEN 'paid'
+                    ELSE 'unpaid'
+                END as payment_status
+            FROM prescriptions p
+            LEFT JOIN consultations c ON p.consultation_id = c.uuid
+            {where_clause}
+            ORDER BY p.created_at DESC
+            LIMIT ? OFFSET ?
+        """
+
+        params.extend([limit, offset])
+        cursor.execute(query, params)
+
+        prescriptions = []
+        for row in cursor.fetchall():
+            # 提取患者主诉
+            chief_complaint = "无记录"
+            if row['conversation_log']:
+                try:
+                    log_data = json.loads(row['conversation_log'])
+                    if isinstance(log_data, dict) and 'conversation_history' in log_data:
+                        history = log_data['conversation_history']
+                        if history and len(history) > 0:
+                            first_query = history[0].get('patient_query', '')
+                            if first_query:
+                                chief_complaint = first_query[:100] + ("..." if len(first_query) > 100 else "")
+                except:
+                    pass
+
+            # 如果需要按支付状态筛选
+            if payment_status and row['payment_status'] != payment_status:
+                continue
+
+            prescriptions.append({
+                "prescription_id": row['prescription_id'],
+                "consultation_id": row['consultation_id'],
+                "patient_id": row['patient_id'],
+                "chief_complaint": chief_complaint,
+                "ai_prescription": row['ai_prescription'],
+                "doctor_prescription": row['doctor_prescription'],
+                "final_prescription": row['doctor_prescription'] or row['ai_prescription'],
+                "diagnosis": row['diagnosis'],
+                "symptoms": row['symptoms'],
+                "status": row['status'],
+                "payment_status": row['payment_status'],
+                "prescription_fee": row['prescription_fee'],
+                "is_visible_to_patient": row['is_visible_to_patient'],
+                "created_at": row['created_at'],
+                "reviewed_at": row['reviewed_at'],
+                "confirmed_at": row['confirmed_at'],
+                "doctor_notes": row['doctor_notes'],
+                "has_doctor_modifications": bool(row['doctor_prescription'])
+            })
+
+        # 获取总数
+        count_query = f"""
+            SELECT COUNT(*) as total
+            FROM prescriptions p
+            {where_clause}
+        """
+        cursor.execute(count_query, params[:-2])  # 排除limit和offset
+        total_count = cursor.fetchone()['total']
+
+        conn.close()
+
+        return {
+            "success": True,
+            "data": {
+                "prescriptions": prescriptions,
+                "total": total_count,
+                "limit": limit,
+                "offset": offset
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"获取处方列表失败: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {
+            "success": False,
+            "message": f"获取处方列表失败: {str(e)}"
+        }

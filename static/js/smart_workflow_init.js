@@ -530,6 +530,173 @@
     }
 
     /**
+     * 🔑 从历史记录页面恢复会话
+     * 从后端API获取会话详情并渲染到问诊页面
+     * @param {string} sessionId - 会话ID
+     */
+    async function restoreSessionFromHistory(sessionId) {
+        console.log('🔄 开始恢复会话:', sessionId);
+
+        try {
+            // 获取认证头
+            const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${window.userToken || ''}`
+            };
+
+            // 从后端API获取会话详情
+            const response = await fetch(`/api/user/conversation/${sessionId}`, {
+                headers: headers
+            });
+
+            if (!response.ok) {
+                throw new Error(`获取会话详情失败: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('🔍 API返回结果:', result);
+
+            // 🔑 关键修复：API可能返回两种格式
+            // 格式1: {success: false, error: "..."} - 错误情况
+            // 格式2: {conversation_id: "...", doctor_name: "...", ...} - 成功情况（直接返回数据，没有success字段）
+
+            let conversation;
+            if (result.success === false) {
+                // 明确的错误响应
+                throw new Error(result.error || '获取会话详情失败');
+            } else if (result.data) {
+                // 标准格式：{success: true, data: {...}}
+                conversation = result.data;
+            } else if (result.conversation_id || result.session_id) {
+                // 直接返回对话数据（没有包装）
+                conversation = result;
+            } else {
+                // 无法识别的格式
+                console.error('❌ 无法解析API返回数据:', result);
+                throw new Error('API返回数据格式错误');
+            }
+
+            console.log('📋 解析后的会话详情:', conversation);
+
+            // 清空当前显示
+            if (typeof clearAllMessages === 'function') {
+                clearAllMessages();
+            }
+
+            // 设置对话状态
+            window.currentConversationId = sessionId;
+
+            // 设置医生
+            const doctorId = conversation.doctor_id || conversation.selected_doctor_id || 'jin_daifu';
+            window.selectedDoctor = doctorId;
+
+            if (typeof window.setDefaultDoctor === 'function') {
+                window.setDefaultDoctor(doctorId, true);  // true = 跳过欢迎消息
+            }
+
+            // 渲染消息历史 - 支持多种格式
+            // 🔑 格式1: conversation_history (API实际返回格式)
+            const conversationHistory = conversation.conversation_history || [];
+
+            // 格式2: conversation_messages (旧格式)
+            const messages = conversation.conversation_messages || conversation.messages || conversation.conversation_log || [];
+
+            let restoredCount = 0;
+
+            // 优先处理 conversation_history 格式
+            if (Array.isArray(conversationHistory) && conversationHistory.length > 0) {
+                console.log(`📋 开始恢复 conversation_history 格式: ${conversationHistory.length} 轮对话`);
+
+                for (const turn of conversationHistory) {
+                    // 渲染患者问题
+                    if (turn.patient_query) {
+                        if (typeof window.addMessage === 'function') {
+                            await window.addMessage('user', turn.patient_query);
+                            restoredCount++;
+                        }
+                    }
+
+                    // 渲染AI回复
+                    if (turn.ai_response) {
+                        if (typeof window.addMessage === 'function') {
+                            await window.addMessage('ai', turn.ai_response);
+                            restoredCount++;
+                        }
+                    }
+                }
+                console.log(`✅ 会话恢复成功: ${restoredCount} 条消息`);
+            }
+            // 处理 conversation_messages 格式
+            else if (Array.isArray(messages) && messages.length > 0) {
+                console.log(`📋 开始恢复 conversation_messages 格式: ${messages.length} 条消息`);
+
+                for (const message of messages) {
+                    const sender = message.role || message.sender || message.type;
+                    const content = message.content || message.message || '';
+
+                    if (sender === 'user') {
+                        if (typeof window.addMessage === 'function') {
+                            await window.addMessage('user', content);
+                            restoredCount++;
+                        }
+                    } else if (sender === 'assistant' || sender === 'ai') {
+                        if (typeof window.addMessage === 'function') {
+                            // 检查是否包含处方
+                            const prescriptionData = message.prescription_data || message.prescriptionData || null;
+                            await window.addMessage('ai', content, false, false, prescriptionData);
+                            restoredCount++;
+                        }
+                    }
+                }
+                console.log(`✅ 会话恢复成功: ${restoredCount} 条消息`);
+            } else {
+                console.warn('⚠️ 会话没有消息历史，尝试从conversation_log解析');
+
+                // 尝试解析conversation_log字段（可能是JSON字符串）
+                if (conversation.conversation_log && typeof conversation.conversation_log === 'string') {
+                    try {
+                        const logData = JSON.parse(conversation.conversation_log);
+                        const logMessages = logData.messages || logData.conversation_history || [];
+
+                        for (const message of logMessages) {
+                            const sender = message.role || message.sender || message.type;
+                            const content = message.content || message.message || '';
+
+                            if (sender === 'user' && typeof window.addMessage === 'function') {
+                                await window.addMessage('user', content);
+                            } else if ((sender === 'assistant' || sender === 'ai') && typeof window.addMessage === 'function') {
+                                await window.addMessage('ai', content);
+                            }
+                        }
+                        console.log(`✅ 从conversation_log恢复: ${logMessages.length} 条消息`);
+                    } catch (parseError) {
+                        console.error('❌ 解析conversation_log失败:', parseError);
+                    }
+                }
+            }
+
+            // 更新window.messages数组用于后续AI上下文
+            if (typeof window.updateCurrentMessages === 'function') {
+                window.updateCurrentMessages();
+            }
+
+            // 显示成功消息
+            if (typeof showMessage === 'function') {
+                showMessage('会话恢复成功', 'success');
+            }
+
+        } catch (error) {
+            console.error('❌ 恢复会话失败:', error);
+
+            if (typeof showMessage === 'function') {
+                showMessage(`恢复会话失败: ${error.message}`, 'error');
+            } else {
+                alert(`恢复会话失败: ${error.message}`);
+            }
+        }
+    }
+
+    /**
      * 🔑 获取当前对话历史（用于AI上下文维护）
      * 将前端消息格式转换为后端API期望的格式
      * @returns {Array} 对话历史数组，格式: [{role: "user"|"assistant", content: "..."}]
@@ -589,6 +756,7 @@
     window.cleanupOldUserData = cleanupOldUserData;
     window.updateUserDisplay = updateUserDisplay;  // 🔑 暴露用户显示更新函数
     window.getCurrentConversationHistory = getCurrentConversationHistory;  // 🔑 暴露对话历史获取函数
+    window.restoreSessionFromHistory = restoreSessionFromHistory;  // 🔑 暴露会话恢复函数
 
     // ===================== DOMContentLoaded事件监听 =====================
 

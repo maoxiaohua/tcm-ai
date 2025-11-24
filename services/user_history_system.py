@@ -970,8 +970,37 @@ class UserHistorySystem:
                 }
             }
             
-            # 尝试读取对话文件内容
-            if session_row[6]:  # conversation_file_path
+            # 尝试读取对话内容
+            conversation_detail['conversation_messages'] = []
+            conversation_detail['session_metadata'] = {}
+
+            # 🔑 修复：优先从 consultations 表获取 conversation_log
+            try:
+                cursor.execute("""
+                    SELECT conversation_log FROM consultations
+                    WHERE uuid = ? OR uuid = ?
+                    ORDER BY created_at DESC LIMIT 1
+                """, (conversation_id, session_row[0]))
+
+                consult_row = cursor.fetchone()
+                if consult_row and consult_row[0]:
+                    conversation_log = consult_row[0]
+                    # 解析conversation_log（可能是JSON字符串或已解析的列表）
+                    if isinstance(conversation_log, str):
+                        try:
+                            messages = json.loads(conversation_log)
+                            if isinstance(messages, list):
+                                conversation_detail['conversation_messages'] = messages
+                                logger.info(f"从consultations表加载了 {len(messages)} 条消息")
+                        except json.JSONDecodeError:
+                            logger.warning(f"conversation_log 不是有效的JSON: {conversation_log[:100]}...")
+                    elif isinstance(conversation_log, list):
+                        conversation_detail['conversation_messages'] = conversation_log
+            except Exception as e:
+                logger.error(f"从consultations表读取对话失败: {e}")
+
+            # 如果consultations表没有数据，尝试从文件读取（兼容旧数据）
+            if not conversation_detail['conversation_messages'] and session_row[6]:  # conversation_file_path
                 try:
                     import os
                     file_path = f"/opt/tcm/{session_row[6]}"
@@ -982,23 +1011,14 @@ class UserHistorySystem:
                             if isinstance(conversation_data, list):
                                 # 对话文件是消息列表格式
                                 conversation_detail['conversation_messages'] = conversation_data
-                                conversation_detail['session_metadata'] = {}
                             elif isinstance(conversation_data, dict):
                                 # 对话文件是包含metadata的字典格式
                                 conversation_detail['conversation_messages'] = conversation_data.get('messages', [])
                                 conversation_detail['session_metadata'] = conversation_data.get('metadata', {})
-                            else:
-                                # 未知格式，设为空
-                                conversation_detail['conversation_messages'] = []
-                                conversation_detail['session_metadata'] = {}
                     else:
-                        conversation_detail['conversation_messages'] = []
                         logger.warning(f"对话文件不存在: {file_path}")
                 except Exception as e:
                     logger.error(f"读取对话文件失败: {e}")
-                    conversation_detail['conversation_messages'] = []
-            else:
-                conversation_detail['conversation_messages'] = []
             
             logger.info(f"获取对话详情成功: {conversation_id}")
             return conversation_detail

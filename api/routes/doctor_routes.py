@@ -575,30 +575,80 @@ async def get_today_reviewed_prescriptions(current_doctor: Doctor = Depends(get_
         conn.close()
 
 @router.get("/all-prescriptions")
-async def get_all_prescriptions(current_doctor: Doctor = Depends(get_current_doctor)):
-    """获取医生相关的所有处方列表"""
+async def get_all_prescriptions(
+    current_doctor: Doctor = Depends(get_current_doctor),
+    status: str = None,
+    payment_status: str = None,
+    limit: int = 100
+):
+    """获取所有处方列表（医生端）- 支持筛选"""
     conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    
+
     try:
-        cursor.execute("""
-            SELECT p.*, 
-                   CASE WHEN p.doctor_id = ? THEN 1 ELSE 0 END as is_assigned_to_me
-            FROM prescriptions p 
-            WHERE p.doctor_id = ? OR p.doctor_id IS NULL
-            ORDER BY p.created_at DESC
-        """, (current_doctor.id, current_doctor.id))
-        
+        # 构建查询 - 获取所有处方，不限制医生分配
+        query = """
+            SELECT p.*,
+                   CASE WHEN p.doctor_id = ? THEN 1 ELSE 0 END as is_assigned_to_me,
+                   CASE
+                       WHEN EXISTS (
+                           SELECT 1 FROM prescription_payment_logs
+                           WHERE prescription_id = p.id AND status = 'completed'
+                       ) THEN 'paid'
+                       ELSE 'unpaid'
+                   END as payment_status
+            FROM prescriptions p
+        """
+
+        # 添加筛选条件
+        where_clauses = []
+        params = [current_doctor.id]
+
+        if status:
+            where_clauses.append("p.status = ?")
+            params.append(status)
+
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+
+        query += " ORDER BY p.created_at DESC LIMIT ?"
+        params.append(limit)
+
+        cursor.execute(query, params)
+
         rows = cursor.fetchall()
-        prescriptions = [dict(row) for row in rows]
-        
+        prescriptions = []
+
+        for row in rows:
+            prescription_dict = dict(row)
+
+            # 如果需要按支付状态筛选
+            if payment_status and prescription_dict.get('payment_status') != payment_status:
+                continue
+
+            # 格式化状态显示
+            status_display = {
+                'ai_generated': 'AI已生成',
+                'pending': '待审核',
+                'pending_review': '待审核',
+                'approved': '已通过',
+                'completed': '已完成',
+                'rejected': '已驳回',
+                'doctor_modified': '医生已调整'
+            }.get(prescription_dict.get('status'), prescription_dict.get('status'))
+
+            prescription_dict['status_display'] = status_display
+            prescription_dict['payment_status_display'] = '已支付' if prescription_dict.get('payment_status') == 'paid' else '未支付'
+
+            prescriptions.append(prescription_dict)
+
         return {
             "success": True,
             "prescriptions": prescriptions,
             "total": len(prescriptions)
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取处方列表失败: {e}")
     finally:

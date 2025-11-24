@@ -153,9 +153,9 @@ class UserHistoryApp {
         const nameEl = document.getElementById('userName');
         const typeEl = document.getElementById('userType');
 
-        // 🔧 修复：优先使用username或display_name，而不是name字段
-        // name字段可能被错误地设置为医生名称
-        const displayName = user.username || user.display_name || user.phone_number || user.phone || user.name || '游客用户';
+        // 🔧 修复：优先使用display_name显示用户名称，而不是username（登录名）
+        // username是登录凭据（如jingdaifu），display_name是显示名称（如金大夫）
+        const displayName = user.display_name || user.username || user.phone_number || user.phone || user.name || '游客用户';
         const avatarText = displayName.charAt(0).toUpperCase();
 
         console.log('🔍 updateUserInfo - 用户数据:', {
