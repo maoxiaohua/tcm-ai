@@ -1,8 +1,8 @@
 {
-  "timestamp": "2025-11-24T16:42:06.102483",
+  "timestamp": "2025-11-24T17:07:36.885590",
   "statistics": {
     "backend_apis": 163,
-    "frontend_apis": 93,
+    "frontend_apis": 95,
     "database_tables": 76
   },
   "summary": {
@@ -316,7 +316,7 @@
     "warnings": [
       {
         "category": "API一致性",
-        "message": "发现 123 个未被使用的后端API",
+        "message": "发现 121 个未被使用的后端API",
         "details": "/api/doctor/register\n/api/doctor/logout\n/api/doctor/prescription/{prescription_id}\n/api/doctor/prescription/{prescription_id}/review\n/api/doctor/today-reviewed\n/api/doctor/all-prescriptions\n/api/prescription/by-consultation/{consultation_id}\n/api/prescription/detail/{session_id}\n/api/prescription/{prescription_id}/patient-confirm\n/api/prescription/patient/{patient_id}/prescriptions"
       },
       {
@@ -377,7 +377,7 @@
       },
       {
         "category": "Frontend",
-        "message": "扫描到 93 个API调用"
+        "message": "扫描到 95 个API调用"
       },
       {
         "category": "Database",

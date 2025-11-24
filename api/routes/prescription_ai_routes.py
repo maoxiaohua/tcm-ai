@@ -11,11 +11,6 @@ import random
 
 router = APIRouter(prefix="/api/prescription/ai", tags=["AI处方管理"])
 
-# 导入统一认证系统
-import sys
-sys.path.append('/opt/tcm-ai')
-from core.unified_account.account_manager import unified_account_manager
-
 class AIAnalysisRequest(BaseModel):
     """AI分析请求"""
     prescription_id: int
@@ -34,25 +29,51 @@ class RiskAssessmentRequest(BaseModel):
 
 # 认证助手函数
 async def get_current_user_from_header(authorization: Optional[str] = Header(None)):
-    """从Header中获取当前用户"""
+    """从Header中获取当前用户（兼容医生端认证）"""
     try:
         if not authorization or not authorization.startswith('Bearer '):
             raise HTTPException(status_code=401, detail="需要认证")
-        
-        session_id = authorization.replace('Bearer ', '')
-        session = unified_account_manager.get_session(session_id)
-        if not session:
+
+        token = authorization.replace('Bearer ', '')
+
+        # 直接从unified_sessions表验证token（与doctor_routes.py保持一致）
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        cursor = conn.cursor()
+
+        # 查询session和用户信息
+        cursor.execute("""
+            SELECT us.user_id, uu.username, uu.display_name, ur.role_name
+            FROM unified_sessions us
+            JOIN unified_users uu ON us.user_id = uu.global_user_id
+            LEFT JOIN user_roles_new ur ON uu.global_user_id = ur.user_id
+            WHERE us.session_id = ?
+            AND us.expires_at > datetime('now')
+            AND us.session_status = 'active'
+        """, (token,))
+
+        result = cursor.fetchone()
+        conn.close()
+
+        if not result:
             raise HTTPException(status_code=401, detail="会话无效或已过期")
-        
-        user = unified_account_manager.get_user_by_id(session.user_id)
-        if not user:
-            raise HTTPException(status_code=401, detail="用户不存在")
-        
+
+        user_id, username, display_name, role_name = result
+
         # 检查医生权限
-        if user.primary_role not in ['doctor', 'admin', 'superadmin']:
+        if role_name not in ('DOCTOR', 'ADMIN', 'SUPERADMIN'):
             raise HTTPException(status_code=403, detail="需要医生权限")
-        
-        return user, session
+
+        # 返回用户信息的简单对象
+        class UserInfo:
+            def __init__(self, user_id, username, display_name):
+                self.global_user_id = user_id
+                self.username = username
+                self.display_name = display_name
+
+        user = UserInfo(user_id, username, display_name)
+
+        return user, token
+
     except HTTPException:
         raise
     except Exception as e:
@@ -230,8 +251,8 @@ async def get_risk_analysis(authorization: Optional[str] = Header(None)):
         
         # 获取待审查处方
         cursor.execute("""
-            SELECT id, ai_prescription, patient_name, created_at
-            FROM prescriptions 
+            SELECT id, ai_prescription, doctor_prescription, diagnosis, symptoms, patient_name, created_at
+            FROM prescriptions
             WHERE status IN ('pending', 'ai_generated', 'awaiting_review')
             ORDER BY created_at DESC
             LIMIT 50
@@ -277,14 +298,14 @@ async def get_ai_insights(authorization: Optional[str] = Header(None)):
         
         # 获取统计数据
         cursor.execute("""
-            SELECT 
+            SELECT
                 COUNT(*) as total_prescriptions,
                 SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_count,
                 SUM(CASE WHEN DATE(created_at) = DATE('now') THEN 1 ELSE 0 END) as today_count,
-                SUM(CASE WHEN reviewed_by = ? THEN 1 ELSE 0 END) as reviewed_by_me
-            FROM prescriptions 
+                SUM(CASE WHEN doctor_id IS NOT NULL AND status IN ('approved', 'rejected') THEN 1 ELSE 0 END) as reviewed_by_me
+            FROM prescriptions
             WHERE created_at >= date('now', '-7 days')
-        """, (user.global_user_id,))
+        """)
         
         stats = cursor.fetchone()
 
