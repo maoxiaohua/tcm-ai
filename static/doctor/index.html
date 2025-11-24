@@ -3397,11 +3397,11 @@
         }
 
         // AI洞察分析
-        function showAIInsights() {
+        async function showAIInsights() {
             // 先清除可能存在的旧模态框
             const existingModals = document.querySelectorAll('.modal-overlay');
             existingModals.forEach(modal => modal.remove());
-            
+
             const modal = document.createElement('div');
             modal.className = 'modal-overlay';
             modal.style.cssText = `
@@ -3409,7 +3409,7 @@
                 background: rgba(0,0,0,0.5); z-index: 3000; display: flex;
                 align-items: center; justify-content: center;
             `;
-            
+
             modal.innerHTML = `
                 <div style="
                     background: white; border-radius: 15px; padding: 30px;
@@ -3422,58 +3422,87 @@
                             background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;
                         ">×</button>
                     </div>
-                    
-                    <div style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
-                        <div style="background: #f0f9ff; padding: 20px; border-radius: 10px;">
-                            <h4 style="color: #1e40af; margin-top: 0;">📊 处方质量分析</h4>
-                            <p>• 平均药物种类: 8-12种</p>
-                            <p>• 君臣佐使配伍完整度: 85%</p>
-                            <p>• 剂量安全性评分: 92/100</p>
-                            <p>• 常见问题: 药物用量偏保守</p>
-                        </div>
-                        
-                        <div style="background: #f0fdf4; padding: 20px; border-radius: 10px;">
-                            <h4 style="color: #059669; margin-top: 0;">🎯 审查建议</h4>
-                            <p>• 重点关注: 孕妇用药安全</p>
-                            <p>• 建议优化: 煎煮方法说明</p>
-                            <p>• 常见改进: 增加服药时间</p>
-                            <p>• 审查效率: 可提升15%</p>
-                        </div>
-                        
-                        <div style="background: #fef7f0; padding: 20px; border-radius: 10px;">
-                            <h4 style="color: #ea580c; margin-top: 0;">⚠️ 风险提示</h4>
-                            <p>• 高风险处方: 2份</p>
-                            <p>• 配伍禁忌检查: 通过</p>
-                            <p>• 剂量超标风险: 低</p>
-                            <p>• 建议优先审查儿童用药</p>
-                        </div>
-                        
-                        <div style="background: #faf5ff; padding: 20px; border-radius: 10px;">
-                            <h4 style="color: #7c3aed; margin-top: 0;">📈 趋势分析</h4>
-                            <p>• 本周审查量: 较上周+12%</p>
-                            <p>• 通过率趋势: 稳定在88%</p>
-                            <p>• 常见病症: 脾胃虚弱(35%)</p>
-                            <p>• 处方复杂度: 中等偏上</p>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-top: 20px; text-align: right;">
-                        <button class="btn" onclick="closeModal(this)" style="background: #6b7280;">
-                            关闭
-                        </button>
+
+                    <div style="text-align: center; padding: 40px; color: #6b7280;">
+                        <div style="font-size: 2rem; margin-bottom: 15px;">⏳</div>
+                        <p>正在加载AI洞察分析...</p>
                     </div>
                 </div>
             `;
-            
+
             document.body.appendChild(modal);
+
+            // 🔑 调用真实的AI洞察分析API
+            const token = localStorage.getItem('doctorToken');
+            try {
+                const response = await fetch('/api/prescription/ai/insights', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const insights = data.insights || {};
+                    const trends = insights.trends || {};
+                    const patterns = insights.patterns || [];
+                    const alerts = insights.alerts || [];
+                    const recommendations = insights.recommendations || [];
+
+                    const content = modal.querySelector('div > div:last-child');
+                    content.innerHTML = `
+                        <div style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
+                            <div style="background: #f0f9ff; padding: 20px; border-radius: 10px;">
+                                <h4 style="color: #1e40af; margin-top: 0;">📊 处方趋势分析</h4>
+                                <p><strong>处方量趋势:</strong> ${trends.prescription_volume?.direction || '分析中'} (${trends.prescription_volume?.change_percent || 0}%)</p>
+                                <p><strong>审核通过率:</strong> ${trends.approval_rate?.current || 0}%</p>
+                                <p><strong>趋势:</strong> ${trends.approval_rate?.trend || '稳定'}</p>
+                                ${trends.approval_rate?.analysis ? `<p style="color: #6b7280; font-size: 13px;">${trends.approval_rate.analysis}</p>` : ''}
+                            </div>
+
+                            <div style="background: #f0fdf4; padding: 20px; border-radius: 10px;">
+                                <h4 style="color: #059669; margin-top: 0;">🔍 疾病模式识别</h4>
+                                ${patterns.length > 0 ? patterns.map(p => `<p>• ${p}</p>`).join('') : '<p>数据积累中...</p>'}
+                            </div>
+
+                            <div style="background: #fef7f0; padding: 20px; border-radius: 10px;">
+                                <h4 style="color: #ea580c; margin-top: 0;">⚠️ 风险提示</h4>
+                                ${alerts.length > 0 ? alerts.map(a => `<p>• ${a}</p>`).join('') : '<p>暂无风险提示</p>'}
+                            </div>
+
+                            <div style="background: #faf5ff; padding: 20px; border-radius: 10px;">
+                                <h4 style="color: #7c3aed; margin-top: 0;">💡 AI建议</h4>
+                                ${recommendations.length > 0 ? recommendations.map(r => `<p>• ${r}</p>`).join('') : '<p>暂无建议</p>'}
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 20px; text-align: right;">
+                            <button class="btn" onclick="closeModal(this)" style="background: #6b7280;">
+                                关闭
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    throw new Error('获取AI洞察失败');
+                }
+            } catch (error) {
+                console.error('AI洞察分析失败:', error);
+                const content = modal.querySelector('div > div:last-child');
+                content.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #ef4444;">
+                        <div style="font-size: 2rem; margin-bottom: 15px;">❌</div>
+                        <p>AI洞察分析加载失败</p>
+                        <p style="font-size: 13px; color: #6b7280;">${error.message}</p>
+                        <button class="btn" onclick="closeModal(this)" style="margin-top: 15px; background: #6b7280;">关闭</button>
+                    </div>
+                `;
+            }
         }
 
         // 风险分析
-        function showRiskAnalysis() {
+        async function showRiskAnalysis() {
             // 先清除可能存在的旧模态框
             const existingModals = document.querySelectorAll('.modal-overlay');
             existingModals.forEach(modal => modal.remove());
-            
+
             const modal = document.createElement('div');
             modal.className = 'modal-overlay';
             modal.style.cssText = `
@@ -3481,7 +3510,7 @@
                 background: rgba(0,0,0,0.5); z-index: 3000; display: flex;
                 align-items: center; justify-content: center;
             `;
-            
+
             modal.innerHTML = `
                 <div style="
                     background: white; border-radius: 15px; padding: 30px;
@@ -3494,50 +3523,98 @@
                             background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;
                         ">×</button>
                     </div>
-                    
-                    <div style="margin-bottom: 20px;">
-                        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                            <h4 style="color: #dc2626; margin-top: 0;">🚨 高风险处方 (2份)</h4>
-                            <p><strong>处方 #12:</strong> 患儿8岁，方中含附子用量偏大</p>
-                            <p><strong>处方 #15:</strong> 孕妇用药，含活血化瘀药物</p>
-                        </div>
-                        
-                        <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                            <h4 style="color: #d97706; margin-top: 0;">⚡ 中风险处方 (5份)</h4>
-                            <p><strong>处方 #8:</strong> 老年患者，药物种类较多</p>
-                            <p><strong>处方 #14:</strong> 煎煮方法需要特殊说明</p>
-                            <p><strong>处方 #16:</strong> 罕见药材组合，需确认配伍</p>
-                        </div>
-                        
-                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px;">
-                            <h4 style="color: #059669; margin-top: 0;">✅ 低风险处方 (11份)</h4>
-                            <p>常规病症，标准用药，无明显风险点</p>
-                        </div>
-                    </div>
-                    
-                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                        <h4 style="color: #1e40af;">📋 风险检查清单</h4>
-                        <ul style="margin: 10px 0; padding-left: 20px;">
-                            <li>✅ 十八反十九畏检查</li>
-                            <li>✅ 妊娠禁忌检查</li>
-                            <li>✅ 儿童用药安全检查</li>
-                            <li>✅ 剂量范围检查</li>
-                            <li>⚠️ 特殊体质用药需注意</li>
-                        </ul>
-                    </div>
-                    
-                    <div style="text-align: right;">
-                        <button class="btn" onclick="closeModal(this)" style="background: #6b7280; margin-right: 10px;">
-                            关闭
-                        </button>
-                        <button class="btn" onclick="filterPrescriptions('high-risk')" style="background: #dc2626;">
-                            查看高风险处方
-                        </button>
+
+                    <div style="text-align: center; padding: 40px; color: #6b7280;">
+                        <div style="font-size: 2rem; margin-bottom: 15px;">⏳</div>
+                        <p>正在进行AI风险分析...</p>
                     </div>
                 </div>
             `;
-            
+
             document.body.appendChild(modal);
+
+            // 🔑 调用真实的AI风险分析API
+            const token = localStorage.getItem('doctorToken');
+            try {
+                const response = await fetch('/api/prescription/ai/risk-analysis', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const riskAnalysis = data.risk_analysis || {};
+                    const distribution = riskAnalysis.risk_distribution || {};
+                    const factors = riskAnalysis.risk_factors || [];
+                    const commonIssues = riskAnalysis.common_issues || [];
+                    const recommendations = riskAnalysis.recommendations || [];
+
+                    const content = modal.querySelector('div > div:last-child');
+                    content.innerHTML = `
+                        <div style="margin-bottom: 20px;">
+                            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                                <h4 style="color: #dc2626; margin-top: 0;">🚨 高风险处方 (${distribution.high || 0}份)</h4>
+                                ${factors.filter(f => f.severity === 'high').map(f => `
+                                    <p><strong>${f.factor}:</strong> 发现 ${f.count} 处，${f.description || ''}</p>
+                                `).join('') || '<p>暂无高风险处方</p>'}
+                            </div>
+
+                            <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                                <h4 style="color: #d97706; margin-top: 0;">⚡ 中风险处方 (${distribution.medium || 0}份)</h4>
+                                ${factors.filter(f => f.severity === 'medium').map(f => `
+                                    <p><strong>${f.factor}:</strong> 发现 ${f.count} 处，${f.description || ''}</p>
+                                `).join('') || '<p>暂无中风险因素</p>'}
+                            </div>
+
+                            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px;">
+                                <h4 style="color: #059669; margin-top: 0;">✅ 低风险处方 (${distribution.low || 0}份)</h4>
+                                <p>常规病症，标准用药，风险可控</p>
+                            </div>
+                        </div>
+
+                        ${commonIssues.length > 0 ? `
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4 style="color: #1e40af;">📋 共性问题</h4>
+                            <ul style="margin: 10px 0; padding-left: 20px;">
+                                ${commonIssues.map(issue => `<li>${issue}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+
+                        ${recommendations.length > 0 ? `
+                        <div style="background: #fef7f0; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4 style="color: #ea580c;">💡 AI建议</h4>
+                            <ul style="margin: 10px 0; padding-left: 20px;">
+                                ${recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+
+                        <div style="text-align: right;">
+                            <button class="btn" onclick="closeModal(this)" style="background: #6b7280; margin-right: 10px;">
+                                关闭
+                            </button>
+                            ${distribution.high > 0 ? `
+                            <button class="btn" onclick="closeModal(this); filterPrescriptions('high-risk');" style="background: #dc2626;">
+                                查看高风险处方
+                            </button>
+                            ` : ''}
+                        </div>
+                    `;
+                } else {
+                    throw new Error('获取风险分析失败');
+                }
+            } catch (error) {
+                console.error('风险分析失败:', error);
+                const content = modal.querySelector('div > div:last-child');
+                content.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #ef4444;">
+                        <div style="font-size: 2rem; margin-bottom: 15px;">❌</div>
+                        <p>风险分析加载失败</p>
+                        <p style="font-size: 13px; color: #6b7280;">${error.message}</p>
+                        <button class="btn" onclick="closeModal(this)" style="margin-top: 15px; background: #6b7280;">关闭</button>
+                    </div>
+                `;
+            }
         }
 
         // 批量审查模式

@@ -1,6 +1,6 @@
 # 参数一致性修复建议
 
-**生成时间**: 2025-11-18 18:08:08
+**生成时间**: 2025-11-24 16:42:10
 
 ---
 
@@ -15,16 +15,16 @@
 标准名称: doctor_id
 描述: 医生唯一标识
 当前使用情况:
-  - doctor_id: 83 次使用 ✓ 标准
+  - doctor_id: 73 次使用 ✓ 标准
     文件: doctor_management.html, doctor_management.html, doctor_management.html
-  - doctor_name: 60 次使用 ✗ 别名
+  - doctor_name: 57 次使用 ✗ 别名
     文件: doctor_management.html, doctor_management.html, doctor_management.html
-  - doctorId: 22 次使用 ✗ 别名
-    文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, index_smart_workflow.html
-  - selected_doctor: 16 次使用 ✗ 别名
+  - doctorId: 23 次使用 ✗ 别名
+    文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, js/conversation_state_manager.js
+  - selected_doctor: 12 次使用 ✗ 别名
     文件: index_smart_workflow_backup.html, index_smart_workflow_backup.html, index_v2.html
   - doctor_code: 4 次使用 ✗ 别名
-    文件: index_smart_workflow.html, js/modules/history_data.js
+    文件: js/smart_workflow_doctor.js, js/modules/history_data.js
 
 建议: 统一使用 'doctor_id'
 ```
@@ -57,13 +57,13 @@
 标准名称: message
 描述: 消息内容
 当前使用情况:
-  - content: 1021 次使用 ✗ 别名
+  - content: 994 次使用 ✗ 别名
     文件: doctor_management.html, doctor_management.html, doctor_portal.html
-  - message: 514 次使用 ✓ 标准
+  - message: 486 次使用 ✓ 标准
     文件: doctor_management.html, doctor_portal.html, phone_binding.html
-  - body: 397 次使用 ✗ 别名
+  - body: 370 次使用 ✗ 别名
     文件: phone_binding.html, phone_binding.html, prescription_checker_v2.html
-  - text: 157 次使用 ✗ 别名
+  - text: 156 次使用 ✗ 别名
     文件: prescription_checker_v2.html, prescription_checker_v2.html, prescription_checker_v2.html
   - msg: 15 次使用 ✗ 别名
     文件: simple_mobile_test.html, auth_portal.html, index_smart_workflow_backup.html
@@ -96,11 +96,11 @@
 标准名称: user_id
 描述: 用户/患者唯一标识
 当前使用情况:
-  - userId: 85 次使用 ✗ 别名
-    文件: index_v2.html, index_smart_workflow.html, index_smart_workflow.html
-  - user_id: 82 次使用 ✓ 标准
+  - userId: 74 次使用 ✗ 别名
+    文件: index_v2.html, js/conversation_state_manager.js, js/conversation_state_manager.js
+  - user_id: 69 次使用 ✓ 标准
     文件: decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html
-  - patient_id: 48 次使用 ✗ 别名
+  - patient_id: 39 次使用 ✗ 别名
     文件: doctor_review_portal.html, decision_tree_v3_data_driven.html, decision_tree_visual_builder.html
   - uid: 3 次使用 ✗ 别名
     文件: index_smart_workflow_backup.html
@@ -135,9 +135,9 @@
 标准名称: prescription_id
 描述: 处方唯一标识
 当前使用情况:
-  - prescriptionId: 84 次使用 ✗ 别名
+  - prescriptionId: 69 次使用 ✗ 别名
     文件: debug_prescription_payment.html, prescription_structured_editor.html, test_prescription_unlock.html
-  - prescription_id: 50 次使用 ✓ 标准
+  - prescription_id: 44 次使用 ✓ 标准
     文件: patient_prescription_confirm.html, patient_prescription_confirm.html, prescription_structured_editor.html
 
 建议: 统一使用 'prescription_id'
@@ -168,14 +168,14 @@
 标准名称: conversation_id
 描述: 对话会话唯一标识
 当前使用情况:
-  - conversation_id: 54 次使用 ✓ 标准
+  - conversation_id: 41 次使用 ✓ 标准
     文件: index_smart_workflow_backup.html, index_smart_workflow_backup.html, index_v2.html
-  - session_id: 26 次使用 ✗ 别名
-    文件: auth_portal.html, index_smart_workflow.html, index_smart_workflow.html
-  - conversationId: 25 次使用 ✗ 别名
-    文件: index_smart_workflow_backup.html, index_smart_workflow.html, index_smart_workflow.html
-  - sessionId: 1 次使用 ✗ 别名
-    文件: index_smart_workflow.html
+  - session_id: 29 次使用 ✗ 别名
+    文件: auth_portal.html, doctor/login.html, js/smart_workflow_records.js
+  - conversationId: 24 次使用 ✗ 别名
+    文件: index_smart_workflow_backup.html, conversation_state_demo.html, js/prescription_renderer.js
+  - sessionId: 3 次使用 ✗ 别名
+    文件: js/user_history_main.js, js/user_history_main.js
 
 建议: 统一使用 'conversation_id'
 ```
@@ -246,13 +246,13 @@ const requestData = {
 
 ## 🟡 警告修复 (共 1 个)
 
-### 警告 1: 发现 4 个文件直接访问 .reply
+### 警告 1: 发现 5 个文件直接访问 .reply
 
 **类别**: 响应数据访问不安全
 
 **详情**:
 ```
-文件: index_smart_workflow_backup.html, index_v2.html, index_smart_workflow.html, conversation_state_demo.html
+文件: index_smart_workflow_backup.html, index_v2.html, conversation_state_demo.html, js/smart_workflow_mobile.js, js/smart_workflow_chat.js
 
 问题: 直接访问可能因为响应格式不同而失败
 
