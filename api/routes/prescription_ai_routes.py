@@ -309,11 +309,43 @@ async def get_risk_analysis(authorization: Optional[str] = Header(None)):
 
         risk_analysis = ai_analyzer.analyze_risk_assessment(prescriptions_data)
 
-        # 添加统计信息
+        # 🔑 识别高风险处方ID（用于前端筛选）
+        high_risk_prescription_ids = []
+        medium_risk_prescription_ids = []
+        low_risk_prescription_ids = []
+
+        # 基于简单规则识别高风险处方
+        for p_data in prescriptions_data:
+            prescription_id = p_data.get('id')
+            if not prescription_id:
+                continue
+
+            # 高风险关键词（中医角度）
+            high_risk_keywords = ['糖尿病', '高血压', '心脏病', '肾病', '肝病', '癌症', '孕妇']
+            medium_risk_keywords = ['脾胃虚弱', '肾虚', '痛经', '失眠', '腹痛', '头痛']
+
+            diagnosis = p_data.get('diagnosis', '').lower()
+            symptoms = p_data.get('symptoms', '').lower()
+            combined_text = f"{diagnosis} {symptoms}"
+
+            # 判断风险等级
+            if any(keyword in combined_text for keyword in high_risk_keywords):
+                high_risk_prescription_ids.append(prescription_id)
+            elif any(keyword in combined_text for keyword in medium_risk_keywords):
+                medium_risk_prescription_ids.append(prescription_id)
+            else:
+                low_risk_prescription_ids.append(prescription_id)
+
+        # 添加统计信息和处方ID列表
         risk_analysis['prescription_counts'] = {
             'pending': len(pending_prescriptions),
             'recent_reviewed': len(recent_reviewed),
             'total_analyzed': len(prescriptions_data)
+        }
+        risk_analysis['prescription_ids_by_risk'] = {
+            'high': high_risk_prescription_ids,
+            'medium': medium_risk_prescription_ids,
+            'low': low_risk_prescription_ids
         }
 
         return {

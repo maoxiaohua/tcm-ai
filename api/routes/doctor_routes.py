@@ -579,14 +579,30 @@ async def get_all_prescriptions(
     current_doctor: Doctor = Depends(get_current_doctor),
     status: str = None,
     payment_status: str = None,
-    limit: int = 100
+    limit: int = 100,
+    prescription_ids: str = None  # 🔑 新增：逗号分隔的处方ID列表
 ):
-    """获取所有处方列表（医生端）- 支持筛选"""
+    """获取所有处方列表（医生端）- 支持筛选
+
+    Args:
+        prescription_ids: 可选，逗号分隔的处方ID列表，用于高风险处方筛选
+    """
     conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
     try:
+        # 🔑 医生ID映射
+        doctor_id_mapping = {
+            1: "jin_daifu",
+            2: "ye_tianshi",
+            3: "li_dongyuan",
+            4: "zhang_zhongjing",
+            5: "liu_duzhou",
+            6: "zheng_qin_an"
+        }
+        doctor_id_str = doctor_id_mapping.get(current_doctor.id, str(current_doctor.id))
+
         # 构建查询 - 获取所有处方，不限制医生分配
         query = """
             SELECT p.*,
@@ -603,7 +619,15 @@ async def get_all_prescriptions(
 
         # 添加筛选条件
         where_clauses = []
-        params = [current_doctor.id]
+        params = [doctor_id_str]  # 使用字符串ID
+
+        # 🔑 如果提供了处方ID列表，优先使用它筛选
+        if prescription_ids:
+            id_list = [int(pid.strip()) for pid in prescription_ids.split(',') if pid.strip().isdigit()]
+            if id_list:
+                placeholders = ','.join(['?'] * len(id_list))
+                where_clauses.append(f"p.id IN ({placeholders})")
+                params.extend(id_list)
 
         if status:
             where_clauses.append("p.status = ?")

@@ -937,7 +937,7 @@
         <div id="thinking" class="content-section">
             <div class="section-header">
                 <h2>医家思维学习</h2>
-                <p>学习古今名医的诊疗思维和临床经验</p>
+                <p>构建和完善个人诊疗思维体系</p>
             </div>
             <div class="section-body">
                 <div class="action-grid">
@@ -946,55 +946,29 @@
                         <div class="action-title">决策树可视化构建器</div>
                         <div class="action-desc">
                             创建和编辑个性化诊疗决策树<br>
-                            <strong>功能：</strong>可视化设计、多分支条件、药材加减
+                            <strong>功能：</strong>可视化设计、多分支条件、药材加减<br>
+                            <strong>应用：</strong>将临床经验系统化，提高诊疗效率
                         </div>
                         <button class="btn" style="margin-top: 15px;">🚀 打开构建器</button>
                     </div>
-                    <div class="action-card">
-                        <div class="action-icon">👨‍⚕️</div>
-                        <div class="action-title">张仲景 - 经方大师</div>
+                    <div class="action-card" onclick="showMyThinkingPatterns()">
+                        <div class="action-icon">📚</div>
+                        <div class="action-title">我的诊疗思维库</div>
                         <div class="action-desc">
-                            六经辨证理论，方证对应思维<br>
-                            <strong>特色：</strong>辨证精准，用药简洁有效
+                            查看和管理个人的临床诊疗模式<br>
+                            <strong>内容：</strong>辨证思路、用药经验、疗效总结<br>
+                            <strong>价值：</strong>积累临床智慧，形成个人风格
                         </div>
-                        <button class="btn" style="margin-top: 15px;" onclick="learnThinking('zhongjing')">学习思维</button>
+                        <button class="btn" style="margin-top: 15px;">📖 查看思维库</button>
                     </div>
-                    <div class="action-card">
-                        <div class="action-icon">👨‍⚕️</div>
-                        <div class="action-title">李东垣 - 脾胃论</div>
-                        <div class="action-desc">
-                            脾胃内伤理论，重视后天之本<br>
-                            <strong>特色：</strong>善治脾胃病，注重升清降浊
-                        </div>
-                        <button class="btn" style="margin-top: 15px;" onclick="learnThinking('dongyuan')">学习思维</button>
-                    </div>
-                    <div class="action-card">
-                        <div class="action-icon">👨‍⚕️</div>
-                        <div class="action-title">叶天士 - 温病大家</div>
-                        <div class="action-desc">
-                            卫气营血辨证，温病治疗理论<br>
-                            <strong>特色：</strong>治疗温热病，注重养阴清热
-                        </div>
-                        <button class="btn" style="margin-top: 15px;" onclick="learnThinking('tianshi')">学习思维</button>
-                    </div>
-                    <div class="action-card">
-                        <div class="action-icon">👨‍⚕️</div>
-                        <div class="action-title">郑钦安 - 火神派</div>
-                        <div class="action-desc">
-                            火神派理论，重视阳气，善用附子温阳<br>
-                            <strong>特色：</strong>重视阳气，扶阳抑阴
-                        </div>
-                        <button class="btn" style="margin-top: 15px;" onclick="learnThinking('qinan')">学习思维</button>
-                    </div>
-                    <div class="action-card">
-                        <div class="action-icon">👨‍⚕️</div>
-                        <div class="action-title">刘渡舟 - 经方大师</div>
-                        <div class="action-desc">
-                            经方大师，临床实用，注重疗效验证<br>
-                            <strong>特色：</strong>经方应用，实证疗效
-                        </div>
-                        <button class="btn" style="margin-top: 15px;" onclick="learnThinking('duzhou')">学习思维</button>
-                    </div>
+                </div>
+                <div style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h4 style="color: #1e40af; margin-top: 0;">💡 使用建议</h4>
+                    <ul style="color: #64748b; line-height: 1.8;">
+                        <li><strong>决策树构建器：</strong>将复杂的诊疗思路可视化，便于回顾和优化</li>
+                        <li><strong>诊疗思维库：</strong>记录有效的诊疗模式，建立个人知识库</li>
+                        <li><strong>持续迭代：</strong>根据临床反馈不断完善和调整</li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -3234,7 +3208,7 @@
             // 传递认证状态到决策树构建器
             const token = localStorage.getItem('doctorToken');
             const url = new URL('/static/decision_tree_visual_builder.html', window.location.origin);
-            
+
             // 通过URL参数传递认证状态
             if (token && currentUser) {
                 url.searchParams.set('doctor_token', token);
@@ -3242,8 +3216,69 @@
                 url.searchParams.set('doctor_name', currentUser.name);
                 url.searchParams.set('auto_auth', '1');
             }
-            
+
             window.open(url.toString(), '_blank');
+        }
+
+        // 显示我的诊疗思维库
+        async function showMyThinkingPatterns() {
+            const token = localStorage.getItem('doctorToken');
+            if (!token || !currentUser) {
+                alert('请先登录');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/get_doctor_patterns?doctor_id=${currentUser.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const patterns = data.patterns || [];
+
+                    // 创建模态框显示思维库
+                    const modal = document.createElement('div');
+                    modal.className = 'modal-overlay';
+                    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 3000; display: flex; align-items: center; justify-content: center;';
+                    modal.innerHTML = `
+                        <div style="background: white; border-radius: 12px; max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto; padding: 30px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3 style="color: #1e40af; margin: 0;">📚 我的诊疗思维库</h3>
+                                <button onclick="this.closest('.modal-overlay').remove()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">×</button>
+                            </div>
+                            ${patterns.length > 0 ? `
+                                <div style="display: grid; gap: 15px;">
+                                    ${patterns.map((p, i) => `
+                                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px;">
+                                            <h4 style="color: #1e40af; margin-top: 0;">模式 ${i + 1}: ${p.pattern_name || '未命名'}</h4>
+                                            <p><strong>辨证思路：</strong>${p.diagnostic_approach || '暂无'}</p>
+                                            <p><strong>治疗原则：</strong>${p.treatment_principle || '暂无'}</p>
+                                            <p><strong>典型案例：</strong>${p.typical_cases || '暂无'}</p>
+                                            <p style="color: #6b7280; font-size: 13px;">创建时间: ${p.created_at || ''}</p>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : `
+                                <div style="text-align: center; padding: 40px; color: #6b7280;">
+                                    <div style="font-size: 3rem; margin-bottom: 15px;">📖</div>
+                                    <p>尚未保存诊疗思维模式</p>
+                                    <p style="font-size: 13px;">使用决策树构建器时，可以保存诊疗思路到思维库</p>
+                                </div>
+                            `}
+                            <div style="text-align: right; margin-top: 20px;">
+                                <button class="btn" onclick="this.closest('.modal-overlay').remove()" style="background: #6b7280;">关闭</button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modal);
+                } else {
+                    alert('加载思维库失败');
+                }
+            } catch (error) {
+                console.error('加载思维库失败:', error);
+                alert('加载思维库失败，请稍后重试');
+            }
         }
 
         // 退出登录
@@ -3262,14 +3297,14 @@
         
         async function filterPrescriptions(filterType) {
             console.log('筛选处方:', filterType);
-            
+
             const token = localStorage.getItem('doctorToken');
             if (!token) return;
-            
+
             try {
                 let endpoint = '/api/doctor/pending-prescriptions';
-                let title = '待审查处方列表';
-                
+                let title = '处方列表';
+
                 switch(filterType) {
                     case 'all':
                         endpoint = '/api/doctor/all-prescriptions';
@@ -3277,7 +3312,7 @@
                         break;
                     case 'pending':
                         endpoint = '/api/doctor/pending-prescriptions';
-                        title = '待审查处方列表';
+                        title = '处方列表';
                         break;
                     case 'today':
                         endpoint = '/api/doctor/today-reviewed';
@@ -3290,6 +3325,22 @@
                     case 'modified':
                         endpoint = '/api/doctor/modified-prescriptions';
                         title = '已调整处方列表';
+                        break;
+                    case 'high-risk':
+                        // 🔑 高风险处方筛选
+                        if (lastRiskAnalysisResult && lastRiskAnalysisResult.prescription_ids_by_risk) {
+                            const highRiskIds = lastRiskAnalysisResult.prescription_ids_by_risk.high || [];
+                            if (highRiskIds.length > 0) {
+                                endpoint = `/api/doctor/all-prescriptions?prescription_ids=${highRiskIds.join(',')}`;
+                                title = `高风险处方列表 (${highRiskIds.length}份)`;
+                            } else {
+                                alert('暂无高风险处方');
+                                return;
+                            }
+                        } else {
+                            alert('请先运行风险分析');
+                            return;
+                        }
                         break;
                 }
                 
@@ -3326,24 +3377,24 @@
         // 本地筛选处方
         function filterLocalPrescriptions(filterType) {
             if (!currentPrescriptions.length) return;
-            
+
             let filtered = currentPrescriptions;
             let title = '处方列表';
-            
+
             switch(filterType) {
                 case 'pending':
                     filtered = currentPrescriptions.filter(p => p.status === 'pending');
-                    title = '待审查处方列表';
+                    title = '处方列表';
                     break;
                 case 'today':
                     const today = new Date().toDateString();
-                    filtered = currentPrescriptions.filter(p => 
+                    filtered = currentPrescriptions.filter(p =>
                         p.reviewed_at && new Date(p.reviewed_at).toDateString() === today
                     );
                     title = '今日已审查处方';
                     break;
             }
-            
+
             document.getElementById('prescriptionListTitle').textContent = title;
             displayPrescriptionsList(filtered);
         }
@@ -3497,6 +3548,9 @@
             }
         }
 
+        // 🔑 保存风险分析结果到全局变量（用于高风险处方筛选）
+        let lastRiskAnalysisResult = null;
+
         // 风险分析
         async function showRiskAnalysis() {
             // 先清除可能存在的旧模态框
@@ -3547,6 +3601,9 @@
                     const factors = riskAnalysis.risk_factors || [];
                     const commonIssues = riskAnalysis.common_issues || [];
                     const recommendations = riskAnalysis.recommendations || [];
+
+                    // 🔑 保存风险分析结果（包含处方ID列表）
+                    lastRiskAnalysisResult = riskAnalysis;
 
                     const content = modal.querySelector('div > div:last-child');
                     content.innerHTML = `
