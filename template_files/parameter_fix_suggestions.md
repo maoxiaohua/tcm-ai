@@ -1,6 +1,6 @@
 # 参数一致性修复建议
 
-**生成时间**: 2025-12-01 16:49:07
+**生成时间**: 2025-12-01 17:27:48
 
 ---
 
@@ -133,10 +133,10 @@
 标准名称: prescription_id
 描述: 处方唯一标识
 当前使用情况:
-  - prescriptionId: 59 次使用 ✗ 别名
-    文件: prescription_structured_editor.html, doctor/index.html, doctor/index.html
-  - prescription_id: 42 次使用 ✓ 标准
+  - prescription_id: 60 次使用 ✓ 标准
     文件: patient_prescription_confirm.html, patient_prescription_confirm.html, prescription_structured_editor.html
+  - prescriptionId: 43 次使用 ✗ 别名
+    文件: prescription_structured_editor.html, doctor/index.html, doctor/index.html
 
 建议: 统一使用 'prescription_id'
 ```
@@ -166,10 +166,10 @@
 标准名称: conversation_id
 描述: 对话会话唯一标识
 当前使用情况:
-  - conversationId: 60 次使用 ✗ 别名
-    文件: conversation_state_demo.html, js/prescription_renderer.js, js/auto_sync_manager.js
-  - conversation_id: 52 次使用 ✓ 标准
+  - conversation_id: 75 次使用 ✓ 标准
     文件: index_v2.html, index_v2.html, conversation_state_demo.html
+  - conversationId: 37 次使用 ✗ 别名
+    文件: conversation_state_demo.html, js/prescription_renderer.js, js/smart_workflow_doctor.js
   - session_id: 29 次使用 ✗ 别名
     文件: auth_portal.html, doctor/login.html, js/smart_workflow_records.js
   - sessionId: 3 次使用 ✗ 别名
