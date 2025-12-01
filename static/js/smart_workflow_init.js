@@ -201,205 +201,295 @@
     // ===================== 主初始化函数 =====================
 
     /**
-     * 主应用初始化函数
-     * 在DOMContentLoaded时调用，负责初始化整个应用
+     * 🔑 v4.3 优化：拆分initializeApp为多个小函数，提高可维护性
      */
-    async function initializeApp() {
-        console.log('🚀 初始化TCM-AI智能工作流系统');
 
-        // 🔍 用户状态检测和管理 - 使用authManager统一管理
-        // 🔑 关键修复：使用authManager而不是直接读localStorage
+    /**
+     * 初始化用户状态
+     * @returns {Object} 包含currentUser, userToken, hasRealUser的对象
+     */
+    function initializeUserState() {
         const currentUser = window.authManager ? window.authManager.getCurrentUser() : null;
         const userToken = window.authManager ? window.authManager.getToken() : null;
         const hasRealUser = !!(currentUser && (currentUser.id || currentUser.user_id));
 
-        // 🔑 同步到全局变量，确保其他模块可以访问
+        // 同步到全局变量
         window.currentUser = currentUser;
         window.userToken = userToken;
+        window.lastKnownUser = currentUser ? JSON.stringify(currentUser) : null;
 
         console.log('👤 用户状态检测:', hasRealUser ? '真实登录用户' : '访客模式');
         if (hasRealUser) {
             console.log('🔑 登录用户信息:', currentUser.username || currentUser.name || currentUser.id);
-            console.log('🔑 Token状态:', userToken ? `已获取(${userToken.substring(0, 10)}...)` : '未获取');
         }
 
-        // 设置初始用户状态
-        window.lastKnownUser = currentUser ? JSON.stringify(currentUser) : null;
+        return { currentUser, userToken, hasRealUser };
+    }
 
-        // 🔑 关键修复：更新页面用户显示
-        updateUserDisplay();
-
-        // 🔑 新增：检查URL参数是否需要恢复会话
+    /**
+     * 处理URL参数中的会话恢复请求
+     */
+    function handleSessionRestoreFromURL() {
         const urlParams = new URLSearchParams(window.location.search);
         const restoreSessionId = urlParams.get('restore_session');
+
         if (restoreSessionId) {
             console.log('🔄 检测到会话恢复请求:', restoreSessionId);
-            // 延迟恢复，等待页面完全初始化
             setTimeout(() => {
                 if (typeof window.restoreSessionFromHistory === 'function') {
                     window.restoreSessionFromHistory(restoreSessionId);
                 }
             }, 2000);
 
-            // 清除URL参数避免重复恢复
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, document.title, newUrl);
+            // 清除URL参数
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
+
+    /**
+     * 初始化医生列表和渲染
+     */
+    async function initializeDoctors() {
+        console.log('🔄 开始加载医生列表...');
+
+        if (typeof window.loadDoctors === 'function') {
+            await window.loadDoctors();
         }
 
-        // 首先清理旧数据，确保数据隔离
+        if (typeof window.renderDoctorCards === 'function') {
+            window.renderDoctorCards();
+        }
+
+        // Chrome移动端兼容性修复
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile && typeof window.renderMobileDoctorCards === 'function') {
+            window.renderMobileDoctorCards();
+            initializeMobileDoctorsFallback();
+        }
+    }
+
+    /**
+     * 移动端医生卡片渲染的Chrome兼容性修复
+     */
+    function initializeMobileDoctorsFallback() {
+        setTimeout(function() {
+            const grid = document.getElementById('mobileDoctorsGrid');
+            if (grid && grid.children.length === 0) {
+                console.warn('⚠️ [Chrome修复] 医生卡片为空，重新渲染');
+                if (typeof window.renderMobileDoctorCards === 'function') {
+                    window.renderMobileDoctorCards();
+                }
+
+                // 再次延迟检查
+                setTimeout(function() {
+                    if (grid.children.length === 0 && typeof window.renderMobileDoctorCards === 'function') {
+                        window.renderMobileDoctorCards();
+                    }
+                }, 2000);
+            }
+        }, 1000);
+    }
+
+    /**
+     * 初始化对话系统
+     */
+    function initializeConversationSystem() {
+        if (typeof window.loadConversationHistory === 'function') {
+            window.loadConversationHistory();
+        }
+
+        if (typeof window.initConversationManager === 'function') {
+            window.initConversationManager();
+        }
+
+        if (typeof window.setDefaultDoctor === 'function') {
+            window.setDefaultDoctor('jin_daifu', true);
+        }
+    }
+
+    /**
+     * 自动恢复对话历史（支持登录用户和游客）
+     * 🔑 v4.3 修复：优先使用本地存储，确保切换医生时保留对话
+     */
+    async function autoRestoreConversationHistory() {
+        const defaultDoctor = window.selectedDoctor || 'jin_daifu';
+        const userId = typeof window.getCurrentUserId === 'function'
+            ? window.getCurrentUserId()
+            : 'default';
+
+        console.log(`🔄 页面初始化：自动加载${defaultDoctor}医生的对话历史...`);
+
+        let messages = [];
+        let conversationId = null;
+
+        // 1. 优先从本地存储加载（最可靠）
+        const historyKey = `tcm_doctor_history_${userId}_${defaultDoctor}`;
+        const storedHistory = localStorage.getItem(historyKey);
+
+        if (storedHistory) {
+            try {
+                const historyData = JSON.parse(storedHistory);
+                if (historyData.messages && historyData.messages.length > 0) {
+                    messages = historyData.messages;
+                    conversationId = historyData.conversationId;
+                    console.log(`✅ 从本地加载${defaultDoctor}医生的${messages.length}条历史记录（版本：${historyData.version || '1.0'}）`);
+                }
+            } catch (e) {
+                console.warn('解析本地历史失败:', e);
+            }
+        }
+
+        // 2. 如果本地没有，尝试从API加载（仅登录用户）
+        const isLoggedIn = !!(window.userToken || localStorage.getItem('tcm_auth_token'));
+        if (messages.length === 0 && isLoggedIn && window.sessionManager) {
+            try {
+                const result = await window.sessionManager.switchDoctor(defaultDoctor);
+                console.log(`📡 API返回: conversationId=${result.conversationId}, messages=${result.messages?.length || 0}`);
+
+                conversationId = result.conversationId;
+                if (result.messages && result.messages.length > 0) {
+                    messages = result.messages;
+                }
+            } catch (error) {
+                console.warn('API加载失败，使用本地数据:', error);
+            }
+        }
+
+        // 3. 更新全局变量
+        window.currentConversationId = conversationId || `local_${Date.now()}`;
+        window.messages = messages;
+
+        // 4. 渲染消息到UI
+        if (messages.length > 0) {
+            console.log(`📝 页面初始化：恢复 ${messages.length} 条历史消息到UI`);
+            for (const msg of messages) {
+                if (typeof window.addMessage === 'function') {
+                    await window.addMessage(msg.type, msg.content, false, false, null);
+                }
+            }
+        } else {
+            console.log('📝 无历史记录，显示欢迎消息');
+            if (typeof window.addWelcomeMessage === 'function') {
+                window.addWelcomeMessage(defaultDoctor);
+            }
+        }
+    }
+
+    /**
+     * 初始化调试功能
+     */
+    function initializeDebugMode() {
+        if (typeof window.isDebugMode !== 'function' || !window.isDebugMode()) return;
+
+        console.log('🔧 调试模式已启用');
+        console.log('📋 可用调试命令: diagnoseHistoryIssues, checkLocalStorageUsage, cleanOldHistoryRecords');
+
+        setTimeout(() => {
+            if (typeof window.diagnoseHistoryIssues === 'function') {
+                console.log('\n🔍 自动历史记录诊断:');
+                window.diagnoseHistoryIssues();
+            }
+        }, 1000);
+    }
+
+    /**
+     * 启动后台数据同步任务
+     */
+    function startBackgroundSyncTasks() {
+        setTimeout(() => {
+            console.log('🔄 开始后台数据同步...');
+
+            if (typeof window.restoreAllPendingPrescriptions === 'function') {
+                window.restoreAllPendingPrescriptions();
+            }
+
+            if (typeof syncHistoryFromDatabase === 'function') {
+                syncHistoryFromDatabase();
+            }
+
+            if (window.simplePrescriptionManager?.syncPaidPrescriptionsFromServer) {
+                window.simplePrescriptionManager.syncPaidPrescriptionsFromServer();
+            }
+
+            // 🔑 v4.3 新增：输出localStorage使用量
+            if (window.StorageUtils && typeof window.StorageUtils.getUsage === 'function') {
+                const usage = window.StorageUtils.getUsage();
+                console.log(`📊 LocalStorage使用量: ${(usage.totalSize / 1024 / 1024).toFixed(2)}MB`);
+            }
+
+            console.log('✅ 后台数据同步任务已启动');
+        }, 3000);
+    }
+
+    /**
+     * 主应用初始化函数
+     * 🔑 v4.3 优化：拆分为多个小函数，提高可读性和可维护性
+     */
+    async function initializeApp() {
+        console.log('🚀 初始化TCM-AI智能工作流系统');
+
+        // 1. 初始化用户状态
+        initializeUserState();
+        updateUserDisplay();
+
+        // 2. 处理URL参数的会话恢复
+        handleSessionRestoreFromURL();
+
+        // 3. 清理旧数据
         cleanupOldUserData();
 
-        // 🔄 定期检测用户状态变化（每5秒检查一次）
+        // 4. 启动用户状态变化监控
         setInterval(() => {
             if (typeof window.detectUserChange === 'function') {
                 window.detectUserChange();
             }
         }, 5000);
 
-        // 🔧 先加载医生列表，再渲染医生卡片
-        console.log('🔄 [DEBUG] 开始加载医生列表...');
-        if (typeof window.loadDoctors === 'function') {
-            await window.loadDoctors();
-        }
-        console.log('✅ [DEBUG] 医生列表加载完成，doctors对象:', window.doctors);
-        console.log('✅ [DEBUG] doctors对象键:', Object.keys(window.doctors || {}));
+        // 5. 加载并渲染医生列表
+        await initializeDoctors();
 
-        if (typeof window.renderDoctorCards === 'function') {
-            window.renderDoctorCards();
-        }
+        // 6. 初始化对话系统
+        initializeConversationSystem();
 
-        // 🔑 Chrome浏览器兼容性修复：确保移动端医生卡片在数据加载完成后渲染
-        const isMobile = window.innerWidth <= 768;
-        console.log('🔍 [DEBUG] 设备检测:', {
-            windowWidth: window.innerWidth,
-            isMobile: isMobile
-        });
+        // 7. 自动恢复对话历史（登录用户）
+        await autoRestoreConversationHistory();
 
-        if (isMobile) {
-            console.log('✅ [DEBUG] 移动端模式 - 准备渲染医生卡片');
-            console.log('✅ [DEBUG] 调用renderMobileDoctorCards之前，doctors:', window.doctors);
-            if (typeof window.renderMobileDoctorCards === 'function') {
-                window.renderMobileDoctorCards();
-            }
-
-            // 🔧 Chrome修复：延迟再次渲染，确保DOM完全ready
-            setTimeout(function() {
-                console.log('🔄 [Chrome修复] 延迟1秒后再次渲染医生卡片');
-                const grid = document.getElementById('mobileDoctorsGrid');
-                if (grid && grid.children.length === 0) {
-                    console.warn('⚠️ [Chrome修复] 医生卡片为空，重新渲染');
-                    if (typeof window.renderMobileDoctorCards === 'function') {
-                        window.renderMobileDoctorCards();
-                    }
-
-                    // 再延迟2秒检查
-                    setTimeout(function() {
-                        if (grid.children.length === 0) {
-                            console.error('❌ [Chrome修复] 第2次渲染后仍为空，最后尝试');
-                            if (typeof window.renderMobileDoctorCards === 'function') {
-                                window.renderMobileDoctorCards();
-                            }
-                        } else {
-                            console.log('✅ [Chrome修复] 第1次延迟渲染成功');
-                        }
-                    }, 2000);
-                } else {
-                    console.log('✅ [Chrome修复] 医生卡片已正常渲染');
-                }
-            }, 1000);
-        }
-
-        // 🔑 修复：所有用户（包括访客）都尝试从数据库恢复历史记录
-        if (typeof window.syncHistoryFromDatabase === 'function') {
-            await window.syncHistoryFromDatabase();
-        }
-
-        // 🔑 如果数据库没有记录，再从localStorage加载
-        if (typeof window.loadConversationHistory === 'function') {
-            window.loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
-        }
-
-        // 🔄 初始化ChatGPT风格对话管理系统
-        if (typeof window.initConversationManager === 'function') {
-            window.initConversationManager();
-        }
-
-        // 设置默认医生 - 金大夫（经方大师）
-        // 🔧 修复重复欢迎消息：跳过历史记录加载，因为loadConversationHistory已经处理了
-        if (typeof window.setDefaultDoctor === 'function') {
-            window.setDefaultDoctor('jin_daifu', true);
-        }
-
-        // 🧹 暴露全局清理函数（供外部调用）
+        // 8. 暴露全局函数
         window.clearCurrentUserData = clearCurrentUserData;
         window.switchUserContext = switchUserContext;
 
-        // 🔑 修复：确保在页面完全准备好后再恢复处方状态
-        // 🔑 旧的统一恢复机制已禁用，使用新的简化版恢复系统
-        console.log('🔄 将使用简化版处方恢复系统...');
-
-        // 🔗 添加页面级用户管理控制
+        // 9. 添加用户管理控制
         if (typeof window.addUserManagementControls === 'function') {
             window.addUserManagementControls();
         }
 
-        // 添加调试功能（仅在开发环境或特定条件下）
-        if (typeof window.isDebugMode === 'function' && window.isDebugMode()) {
-            console.log('🔧 调试模式已启用');
-            console.log('📋 可用调试命令:');
-            console.log('  - diagnoseHistoryIssues(): 诊断历史记录问题');
-            console.log('  - checkLocalStorageUsage(): 检查存储使用情况');
-            console.log('  - cleanOldHistoryRecords(): 清理旧的历史记录');
-            console.log('  - clearCurrentUserData(): 清理当前用户数据');
-            console.log('  - switchUserContext(): 切换用户上下文');
+        // 10. 初始化调试模式
+        initializeDebugMode();
 
-            // 将调试函数暴露到全局
-            if (typeof window.diagnoseHistoryIssues === 'function') {
-                window.diagnoseHistoryIssues = window.diagnoseHistoryIssues;
-            }
-            if (typeof window.checkLocalStorageUsage === 'function') {
-                window.checkLocalStorageUsage = window.checkLocalStorageUsage;
-            }
-            if (typeof window.cleanOldHistoryRecords === 'function') {
-                window.cleanOldHistoryRecords = window.cleanOldHistoryRecords;
-            }
-
-            // 页面加载后自动运行一次诊断
-            setTimeout(() => {
-                console.log('\n🔍 自动历史记录诊断:');
-                if (typeof window.diagnoseHistoryIssues === 'function') {
-                    window.diagnoseHistoryIssues();
-                }
-            }, 1000);
-        }
-
-        // 初始化星级评价和评价模态框
+        // 11. 初始化UI组件
         initializeStarRatings();
         bindEvaluationModalEvents();
 
-        // 🔑 关键修复：延迟再次调用updateUserDisplay，确保DOM完全渲染
-        setTimeout(() => {
-            console.log('🔄 延迟500ms后再次更新用户显示，确保DOM完全渲染');
-            updateUserDisplay();
-        }, 500);
+        // 12. 延迟更新用户显示（确保DOM完全渲染）
+        setTimeout(() => updateUserDisplay(), 500);
 
-        // 🔑 启动处方状态轮询机制 - 每30秒检查一次待审核处方状态
+        // 13. 启动处方状态轮询
         if (typeof window.startPrescriptionStatusPolling === 'function') {
             window.startPrescriptionStatusPolling();
-            console.log('✅ 处方状态轮询已启动（每30秒检查一次）');
-        } else {
-            console.warn('⚠️ startPrescriptionStatusPolling 函数未找到');
-        }
-
-        // 🔑 恢复所有待审核处方状态 - 页面刷新后立即检查
-        if (typeof window.restoreAllPendingPrescriptions === 'function') {
-            setTimeout(() => {
-                window.restoreAllPendingPrescriptions();
-                console.log('✅ 待审核处方状态恢复检查已执行');
-            }, 2000); // 延迟2秒，确保页面完全加载
+            console.log('✅ 处方状态轮询已启动');
         }
 
         console.log('✅ TCM-AI智能工作流系统初始化完成');
+
+        // 14. 启动Session认证验证器 (v4.1新增)
+        if (window.authValidator) {
+            window.authValidator.setupGlobalErrorHandler();  // 全局401拦截
+            window.authValidator.startHeartbeat();           // 定期心跳检查
+            console.log('✅ Session认证验证器已启动');
+        }
+
+        // 15. 启动后台同步任务
+        startBackgroundSyncTasks();
     }
 
     // ===================== 用户数据管理函数 =====================
@@ -697,13 +787,43 @@
     }
 
     /**
-     * 🔑 获取当前对话历史（用于AI上下文维护）
+     * 🔑 获取当前对话历史（用于AI上下文维护）- v3.0 使用ConversationManager
      * 将前端消息格式转换为后端API期望的格式
      * @returns {Array} 对话历史数组，格式: [{role: "user"|"assistant", content: "..."}]
      */
     function getCurrentConversationHistory() {
         try {
-            // 获取当前消息数组
+            // 🔑 优先使用ConversationManager加载当前对话历史
+            const conversationId = window.currentConversationId;
+
+            if (conversationId && window.conversationManager) {
+                const messages = window.conversationManager.loadConversationMessages(conversationId);
+
+                if (messages && messages.length > 0) {
+                    // 转换为后端期望的格式
+                    const conversationHistory = messages.map(msg => {
+                        // 清理HTML标签，只保留纯文本内容
+                        let content = msg.content || '';
+
+                        // 移除HTML标签（保留基本结构）
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = content;
+                        content = tempDiv.textContent || tempDiv.innerText || content;
+
+                        return {
+                            role: msg.type === 'user' ? 'user' : 'assistant',
+                            content: content.trim()
+                        };
+                    }).filter(msg => msg.content.length > 0); // 过滤空消息
+
+                    console.log(`📋 从ConversationManager加载对话 ${conversationId}: ${conversationHistory.length}条历史`);
+
+                    // 返回最近20轮对话（后端会进一步限制为10轮）
+                    return conversationHistory.slice(-20);
+                }
+            }
+
+            // 降级方案：使用window.messages（兼容性）
             const messages = window.messages || [];
 
             if (!messages || messages.length === 0) {
@@ -727,7 +847,7 @@
                 };
             }).filter(msg => msg.content.length > 0); // 过滤空消息
 
-            console.log(`📝 获取对话历史: ${conversationHistory.length} 条消息`);
+            console.log(`📝 从window.messages获取对话历史: ${conversationHistory.length} 条消息`);
 
             // 返回最近20轮对话（后端会进一步限制为10轮）
             return conversationHistory.slice(-20);

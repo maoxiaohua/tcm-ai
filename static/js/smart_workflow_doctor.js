@@ -24,11 +24,9 @@
     // 医生头像映射
     // ========================================
 
-    /**
-     * 医生头像映射表
-     * 用于根据医生代码获取对应的emoji头像
-     */
-    const doctorAvatarMap = {
+    // 🔑 v4.2优化：使用constants.js中的统一定义
+    // 如果constants.js已加载，使用全局常量；否则使用备用值
+    const doctorAvatarMap = window.TCM_CONSTANTS?.DOCTOR_AVATAR_MAP || window.doctorAvatarMap || {
         "jin_daifu": "👨‍⚕️",
         "zhang_zhongjing": "🎯"
     };
@@ -211,7 +209,172 @@
 
     // ========================================
     // 医生选择函数
+    // 🔑 v4.3 优化：拆分大函数为小函数，提高可维护性
     // ========================================
+
+    /**
+     * 更新医生信息条UI
+     * @param {Object} doctor - 医生数据对象
+     */
+    function updateDoctorInfoBar(doctor) {
+        const avatarEl = document.getElementById('currentDoctorAvatar');
+        const nameEl = document.getElementById('currentDoctorName');
+        const descEl = document.getElementById('currentDoctorDesc');
+
+        if (avatarEl) avatarEl.textContent = doctor.avatar;
+        if (nameEl) nameEl.textContent = `${doctor.name} - ${doctor.school}`;
+        if (descEl) descEl.textContent = `擅长：${doctor.specialty}`;
+    }
+
+    /**
+     * 更新医生卡片选中状态
+     * @param {string} doctorKey - 医生代码
+     */
+    function updateDoctorCardSelection(doctorKey) {
+        const doctors = window.doctors || {};
+        const cards = document.querySelectorAll('.doctor-card');
+
+        cards.forEach(card => card.classList.remove('selected'));
+
+        cards.forEach((card, index) => {
+            if (Object.keys(doctors)[index] === doctorKey) {
+                card.classList.add('selected');
+            }
+        });
+    }
+
+    /**
+     * 保存当前对话历史
+     * 🔑 v4.3 修复：使用统一的 tcm_doctor_history_{userId}_{doctorKey} 格式
+     * @param {string} doctorKey - 当前医生代码
+     */
+    function saveCurrentConversation(doctorKey) {
+        const messages = window.messages || [];
+        if (!doctorKey || messages.length === 0) return;
+
+        const userId = typeof window.getCurrentUserId === 'function'
+            ? window.getCurrentUserId()
+            : 'default';
+
+        // 使用统一格式保存
+        const historyKey = `tcm_doctor_history_${userId}_${doctorKey}`;
+        const saveCount = (parseInt(localStorage.getItem(`save_count_${historyKey}`) || '0')) + 1;
+
+        const historyData = {
+            messages: messages,
+            conversationId: window.currentConversationId,
+            version: '2.1',
+            lastUpdated: new Date().toISOString(),
+            saveCount: saveCount
+        };
+
+        try {
+            localStorage.setItem(historyKey, JSON.stringify(historyData));
+            localStorage.setItem(`save_count_${historyKey}`, saveCount.toString());
+            console.log(`✅ 已保存${doctorKey}医生的${messages.length}条对话记录 (第${saveCount}次保存)`);
+
+            // 验证保存
+            const verified = localStorage.getItem(historyKey);
+            if (verified) {
+                console.log(`✅ 保存验证成功`);
+            }
+        } catch (e) {
+            console.error('保存对话历史失败:', e);
+        }
+
+        // 同时调用原有保存函数（兼容性）
+        if (typeof window.saveCurrentDoctorHistory === 'function') {
+            window.saveCurrentDoctorHistory();
+        }
+    }
+
+    /**
+     * 恢复对话消息到UI
+     * @param {Array} messages - 消息数组
+     * @param {string} doctorKey - 医生代码
+     */
+    async function restoreMessagesToUI(messages, doctorKey) {
+        if (messages && messages.length > 0) {
+            console.log(`恢复对话: ${messages.length}条历史消息`);
+            for (const msg of messages) {
+                if (typeof window.addMessage === 'function') {
+                    await window.addMessage(msg.type, msg.content, false, false, null);
+                }
+            }
+        } else {
+            console.log('无历史记录，显示欢迎消息');
+            if (typeof window.addWelcomeMessage === 'function') {
+                window.addWelcomeMessage(doctorKey);
+            }
+        }
+    }
+
+    /**
+     * 通过API切换医生（登录用户）
+     * 🔑 v4.3 修复：API返回空消息时，优先使用本地历史记录
+     */
+    async function switchDoctorViaAPI(doctorKey, previousDoctor, messagesContainer, mobileMessagesContainer) {
+        try {
+            // 切换前先保存当前对话
+            if (window.messages && window.messages.length > 0 && window.currentConversationId) {
+                console.log(`💾 切换前保存当前对话: ${window.currentConversationId}`);
+                // 保存到本地
+                saveCurrentConversation(previousDoctor);
+                // 保存到服务器
+                if (typeof window.saveConversationToServer === 'function') {
+                    await window.saveConversationToServer(window.messages, previousDoctor);
+                }
+            }
+
+            // 调用API切换医生
+            const result = await window.sessionManager.switchDoctor(doctorKey);
+
+            // 清空显示
+            clearMessageContainers(messagesContainer, mobileMessagesContainer);
+
+            // 更新全局变量
+            window.currentConversationId = result.conversationId;
+
+            // 🔑 v4.3 修复：如果API返回0条消息，尝试从本地加载
+            let messages = result.messages || [];
+
+            if (messages.length === 0) {
+                console.log(`⚠️ API返回0条消息，尝试从本地加载${doctorKey}医生的历史记录...`);
+
+                const userId = typeof window.getCurrentUserId === 'function'
+                    ? window.getCurrentUserId()
+                    : 'default';
+                const historyKey = `tcm_doctor_history_${userId}_${doctorKey}`;
+                const storedHistory = localStorage.getItem(historyKey);
+
+                if (storedHistory) {
+                    try {
+                        const historyData = JSON.parse(storedHistory);
+                        if (historyData.messages && historyData.messages.length > 0) {
+                            messages = historyData.messages;
+                            console.log(`✅ 从本地加载${doctorKey}医生的${messages.length}条历史记录`);
+                        }
+                    } catch (e) {
+                        console.warn('解析本地历史失败:', e);
+                    }
+                }
+            }
+
+            window.messages = messages;
+
+            // 恢复消息到UI
+            await restoreMessagesToUI(messages, doctorKey);
+
+            // 同步保存到本地（使用新格式）
+            if (messages.length > 0) {
+                saveCurrentConversation(doctorKey);
+            }
+
+        } catch (error) {
+            console.error('切换医生API失败，使用本地存储:', error);
+            await handleDoctorSwitchLocally(doctorKey, messagesContainer, mobileMessagesContainer);
+        }
+    }
 
     /**
      * 设置默认医生（不会有确认提示）
@@ -224,25 +387,9 @@
         if (!doctor) return;
 
         window.selectedDoctor = doctorKey;
+        updateDoctorCardSelection(doctorKey);
+        updateDoctorInfoBar(doctor);
 
-        // 更新UI显示
-        const cards = document.querySelectorAll('.doctor-card');
-        cards.forEach((card, index) => {
-            if (Object.keys(doctors)[index] === doctorKey) {
-                card.classList.add('selected');
-            }
-        });
-
-        // 更新顶部医生信息条
-        const avatarEl = document.getElementById('currentDoctorAvatar');
-        const nameEl = document.getElementById('currentDoctorName');
-        const descEl = document.getElementById('currentDoctorDesc');
-
-        if (avatarEl) avatarEl.textContent = doctor.avatar;
-        if (nameEl) nameEl.textContent = `${doctor.name} - ${doctor.school}`;
-        if (descEl) descEl.textContent = `擅长：${doctor.specialty}`;
-
-        // 修复重复加载问题：只在非跳过模式下加载历史记录
         if (!skipHistoryLoad && typeof window.loadDoctorHistory === 'function') {
             window.loadDoctorHistory(doctorKey);
         }
@@ -250,7 +397,7 @@
 
     /**
      * 选择医生（支持默认医生和推荐医生）
-     * 这是医生选择的核心函数，处理所有医生切换逻辑
+     * 🔑 v4.3 优化：拆分为多个小函数，提高可读性
      *
      * @param {string} doctorKey - 医生代码
      * @param {Object|null} doctorData - 医生数据对象（可选）
@@ -260,83 +407,196 @@
         const messagesContainer = document.getElementById('messagesContainer');
         const mobileMessagesContainer = document.getElementById('mobileMessagesContainer');
 
-        // 检查是否有真正的对话内容（用户消息或AI回复）
-        const userMessages = messagesContainer ? messagesContainer.querySelectorAll('.message.user') : [];
-        const aiMessages = messagesContainer ? messagesContainer.querySelectorAll('.message.ai') : [];
-        const hasExistingMessages = userMessages.length > 0 || aiMessages.length > 0;
+        // 检查是否有现有消息
+        const hasExistingMessages = messagesContainer &&
+            (messagesContainer.querySelectorAll('.message.user').length > 0 ||
+             messagesContainer.querySelectorAll('.message.ai').length > 0);
 
-        // 切换医生时保存当前医生的对话历史
-        if (window.selectedDoctor && window.selectedDoctor !== doctorKey && hasExistingMessages) {
-            // 保存当前医生的对话历史
-            if (typeof window.saveCurrentDoctorHistory === 'function') {
-                window.saveCurrentDoctorHistory();
-            }
+        // 保存当前对话（如果有内容且正在切换）
+        const previousDoctor = window.selectedDoctor;
+        if (previousDoctor && previousDoctor !== doctorKey && hasExistingMessages) {
+            saveCurrentConversation(previousDoctor);
         }
 
-        // 移除之前的选中状态
-        document.querySelectorAll('.doctor-card').forEach(card => {
-            card.classList.remove('selected');
-        });
-
-        // 添加新的选中状态
-        if (event && event.currentTarget) {
+        // 更新选中状态
+        document.querySelectorAll('.doctor-card').forEach(card => card.classList.remove('selected'));
+        if (event?.currentTarget) {
             event.currentTarget.classList.add('selected');
         }
 
-        const previousDoctor = window.selectedDoctor;
         window.selectedDoctor = doctorKey;
 
-        // 获取医生信息（优先使用传入的doctorData，然后是默认doctors对象）
+        // 获取医生信息
         const doctor = doctorData || doctors[doctorKey] || {
-            name: '医生',
-            school: '中医师',
-            avatar: '👨‍⚕️',
-            specialty: '中医内科'
+            name: '医生', school: '中医师', avatar: '👨‍⚕️', specialty: '中医内科'
         };
 
-        // 更新顶部医生信息条
-        const avatarEl = document.getElementById('currentDoctorAvatar');
-        const nameEl = document.getElementById('currentDoctorName');
-        const descEl = document.getElementById('currentDoctorDesc');
+        // 更新UI
+        updateDoctorInfoBar(doctor);
 
-        if (avatarEl) avatarEl.textContent = doctor.avatar;
-        if (nameEl) nameEl.textContent = `${doctor.name} - ${doctor.school}`;
-        if (descEl) descEl.textContent = `擅长：${doctor.specialty}`;
-
-        // 切换医生时的关键修复：
+        // 处理医生切换逻辑
         if (previousDoctor && previousDoctor !== doctorKey) {
-            // 1. 清空当前显示的消息（开始全新对话）
-            if (messagesContainer) {
-                messagesContainer.innerHTML = '';
-                messagesContainer.removeAttribute('data-current-doctor');
-            }
-            if (mobileMessagesContainer) {
-                mobileMessagesContainer.innerHTML = '';
-                mobileMessagesContainer.removeAttribute('data-current-doctor');
-            }
-            console.log(`🧹 切换医生：清空当前对话，准备开始与${doctor.name}的新对话`);
+            console.log(`🔄 从${previousDoctor}切换到${doctorKey}`);
 
-            // 2. 生成新的对话ID，强制开始新对话
-            if (typeof window.generateConversationId === 'function') {
-                window.generateConversationId();
-                console.log(`🆕 生成新对话ID: ${window.currentConversationId}`);
+            const isLoggedIn = !!(window.userToken || localStorage.getItem('tcm_auth_token'));
+
+            if (isLoggedIn && window.sessionManager) {
+                switchDoctorViaAPI(doctorKey, previousDoctor, messagesContainer, mobileMessagesContainer);
+            } else {
+                console.log('📦 游客模式，使用本地存储切换医生');
+                handleDoctorSwitchLocally(doctorKey, messagesContainer, mobileMessagesContainer);
             }
         }
 
-        // 修复：不自动加载历史记录，让用户开始全新对话
-        // 如果需要查看历史，用户可以通过历史记录功能查看
-        console.log(`✅ 已切换到${doctor.name}，准备开始新对话`);
+        console.log(`✅ 已切换到${doctor.name}`);
 
         // 显示输入框
         const inputContainer = document.querySelector('.input-container');
-        if (inputContainer) {
-            inputContainer.classList.add('show');
-        }
+        if (inputContainer) inputContainer.classList.add('show');
 
         // 移动端：关闭医生选择浮层
         if (window.innerWidth <= 768 && typeof window.closeMobileDoctorSelector === 'function') {
             window.closeMobileDoctorSelector();
         }
+    }
+
+    /**
+     * 清空消息容器
+     */
+    function clearMessageContainers(messagesContainer, mobileMessagesContainer) {
+        if (messagesContainer) {
+            messagesContainer.innerHTML = '';
+            messagesContainer.removeAttribute('data-current-doctor');
+        }
+        if (mobileMessagesContainer) {
+            mobileMessagesContainer.innerHTML = '';
+            mobileMessagesContainer.removeAttribute('data-current-doctor');
+        }
+    }
+
+    /**
+     * 保存医生对话历史到本地存储
+     */
+    function saveDoctorMessagesToLocal(doctorKey, messages) {
+        if (!doctorKey || !messages) return;
+        try {
+            const storageKey = `tcm_doctor_messages_${doctorKey}`;
+            const data = {
+                messages: messages,
+                timestamp: Date.now(),
+                conversationId: window.currentConversationId
+            };
+            localStorage.setItem(storageKey, JSON.stringify(data));
+            console.log(`💾 已保存${doctorKey}的${messages.length}条消息到本地`);
+        } catch (e) {
+            console.warn('保存本地消息失败:', e);
+        }
+    }
+
+    /**
+     * 从本地存储加载医生对话历史
+     */
+    function loadDoctorMessagesFromLocal(doctorKey) {
+        if (!doctorKey) return null;
+        try {
+            const storageKey = `tcm_doctor_messages_${doctorKey}`;
+            const dataStr = localStorage.getItem(storageKey);
+            if (!dataStr) return null;
+
+            const data = JSON.parse(dataStr);
+            // 检查是否过期（24小时）
+            if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
+                localStorage.removeItem(storageKey);
+                return null;
+            }
+            return data;
+        } catch (e) {
+            console.warn('加载本地消息失败:', e);
+            return null;
+        }
+    }
+
+    /**
+     * 使用本地存储处理医生切换（游客模式或API失败时）
+     * 🔑 v4.3 修复：使用统一的 tcm_doctor_history_{userId}_{doctorKey} 格式
+     */
+    async function handleDoctorSwitchLocally(doctorKey, messagesContainer, mobileMessagesContainer) {
+        // 清空当前显示
+        clearMessageContainers(messagesContainer, mobileMessagesContainer);
+
+        // 🔑 修复：使用统一的历史记录格式（包含用户ID）
+        const userId = typeof window.getCurrentUserId === 'function'
+            ? window.getCurrentUserId()
+            : 'default';
+        const historyKey = `tcm_doctor_history_${userId}_${doctorKey}`;
+
+        console.log(`📂 尝试加载历史记录: ${historyKey}`);
+
+        let messages = [];
+        let conversationId = null;
+
+        // 优先从新格式加载
+        const storedHistory = localStorage.getItem(historyKey);
+        if (storedHistory) {
+            try {
+                const historyData = JSON.parse(storedHistory);
+                if (historyData.messages && historyData.messages.length > 0) {
+                    messages = historyData.messages;
+                    conversationId = historyData.conversationId;
+                    console.log(`✅ 加载${doctorKey}医生的${messages.length}条历史记录（版本：${historyData.version || '1.0'}，最后更新：${historyData.lastUpdated || '未知'}）`);
+
+                    // 打印历史记录详情
+                    if (messages.length > 0) {
+                        const firstTime = messages[0].time || '未知';
+                        const lastTime = messages[messages.length - 1].time || '未知';
+                        console.log(`📋 历史记录详情: 第一条消息时间=${firstTime}, 最后一条消息时间=${lastTime}`);
+                    }
+                }
+            } catch (e) {
+                console.warn('解析历史记录失败:', e);
+            }
+        }
+
+        // 回退：尝试从旧格式加载
+        if (messages.length === 0) {
+            const localData = loadDoctorMessagesFromLocal(doctorKey);
+            if (localData && localData.messages && localData.messages.length > 0) {
+                messages = localData.messages;
+                conversationId = localData.conversationId;
+                console.log(`📂 从旧格式恢复${doctorKey}的${messages.length}条消息`);
+            }
+        }
+
+        if (messages.length > 0) {
+            window.messages = messages;
+            window.currentConversationId = conversationId || generateLocalConversationId();
+
+            // 恢复消息到UI
+            for (const msg of messages) {
+                if (typeof window.addMessage === 'function') {
+                    await window.addMessage(msg.type, msg.content, false, false, null);
+                }
+            }
+
+            // 🔑 保存验证
+            console.log(`✅ 已保存${doctorKey}医生的${messages.length}条对话记录`);
+        } else {
+            // 无本地历史，开启新对话
+            console.log('📝 无本地历史，开启新对话');
+            window.messages = [];
+            window.currentConversationId = generateLocalConversationId();
+
+            if (typeof window.addWelcomeMessage === 'function') {
+                window.addWelcomeMessage(doctorKey);
+            }
+        }
+    }
+
+    /**
+     * 生成本地会话ID
+     */
+    function generateLocalConversationId() {
+        return 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
 
     // ========================================
@@ -389,11 +649,13 @@
     window.selectDoctor = selectDoctor;
     window.getAvatarForDoctor = getAvatarForDoctor;
     window.getDoctorDisplayName = getDoctorDisplayName;
+    window.saveDoctorMessagesToLocal = saveDoctorMessagesToLocal;
+    window.loadDoctorMessagesFromLocal = loadDoctorMessagesFromLocal;
 
     // 同时暴露doctorAvatarMap以便其他模块使用
     window.doctorAvatarMap = doctorAvatarMap;
 
-    console.log('✅ [Module] smart_workflow_doctor.js 加载完成');
-    console.log('📋 已暴露函数: loadDoctors, loadDefaultDoctors, renderDoctorCards, updateDoctorSelector, setDefaultDoctor, selectDoctor, getAvatarForDoctor, getDoctorDisplayName');
+    console.log('✅ [Module] smart_workflow_doctor.js v4.2 加载完成');
+    console.log('📋 已暴露函数: loadDoctors, selectDoctor, saveDoctorMessagesToLocal, loadDoctorMessagesFromLocal 等');
 
 })();

@@ -111,11 +111,11 @@ export class HistoryAPI {
     async getCurrentUser() {
         try {
             // 🔑 关键修复：优先从服务器API获取最新用户信息，避免localStorage缓存错误
-            const token = localStorage.getItem('auth_token') || localStorage.getItem('session_token');
+            const token = localStorage.getItem('tcm_auth_token') || localStorage.getItem('auth_token') || localStorage.getItem('session_token');
 
             if (token) {
                 try {
-                    const response = await fetch('/api/unified-auth/me', {
+                    const response = await fetch('/api/auth/me', {
                         headers: {
                             'Authorization': `Bearer ${token}`,
                             'Content-Type': 'application/json'

@@ -42,65 +42,77 @@
     <meta name="twitter:image" content="https://mxh0510.cn/static/tcm_share_card_enhanced.png">
 
     <!-- 版本标识: v2.0.0 模块化重构版 -->
-    <!-- 🔧 修复连接超时 - 使用异步加载和超时处理 -->
+    <!-- 🚀 性能优化：直接使用本地Markdown解析器，不等待CDN（-5秒加载时间） -->
     <script>
-        // 异步加载marked.js，避免CDN超时阻塞页面
-        (function() {
-            // 设置超时时间为5秒
-            const timeout = setTimeout(function() {
-                if (!window.marked) {
-                    console.warn('⚠️ marked.js CDN加载超时，使用本地降级方案');
-                    initializeMarkedFallback();
-                }
-            }, 5000);
+        // 直接使用简化版Markdown解析器，避免CDN超时等待
+        window.marked = {
+            parse: function(markdown) {
+                if (!markdown) return '';
 
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
-            script.async = true;
-
-            script.onload = function() {
-                clearTimeout(timeout);
-                console.log('✅ marked.js CDN加载成功');
-            };
-
-            script.onerror = function() {
-                clearTimeout(timeout);
-                console.warn('⚠️ marked.js CDN加载失败，使用本地降级方案');
-                initializeMarkedFallback();
-            };
-
-            document.head.appendChild(script);
-
-            // 降级方案：简单的Markdown解析器
-            function initializeMarkedFallback() {
-                window.marked = {
-                    parse: function(markdown) {
-                        if (!markdown) return '';
-
-                        return markdown
-                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **粗体**
-                            .replace(/\*(.*?)\*/g, '<em>$1</em>')              // *斜体*
-                            .replace(/`(.*?)`/g, '<code>$1</code>')           // `代码`
-                            .replace(/\n\n/g, '</p><p>')                       // 段落
-                            .replace(/\n/g, '<br>')                           // 换行
-                            .replace(/^/, '<p>')                              // 开始段落
-                            .replace(/$/, '</p>');                            // 结束段落
-                    }
-                };
-                console.log('✅ marked.js 本地降级方案已就绪');
+                return markdown
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **粗体**
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')              // *斜体*
+                    .replace(/`(.*?)`/g, '<code>$1</code>')           // `代码`
+                    .replace(/\n\n/g, '</p><p>')                       // 段落
+                    .replace(/\n/g, '<br>')                           // 换行
+                    .replace(/^/, '<p>')                              // 开始段落
+                    .replace(/$/, '</p>');                            // 结束段落
             }
-        })();
+        };
+        console.log('✅ Markdown解析器已就绪');
     </script>
+
+    <!-- 🔑 v4.3 新增：登录/注册/退出函数 -->
+    <script>
+        // 显示登录模态框/跳转登录页
+        function showLoginModal() {
+            // 跳转到统一登录页面
+            window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+        }
+
+        // 打开注册页面
+        function openRegisterPage() {
+            window.location.href = '/register?redirect=' + encodeURIComponent(window.location.pathname);
+        }
+
+        // 退出登录
+        function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                // 使用authManager清除登录状态
+                if (window.authManager && typeof window.authManager.clearLoginState === 'function') {
+                    window.authManager.clearLoginState();
+                }
+
+                // 清除所有登录相关数据
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('userData');
+                localStorage.removeItem('tcm_auth_token');
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('userToken');
+                localStorage.removeItem('currentUserId');
+
+                // 刷新页面
+                window.location.reload();
+            }
+        }
+
+        // 暴露到全局
+        window.showLoginModal = showLoginModal;
+        window.openRegisterPage = openRegisterPage;
+        window.logout = logout;
+    </script>
+
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
 
-    <!-- 🔧 字体优化：预连接+超时+降级 -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet" media="print" onload="this.media='all'">
-    <noscript>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    </noscript>
+    <!-- 🚀 性能优化：使用系统字体，移除Google Fonts加载 -->
+    <style>
+        /* 使用系统字体栈，更快加载且更原生 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                         "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue",
+                         Helvetica, Arial, sans-serif !important;
+        }
+    </style>
 
     <!-- 外部CSS文件 - 按功能模块化 -->
     <link rel="stylesheet" href="/static/css/smart_workflow_base.css?v=20250118001">
@@ -475,7 +487,14 @@
 
     <!-- 智能工作流JavaScript模块 -->
     <script src="/static/js/auth_manager.js?v=20251120001"></script>
-    <script src="/static/js/simple_prescription_manager.js?v=20251124010"></script>
+    <script src="/static/js/simple_prescription_manager.js?v=20251128002"></script>
+    <!-- v4.2 新增：全局常量定义（必须最先加载） -->
+    <script src="/static/js/constants.js?v=20251128001"></script>
+
+    <!-- v4.0 新增：轻量级会话管理器 -->
+    <script src="/static/js/session_manager.js?v=20251201001"></script>
+    <script src="/static/js/auth_validator.js?v=20251201001"></script>
+    <script src="/static/js/conversation_manager.js?v=20251125001"></script>
     <script src="/static/js/conversation_state_manager.js?v=20251120001"></script>
     <script src="/static/js/auto_sync_manager.js?v=20251120001"></script>
 
@@ -484,7 +503,7 @@
 
     <!-- 功能模块 -->
     <script src="/static/js/smart_workflow_utils.js?v=20251120001"></script>
-    <script src="/static/js/smart_workflow_doctor.js?v=20251120001"></script>
+    <script src="/static/js/smart_workflow_doctor.js?v=20251128003"></script>
     <script src="/static/js/smart_workflow_mobile.js?v=20251120001"></script>
     <script src="/static/js/smart_workflow_history.js?v=20251120001"></script>
     <script src="/static/js/smart_workflow_records.js?v=20251120003"></script>
@@ -492,9 +511,9 @@
     <script src="/static/js/smart_workflow_prescription.js?v=20251120003"></script>
 
     <!-- 初始化模块（必须最后加载） -->
-    <script src="/static/js/smart_workflow_init.js?v=20251124003"></script>
+    <script src="/static/js/smart_workflow_init.js?v=20251201001"></script>
 
-    <!-- 恢复未完成处方对话功能 -->
-    <script src="/static/js/restore_pending_prescription.js?v=20251120003"></script>
+    <!-- 🚀 性能优化：恢复未完成处方功能使用defer异步加载 -->
+    <script src="/static/js/restore_pending_prescription.js?v=20251120003" defer></script>
 </body>
 </html>

@@ -1,0 +1,203 @@
+================================================================================
+TCM-AI 静态文件详细清单
+================================================================================
+
+生成时间: 2025-01-29
+分析范围: /opt/tcm-ai/static (所有.html .js .css文件)
+总文件数: 121个
+
+================================================================================
+[A] 可以安全删除的文件 (21个) - PHASE 1
+================================================================================
+
+HTML 文件 (20个):
+  1. admin/index_original.html
+  2. ai_mindmap_test.html
+  3. chrome_test.html
+  4. debug_login_token.html
+  5. debug_prescription.html
+  6. debug_prescription_payment.html
+  7. debug_prescription_status.html
+  8. doctor/index_backup_20250921_113856.html
+  9. doctor/index_optimized_backup.html
+  10. doctor/index_original.html
+  11. index_smart_workflow_backup.html
+  12. simple_mobile_test.html
+  13. test_decision_tree_fix.html
+  14. test_doctor_login.html
+  15. test_edit_debug.html
+  16. test_pc_functions.html
+  17. test_prescription_logic.html
+  18. test_prescription_rendering.html
+  19. test_prescription_restore.html
+  20. test_prescription_unlock.html
+
+JS 文件 (1个):
+  1. js/prescription_debug_helper.js
+
+================================================================================
+[B] 必须保留的文件 (40个) - CORE FILES
+================================================================================
+
+核心HTML页面 (23个):
+  1. admin/index.html                            [管理后台]
+  2. admin/login.html                            [管理登录]
+  3. auth_portal.html                            [认证门户]
+  4. decision_tree_visual_builder.html           [决策树构建]
+  5. doctor/index.html                           [医生工作台]
+  6. doctor/login.html                           [医生登录]
+  7. doctor_management.html                      [医生管理]
+  8. doctor_portal.html                          [医生门户]
+  9. doctor_review_portal.html                   [处方审查]
+  10. doctor_thinking_input.html                 [思维输入]
+  11. doctor_thinking_input_v2.html              [思维输入v2]
+  12. index_smart_workflow.html                  [主应用]
+  13. login_portal.html                          [登录门户]
+  14. mindmap/index.html                         [思维导图]
+  15. navigation.html                            [导航页面]
+  16. patient_prescription_confirm.html          [处方确认]
+  17. phone_binding.html                         [手机绑定]
+  18. prescription_checker_v2.html               [处方检查]
+  19. prescription_learning_dashboard.html       [学习仪表板]
+  20. qr_code_gallery.html                       [二维码库]
+  21. register.html                              [注册页面]
+  22. unified_system_monitor.html                [系统监控]
+  23. user_history.html                          [用户历史]
+
+核心CSS样式表 (4个):
+  1. css/prescription_styles.css                 [处方样式]
+  2. css/smart_workflow_base.css                 [基础样式]
+  3. css/smart_workflow_chat.css                 [聊天样式]
+  4. css/smart_workflow_doctor.css               [医生界面样式]
+
+核心JS脚本 (13个):
+  1. doctor_thinking_script.js                   [思维脚本]
+  2. doctor_thinking_v2_script.js                [思维v2脚本]
+  3. js/auth_manager.js                          [认证管理]
+  4. js/auto_sync_manager.js                     [同步管理]
+  5. js/conversation_manager.js                  [会话管理]
+  6. js/conversation_state_manager.js            [状态管理]
+  7. js/prescription_renderer.js                 [处方渲染]
+  8. js/restore_pending_prescription.js          [处方恢复]
+  9. js/session_manager.js                       [会话管理]
+  10. js/simple_prescription_manager.js          [处方管理]
+  11. js/user_history_main.js                    [历史记录]
+  12. css/prescription_styles.css                [处方CSS]
+  13. css/user_history.css                       [历史CSS]
+
+================================================================================
+[C] 需要进一步审查的文件 (35个) - REQUIRES REVIEW
+================================================================================
+
+CSS文件 (4个) - 被index_smart_workflow.html导入:
+  1. css/smart_workflow_base.css                 [被导入]
+  2. css/smart_workflow_chat.css                 [被导入]
+  3. css/smart_workflow_doctor.css               [被导入]
+  4. css/smart_workflow_prescription.css         [被导入]
+
+  ℹ️ 状态: 实际上被导入，应该保留
+
+版本变体文件 (5个):
+  1. decision_tree_v3.html                       [v3版本]
+  2. decision_tree_v3_data_driven.html           [v3数据驱动版]
+  3. decision_tree_visual_builder_simple.html    [简化版本]
+  4. doctor/index_optimized.html                 [优化版本]
+  5. index_v2.html                               [v2版本]
+
+  ⚠️ 需要检查: 这些文件是否有对应的FastAPI路由
+
+可能未使用的JS文件 (23个):
+  1. fix_user_name.js
+  2. js/decision_tree_data_driven.js
+  3. js/modules/history_api.js
+  4. js/modules/history_data.js
+  5. js/modules/history_ui.js
+  6. js/modules/user/index.js
+  7. js/modules/user/user_auth.js
+  8. js/modules/user/user_session.js
+  9. js/modules/utils/dom_utils.js
+  10. js/modules/utils/format_utils.js
+  11. js/modules/utils/index.js
+  12. js/modules/utils/storage_utils.js
+  13. js/realtime_sync.js
+  14. js/simple_recovery.js
+  15. js/smart_workflow_chat.js
+  16. js/smart_workflow_core.js
+  17. js/smart_workflow_doctor.js
+  18. js/smart_workflow_history.js
+  19. js/smart_workflow_init.js
+  20. js/smart_workflow_mobile.js
+  21. js/smart_workflow_prescription.js
+  22. js/smart_workflow_records.js
+  23. js/smart_workflow_utils.js
+
+  ⚠️ 需要检查: 这些文件可能通过以下方式被使用:
+     - 动态fetch()加载
+     - 其他served页面导入
+     - FastAPI模板字符串中生成的script标签
+
+其他需要审查的页面 (3个):
+  1. conversation_state_demo.html                [Demo]
+  2. database_manager.html                       [数据库管理]
+  3. decision_tree_integration_demo.html         [Demo]
+  4. doctor_dashboard.html                       [仪表板]
+  5. fix_user_display.html                       [修复显示]
+  6. intelligent_decision_tree.html              [决策树]
+  7. wechat_share.html                           [微信分享]
+
+  ⚠️ 需要检查: 这些页面的用途和是否有路由指向
+
+================================================================================
+[统计汇总]
+================================================================================
+
+按类型统计:
+  - HTML文件总数:    57个
+    ├─ 必须保留:     23个
+    ├─ 可删除:       20个
+    └─ 需审查:       14个
+
+  - JS文件总数:      36个
+    ├─ 必须保留:     13个
+    ├─ 可删除:        1个
+    └─ 需审查:       22个
+
+  - CSS文件总数:      8个
+    ├─ 必须保留:      4个
+    ├─ 可删除:        0个
+    └─ 需审查:        4个
+
+  - 总计:           121个
+    ├─ 必须保留:     40个 (33%)
+    ├─ 可删除:       21个 (17%)
+    └─ 需审查:       35个 (29%)
+
+================================================================================
+[执行步骤]
+================================================================================
+
+第一阶段 (立即执行):
+  1. 备份完整static目录
+     tar -czf static_backup_$(date +%Y%m%d_%H%M%S).tar.gz /opt/tcm-ai/static/
+
+  2. 执行清理脚本
+     bash /opt/tcm-ai/scripts/cleanup_static_phase1.sh
+
+  3. 验证应用
+     - 访问主页: http://localhost:8000/smart
+     - 访问医生端: http://localhost:8000/doctor
+     - 访问管理端: http://localhost:8000/admin
+
+第二阶段 (代码审查):
+  1. 检查版本变体文件
+     grep -r "decision_tree_v3\|doctor/index_optimized\|index_v2" /opt/tcm-ai/api/
+
+  2. 检查其他未使用页面
+     grep -r "database_manager\|intelligent_decision_tree" /opt/tcm-ai/
+
+第三阶段 (系统测试):
+  1. 查看浏览器控制台是否有错误
+  2. 测试所有主要功能
+  3. 检查网络请求是否全部成功
+
+================================================================================

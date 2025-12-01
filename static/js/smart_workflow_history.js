@@ -28,42 +28,67 @@
     }
 
     /**
-     * 创建新对话（ChatGPT风格）
-     * 保存当前对话到历史记录，清空显示，生成新的对话ID
+     * 创建新对话（ChatGPT风格）- v3.0 使用ConversationManager
+     * 保存当前对话到历史记录，清空显示，创建新的对话ID
      */
     async function createNewConversation() {
         try {
             const userId = typeof getCurrentUserId === 'function' ? getCurrentUserId() : null;
+            const currentDoctor = window.selectedDoctor;
 
-            // 如果当前有对话内容，先保存到历史记录
-            const isMobile = window.innerWidth <= 768;
-            const containerSelector = isMobile ? 'mobileMessagesContainer' : 'messagesContainer';
-            const messagesContainer = document.getElementById(containerSelector);
-            if (messagesContainer && messagesContainer.children.length > 0) {
-                await saveCurrentConversationToHistory();
+            if (!userId || !currentDoctor) {
+                console.error('❌ 无法创建新对话：缺少用户ID或医生ID');
+                if (typeof showMessage === 'function') {
+                    showMessage('创建新对话失败：缺少必要信息', 'error');
+                }
+                return;
             }
 
-            // 完整清理所有存储机制
-            await clearAllConversationData(userId);
+            // 🔑 如果当前有对话内容，先保存
+            if (window.messages && window.messages.length > 0 && window.currentConversationId) {
+                if (window.conversationManager) {
+                    window.conversationManager.saveConversationMessages(
+                        window.currentConversationId,
+                        window.messages
+                    );
+                    console.log(`💾 已保存当前对话: ${window.messages.length}条消息`);
+                }
+            }
+
+            // 🔑 使用ConversationManager创建新对话
+            if (window.conversationManager) {
+                const newConversationId = window.conversationManager.startNewConversation(
+                    userId,
+                    currentDoctor
+                );
+
+                // 更新全局变量
+                window.currentConversationId = newConversationId;
+                window.messages = [];
+
+                console.log(`✨ 创建新对话: ${newConversationId}`);
+            } else {
+                // 降级方案：使用旧方法
+                if (typeof generateConversationId === 'function') {
+                    generateConversationId();
+                }
+                window.messages = [];
+                console.log('⚠️ ConversationManager不可用，使用旧方法生成对话ID');
+            }
 
             // 清空当前对话显示
             if (typeof clearAllMessages === 'function') {
                 clearAllMessages();
             }
 
-            // 生成新的对话ID
-            if (typeof generateConversationId === 'function') {
-                generateConversationId();
+            // 显示欢迎消息
+            if (typeof window.addWelcomeMessage === 'function') {
+                window.addWelcomeMessage(currentDoctor);
             }
 
             // 重置对话状态
             if (typeof resetConversationState === 'function') {
                 resetConversationState();
-            }
-
-            // 更新对话列表
-            if (typeof renderConversationList === 'function') {
-                renderConversationList();
             }
 
             console.log('✅ 新对话创建成功');
@@ -385,83 +410,107 @@
                 const consultations = result.data.consultation_history;
                 console.log(`✅ 从数据库获取到 ${consultations.length} 条历史记录`);
 
-                // 恢复最近的一条对话到聊天窗口
-                const latestConsultation = consultations[0];
-                if (latestConsultation && latestConsultation.conversation_history && latestConsultation.conversation_history.length > 0) {
-                    console.log('🔄 恢复最近的对话:', latestConsultation.consultation_id);
+                // v3.0 修改：不再自动恢复UI，只保存数据到ConversationManager
+                // UI恢复由用户主动切换医生时触发
+                console.log('📋 数据库历史记录仅保存到ConversationManager，不自动恢复UI');
 
-                    // 清空当前对话
-                    const chatMessages = document.getElementById('chatMessages');
-                    if (chatMessages) {
-                        chatMessages.innerHTML = '';
-                    }
-
-                    // 设置当前对话ID和医生
-                    if (typeof generateConversationId === 'function') {
-                        window.currentConversationId = latestConsultation.consultation_id;
-                    }
-
-                    // 设置当前医生
-                    if (latestConsultation.doctor_id && typeof selectDoctor === 'function') {
-                        selectDoctor(latestConsultation.doctor_id);
-                    }
-
-                    // 恢复对话消息到UI
-                    latestConsultation.conversation_history.forEach(turn => {
+                // 🔑 v3.0 使用ConversationManager保存历史记录
+                if (window.conversationManager) {
+                    consultations.forEach(consultation => {
                         try {
-                            if (turn.patient_query) {
-                                if (typeof addMessage === 'function') {
-                                    addMessage('user', turn.patient_query);
-                                }
-                            }
-                            if (turn.ai_response) {
-                                if (typeof addMessage === 'function') {
-                                    addMessage('ai', turn.ai_response);
+                            if (consultation.conversation_history && consultation.conversation_history.length > 0) {
+                                const doctorId = consultation.doctor_id;
+                                const conversationId = consultation.consultation_id || consultation.uuid || window.conversationManager.generateConversationId();
+
+                                // 转换conversation_history格式为messages格式
+                                const messages = [];
+                                consultation.conversation_history.forEach(turn => {
+                                    if (turn.patient_query) {
+                                        messages.push({
+                                            type: 'user',
+                                            content: turn.patient_query,
+                                            time: new Date(turn.timestamp || Date.now()).toLocaleTimeString(),
+                                            timestamp: turn.timestamp || Date.now()
+                                        });
+                                    }
+                                    if (turn.ai_response) {
+                                        messages.push({
+                                            type: 'ai',
+                                            content: turn.ai_response,
+                                            time: new Date(turn.timestamp || Date.now()).toLocaleTimeString(),
+                                            timestamp: turn.timestamp || Date.now()
+                                        });
+                                    }
+                                });
+
+                                if (messages.length > 0) {
+                                    // 使用ConversationManager保存
+                                    window.conversationManager.currentUserId = userId;
+                                    window.conversationManager.currentDoctor = doctorId;
+                                    window.conversationManager.saveConversationMessages(conversationId, messages);
+
+                                    // 更新索引
+                                    const index = window.conversationManager.getConversationIndex(userId);
+                                    if (!index[conversationId]) {
+                                        index[conversationId] = {
+                                            conversation_id: conversationId,
+                                            doctor_id: doctorId,
+                                            user_id: userId,
+                                            created_at: consultation.created_at || new Date().toISOString(),
+                                            last_message_at: consultation.updated_at || consultation.created_at || new Date().toISOString(),
+                                            is_active: true,
+                                            message_count: messages.length,
+                                            synced_from_db: true
+                                        };
+                                        window.conversationManager.saveConversationIndex(userId, index);
+                                    }
+
+                                    console.log(`💾 ConversationManager保存数据库同步的对话 ${conversationId} (${doctorId}): ${messages.length}条消息`);
                                 }
                             }
                         } catch (err) {
-                            console.warn('⚠️ 恢复消息失败:', err);
+                            console.warn('⚠️ 处理历史记录失败:', err);
                         }
                     });
 
-                    console.log('✅ 最近对话已恢复到UI');
-                }
+                    console.log('✅ 历史记录已同步到ConversationManager');
+                } else {
+                    // 降级方案：使用旧格式保存
+                    console.warn('⚠️ ConversationManager不可用，使用旧格式保存');
+                    const historyByDoctor = {};
 
-                // 将所有历史记录保存到localStorage
-                const historyByDoctor = {};
+                    consultations.forEach(consultation => {
+                        try {
+                            if (consultation.conversation_history && consultation.conversation_history.length > 0) {
+                                const doctorId = consultation.doctor_id;
 
-                consultations.forEach(consultation => {
-                    try {
-                        if (consultation.conversation_history && consultation.conversation_history.length > 0) {
-                            const doctorId = consultation.doctor_id;
+                                if (!historyByDoctor[doctorId]) {
+                                    historyByDoctor[doctorId] = [];
+                                }
 
-                            if (!historyByDoctor[doctorId]) {
-                                historyByDoctor[doctorId] = [];
+                                historyByDoctor[doctorId].push({
+                                    consultation_id: consultation.consultation_id,
+                                    messages: consultation.conversation_history,
+                                    created_at: consultation.created_at,
+                                    updated_at: consultation.updated_at || consultation.created_at,
+                                    symptoms_analysis: consultation.symptoms_analysis,
+                                    tcm_syndrome: consultation.tcm_syndrome
+                                });
                             }
-
-                            historyByDoctor[doctorId].push({
-                                consultation_id: consultation.consultation_id,
-                                messages: consultation.conversation_history,
-                                created_at: consultation.created_at,
-                                updated_at: consultation.updated_at || consultation.created_at,
-                                symptoms_analysis: consultation.symptoms_analysis,
-                                tcm_syndrome: consultation.tcm_syndrome
-                            });
+                        } catch (err) {
+                            console.warn('⚠️ 处理历史记录失败:', err);
                         }
-                    } catch (err) {
-                        console.warn('⚠️ 处理历史记录失败:', err);
-                    }
-                });
+                    });
 
-                // 保存每个医生的完整历史记录列表
-                Object.keys(historyByDoctor).forEach(doctorId => {
-                    try {
-                        const historyKey = `tcm_doctor_history_${userId}_${doctorId}`;
-                        const dataToSave = {
-                            doctor: doctorId,
-                            consultations: historyByDoctor[doctorId],
-                            lastUpdated: new Date().toISOString(),
-                            version: '2.3',
+                    // 保存每个医生的完整历史记录列表（旧格式）
+                    Object.keys(historyByDoctor).forEach(doctorId => {
+                        try {
+                            const historyKey = `tcm_doctor_history_${userId}_${doctorId}`;
+                            const dataToSave = {
+                                doctor: doctorId,
+                                consultations: historyByDoctor[doctorId],
+                                lastUpdated: new Date().toISOString(),
+                                version: '2.3',
                             syncedFromDB: true
                         };
                         localStorage.setItem(historyKey, JSON.stringify(dataToSave));
@@ -472,9 +521,10 @@
                 });
 
                 console.log('✅ 历史记录同步完成');
-            } else {
-                console.log('📝 数据库中暂无历史记录');
             }
+        } else {
+            console.log('📝 数据库中暂无历史记录');
+        }
 
         } catch (error) {
             console.error('❌ 从数据库同步历史记录失败:', error);
@@ -700,11 +750,16 @@
     // ==================== 医生历史记录管理 ====================
 
     /**
-     * 保存当前医生的对话历史
+     * 保存当前医生的对话历史 - v3.0 使用ConversationManager
      */
     function saveCurrentDoctorHistory() {
         const selectedDoctor = window.selectedDoctor;
-        if (!selectedDoctor) return;
+        const conversationId = window.currentConversationId;
+
+        if (!selectedDoctor || !conversationId) {
+            console.warn('⚠️ 缺少selectedDoctor或conversationId，跳过保存');
+            return;
+        }
 
         try {
             const messages = [];
@@ -771,15 +826,22 @@
             const maxMessages = 50;
             const trimmedMessages = messages.slice(-maxMessages);
 
-            // 保存到localStorage
-            const userId = typeof getCurrentUserId === 'function' ? getCurrentUserId() : 'default';
-            const historyKey = `tcm_doctor_history_${userId}_${selectedDoctor}`;
-            const dataToSave = JSON.stringify({
-                messages: trimmedMessages,
-                lastUpdated: new Date().toISOString(),
-                doctor: selectedDoctor,
-                version: '2.1',
-                saveCount: (JSON.parse(localStorage.getItem(historyKey) || '{}').saveCount || 0) + 1
+            // 🔑 使用ConversationManager保存
+            if (window.conversationManager) {
+                window.conversationManager.saveConversationMessages(conversationId, trimmedMessages);
+                // 同步到window.messages用于其他函数访问
+                window.messages = trimmedMessages;
+                console.log(`💾 ConversationManager保存对话 ${conversationId}: ${trimmedMessages.length}条消息`);
+            } else {
+                // 降级方案：使用旧方法保存
+                const userId = typeof getCurrentUserId === 'function' ? getCurrentUserId() : 'default';
+                const historyKey = `tcm_doctor_history_${userId}_${selectedDoctor}`;
+                const dataToSave = JSON.stringify({
+                    messages: trimmedMessages,
+                    lastUpdated: new Date().toISOString(),
+                    doctor: selectedDoctor,
+                    version: '2.1',
+                    saveCount: (JSON.parse(localStorage.getItem(historyKey) || '{}').saveCount || 0) + 1
             });
 
             // 验证localStorage可用性
@@ -793,6 +855,7 @@
 
             // 自动保存到服务器数据库
             saveConversationToServer(trimmedMessages, selectedDoctor);
+            }
 
         } catch (error) {
             console.error('❌ 保存历史记录失败:', error);

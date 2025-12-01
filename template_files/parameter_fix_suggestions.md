@@ -1,10 +1,10 @@
 # 参数一致性修复建议
 
-**生成时间**: 2025-11-24 17:07:41
+**生成时间**: 2025-12-01 16:41:36
 
 ---
 
-## 🔴 错误修复 (共 6 个)
+## 🔴 错误修复 (共 5 个)
 
 ### 错误 1: 参数 'doctor_id' 使用了 5 种不同的命名
 
@@ -15,14 +15,14 @@
 标准名称: doctor_id
 描述: 医生唯一标识
 当前使用情况:
-  - doctor_id: 73 次使用 ✓ 标准
+  - doctor_id: 87 次使用 ✓ 标准
     文件: doctor_management.html, doctor_management.html, doctor_management.html
-  - doctor_name: 57 次使用 ✗ 别名
+  - doctor_name: 56 次使用 ✗ 别名
     文件: doctor_management.html, doctor_management.html, doctor_management.html
-  - doctorId: 23 次使用 ✗ 别名
+  - doctorId: 25 次使用 ✗ 别名
     文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, js/conversation_state_manager.js
-  - selected_doctor: 12 次使用 ✗ 别名
-    文件: index_smart_workflow_backup.html, index_smart_workflow_backup.html, index_v2.html
+  - selected_doctor: 10 次使用 ✗ 别名
+    文件: index_v2.html, index_v2.html, conversation_state_demo.html
   - doctor_code: 4 次使用 ✗ 别名
     文件: js/smart_workflow_doctor.js, js/modules/history_data.js
 
@@ -57,16 +57,16 @@
 标准名称: message
 描述: 消息内容
 当前使用情况:
-  - content: 998 次使用 ✗ 别名
+  - content: 864 次使用 ✗ 别名
     文件: doctor_management.html, doctor_management.html, doctor_portal.html
-  - message: 488 次使用 ✓ 标准
+  - message: 414 次使用 ✓ 标准
     文件: doctor_management.html, doctor_portal.html, phone_binding.html
-  - body: 370 次使用 ✗ 别名
+  - body: 344 次使用 ✗ 别名
     文件: phone_binding.html, phone_binding.html, prescription_checker_v2.html
-  - text: 156 次使用 ✗ 别名
+  - text: 159 次使用 ✗ 别名
     文件: prescription_checker_v2.html, prescription_checker_v2.html, prescription_checker_v2.html
-  - msg: 15 次使用 ✗ 别名
-    文件: simple_mobile_test.html, auth_portal.html, index_smart_workflow_backup.html
+  - msg: 12 次使用 ✗ 别名
+    文件: auth_portal.html, index_v2.html, js/prescription_renderer.js
 
 建议: 统一使用 'message'
 ```
@@ -87,7 +87,7 @@
 
 ---
 
-### 错误 3: 参数 'user_id' 使用了 5 种不同的命名
+### 错误 3: 参数 'user_id' 使用了 4 种不同的命名
 
 **类别**: 参数命名不一致
 
@@ -96,16 +96,14 @@
 标准名称: user_id
 描述: 用户/患者唯一标识
 当前使用情况:
-  - userId: 74 次使用 ✗ 别名
+  - userId: 89 次使用 ✗ 别名
     文件: index_v2.html, js/conversation_state_manager.js, js/conversation_state_manager.js
-  - user_id: 69 次使用 ✓ 标准
+  - user_id: 77 次使用 ✓ 标准
     文件: decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html
-  - patient_id: 39 次使用 ✗ 别名
+  - patient_id: 30 次使用 ✗ 别名
     文件: doctor_review_portal.html, decision_tree_v3_data_driven.html, decision_tree_visual_builder.html
-  - uid: 3 次使用 ✗ 别名
-    文件: index_smart_workflow_backup.html
-  - patientId: 2 次使用 ✗ 别名
-    文件: index_smart_workflow_backup.html, js/prescription_renderer.js
+  - patientId: 1 次使用 ✗ 别名
+    文件: js/prescription_renderer.js
 
 建议: 统一使用 'user_id'
 ```
@@ -135,9 +133,9 @@
 标准名称: prescription_id
 描述: 处方唯一标识
 当前使用情况:
-  - prescriptionId: 69 次使用 ✗ 别名
-    文件: debug_prescription_payment.html, prescription_structured_editor.html, test_prescription_unlock.html
-  - prescription_id: 44 次使用 ✓ 标准
+  - prescriptionId: 59 次使用 ✗ 别名
+    文件: prescription_structured_editor.html, doctor/index.html, doctor/index.html
+  - prescription_id: 42 次使用 ✓ 标准
     文件: patient_prescription_confirm.html, patient_prescription_confirm.html, prescription_structured_editor.html
 
 建议: 统一使用 'prescription_id'
@@ -168,12 +166,12 @@
 标准名称: conversation_id
 描述: 对话会话唯一标识
 当前使用情况:
-  - conversation_id: 41 次使用 ✓ 标准
-    文件: index_smart_workflow_backup.html, index_smart_workflow_backup.html, index_v2.html
+  - conversationId: 60 次使用 ✗ 别名
+    文件: conversation_state_demo.html, js/prescription_renderer.js, js/auto_sync_manager.js
+  - conversation_id: 52 次使用 ✓ 标准
+    文件: index_v2.html, index_v2.html, conversation_state_demo.html
   - session_id: 29 次使用 ✗ 别名
     文件: auth_portal.html, doctor/login.html, js/smart_workflow_records.js
-  - conversationId: 24 次使用 ✗ 别名
-    文件: index_smart_workflow_backup.html, conversation_state_demo.html, js/prescription_renderer.js
   - sessionId: 3 次使用 ✗ 别名
     文件: js/user_history_main.js, js/user_history_main.js
 
@@ -196,63 +194,15 @@
 
 ---
 
-### 错误 6: 文件 index_smart_workflow_backup.html 使用了数字格式的医生ID
-
-**类别**: 医生ID格式错误
-
-**详情**:
-```
-上下文: ...       // 医生ID映射表 - 将数据库ID映射为医生英文名称         const doctorIdMapping = {             '1': 'zhang_zhongjing',             '2': 'ye_tianshi',              '3': 'li_dongyuan',             '4': 'zhu_danxi',             '5': 'liu_duzhou',             '6': 'zheng_qin_an',             '8': 'zhang_zhongjing', // 张医生 -> 张仲景             '9': 'ye_tianshi'       // 李医生 -> 叶天士 (妇科专长，使用叶天士)    ...
-
-正确格式: doctor_id: 'zhang_zhongjing'  // 使用拼音名称
-错误格式: doctor_id: '1'  // 不要使用数字！
-
-可用医生ID:
-  - zhang_zhongjing (张仲景)
-  - ye_tianshi (叶天士)
-  - li_dongyuan (李东垣)
-  - zheng_qinan (郑钦安)
-  - liu_duzhou (刘渡舟)
-```
-
-**修复建议**:
-```javascript
-# 修复文件: index_smart_workflow_backup.html
-
-# 步骤1: 定义医生ID映射表（如果还没有）
-
-const DOCTOR_ID_MAP = {
-  '1': 'zhang_zhongjing',
-  '2': 'ye_tianshi',
-  '3': 'li_dongyuan',
-  '4': 'zheng_qinan',
-  '5': 'liu_duzhou'
-};
-
-# 步骤2: 在发送API请求前转换
-const requestData = {
-  message: userMessage,
-  user_id: currentUser.id,
-  conversation_id: conversationId,
-  doctor_id: DOCTOR_ID_MAP[selectedDoctorId] || 'zhang_zhongjing'  // 转换为名称
-};
-
-# 步骤3: 后端API统一使用名称格式
-# 后端不应该接受数字格式的医生ID
-
-```
-
----
-
 ## 🟡 警告修复 (共 1 个)
 
-### 警告 1: 发现 5 个文件直接访问 .reply
+### 警告 1: 发现 4 个文件直接访问 .reply
 
 **类别**: 响应数据访问不安全
 
 **详情**:
 ```
-文件: index_smart_workflow_backup.html, index_v2.html, conversation_state_demo.html, js/smart_workflow_mobile.js, js/smart_workflow_chat.js
+文件: index_v2.html, conversation_state_demo.html, js/smart_workflow_mobile.js, js/smart_workflow_chat.js
 
 问题: 直接访问可能因为响应格式不同而失败
 

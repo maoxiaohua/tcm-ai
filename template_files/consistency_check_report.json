@@ -1,13 +1,13 @@
 {
-  "timestamp": "2025-11-24T17:07:36.885590",
+  "timestamp": "2025-12-01T16:41:31.885965",
   "statistics": {
-    "backend_apis": 163,
-    "frontend_apis": 95,
+    "backend_apis": 165,
+    "frontend_apis": 93,
     "database_tables": 76
   },
   "summary": {
-    "errors": 60,
-    "warnings": 11,
+    "errors": 58,
+    "warnings": 10,
     "info": 3
   },
   "details": {
@@ -41,11 +41,6 @@
         "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/v2/auth/profile",
         "details": "调用文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, doctor/index_optimized.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/auth/login",
-        "details": "调用文件: debug_login_token.html, test_doctor_login.html, login_portal.html"
       },
       {
         "category": "API一致性",
@@ -94,21 +89,6 @@
       },
       {
         "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/doctor-matching/recommend",
-        "details": "调用文件: index_smart_workflow_backup.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/consultation/chat",
-        "details": "调用文件: index_smart_workflow_backup.html, conversation_state_demo.html, js/smart_workflow_mobile.js"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/payments/create",
-        "details": "调用文件: index_smart_workflow_backup.html"
-      },
-      {
-        "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/consultation/chat-legacy",
         "details": "调用文件: index_v2.html"
       },
@@ -139,6 +119,11 @@
       },
       {
         "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/auth/login",
+        "details": "调用文件: login_portal.html, js/smart_workflow_utils.js"
+      },
+      {
+        "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/user/info",
         "details": "调用文件: register.html"
       },
@@ -149,33 +134,18 @@
       },
       {
         "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/consultation/chat",
+        "details": "调用文件: conversation_state_demo.html, js/smart_workflow_mobile.js, js/smart_workflow_chat.js"
+      },
+      {
+        "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/admin/dashboard",
-        "details": "调用文件: admin/index_original.html, admin/index.html"
+        "details": "调用文件: admin/index.html"
       },
       {
         "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/admin/doctors?page=1&per_page=20",
-        "details": "调用文件: admin/index_original.html, admin/index.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/admin/prescriptions?page=1&per_page=20",
-        "details": "调用文件: admin/index_original.html, admin/index.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/admin/orders?page=1&per_page=20",
-        "details": "调用文件: admin/index_original.html, admin/index.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/admin/system",
-        "details": "调用文件: admin/index_original.html, admin/index.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/admin/logs?page=1&per_page=50",
-        "details": "调用文件: admin/index_original.html, admin/index.html"
+        "details": "调用文件: admin/index.html"
       },
       {
         "category": "API一致性",
@@ -189,7 +159,22 @@
       },
       {
         "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/admin/prescriptions?page=1&per_page=20",
+        "details": "调用文件: admin/index.html"
+      },
+      {
+        "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/admin/prescriptions/stats",
+        "details": "调用文件: admin/index.html"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/admin/orders?page=1&per_page=20",
+        "details": "调用文件: admin/index.html"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/admin/system",
         "details": "调用文件: admin/index.html"
       },
       {
@@ -200,6 +185,11 @@
       {
         "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/admin/settings",
+        "details": "调用文件: admin/index.html"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/admin/logs?page=1&per_page=50",
         "details": "调用文件: admin/index.html"
       },
       {
@@ -259,8 +249,8 @@
       },
       {
         "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/unified-auth/me",
-        "details": "调用文件: js/modules/history_api.js"
+        "message": "前端调用的API不存在于后端: /api/conversation/switch-doctor",
+        "details": "调用文件: js/session_manager.js"
       },
       {
         "category": "API一致性",
@@ -316,23 +306,8 @@
     "warnings": [
       {
         "category": "API一致性",
-        "message": "发现 121 个未被使用的后端API",
-        "details": "/api/doctor/register\n/api/doctor/logout\n/api/doctor/prescription/{prescription_id}\n/api/doctor/prescription/{prescription_id}/review\n/api/doctor/today-reviewed\n/api/doctor/all-prescriptions\n/api/prescription/by-consultation/{consultation_id}\n/api/prescription/detail/{session_id}\n/api/prescription/{prescription_id}/patient-confirm\n/api/prescription/patient/{patient_id}/prescriptions"
-      },
-      {
-        "category": "参数命名",
-        "message": "API参数命名不一致: /api/doctor-matching/recommend",
-        "details": "  - 使用 'patient_id', 建议 'user_id'"
-      },
-      {
-        "category": "参数命名",
-        "message": "API参数命名不一致: /api/consultation/chat",
-        "details": "  - 使用 'patient_id', 建议 'user_id'\n  - 使用 'selected_doctor', 建议 'doctor_id'"
-      },
-      {
-        "category": "参数命名",
-        "message": "API参数命名不一致: /api/payments/create",
-        "details": "  - 使用 'patient_id', 建议 'user_id'"
+        "message": "发现 124 个未被使用的后端API",
+        "details": "/api/doctor/register\n/api/doctor/logout\n/api/doctor/prescription/{prescription_id}\n/api/doctor/prescription/{prescription_id}/review\n/api/doctor/today-reviewed\n/api/doctor/all-prescriptions\n/api/prescription/by-consultation/{consultation_id}\n/api/prescription/detail/{session_id}\n/api/prescription/{prescription_id}/status\n/api/prescription/{prescription_id}/patient-confirm"
       },
       {
         "category": "参数命名",
@@ -341,13 +316,23 @@
       },
       {
         "category": "参数命名",
+        "message": "API参数命名不一致: /api/consultation/chat",
+        "details": "  - 使用 'selected_doctor', 建议 'doctor_id'"
+      },
+      {
+        "category": "参数命名",
         "message": "API参数命名不一致: /api/prescription/create",
         "details": "  - 使用 'patient_id', 建议 'user_id'"
       },
       {
-        "category": "常见错误",
-        "message": "响应数据结构不一致: index_smart_workflow_backup.html",
-        "details": "直接访问.reply可能失败，应检查data.reply或result.data.reply"
+        "category": "参数命名",
+        "message": "API参数命名不一致: /api/security/log-event",
+        "details": "  - 使用 'content', 建议 'message'"
+      },
+      {
+        "category": "参数命名",
+        "message": "API参数命名不一致: /api/prescription/save",
+        "details": "  - 使用 'content', 建议 'message'"
       },
       {
         "category": "常见错误",
@@ -373,11 +358,11 @@
     "info": [
       {
         "category": "Backend",
-        "message": "扫描到 163 个API端点"
+        "message": "扫描到 165 个API端点"
       },
       {
         "category": "Frontend",
-        "message": "扫描到 95 个API调用"
+        "message": "扫描到 93 个API调用"
       },
       {
         "category": "Database",

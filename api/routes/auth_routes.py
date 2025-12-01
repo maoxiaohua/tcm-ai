@@ -2,7 +2,7 @@
 统一认证API路由
 支持患者、医生、管理员多角色登录
 """
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request, Depends, Header
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import sqlite3
@@ -412,3 +412,46 @@ async def get_profile(req: Request):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取用户信息失败: {str(e)}")
+@router.get("/validate-session")
+async def validate_session(authorization: Optional[str] = Header(None)):
+    """
+    验证session是否有效
+    轻量级API，用于前端定期检查session状态
+    """
+    from core.unified_account.account_manager import unified_account_manager
+    
+    try:
+        # 检查Authorization header
+        if not authorization or not authorization.startswith('Bearer '):
+            return {
+                "valid": False,
+                "reason": "missing_token"
+            }
+        
+        # 提取session_id
+        session_id = authorization.replace('Bearer ', '')
+        
+        # 查询session
+        session = unified_account_manager.get_session(session_id)
+        
+        if not session:
+            return {
+                "valid": False,
+                "reason": "session_not_found_or_expired"
+            }
+        
+        # Session有效
+        return {
+            "valid": True,
+            "user_id": session.user_id,
+            "expires_at": session.expires_at.isoformat() if hasattr(session, 'expires_at') else None
+        }
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Session验证异常: {e}")
+        return {
+            "valid": False,
+            "reason": "validation_error",
+            "error": str(e)
+        }

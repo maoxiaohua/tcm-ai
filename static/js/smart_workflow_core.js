@@ -54,22 +54,17 @@ window.doctors = {
     }
 };
 
-// 医生默认头像映射（用于API返回的医生数据）
-window.doctorAvatarMap = {
-    "jin_daifu": "👨‍⚕️",
-    "zhang_zhongjing": "🎯"
-};
+// 🔑 v4.2优化：医生头像映射已移至constants.js，通过window.doctorAvatarMap访问
+// 如果constants.js未加载，提供备用值
+if (!window.doctorAvatarMap) {
+    window.doctorAvatarMap = {
+        "jin_daifu": "👨‍⚕️",
+        "zhang_zhongjing": "🎯"
+    };
+}
 
-// 本地变量引用（兼容旧代码）
-let currentConversationId = window.currentConversationId;
-let selectedDoctor = window.selectedDoctor;
-let isVoiceRecording = window.isVoiceRecording;
-let mediaRecorder = window.mediaRecorder;
-let audioChunks = window.audioChunks;
-let currentUser = window.currentUser;
-let userToken = window.userToken;
-let doctors = window.doctors;
-const doctorAvatarMap = window.doctorAvatarMap;
+// 🔑 v4.2优化：移除冗余的本地变量引用
+// 所有全局变量通过 window.variableName 直接访问，避免同步问题
 
 // ============================================
 // 核心函数

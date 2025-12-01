@@ -66,9 +66,9 @@ class UserHistoryApp {
             console.log('🔄 loadCurrentUser: API返回用户数据:', user);
 
             if (user) {
-                // 🔧 修复：使用正确的用户ID字段
-                // 统一用户系统使用 global_user_id
-                this.currentUserId = user.global_user_id || user.id || user.user_id || user.username;
+                // 🔧 v4.2修复：与问诊页面保持一致，优先使用id字段
+                // 问诊页面使用 id (usr_xxx) 作为患者ID保存到数据库
+                this.currentUserId = user.id || user.user_id || user.global_user_id || user.username;
                 console.log('✅ 当前用户ID:', this.currentUserId);
 
                 // 🔑 关键修复：确保调用updateUserInfo

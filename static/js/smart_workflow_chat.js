@@ -44,23 +44,118 @@
     // 症状相关函数
     // ========================================
 
+    // ========================================
+    // 🔑 v4.3 性能优化：预编译正则表达式
+    // ========================================
+
+    // 从constants.js获取预编译的正则模式
+    const MESSAGE_PATTERNS = window.TCM_CONSTANTS?.MESSAGE_FORMAT_PATTERNS || {
+        SECTION_TITLE: /【([^】]+)】/g,
+        NUMBERED_TITLE: /^(\d+[.、）)])/gm,
+        DOUBLE_NEWLINE: /\n\n/g,
+        SINGLE_NEWLINE: /\n/g,
+        BOLD_TEXT: /\*\*([^*]+)\*\*/g,
+        EMPHASIS_TEXT: /\*([^*]+)\*/g,
+        PRESCRIPTION_MARKER: /【(?:君药|臣药|佐药|使药|处方)】/
+    };
+
+    // 从constants.js获取症状关键词
+    const SYMPTOM_KEYWORDS = window.TCM_CONSTANTS?.SYMPTOM_KEYWORDS || [
+        '头痛', '头晕', '发热', '咳嗽', '胸闷', '心悸', '失眠', '腹痛',
+        '腹泻', '便秘', '恶心', '呕吐', '乏力', '疲劳', '食欲', '口干',
+        '口苦', '盗汗', '自汗', '气短', '胸痛', '腰痛', '关节痛', '肌肉痛',
+        '水肿', '尿频', '尿急', '月经', '白带', '耳鸣', '眼花', '鼻塞',
+        '流涕', '咽痛', '牙痛', '舌苔', '脉象'
+    ];
+
+    // 🔑 v4.3 优化：预编译的格式化规则（避免每次调用时创建正则）
+    const FORMAT_RULES = [
+        // 处方标签 - 特殊高亮
+        {
+            pattern: /\*\*【处方】\*\*/g,
+            replacement: '<div style="background: linear-gradient(135deg, #2d5aa0, #4a7bc8); color: white; padding: 10px 15px; border-radius: 8px; margin: 15px 0; font-weight: bold; font-size: 16px; text-align: center;">📋 中药处方</div>'
+        },
+        // 用法/注意/禁忌/功效标签
+        {
+            pattern: /\*\*【(用法|注意|禁忌|功效)】\*\*/g,
+            replacement: '<div style="background: #f3f4f6; color: #374151; padding: 8px 12px; border-radius: 6px; margin: 10px 0; font-weight: bold; border-left: 4px solid #6b7280;">$1</div>'
+        },
+        // 其他粗体标签【xxx】
+        {
+            pattern: /\*\*【(.*?)】\*\*/g,
+            replacement: '<strong style="color: #2d5aa0; font-size: 15px; background: #e0f2fe; padding: 2px 6px; border-radius: 4px;">【$1】</strong>'
+        },
+        // 粗体文本
+        {
+            pattern: /\*\*(.*?)\*\*/g,
+            replacement: '<strong style="color: #1f2937; font-weight: bold;">$1</strong>'
+        },
+        // 斜体文本
+        {
+            pattern: /\*(.*?)\*/g,
+            replacement: '<em style="color: #6b7280;">$1</em>'
+        },
+        // #####分割线
+        {
+            pattern: /#{5,}/g,
+            replacement: '<hr style="margin: 20px 0; border: none; border-top: 2px solid #e5e7eb; background: linear-gradient(to right, #e5e7eb, transparent);">'
+        },
+        // ###小标题
+        {
+            pattern: /###\s*(.*?)(?=\n|$)/g,
+            replacement: '<h4 style="margin: 20px 0 12px 0; color: #2d5aa0; font-size: 17px; font-weight: bold; padding-left: 8px; border-left: 4px solid #2d5aa0; background: #f8fafc;">$1</h4>'
+        },
+        // ##中标题
+        {
+            pattern: /##\s*(.*?)(?=\n|$)/g,
+            replacement: '<h3 style="margin: 25px 0 15px 0; color: #1f2937; font-size: 19px; font-weight: bold; padding: 8px 12px; background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border-radius: 6px;">$1</h3>'
+        },
+        // #大标题
+        {
+            pattern: /^#\s*(.*?)(?=\n|$)/gm,
+            replacement: '<h2 style="margin: 30px 0 20px 0; color: #111827; font-size: 22px; font-weight: bold; text-align: center; padding: 12px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); border-radius: 8px;">$1</h2>'
+        },
+        // 药材列表
+        {
+            pattern: /([一-龟\u4e00-\u9fff]+)\s+(\d+)g/g,
+            replacement: '<span style="display: inline-block; background: #ecfdf5; color: #065f46; padding: 2px 6px; margin: 1px 3px; border-radius: 4px; font-weight: 500; border: 1px solid #d1fae5;">$1 <strong>$2g</strong></span>'
+        },
+        // 段落间距
+        {
+            pattern: /\n\n/g,
+            replacement: '<br><br>'
+        },
+        // 普通换行
+        {
+            pattern: /\n/g,
+            replacement: '<br>'
+        },
+        // 数字列表样式
+        {
+            pattern: /(\d+\.\s)/g,
+            replacement: '<br><span style="color: #2d5aa0; font-weight: bold;">$1</span>'
+        }
+    ];
+
     /**
      * 从文本中提取症状关键词
+     * 🔑 v4.3 优化：使用预编译的症状列表
      * @param {string} text - 输入文本
      * @returns {Array<string>} 找到的症状列表
      */
     function extractSymptomsFromText(text) {
-        const symptomKeywords = [
-            '头痛', '头疼', '头晕', '眩晕', '失眠', '焦虑', '抑郁', '心悸', '胸闷', '乏力', '发热',
-            '胃痛', '胃疼', '肚子疼', '肚子痛', '腹痛', '腹胀', '腹泻', '便秘', '食欲不振', '消化不良',
-            '咳嗽', '哮喘', '鼻炎', '气喘', '感冒', '发烧', '喉咙痛', '咽痛', '流鼻涕',
-            '月经不调', '痛经', '白带异常', '不孕', '更年期', '妇科', '小儿发热', '小儿咳嗽', '小儿腹泻',
-            '湿疹', '痤疮', '皮肤病', '青春痘', '腰痛', '关节痛', '颈椎病', '膝盖痛', '耳鸣', '听力下降', '鼻塞',
-            '牙痛', '口腔溃疡', '便血', '尿频', '尿急', '水肿', '出汗', '盗汗', '手脚冰凉', '四肢无力'
+        // 扩展的症状关键词（合并constants和本地定义）
+        const extendedKeywords = [
+            ...SYMPTOM_KEYWORDS,
+            '头疼', '眩晕', '焦虑', '抑郁', '胃痛', '胃疼', '肚子疼', '肚子痛',
+            '食欲不振', '消化不良', '哮喘', '鼻炎', '气喘', '感冒', '发烧', '喉咙痛',
+            '月经不调', '痛经', '白带异常', '不孕', '更年期', '妇科',
+            '小儿发热', '小儿咳嗽', '小儿腹泻', '湿疹', '痤疮', '皮肤病', '青春痘',
+            '颈椎病', '膝盖痛', '听力下降', '口腔溃疡', '便血', '手脚冰凉', '四肢无力'
         ];
 
         const foundSymptoms = [];
-        for (const symptom of symptomKeywords) {
+        for (const symptom of extendedKeywords) {
             if (text.includes(symptom)) {
                 foundSymptoms.push(symptom);
             }
@@ -131,6 +226,7 @@
 
     /**
      * 格式化消息内容
+     * 🔑 v4.3 性能优化：使用预编译的正则规则，减少重复创建正则对象
      * 处理Markdown、特殊标签和中医处方格式
      * @param {string} content - 原始消息内容
      * @returns {string} 格式化后的HTML
@@ -143,31 +239,16 @@
             return formatTCMPrescription(content);
         }
 
-        // 增强的Markdown处理 - 明确的层次和样式
-        return content
-            // 处理【处方】标签 - 特殊高亮样式
-            .replace(/\*\*【处方】\*\*/g, '<div style="background: linear-gradient(135deg, #2d5aa0, #4a7bc8); color: white; padding: 10px 15px; border-radius: 8px; margin: 15px 0; font-weight: bold; font-size: 16px; text-align: center;">📋 中药处方</div>')
-            // 处理【用法】【注意】等标签
-            .replace(/\*\*【(用法|注意|禁忌|功效)】\*\*/g, '<div style="background: #f3f4f6; color: #374151; padding: 8px 12px; border-radius: 6px; margin: 10px 0; font-weight: bold; border-left: 4px solid #6b7280;">$1</div>')
-            // 处理其他粗体标签【xxx】
-            .replace(/\*\*【(.*?)】\*\*/g, '<strong style="color: #2d5aa0; font-size: 15px; background: #e0f2fe; padding: 2px 6px; border-radius: 4px;">【$1】</strong>')
-            // 处理其他粗体文本
-            .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #1f2937; font-weight: bold;">$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em style="color: #6b7280;">$1</em>')
-            // 处理#####标记 - 转换为分割线
-            .replace(/#{5,}/g, '<hr style="margin: 20px 0; border: none; border-top: 2px solid #e5e7eb; background: linear-gradient(to right, #e5e7eb, transparent);">')
-            // 处理###标记 - 转换为明显的小标题
-            .replace(/###\s*(.*?)(?=\n|$)/g, '<h4 style="margin: 20px 0 12px 0; color: #2d5aa0; font-size: 17px; font-weight: bold; padding-left: 8px; border-left: 4px solid #2d5aa0; background: #f8fafc;">$1</h4>')
-            // 处理##标记 - 转换为更大的中标题
-            .replace(/##\s*(.*?)(?=\n|$)/g, '<h3 style="margin: 25px 0 15px 0; color: #1f2937; font-size: 19px; font-weight: bold; padding: 8px 12px; background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border-radius: 6px;">$1</h3>')
-            // 处理#标记 - 转换为大标题
-            .replace(/^#\s*(.*?)(?=\n|$)/gm, '<h2 style="margin: 30px 0 20px 0; color: #111827; font-size: 22px; font-weight: bold; text-align: center; padding: 12px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); border-radius: 8px;">$1</h2>')
-            // 处理药材列表 - 特殊样式
-            .replace(/([一-龟\u4e00-\u9fff]+)\s+(\d+)g/g, '<span style="display: inline-block; background: #ecfdf5; color: #065f46; padding: 2px 6px; margin: 1px 3px; border-radius: 4px; font-weight: 500; border: 1px solid #d1fae5;">$1 <strong>$2g</strong></span>')
-            .replace(/\n\n/g, '<br><br>')  // 段落间距
-            .replace(/\n/g, '<br>')        // 普通换行
-            .replace(/(\d+\.\s)/g, '<br><span style="color: #2d5aa0; font-weight: bold;">$1</span>') // 数字列表样式
-            .replace(/^<br>/, '');         // 移除开头的换行
+        // 🔑 v4.3 优化：使用预编译的规则数组进行批量替换
+        let result = content;
+        for (const rule of FORMAT_RULES) {
+            // 重置正则表达式的lastIndex（对于带g标志的正则）
+            rule.pattern.lastIndex = 0;
+            result = result.replace(rule.pattern, rule.replacement);
+        }
+
+        // 移除开头的换行
+        return result.replace(/^<br>/, '');
     }
 
     /**

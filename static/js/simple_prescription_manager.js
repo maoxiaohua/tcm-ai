@@ -489,20 +489,8 @@ class SimplePrescriptionManager {
         }
     }
     
-    /**
-     * 检查处方状态（本地检查）
-     */
-    checkPrescriptionStatus(prescriptionId) {
-        if (!prescriptionId) return null;
-        
-        // 检查全局处方数据
-        if (window.lastPrescriptionData && window.lastPrescriptionData.prescription_id == prescriptionId) {
-            return window.lastPrescriptionData.status || null;
-        }
-        
-        return null;
-    }
-    
+    // 🔑 v4.3 优化：移除重复的checkPrescriptionStatus方法（保留异步版本在第147行）
+
     /**
      * 获取真实的数据库处方ID
      * 🔧 修复：不再从哈希ID中提取随机数字，避免订单编号混乱
@@ -1112,15 +1100,7 @@ class SimplePrescriptionManager {
         return herbs;
     }
 
-    /**
-     * 格式化普通内容
-     */
-    formatNormalContent(content) {
-        return content
-            .replace(/\n\n/g, '<br><br>')
-            .replace(/\n/g, '<br>')
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    }
+    // 🔑 v4.3 优化：formatNormalContent方法只保留一个版本（在第1310行）
 
     /**
      * 下载处方
@@ -1320,9 +1300,16 @@ ${actualPrescriptionContent}
     
     /**
      * 格式化普通内容
+     * 🔑 v4.3 优化：统一为一个方法，支持完整格式化
+     * @param {string} content - 原始内容
+     * @returns {string} 格式化后的HTML
      */
     formatNormalContent(content) {
-        return content.replace(/\n/g, '<br>');
+        if (!content) return '';
+        return content
+            .replace(/\n\n/g, '<br><br>')  // 段落间距
+            .replace(/\n/g, '<br>')         // 普通换行
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // 粗体
     }
 }
 
@@ -1358,6 +1345,20 @@ window.prescriptionContentRenderer = {
 };
 
 console.log('✅ prescriptionContentRenderer兼容层已创建');
+
+// 🔑 关键修复：暴露全局 containsPrescription 函数
+// smart_workflow_chat.js 使用 window.containsPrescription 来检测处方
+window.containsPrescription = function(content) {
+    if (window.simplePrescriptionManager) {
+        return window.simplePrescriptionManager.containsPrescription(content);
+    }
+    // 降级检测
+    const keywords = ['处方如下', '方剂组成', '药物组成', '具体方药', '君药', '臣药', '佐药', '使药'];
+    const hasKeywords = keywords.some(keyword => content.includes(keyword));
+    const hasMedicine = /[\u4e00-\u9fff]{2,4}\s*\d+\s*[克g]/g.test(content);
+    return hasKeywords || hasMedicine;
+};
+console.log('✅ window.containsPrescription 全局函数已创建');
 
 // 页面加载完成后检查支付状态和跨设备同步
 document.addEventListener('DOMContentLoaded', function() {

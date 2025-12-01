@@ -2191,6 +2191,10 @@ app.include_router(mindmap_router)
 from api.routes.websocket_sync_routes import router as websocket_sync_router
 app.include_router(websocket_sync_router)
 
+# 对话管理路由 - v4.0重构版
+from api.routes.conversation_management_routes import router as conversation_management_router
+app.include_router(conversation_management_router, prefix="/api", tags=["conversation"])
+
 # 设置全局异常处理器
 from api.middleware.exception_handler import setup_exception_handlers
 setup_exception_handlers(app)
@@ -2668,41 +2672,10 @@ def save_conversation_history(conversation_id: str, history: List[Dict[str, str]
 
 # API 端点
 @app.get("/")
-async def read_index_html(): 
-    """首页 - 返回最新的Web界面（禁用缓存）"""
-    from fastapi.responses import Response
-    try:
-        with open("/opt/tcm-ai/static/index_v2.html", "r", encoding="utf-8") as f:
-            content = f.read()
-            response = Response(content=content, media_type="text/html")
-            # 强制禁用缓存
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
-            return response
-    except FileNotFoundError:
-        try:
-            with open("/opt/tcm-ai/static/index.html", "r", encoding="utf-8") as f:
-                content = f.read()
-                response = Response(content=content, media_type="text/html")
-                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-                response.headers["Pragma"] = "no-cache"
-                response.headers["Expires"] = "0"
-                return response
-        except FileNotFoundError:
-            # 如果静态文件不存在，返回基础状态页面
-            return HTMLResponse("""
-            <html>
-                <head><title>AI中医智能问诊系统</title></head>
-                <body>
-                    <h1>AI中医智能问诊系统</h1>
-                    <p>服务运行正常</p>
-                    <p>版本: 2.2.0 (腾讯云多模态版)</p>
-                    <p>功能: 对话AI + 多模态图像分析</p>
-                    <p><a href="/static/index.html">进入Web界面</a></p>
-                </body>
-            </html>
-            """)
+async def read_index_html():
+    """首页 - 重定向到登录页"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/login", status_code=302)
 
 
 @app.get("/get_conversation_history/{conversation_id}", response_model=ConversationHistoryOutput)
