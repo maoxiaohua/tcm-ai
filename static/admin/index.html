@@ -3559,9 +3559,9 @@
         }
         
         // 处方查看功能
-        function viewPrescription(prescriptionId) {
+        function viewPrescription(prescription_id) {
             // 从缓存中查找处方数据
-            const prescription = prescriptionsDataCache.find(p => p.id == prescriptionId || p.id === parseInt(prescriptionId));
+            const prescription = prescriptionsDataCache.find(p => p.id == prescriptionId || p.id === parseInt(prescription_id));
             if (!prescription) {
                 alert('未找到处方信息，请刷新页面后重试');
                 return;
@@ -4457,16 +4457,16 @@
         }
         
         // 查看关联处方功能 - 真正的数据联动
-        async function viewRelatedPrescription(prescriptionId) {
+        async function viewRelatedPrescription(prescription_id) {
             try {
                 // 首先尝试从处方缓存中查找
-                let prescription = prescriptionsDataCache.find(p => p.id == prescriptionId || p.id === parseInt(prescriptionId));
+                let prescription = prescriptionsDataCache.find(p => p.id == prescriptionId || p.id === parseInt(prescription_id));
                 
                 // 如果缓存中没有，通过API获取特定处方数据
                 if (!prescription) {
                     console.log('处方缓存中未找到，通过API获取处方数据...');
                     try {
-                        const response = await fetch(`/api/admin/prescription/${prescriptionId}`);
+                        const response = await fetch(`/api/admin/prescription/${prescription_id}`);
                         const data = await response.json();
                         
                         if (data.success && data.prescription) {
@@ -4487,7 +4487,7 @@
                                 // 更新处方缓存
                                 prescriptionsDataCache = listData.prescriptions;
                                 // 再次尝试查找
-                                prescription = prescriptionsDataCache.find(p => p.id == prescriptionId || p.id === parseInt(prescriptionId));
+                                prescription = prescriptionsDataCache.find(p => p.id == prescriptionId || p.id === parseInt(prescription_id));
                             }
                         } catch (listError) {
                             console.error('获取处方列表失败:', listError);

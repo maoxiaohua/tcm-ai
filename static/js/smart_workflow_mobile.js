@@ -236,7 +236,7 @@
         if (sender === 'ai') {
             if (window.simplePrescriptionManager) {
                 try {
-                    processedContent = await window.simplePrescriptionManager.processContent(content, prescriptionId);
+                    processedContent = await window.simplePrescriptionManager.processContent(content, prescription_id);
                     console.log('[移动端] 处方内容已通过simplePrescriptionManager处理');
                 } catch (error) {
                     console.error('[移动端] 处方内容处理失败:', error);
@@ -249,8 +249,8 @@
         }
 
         // 如果有处方ID，保存到元素属性中
-        if (prescriptionId) {
-            messageDiv.setAttribute('data-prescription-id', prescriptionId);
+        if (prescription_id) {
+            messageDiv.setAttribute('data-prescription-id', prescription_id);
         }
 
         const messageContent = `
@@ -385,7 +385,7 @@
                 headers: headers,
                 body: JSON.stringify({
                     message: message,
-                    conversation_id: conversationId,
+                    conversation_id: conversation_id,
                     selected_doctor: window.selectedDoctor,
                     patient_id: userId,
                     conversation_history: conversationHistory
@@ -445,10 +445,10 @@
                     prescriptionId
                 });
 
-                await addMobileMessage('ai', aiReply, shouldShowFeedback, isPaid, prescriptionId);
+                await addMobileMessage('ai', aiReply, shouldShowFeedback, isPaid, prescription_id);
 
                 if (shouldShowFeedback) {
-                    console.log('移动端检测到处方内容，显示点评功能，处方ID:', prescriptionId, '支付状态:', isPaid);
+                    console.log('移动端检测到处方内容，显示点评功能，处方ID:', prescription_id, '支付状态:', isPaid);
                 }
             } else {
                 await addMobileMessage('ai', '抱歉，我现在无法回答您的问题，请稍后再试。');

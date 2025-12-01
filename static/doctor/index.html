@@ -2697,7 +2697,7 @@
                         return;
                     }
                     const prescriptionId = this.dataset.prescriptionId;
-                    viewPrescriptionDetail(prescriptionId);
+                    viewPrescriptionDetail(prescription_id);
                 });
             });
 
@@ -2706,7 +2706,7 @@
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
                     const prescriptionId = this.dataset.id;
-                    viewPrescriptionDetail(prescriptionId);
+                    viewPrescriptionDetail(prescription_id);
                 });
             });
 
@@ -2715,7 +2715,7 @@
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
                     const prescriptionId = this.dataset.id;
-                    quickApprove(prescriptionId);
+                    quickApprove(prescription_id);
                 });
             });
 
@@ -2724,14 +2724,14 @@
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
                     const prescriptionId = this.dataset.id;
-                    modifyPrescription(prescriptionId);
+                    modifyPrescription(prescription_id);
                 });
             });
         }
 
         // 查看处方详情
-        async function viewPrescriptionDetail(prescriptionId) {
-            console.log('查看处方详情:', prescriptionId);
+        async function viewPrescriptionDetail(prescription_id) {
+            console.log('查看处方详情:', prescription_id);
             
             const token = localStorage.getItem('doctorToken');
             if (!token) {
@@ -2740,13 +2740,13 @@
                 return;
             }
 
-            if (!prescriptionId) {
+            if (!prescription_id) {
                 console.error('处方ID为空');
                 alert('处方ID无效');
                 return;
             }
 
-            currentPrescriptionId = prescriptionId;
+            currentPrescriptionId = prescription_id;
 
             // 显示加载状态
             const modal = document.getElementById('prescriptionDetailModal');
@@ -2755,8 +2755,8 @@
             modal.style.display = 'flex';
 
             try {
-                console.log('发送API请求:', `/api/doctor/prescription/${prescriptionId}`);
-                const response = await fetch(`/api/doctor/prescription/${prescriptionId}`, {
+                console.log('发送API请求:', `/api/doctor/prescription/${prescription_id}`);
+                const response = await fetch(`/api/doctor/prescription/${prescription_id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -3097,7 +3097,7 @@
         }
 
         // 快速通过 - 修复API端点
-        async function quickApprove(prescriptionId) {
+        async function quickApprove(prescription_id) {
             if (confirm('确认快速通过此处方吗？')) {
                 const token = localStorage.getItem('doctorToken');
                 if (!token) return;
@@ -3111,7 +3111,7 @@
                             'Authorization': `Bearer ${token}`
                         },
                         body: JSON.stringify({
-                            prescription_id: prescriptionId,
+                            prescription_id: prescription_id,
                             doctor_id: getCurrentDoctorId(),
                             action: 'approve',
                             doctor_notes: '快速通过'
@@ -3133,9 +3133,9 @@
         }
 
         // 🔧 改进：使用结构化处方编辑器进行处方调整
-        async function modifyPrescription(prescriptionId) {
+        async function modifyPrescription(prescription_id) {
             // 🔑 重要改进：打开结构化处方编辑器，而不是简单的prompt输入
-            const editorUrl = `/prescription_structured_editor.html?prescription_id=${prescriptionId}`;
+            const editorUrl = `/prescription_structured_editor.html?prescription_id=${prescription_id}`;
             
             // 在新窗口中打开结构化编辑器
             const editorWindow = window.open(
@@ -3704,9 +3704,9 @@
                 checkbox.style.cssText = 'margin-right: 10px; transform: scale(1.2);';
                 checkbox.addEventListener('change', function() {
                     if (this.checked) {
-                        selectedPrescriptions.add(prescriptionId);
+                        selectedPrescriptions.add(prescription_id);
                     } else {
-                        selectedPrescriptions.delete(prescriptionId);
+                        selectedPrescriptions.delete(prescription_id);
                     }
                     updateBatchActionBtn();
                 });

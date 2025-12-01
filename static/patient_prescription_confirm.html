@@ -538,9 +538,9 @@
         });
 
         // 加载处方数据
-        async function loadPrescriptionData(prescriptionId) {
+        async function loadPrescriptionData(prescription_id) {
             try {
-                const response = await fetch(`/api/prescription/${prescriptionId}`);
+                const response = await fetch(`/api/prescription/${prescription_id}`);
                 const data = await response.json();
                 
                 if (data.success) {

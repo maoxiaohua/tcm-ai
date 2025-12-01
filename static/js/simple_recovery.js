@@ -249,9 +249,9 @@ ${finalPrescription}
     /**
      * 查看处方审核状态
      */
-    async checkPrescriptionStatus(prescriptionId) {
+    async checkPrescriptionStatus(prescription_id) {
         try {
-            console.log(`🔍 查看处方 ${prescriptionId} 的审核状态...`);
+            console.log(`🔍 查看处方 ${prescription_id} 的审核状态...`);
             
             const userId = this.getCurrentUserId();
             if (!userId) {
@@ -259,7 +259,7 @@ ${finalPrescription}
             }
             
             const prescriptions = await this.fetchPrescriptions(userId);
-            const prescription = prescriptions.find(p => p.id == prescriptionId);
+            const prescription = prescriptions.find(p => p.id == prescription_id);
             
             if (!prescription) {
                 throw new Error('处方不存在');
@@ -273,7 +273,7 @@ ${finalPrescription}
             };
             
             const statusText = statusMap[prescription.status] || prescription.status;
-            alert(`处方审核状态：${statusText}\n\n处方ID: ${prescriptionId}\n支付状态: ${prescription.payment_status}\n创建时间: ${new Date(prescription.created_at).toLocaleString()}`);
+            alert(`处方审核状态：${statusText}\n\n处方ID: ${prescription_id}\n支付状态: ${prescription.payment_status}\n创建时间: ${new Date(prescription.created_at).toLocaleString()}`);
             
             // 如果状态已更新，刷新页面显示
             if (prescription.status === 'doctor_approved' || prescription.status === 'doctor_modified') {
@@ -372,9 +372,9 @@ ${finalPrescription}
                 const prescriptionId = prescription.id;
                 
                 // 检查是否已存在
-                const existingMsg = messagesContainer.querySelector(`[data-prescription-id="${prescriptionId}"]`);
+                const existingMsg = messagesContainer.querySelector(`[data-prescription-id="${prescription_id}"]`);
                 if (existingMsg) {
-                    console.log(`ℹ️ 处方 ${prescriptionId} 已存在，跳过创建`);
+                    console.log(`ℹ️ 处方 ${prescription_id} 已存在，跳过创建`);
                     continue;
                 }
                 
@@ -382,7 +382,7 @@ ${finalPrescription}
                 const messageHtml = this.createPrescriptionMessage(prescription);
                 if (messageHtml) {
                     messagesContainer.insertAdjacentHTML('beforeend', messageHtml);
-                    console.log(`✅ 恢复了处方 ${prescriptionId} (${prescription.status})`);
+                    console.log(`✅ 恢复了处方 ${prescription_id} (${prescription.status})`);
                     restoredCount++;
                 }
             }

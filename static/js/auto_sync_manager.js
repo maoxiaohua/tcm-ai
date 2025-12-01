@@ -220,7 +220,7 @@ class AutoSyncManager {
                 // 自动同步状态变化
                 if (window.autoSyncManager) {
                     window.autoSyncManager.autoSyncOperation('conversation_update', {
-                        conversation_id: this.conversationId,
+                        conversation_id: this.conversation_id,
                         current_stage: newStage,
                         reason: reason,
                         timestamp: Date.now()

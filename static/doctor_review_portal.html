@@ -659,9 +659,9 @@
         }
 
         // 查看处方详情
-        async function viewPrescriptionDetail(prescriptionId) {
+        async function viewPrescriptionDetail(prescription_id) {
             try {
-                const response = await fetch(`/api/doctor/prescription/${prescriptionId}`, {
+                const response = await fetch(`/api/doctor/prescription/${prescription_id}`, {
                     headers: {
                         'Authorization': `Bearer ${authToken}`
                     }
@@ -731,12 +731,12 @@
         }
 
         // 审查处方
-        async function reviewPrescription(prescriptionId, action) {
+        async function reviewPrescription(prescription_id, action) {
             const doctorPrescription = document.getElementById('doctorPrescription')?.value || '';
             const doctorNotes = document.getElementById('doctorNotes')?.value || '';
 
             try {
-                const response = await fetch(`/api/doctor/prescription/${prescriptionId}/review`, {
+                const response = await fetch(`/api/doctor/prescription/${prescription_id}/review`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -765,18 +765,18 @@
         }
 
         // 快速批准
-        async function quickApprove(prescriptionId) {
+        async function quickApprove(prescription_id) {
             if (confirm('确认快速批准此处方吗？')) {
-                await reviewPrescription(prescriptionId, 'approve');
+                await reviewPrescription(prescription_id, 'approve');
             }
         }
 
         // 快速拒绝
-        async function quickReject(prescriptionId) {
+        async function quickReject(prescription_id) {
             const reason = prompt('请输入拒绝原因：');
             if (reason) {
                 try {
-                    const response = await fetch(`/api/doctor/prescription/${prescriptionId}/review`, {
+                    const response = await fetch(`/api/doctor/prescription/${prescription_id}/review`, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',

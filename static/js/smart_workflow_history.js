@@ -108,7 +108,7 @@
      * 加载指定对话
      * @param {string} conversationId - 对话ID
      */
-    async function loadConversation(conversationId) {
+    async function loadConversation(conversation_id) {
         try {
             const userId = typeof getCurrentUserId === 'function' ? getCurrentUserId() : null;
             if (!userId) return;
@@ -117,12 +117,12 @@
             const isMobile = window.innerWidth <= 768;
             const containerSelector = isMobile ? 'mobileMessagesContainer' : 'messagesContainer';
             const messagesContainer = document.getElementById(containerSelector);
-            if (messagesContainer && messagesContainer.children.length > 0 && window.currentConversationId !== conversationId) {
+            if (messagesContainer && messagesContainer.children.length > 0 && window.currentConversationId !== conversation_id) {
                 await saveCurrentConversationToHistory();
             }
 
             // 从localStorage加载对话数据
-            const storageKey = `conversation_${userId}_${conversationId}`;
+            const storageKey = `conversation_${userId}_${conversation_id}`;
             const conversationData = localStorage.getItem(storageKey);
 
             if (!conversationData) {
@@ -140,7 +140,7 @@
             }
 
             // 设置对话状态
-            window.currentConversationId = conversationId;
+            window.currentConversationId = conversation_id;
             window.selectedDoctor = conversation.doctor;
 
             // 更新UI
@@ -169,7 +169,7 @@
 
             // 保存当前对话ID
             const storageKeyConv = `conversationId_${userId}`;
-            localStorage.setItem(storageKeyConv, conversationId);
+            localStorage.setItem(storageKeyConv, conversation_id);
 
             console.log('✅ 对话加载成功:', conversation.title);
             if (typeof showMessage === 'function') {
@@ -188,7 +188,7 @@
      * 删除对话
      * @param {string} conversationId - 对话ID
      */
-    async function deleteConversation(conversationId) {
+    async function deleteConversation(conversation_id) {
         if (!confirm('确定要删除这个对话吗？此操作不可恢复。')) {
             return;
         }
@@ -198,13 +198,13 @@
             if (!userId) return;
 
             // 从localStorage删除对话数据
-            const storageKey = `conversation_${userId}_${conversationId}`;
+            const storageKey = `conversation_${userId}_${conversation_id}`;
             localStorage.removeItem(storageKey);
 
             // 从索引中移除
             const indexKey = `conversation_index_${userId}`;
             let index = JSON.parse(localStorage.getItem(indexKey) || '[]');
-            index = index.filter(item => item.id !== conversationId);
+            index = index.filter(item => item.id !== conversation_id);
             localStorage.setItem(indexKey, JSON.stringify(index));
 
             // 更新内存中的历史记录
@@ -213,7 +213,7 @@
             }
 
             // 如果删除的是当前对话，创建新对话
-            if (window.currentConversationId === conversationId) {
+            if (window.currentConversationId === conversation_id) {
                 if (typeof clearAllMessages === 'function') {
                     clearAllMessages();
                 }
@@ -230,7 +230,7 @@
                 renderConversationList();
             }
 
-            console.log('🗑️ 对话已删除:', conversationId);
+            console.log('🗑️ 对话已删除:', conversation_id);
             if (typeof showMessage === 'function') {
                 showMessage('对话已删除', 'success');
             }
@@ -447,13 +447,13 @@
                                     // 使用ConversationManager保存
                                     window.conversationManager.currentUserId = userId;
                                     window.conversationManager.currentDoctor = doctorId;
-                                    window.conversationManager.saveConversationMessages(conversationId, messages);
+                                    window.conversationManager.saveConversationMessages(conversation_id, messages);
 
                                     // 更新索引
                                     const index = window.conversationManager.getConversationIndex(userId);
-                                    if (!index[conversationId]) {
-                                        index[conversationId] = {
-                                            conversation_id: conversationId,
+                                    if (!index[conversation_id]) {
+                                        index[conversation_id] = {
+                                            conversation_id: conversation_id,
                                             doctor_id: doctorId,
                                             user_id: userId,
                                             created_at: consultation.created_at || new Date().toISOString(),
@@ -465,7 +465,7 @@
                                         window.conversationManager.saveConversationIndex(userId, index);
                                     }
 
-                                    console.log(`💾 ConversationManager保存数据库同步的对话 ${conversationId} (${doctorId}): ${messages.length}条消息`);
+                                    console.log(`💾 ConversationManager保存数据库同步的对话 ${conversation_id} (${doctorId}): ${messages.length}条消息`);
                                 }
                             }
                         } catch (err) {
@@ -724,7 +724,7 @@
                     };
 
                     if (prescriptionData) {
-                        messageData.prescriptionData = { prescriptionId: prescriptionData };
+                        messageData.prescriptionData = { prescription_id: prescriptionData };
                     }
 
                     currentMessages.push(messageData);
@@ -756,7 +756,7 @@
         const selectedDoctor = window.selectedDoctor;
         const conversationId = window.currentConversationId;
 
-        if (!selectedDoctor || !conversationId) {
+        if (!selectedDoctor || !conversation_id) {
             console.warn('⚠️ 缺少selectedDoctor或conversationId，跳过保存');
             return;
         }
@@ -796,7 +796,7 @@
 
                         if (prescriptionId || isPaid || hasActions) {
                             messageData.prescriptionData = {
-                                prescriptionId: prescriptionId,
+                                prescription_id: prescription_id,
                                 isPaid: isPaid,
                                 hasActions: hasActions
                             };
@@ -828,10 +828,10 @@
 
             // 🔑 使用ConversationManager保存
             if (window.conversationManager) {
-                window.conversationManager.saveConversationMessages(conversationId, trimmedMessages);
+                window.conversationManager.saveConversationMessages(conversation_id, trimmedMessages);
                 // 同步到window.messages用于其他函数访问
                 window.messages = trimmedMessages;
-                console.log(`💾 ConversationManager保存对话 ${conversationId}: ${trimmedMessages.length}条消息`);
+                console.log(`💾 ConversationManager保存对话 ${conversation_id}: ${trimmedMessages.length}条消息`);
             } else {
                 // 降级方案：使用旧方法保存
                 const userId = typeof getCurrentUserId === 'function' ? getCurrentUserId() : 'default';
@@ -970,7 +970,7 @@
                 const shouldShowFeedback = msg.type === 'ai' && (typeof containsPrescription === 'function' ? containsPrescription(msg.content) : false);
                 const prescriptionData = msg.prescriptionData;
                 const isPaid = prescriptionData ? prescriptionData.isPaid : false;
-                const prescriptionId = prescriptionData ? prescriptionData.prescriptionId : null;
+                const prescriptionId = prescriptionData ? prescriptionData.prescription_id : null;
 
                 let displayContent = msg.content;
                 if (isPaid && prescriptionData && msg.type === 'ai') {
@@ -984,11 +984,11 @@
 
                 if (isMobile) {
                     if (typeof addMobileMessage === 'function') {
-                        await addMobileMessage(msg.type, displayContent, shouldShowFeedback, isPaid, prescriptionId);
+                        await addMobileMessage(msg.type, displayContent, shouldShowFeedback, isPaid, prescription_id);
                     }
                 } else {
                     if (typeof addMessageWithTime === 'function') {
-                        addMessageWithTime(msg.type, displayContent, msg.time, shouldShowFeedback, isPaid, prescriptionId);
+                        addMessageWithTime(msg.type, displayContent, msg.time, shouldShowFeedback, isPaid, prescription_id);
                     }
                 }
             }

@@ -91,8 +91,8 @@ class ConversationManager {
         // 创建新对话
         const conversationId = this.generateConversationId();
 
-        index[conversationId] = {
-            conversation_id: conversationId,
+        index[conversation_id] = {
+            conversation_id: conversation_id,
             doctor_id: doctorId,
             user_id: userId,
             created_at: new Date().toISOString(),
@@ -103,9 +103,9 @@ class ConversationManager {
 
         this.saveConversationIndex(userId, index);
 
-        console.log(`✨ 创建新对话: ${conversationId} (医生: ${doctorId})`);
+        console.log(`✨ 创建新对话: ${conversation_id} (医生: ${doctorId})`);
 
-        this.currentConversationId = conversationId;
+        this.currentConversationId = conversation_id;
         this.currentDoctor = doctorId;
         this.currentUserId = userId;
 
@@ -127,15 +127,15 @@ class ConversationManager {
      * @param {string} conversationId - 对话ID
      * @param {Array} messages - 消息数组
      */
-    saveConversationMessages(conversationId, messages) {
-        if (!conversationId) {
+    saveConversationMessages(conversation_id, messages) {
+        if (!conversation_id) {
             console.warn('⚠️ conversationId为空，无法保存消息');
             return;
         }
 
-        const key = `conversation_messages_${conversationId}`;
+        const key = `conversation_messages_${conversation_id}`;
         const data = {
-            conversation_id: conversationId,
+            conversation_id: conversation_id,
             doctor_id: this.currentDoctor,
             user_id: this.currentUserId,
             messages: messages,
@@ -151,14 +151,14 @@ class ConversationManager {
             if (userId) {
                 const index = this.getConversationIndex(userId);
 
-                if (index[conversationId]) {
-                    index[conversationId].last_message_at = new Date().toISOString();
-                    index[conversationId].message_count = messages.length;
+                if (index[conversation_id]) {
+                    index[conversation_id].last_message_at = new Date().toISOString();
+                    index[conversation_id].message_count = messages.length;
                     this.saveConversationIndex(userId, index);
                 }
             }
 
-            console.log(`💾 保存对话 ${conversationId}: ${messages.length}条消息`);
+            console.log(`💾 保存对话 ${conversation_id}: ${messages.length}条消息`);
         } catch (error) {
             console.error('保存对话消息失败:', error);
         }
@@ -169,27 +169,27 @@ class ConversationManager {
      * @param {string} conversationId - 对话ID
      * @returns {Array} 消息数组
      */
-    loadConversationMessages(conversationId) {
-        if (!conversationId) {
+    loadConversationMessages(conversation_id) {
+        if (!conversation_id) {
             console.warn('⚠️ conversationId为空，返回空数组');
             return [];
         }
 
-        const key = `conversation_messages_${conversationId}`;
+        const key = `conversation_messages_${conversation_id}`;
         const stored = localStorage.getItem(key);
 
         if (stored) {
             try {
                 const data = JSON.parse(stored);
-                console.log(`📱 加载对话 ${conversationId}: ${data.messages?.length || 0}条消息`);
+                console.log(`📱 加载对话 ${conversation_id}: ${data.messages?.length || 0}条消息`);
                 return data.messages || [];
             } catch (error) {
-                console.error(`解析对话 ${conversationId} 失败:`, error);
+                console.error(`解析对话 ${conversation_id} 失败:`, error);
                 return [];
             }
         }
 
-        console.log(`📝 对话 ${conversationId} 无历史记录`);
+        console.log(`📝 对话 ${conversation_id} 无历史记录`);
         return [];
     }
 
@@ -197,14 +197,14 @@ class ConversationManager {
      * 切换医生 - 加载该医生的最新对话
      * @param {string} userId - 用户ID
      * @param {string} newDoctorId - 新医生ID
-     * @returns {Object} {conversationId, messages}
+     * @returns {Object} {conversation_id, messages}
      */
     switchDoctor(userId, newDoctorId) {
         console.log(`🔄 切换医生: ${newDoctorId}`);
 
         // 获取该医生的最新对话（不创建新对话）
         let conversationId = this.getOrCreateConversation(userId, newDoctorId, false);
-        let messages = this.loadConversationMessages(conversationId);
+        let messages = this.loadConversationMessages(conversation_id);
 
         // 🔑 v3.0 关键修复：如果最新对话已有处方（已完成），自动创建新对话
         console.log(`🔍 [DEBUG] 检查处方 - 消息数量: ${messages ? messages.length : 0}`);
@@ -233,11 +233,11 @@ class ConversationManager {
             // 创建新对话，但保留旧对话的历史记录（用户可以查看）
             conversationId = this.startNewConversation(userId, newDoctorId);
             messages = []; // 新对话从空开始
-            console.log(`✨ 已创建新对话: ${conversationId}`);
+            console.log(`✨ 已创建新对话: ${conversation_id}`);
         }
 
         return {
-            conversationId,
+            conversation_id,
             messages
         };
     }
@@ -284,18 +284,18 @@ class ConversationManager {
      * 结束对话
      * @param {string} conversationId - 对话ID
      */
-    endConversation(conversationId) {
+    endConversation(conversation_id) {
         const userId = this.currentUserId;
         if (!userId) return;
 
         const index = this.getConversationIndex(userId);
 
-        if (index[conversationId]) {
-            index[conversationId].is_active = false;
-            index[conversationId].ended_at = new Date().toISOString();
+        if (index[conversation_id]) {
+            index[conversation_id].is_active = false;
+            index[conversation_id].ended_at = new Date().toISOString();
             this.saveConversationIndex(userId, index);
 
-            console.log(`🏁 结束对话: ${conversationId}`);
+            console.log(`🏁 结束对话: ${conversation_id}`);
         }
     }
 
@@ -375,12 +375,12 @@ class ConversationManager {
                     // 保存到新格式
                     this.currentUserId = userId;
                     this.currentDoctor = doctorId;
-                    this.saveConversationMessages(conversationId, messages);
+                    this.saveConversationMessages(conversation_id, messages);
 
                     // 添加到索引
                     const index = this.getConversationIndex(userId);
-                    index[conversationId] = {
-                        conversation_id: conversationId,
+                    index[conversation_id] = {
+                        conversation_id: conversation_id,
                         doctor_id: doctorId,
                         user_id: userId,
                         created_at: data.lastUpdated || new Date().toISOString(),

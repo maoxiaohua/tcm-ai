@@ -308,7 +308,7 @@
         <div class="header">
             <h1>🏥 结构化处方编辑器</h1>
             <div class="prescription-info" id="prescriptionInfo">
-                处方ID: <span id="prescriptionId">--</span> | 状态: <span id="prescriptionStatus">--</span>
+                处方ID: <span id="prescription_id">--</span> | 状态: <span id="prescriptionStatus">--</span>
             </div>
         </div>
 
@@ -340,16 +340,16 @@
         // 初始化编辑器
         async function initEditor() {
             const prescriptionId = getPrescriptionIdFromUrl();
-            if (!prescriptionId) {
+            if (!prescription_id) {
                 showError('缺少处方ID参数');
                 return;
             }
 
-            currentPrescriptionId = prescriptionId;
-            document.getElementById('prescriptionId').textContent = prescriptionId;
+            currentPrescriptionId = prescription_id;
+            document.getElementById('prescription_id').textContent = prescription_id;
 
             try {
-                await loadPrescriptionStructure(prescriptionId);
+                await loadPrescriptionStructure(prescription_id);
                 renderEditor();
             } catch (error) {
                 showError('加载处方失败: ' + error.message);
@@ -357,8 +357,8 @@
         }
 
         // 加载处方结构
-        async function loadPrescriptionStructure(prescriptionId) {
-            const response = await fetch(`/api/prescription-structured/parse/${prescriptionId}`);
+        async function loadPrescriptionStructure(prescription_id) {
+            const response = await fetch(`/api/prescription-structured/parse/${prescription_id}`);
             const data = await response.json();
 
             if (!data.success) {

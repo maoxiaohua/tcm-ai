@@ -533,7 +533,7 @@
                 <h3>⚙️ 系统信息</h3>
                 <div class="info-item">
                     <span class="label">对话ID:</span>
-                    <span class="value" id="conversationId">-</span>
+                    <span class="value" id="conversation_id">-</span>
                 </div>
                 <div class="info-item">
                     <span class="label">API状态:</span>
@@ -555,7 +555,7 @@
         let startTime = new Date();
         
         // 初始化
-        document.getElementById('conversationId').textContent = conversationId.substring(0, 8);
+        document.getElementById('conversation_id').textContent = conversationId.substring(0, 8);
         updateDuration();
         setInterval(updateDuration, 1000); // 每秒更新时长
         
@@ -599,7 +599,7 @@
                     },
                     body: JSON.stringify({
                         message: message,
-                        conversation_id: conversationId,
+                        conversation_id: conversation_id,
                         selected_doctor: 'zhang_zhongjing',
                         conversation_history: conversationHistory
                     })
@@ -737,7 +737,7 @@
         // 确认处方
         async function confirmPrescription() {
             try {
-                const response = await fetch(`/api/consultation/conversation/${conversationId}/confirm-prescription`, {
+                const response = await fetch(`/api/consultation/conversation/${conversation_id}/confirm-prescription`, {
                     method: 'POST'
                 });
                 const data = await response.json();
@@ -765,7 +765,7 @@
             if (!confirm('确定要结束当前对话吗？')) return;
             
             try {
-                const response = await fetch(`/api/consultation/conversation/${conversationId}/end`, {
+                const response = await fetch(`/api/consultation/conversation/${conversation_id}/end`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -801,7 +801,7 @@
             startTime = new Date();
             
             // 更新界面
-            document.getElementById('conversationId').textContent = conversationId.substring(0, 8);
+            document.getElementById('conversation_id').textContent = conversationId.substring(0, 8);
             document.getElementById('progressFill').style.width = '0%';
             document.getElementById('progressText').textContent = '0%';
             document.getElementById('turnCount').textContent = '0';

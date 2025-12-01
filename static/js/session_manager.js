@@ -35,7 +35,7 @@ class SessionManager {
      * 3. 如果无处方 → 返回现有consultation
      *
      * @param {string} doctorId - 医生ID
-     * @returns {Promise<Object>} {conversationId, messages, isNew, reason}
+     * @returns {Promise<Object>} {conversation_id, messages, isNew, reason}
      */
     async switchDoctor(doctorId) {
         console.log(`[SessionManager] 切换到医生: ${doctorId}`);
@@ -90,16 +90,16 @@ class SessionManager {
             // 4. 日志输出
             if (data.is_new) {
                 console.log(`✨ [SessionManager] 新对话: ${data.reason}`);
-                console.log(`   Consultation ID: ${this.conversationId}`);
+                console.log(`   Consultation ID: ${this.conversation_id}`);
             } else {
                 console.log(`📋 [SessionManager] 继续对话: ${data.reason}`);
-                console.log(`   Consultation ID: ${this.conversationId}`);
+                console.log(`   Consultation ID: ${this.conversation_id}`);
                 console.log(`   历史消息: ${this.messages.length}条`);
             }
 
             // 5. 返回数据供UI层使用
             return {
-                conversationId: this.conversationId,
+                conversation_id: this.conversation_id,
                 messages: this.messages,
                 isNew: data.is_new,
                 reason: data.reason,

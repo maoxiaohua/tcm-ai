@@ -262,7 +262,7 @@
 
         const historyData = {
             messages: messages,
-            conversationId: window.currentConversationId,
+            conversation_id: window.currentConversationId,
             version: '2.1',
             lastUpdated: new Date().toISOString(),
             saveCount: saveCount
@@ -484,7 +484,7 @@
             const data = {
                 messages: messages,
                 timestamp: Date.now(),
-                conversationId: window.currentConversationId
+                conversation_id: window.currentConversationId
             };
             localStorage.setItem(storageKey, JSON.stringify(data));
             console.log(`💾 已保存${doctorKey}的${messages.length}条消息到本地`);

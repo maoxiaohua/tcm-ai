@@ -258,7 +258,7 @@ async def get_conversation_history(user_id: str, doctor_id: Optional[str] = None
                                                 is_paid = prescription_paid or order_paid
                                                 
                                                 ai_message['prescriptionData'] = {
-                                                    'prescriptionId': prescription_row[0],
+                                                    'prescription_id': prescription_row[0],
                                                     'isPaid': is_paid,
                                                     'hasActions': not is_paid
                                                 }
@@ -302,7 +302,7 @@ async def get_conversation_history(user_id: str, doctor_id: Optional[str] = None
                                     is_paid = prescription_paid or order_paid
                                     
                                     ai_message['prescriptionData'] = {
-                                        'prescriptionId': prescription_row[0],
+                                        'prescription_id': prescription_row[0],
                                         'isPaid': is_paid,
                                         'hasActions': not is_paid
                                     }

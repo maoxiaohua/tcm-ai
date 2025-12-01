@@ -344,7 +344,7 @@
         if (messages.length === 0 && isLoggedIn && window.sessionManager) {
             try {
                 const result = await window.sessionManager.switchDoctor(defaultDoctor);
-                console.log(`📡 API返回: conversationId=${result.conversationId}, messages=${result.messages?.length || 0}`);
+                console.log(`📡 API返回: conversationId=${result.conversation_id}, messages=${result.messages?.length || 0}`);
 
                 conversationId = result.conversationId;
                 if (result.messages && result.messages.length > 0) {
@@ -797,7 +797,7 @@
             const conversationId = window.currentConversationId;
 
             if (conversationId && window.conversationManager) {
-                const messages = window.conversationManager.loadConversationMessages(conversationId);
+                const messages = window.conversationManager.loadConversationMessages(conversation_id);
 
                 if (messages && messages.length > 0) {
                     // 转换为后端期望的格式
@@ -816,7 +816,7 @@
                         };
                     }).filter(msg => msg.content.length > 0); // 过滤空消息
 
-                    console.log(`📋 从ConversationManager加载对话 ${conversationId}: ${conversationHistory.length}条历史`);
+                    console.log(`📋 从ConversationManager加载对话 ${conversation_id}: ${conversationHistory.length}条历史`);
 
                     // 返回最近20轮对话（后端会进一步限制为10轮）
                     return conversationHistory.slice(-20);

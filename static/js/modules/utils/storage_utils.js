@@ -221,12 +221,12 @@ export class StorageUtils {
      * @param {string} prescriptionId - 处方ID
      * @param {string} status - 状态（unlocked/locked）
      */
-    static savePrescriptionStatus(prescriptionId, status) {
+    static savePrescriptionStatus(prescription_id, status) {
         const userId = this.getCurrentUserId();
         const storageKey = `prescription_status_${userId}`;
 
         let statusMap = this.getUserData(storageKey, false, {});
-        statusMap[prescriptionId] = {
+        statusMap[prescription_id] = {
             status: status,
             timestamp: new Date().toISOString()
         };
@@ -239,12 +239,12 @@ export class StorageUtils {
      * @param {string} prescriptionId - 处方ID
      * @returns {Object|null} 处方状态对象
      */
-    static getPrescriptionStatus(prescriptionId) {
+    static getPrescriptionStatus(prescription_id) {
         const userId = this.getCurrentUserId();
         const storageKey = `prescription_status_${userId}`;
 
         const statusMap = this.getUserData(storageKey, false, {});
-        return statusMap[prescriptionId] || null;
+        return statusMap[prescription_id] || null;
     }
 
     /**
