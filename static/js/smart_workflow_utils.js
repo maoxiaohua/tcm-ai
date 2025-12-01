@@ -898,6 +898,95 @@ ${data.analysis_result}`;
     window.handleKeyPress = handleKeyPress;
     window.adjustTextareaHeight = adjustTextareaHeight;
 
-    console.log('Smart Workflow Utils loaded successfully');
+    // ===================== 移动端图片上传 =====================
+
+    /**
+     * 关闭移动端图片上传模态框
+     */
+    window.closeMobileImageModal = function() {
+        const modal = document.getElementById('mobileImageModal');
+        if (modal) {
+            modal.classList.add('mobile-modal-hidden');
+        }
+    };
+
+    /**
+     * 触发移动端舌诊图片上传
+     */
+    window.triggerMobileTongueUpload = function() {
+        window.closeMobileImageModal();
+        const input = document.getElementById('mobileTongueUpload');
+        if (input) {
+            input.click();
+        }
+    };
+
+    /**
+     * 处理移动端舌诊图片上传
+     */
+    window.handleMobileTongueUpload = function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            window.tongueImage = file;
+            updateMobileUploadStatus();
+            uploadImages();
+        }
+    };
+
+    /**
+     * 触发移动端面诊图片上传
+     */
+    window.triggerMobileFaceUpload = function() {
+        window.closeMobileImageModal();
+        const input = document.getElementById('mobileFaceUpload');
+        if (input) {
+            input.click();
+        }
+    };
+
+    /**
+     * 处理移动端面诊图片上传
+     */
+    window.handleMobileFaceUpload = function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            window.faceImage = file;
+            updateMobileUploadStatus();
+            uploadImages();
+        }
+    };
+
+    /**
+     * 更新移动端上传状态显示
+     */
+    function updateMobileUploadStatus() {
+        const mobileTongueStatus = document.getElementById('mobileTongueStatus');
+        const mobileFaceStatus = document.getElementById('mobileFaceStatus');
+
+        if (mobileTongueStatus) {
+            const span = mobileTongueStatus.querySelector('span');
+            if (span) {
+                span.textContent = window.tongueImage ? '已上传' : '未上传';
+            }
+        }
+
+        if (mobileFaceStatus) {
+            const span = mobileFaceStatus.querySelector('span');
+            if (span) {
+                span.textContent = window.faceImage ? '已上传' : '未上传';
+            }
+        }
+
+        // 更新触发按钮文本
+        const uploadText = document.getElementById('mobileUploadText');
+        if (uploadText) {
+            const uploadedCount = (window.tongueImage ? 1 : 0) + (window.faceImage ? 1 : 0);
+            if (uploadedCount > 0) {
+                uploadText.textContent = `已选择 ${uploadedCount} 张图片`;
+            }
+        }
+    }
+
+    console.log('Smart Workflow Utils loaded successfully (including mobile image upload)');
 
 })();
