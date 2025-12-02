@@ -140,7 +140,7 @@
             }
 
             // 设置对话状态
-            window.currentConversationId = conversation_id;
+            window.currentConversationId = conversationId;
             window.selectedDoctor = conversation.doctor;
 
             // 更新UI
@@ -447,13 +447,13 @@
                                     // 使用ConversationManager保存
                                     window.conversationManager.currentUserId = userId;
                                     window.conversationManager.currentDoctor = doctorId;
-                                    window.conversationManager.saveConversationMessages(conversation_id, messages);
+                                    window.conversationManager.saveConversationMessages(conversationId, messages);
 
                                     // 更新索引
                                     const index = window.conversationManager.getConversationIndex(userId);
-                                    if (!index[conversation_id]) {
-                                        index[conversation_id] = {
-                                            conversation_id: conversation_id,
+                                    if (!index[conversationId]) {
+                                        index[conversationId] = {
+                                            conversation_id: conversationId,
                                             doctor_id: doctorId,
                                             user_id: userId,
                                             created_at: consultation.created_at || new Date().toISOString(),
@@ -465,7 +465,7 @@
                                         window.conversationManager.saveConversationIndex(userId, index);
                                     }
 
-                                    console.log(`💾 ConversationManager保存数据库同步的对话 ${conversation_id} (${doctorId}): ${messages.length}条消息`);
+                                    console.log(`💾 ConversationManager保存数据库同步的对话 ${conversationId} (${doctorId}): ${messages.length}条消息`);
                                 }
                             }
                         } catch (err) {
@@ -828,10 +828,10 @@
 
             // 🔑 使用ConversationManager保存
             if (window.conversationManager) {
-                window.conversationManager.saveConversationMessages(conversation_id, trimmedMessages);
+                window.conversationManager.saveConversationMessages(conversationId, trimmedMessages);
                 // 同步到window.messages用于其他函数访问
                 window.messages = trimmedMessages;
-                console.log(`💾 ConversationManager保存对话 ${conversation_id}: ${trimmedMessages.length}条消息`);
+                console.log(`💾 ConversationManager保存对话 ${conversationId}: ${trimmedMessages.length}条消息`);
             } else {
                 // 降级方案：使用旧方法保存
                 const userId = typeof getCurrentUserId === 'function' ? getCurrentUserId() : 'default';
