@@ -32,9 +32,9 @@ class SimplePrescriptionManager {
         let dbId = null;
 
         // 判断传入的ID类型
-        if (prescription_id) {
+        if (prescriptionId) {
             // 🔑 关键修复：确保prescriptionId是字符串类型再调用startsWith
-            const idStr = String(prescription_id);
+            const idStr = String(prescriptionId);
 
             if (idStr.startsWith('rx_') || idStr.startsWith('prescription_')) {
                 // 这是前端生成的哈希ID
@@ -50,7 +50,7 @@ class SimplePrescriptionManager {
                         console.log(`📋 从localStorage恢复映射: ${hashId} -> ${dbId}`);
                     }
                 }
-            } else if (!isNaN(prescription_id)) {
+            } else if (!isNaN(prescriptionId)) {
                 // 这是数据库ID
                 dbId = prescription_id;
                 hashId = this.generatePrescriptionId(content);
@@ -144,8 +144,8 @@ class SimplePrescriptionManager {
     /**
      * 检查处方状态（从服务器获取实时状态）
      */
-    async checkPrescriptionStatus(prescription_id) {
-        if (!prescription_id) return null;
+    async checkPrescriptionStatus(prescriptionId) {
+        if (!prescriptionId) return null;
 
         // 先检查全局处方数据（但只在状态有效时使用缓存）
         if (window.lastPrescriptionData &&
@@ -194,7 +194,7 @@ class SimplePrescriptionManager {
     /**
      * 根据对话ID查询处方数据库ID
      */
-    async getPrescriptionIdByConversation(conversation_id) {
+    async getPrescriptionIdByConversation(conversationId) {
         try {
             // 调用API查询对话相关的处方
             const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {
@@ -278,14 +278,14 @@ class SimplePrescriptionManager {
     /**
      * 检查支付状态 - 优先从服务器获取真实状态
      */
-    async isPaid(prescription_id) {
+    async isPaid(prescriptionId) {
         // 1. 检查内存状态
-        if (this.paymentStatus.has(prescription_id)) {
-            return this.paymentStatus.get(prescription_id);
+        if (this.paymentStatus.has(prescriptionId)) {
+            return this.paymentStatus.get(prescriptionId);
         }
 
         // 2. 尝试从服务器获取真实状态（仅对数字ID）
-        if (!isNaN(prescription_id)) {
+        if (!isNaN(prescriptionId)) {
             try {
                 console.log(`🔍 正在查询服务器支付状态: ${prescription_id}`);
                 const response = await fetch(`/api/prescription/${prescription_id}`);
@@ -300,7 +300,7 @@ class SimplePrescriptionManager {
                                                data.prescription.payment_status === 'paid';
                         
                         // 🔑 关键修复：如果已支付但缺少原始内容，从服务器数据重构
-                        if (serverPaidStatus && !this.originalContent.has(prescription_id)) {
+                        if (serverPaidStatus && !this.originalContent.has(prescriptionId)) {
                             const reconstructedContent = this.reconstructContentFromServerData(data.prescription);
                             if (reconstructedContent) {
                                 this.originalContent.set(prescription_id, reconstructedContent);
@@ -345,15 +345,15 @@ class SimplePrescriptionManager {
     /**
      * 标记为已支付并提交审核
      */
-    async markAsPaid(prescription_id) {
+    async markAsPaid(prescriptionId) {
         try {
             // 🔑 获取真实的数据库处方ID
-            const realPrescriptionId = this.getRealPrescriptionId(prescription_id);
+            const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
             console.log(`🔍 处方ID映射: ${prescription_id} -> ${realPrescriptionId}`);
             
             if (!realPrescriptionId) {
                 console.error('❌ 无法获取有效的处方ID');
-                this.localMarkAsPaid(prescription_id);
+                this.localMarkAsPaid(prescriptionId);
                 return;
             }
             
@@ -377,7 +377,7 @@ class SimplePrescriptionManager {
                 if (result.status === 'already_paid') {
                     console.log(`✅ 处方已支付，刷新显示状态: ${prescription_id}`);
                     // 支付成功后刷新显示（会自动检查审核状态）
-                    await this.refreshDisplay(prescription_id);
+                    await this.refreshDisplay(prescriptionId);
                 } else if (result.data) {
                     console.log(`✅ 支付确认成功，已提交医生审核: ${prescription_id}`);
                     console.log(`📋 审核状态: ${result.data.status}`);
@@ -397,19 +397,19 @@ class SimplePrescriptionManager {
             } else {
                 console.warn(`⚠️ 支付确认失败: ${result.message}`);
                 // 降级到本地标记（兼容性）
-                this.localMarkAsPaid(prescription_id);
+                this.localMarkAsPaid(prescriptionId);
             }
         } catch (error) {
             console.error('支付确认API调用失败:', error);
             // 降级到本地标记（兼容性）
-            this.localMarkAsPaid(prescription_id);
+            this.localMarkAsPaid(prescriptionId);
         }
     }
     
     /**
      * 本地标记为已支付（降级方案）
      */
-    localMarkAsPaid(prescription_id) {
+    localMarkAsPaid(prescriptionId) {
         // 1. 更新内存状态
         this.paymentStatus.set(prescription_id, true);
         
@@ -419,7 +419,7 @@ class SimplePrescriptionManager {
         console.log(`✅ 处方已本地标记为已支付: ${prescription_id}`);
         
         // 3. 刷新页面显示
-        this.refreshDisplay(prescription_id);
+        this.refreshDisplay(prescriptionId);
     }
     
     /**
@@ -451,11 +451,11 @@ class SimplePrescriptionManager {
     /**
      * 检查审核状态并刷新显示
      */
-    async checkReviewStatus(prescription_id) {
+    async checkReviewStatus(prescriptionId) {
         console.log(`🔄 检查审核状态: ${prescription_id}`);
         try {
             // 直接刷新显示，会自动检查最新状态
-            await this.refreshDisplay(prescription_id);
+            await this.refreshDisplay(prescriptionId);
             console.log(`✅ 审核状态检查完成: ${prescription_id}`);
             
             // 显示提示信息
@@ -475,7 +475,7 @@ class SimplePrescriptionManager {
         localStorage.setItem(`paid_${prescription_id}`, 'true');
         
         // 刷新显示，此时会显示完整处方
-        this.refreshDisplay(prescription_id);
+        this.refreshDisplay(prescriptionId);
         
         // 显示审核完成提示
         const statusMessage = reviewData.is_modified 
@@ -532,11 +532,11 @@ class SimplePrescriptionManager {
     /**
      * 渲染未支付内容（隐藏处方详情）
      */
-    renderUnpaidContent(content, prescription_id) {
+    renderUnpaidContent(content, prescriptionId) {
         // 提取基本信息（不含具体剂量）
         const diagnosis = this.extractDiagnosis(content);
         // 🔑 新增：获取真实处方ID用于显示
-        const realPrescriptionId = this.getRealPrescriptionId(prescription_id);
+        const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
 
         // 🔧 修复：只有当realPrescriptionId存在时才显示编号
         const prescriptionIdDisplay = realPrescriptionId ? `#${realPrescriptionId}` : '待生成';
@@ -576,11 +576,11 @@ class SimplePrescriptionManager {
     /**
      * 渲染审核待处理内容（等待医生审核）
      */
-    renderReviewPendingContent(content, prescription_id) {
+    renderReviewPendingContent(content, prescriptionId) {
         // 提取基本信息（不含具体剂量）
         const diagnosis = this.extractDiagnosis(content);
         // 🔑 新增：获取真实处方ID用于显示
-        const realPrescriptionId = this.getRealPrescriptionId(prescription_id);
+        const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
 
         // 🔧 修复：只有当realPrescriptionId存在时才显示编号
         const prescriptionIdDisplay = realPrescriptionId ? `#${realPrescriptionId}` : '待生成';
@@ -626,7 +626,7 @@ class SimplePrescriptionManager {
         const diagnosis = this.extractDiagnosis(content);
         const formattedDiagnosis = this.formatDiagnosisContent(diagnosis);
         const herbs = this.extractHerbs(content);
-        const realPrescriptionId = this.getRealPrescriptionId(prescription_id);
+        const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
 
         // 🔧 修复：只有当realPrescriptionId存在时才显示编号
         const prescriptionIdDisplay = realPrescriptionId ? `#${realPrescriptionId}` : '待生成';
@@ -712,11 +712,11 @@ class SimplePrescriptionManager {
      * 渲染已支付内容（显示完整处方）
      * @deprecated 使用 renderApprovedContent 替代
      */
-    renderPaidContent(content, prescription_id) {
+    renderPaidContent(content, prescriptionId) {
         // 提取药材信息
         const herbs = this.extractHerbs(content);
         // 🔑 新增：获取真实处方ID用于显示
-        const realPrescriptionId = this.getRealPrescriptionId(prescription_id);
+        const realPrescriptionId = this.getRealPrescriptionId(prescriptionId);
 
         // 🔧 修复：只有当realPrescriptionId存在时才显示编号
         const prescriptionIdDisplay = realPrescriptionId ? `#${realPrescriptionId}` : '待生成';
@@ -766,7 +766,7 @@ class SimplePrescriptionManager {
     /**
      * 启动支付流程
      */
-    async startPayment(prescription_id) {
+    async startPayment(prescriptionId) {
         try {
             console.log(`💳 启动支付: ${prescription_id}`);
             
@@ -778,7 +778,7 @@ class SimplePrescriptionManager {
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 
                 // 标记为已支付并刷新显示
-                await this.markAsPaid(prescription_id);
+                await this.markAsPaid(prescriptionId);
                 
                 alert('🎉 支付成功！处方已解锁');
             }
@@ -791,7 +791,7 @@ class SimplePrescriptionManager {
     /**
      * 刷新页面显示
      */
-    async refreshDisplay(prescription_id) {
+    async refreshDisplay(prescriptionId) {
         console.log(`🔄 开始刷新处方显示: ${prescription_id}`);
         
         // 查找所有相关元素（包括locked和unlocked状态）
@@ -799,27 +799,27 @@ class SimplePrescriptionManager {
         console.log(`找到 ${elements.length} 个处方元素需要刷新`);
         
         for (const element of elements) {
-            const originalContent = this.originalContent.get(prescription_id);
+            const originalContent = this.originalContent.get(prescriptionId);
             console.log(`📄 原始内容检查: ${prescription_id} -> ${originalContent ? '存在' : '不存在'}`);
             
             if (originalContent) {
                 // 🔑 修复：正确检查处方状态
-                const isPaid = await this.isPaid(prescription_id);
-                const prescriptionStatus = await this.checkPrescriptionStatus(prescription_id);
+                const isPaid = await this.isPaid(prescriptionId);
+                const prescriptionStatus = await this.checkPrescriptionStatus(prescriptionId);
                 
                 let newContent;
                 if (prescriptionStatus === 'pending_review') {
                     // 等待审核状态
-                    newContent = this.renderReviewPendingContent(originalContent, prescription_id);
+                    newContent = this.renderReviewPendingContent(originalContent, prescriptionId);
                 } else if (prescriptionStatus === 'doctor_approved' || prescriptionStatus === 'doctor_modified') {
                     // 审核完成状态
                     newContent = this.renderApprovedContent(originalContent, prescription_id, prescriptionStatus);
                 } else if (isPaid) {
                     // 已支付但状态未知，显示等待审核
-                    newContent = this.renderReviewPendingContent(originalContent, prescription_id);
+                    newContent = this.renderReviewPendingContent(originalContent, prescriptionId);
                 } else {
                     // 未支付
-                    newContent = this.renderUnpaidContent(originalContent, prescription_id);
+                    newContent = this.renderUnpaidContent(originalContent, prescriptionId);
                 }
                 
                 // 创建新元素并替换
@@ -843,9 +843,9 @@ class SimplePrescriptionManager {
     /**
      * 检查审核状态
      */
-    async checkReviewStatus(prescription_id) {
+    async checkReviewStatus(prescriptionId) {
         try {
-            const realId = this.getRealPrescriptionId(prescription_id);
+            const realId = this.getRealPrescriptionId(prescriptionId);
             if (!realId) {
                 console.warn('⚠️ 无法获取处方ID，无法检查审核状态');
                 return;
@@ -1105,9 +1105,9 @@ class SimplePrescriptionManager {
     /**
      * 下载处方
      */
-    downloadPrescription(prescription_id) {
+    downloadPrescription(prescriptionId) {
         try {
-            const content = this.originalContent.get(prescription_id);
+            const content = this.originalContent.get(prescriptionId);
             if (!content) {
                 alert('处方内容不存在');
                 return;
@@ -1171,12 +1171,12 @@ ${content}
         
         for (const element of prescriptionElements) {
             const prescriptionId = element.getAttribute('data-prescription-id');
-            if (prescription_id) {
-                const isPaid = await this.isPaid(prescription_id);
+            if (prescriptionId) {
+                const isPaid = await this.isPaid(prescriptionId);
                 if (isPaid) {
-                    const originalContent = this.originalContent.get(prescription_id);
+                    const originalContent = this.originalContent.get(prescriptionId);
                     if (originalContent) {
-                        element.outerHTML = this.renderPaidContent(originalContent, prescription_id);
+                        element.outerHTML = this.renderPaidContent(originalContent, prescriptionId);
                         restoredCount++;
                         console.log(`✅ 恢复已支付状态: ${prescription_id}`);
                     }
@@ -1323,10 +1323,10 @@ window.prescriptionContentRenderer = {
      * 同步渲染方法（PC端使用）
      * 注意：内部实际是异步的，但返回Promise让调用者自己决定是否await
      */
-    renderContent: function(content, prescription_id) {
+    renderContent: function(content, prescriptionId) {
         console.log('📞 [兼容层] renderContent被调用:', { prescription_id });
         // 返回Promise，调用者可以await或直接使用
-        return window.simplePrescriptionManager.processContent(content, prescription_id);
+        return window.simplePrescriptionManager.processContent(content, prescriptionId);
     },
 
     /**
@@ -1387,9 +1387,9 @@ window.debugRefreshAllPrescriptions = async function() {
     
     for (const element of allElements) {
         const prescriptionId = element.getAttribute('data-prescription-id');
-        if (prescription_id) {
+        if (prescriptionId) {
             console.log(`刷新处方: ${prescription_id}`);
-            await manager.refreshDisplay(prescription_id);
+            await manager.refreshDisplay(prescriptionId);
         }
     }
     
@@ -1397,11 +1397,11 @@ window.debugRefreshAllPrescriptions = async function() {
 };
 
 // 紧急修复函数：直接标记处方为已支付并刷新显示
-window.emergencyUnlockPrescription = async function(prescription_id) {
+window.emergencyUnlockPrescription = async function(prescriptionId) {
     console.log(`🚨 紧急解锁处方: ${prescription_id}`);
     const manager = window.simplePrescriptionManager;
     
-    if (!prescription_id) {
+    if (!prescriptionId) {
         // 查找第一个锁定的处方
         const lockedElement = document.querySelector('.prescription-locked[data-prescription-id]');
         if (lockedElement) {
@@ -1414,7 +1414,7 @@ window.emergencyUnlockPrescription = async function(prescription_id) {
     }
     
     // 强制标记为已支付
-    await manager.markAsPaid(prescription_id);
+    await manager.markAsPaid(prescriptionId);
     console.log('✅ 处方已紧急解锁');
     
     return prescriptionId;
@@ -1458,16 +1458,16 @@ window.restoreFromServer = async function() {
     
     for (const element of lockedElements) {
         const prescriptionId = element.getAttribute('data-prescription-id');
-        if (prescriptionId && !isNaN(prescription_id)) {
+        if (prescriptionId && !isNaN(prescriptionId)) {
             try {
                 console.log(`🔍 检查处方 ${prescription_id} 的服务器状态...`);
                 
                 // 重新检查支付状态，这会触发服务器数据重构
-                const isPaid = await manager.isPaid(prescription_id);
+                const isPaid = await manager.isPaid(prescriptionId);
                 
                 if (isPaid) {
                     console.log(`✅ 处方 ${prescription_id} 已支付，开始恢复显示`);
-                    await manager.refreshDisplay(prescription_id);
+                    await manager.refreshDisplay(prescriptionId);
                     restoredCount++;
                 } else {
                     console.log(`📋 处方 ${prescription_id} 未支付，跳过`);
@@ -1488,11 +1488,11 @@ window.restoreFromServer = async function() {
 };
 
 // 强力修复函数：从HTML中重构原始内容并解锁
-window.forceUnlockWithReconstruction = async function(prescription_id) {
+window.forceUnlockWithReconstruction = async function(prescriptionId) {
     console.log(`🔧 强力修复处方: ${prescriptionId || '自动检测'}`);
     const manager = window.simplePrescriptionManager;
     
-    if (!prescription_id) {
+    if (!prescriptionId) {
         const lockedElement = document.querySelector('.prescription-locked[data-prescription-id]');
         if (lockedElement) {
             prescriptionId = lockedElement.getAttribute('data-prescription-id');
@@ -1557,7 +1557,7 @@ window.forceUnlockWithReconstruction = async function(prescription_id) {
     console.log(`📄 已重构原始内容: ${prescription_id}`);
     
     // 标记为已支付
-    await manager.markAsPaid(prescription_id);
+    await manager.markAsPaid(prescriptionId);
     console.log(`✅ 处方已强力解锁: ${prescription_id}`);
     
     return prescriptionId;

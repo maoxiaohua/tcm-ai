@@ -519,18 +519,18 @@
             console.log('[Chat] 处方渲染检查:', {
                 prescriptionRenderer存在: !!window.prescriptionRenderer,
                 isPaid: isPaid,
-                prescription_id: prescription_id,
+                prescriptionId: prescriptionId,
                 内容长度: content.length
             });
 
             if (window.simplePrescriptionManager) {
                 // 使用简化版处方管理器
                 console.log('[Chat] 使用简化版处方管理器处理内容');
-                processedContent = await window.simplePrescriptionManager.processContent(content, prescription_id);
+                processedContent = await window.simplePrescriptionManager.processContent(content, prescriptionId);
             } else if (window.prescriptionContentRenderer) {
                 // 备用：使用原来的处方渲染器（兼容层）
                 console.log('[Chat] 使用备用处方渲染器（兼容层）');
-                processedContent = await window.prescriptionContentRenderer.renderContent(content, prescription_id);
+                processedContent = await window.prescriptionContentRenderer.renderContent(content, prescriptionId);
 
                 // 保存原始内容用于支付后解锁
                 if (prescriptionId && content) {
@@ -555,8 +555,8 @@
         }
 
         // 如果有处方ID，保存到元素属性中
-        if (prescription_id) {
-            messageDiv.setAttribute('data-prescription-id', prescription_id);
+        if (prescriptionId) {
+            messageDiv.setAttribute('data-prescription-id', prescriptionId);
         }
 
         // 获取医生头像
@@ -840,11 +840,11 @@
             });
 
             // 根据处方状态决定显示模式
-            await addMessage('ai', aiReply, shouldShowFeedback, isPaid, prescription_id);
+            await addMessage('ai', aiReply, shouldShowFeedback, isPaid, prescriptionId);
 
             // 记录诊断阶段
             if (shouldShowFeedback) {
-                console.log('[Chat] 检测到处方内容，显示点评功能，处方ID:', prescription_id, '支付状态:', isPaid);
+                console.log('[Chat] 检测到处方内容，显示点评功能，处方ID:', prescriptionId, '支付状态:', isPaid);
             } else {
                 console.log('[Chat] 普通对话，不显示点评');
             }

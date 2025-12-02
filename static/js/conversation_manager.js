@@ -128,7 +128,7 @@ class ConversationManager {
      * @param {Array} messages - 消息数组
      */
     saveConversationMessages(conversation_id, messages) {
-        if (!conversation_id) {
+        if (!conversationId) {
             console.warn('⚠️ conversationId为空，无法保存消息');
             return;
         }
@@ -169,8 +169,8 @@ class ConversationManager {
      * @param {string} conversationId - 对话ID
      * @returns {Array} 消息数组
      */
-    loadConversationMessages(conversation_id) {
-        if (!conversation_id) {
+    loadConversationMessages(conversationId) {
+        if (!conversationId) {
             console.warn('⚠️ conversationId为空，返回空数组');
             return [];
         }
@@ -204,7 +204,7 @@ class ConversationManager {
 
         // 获取该医生的最新对话（不创建新对话）
         let conversationId = this.getOrCreateConversation(userId, newDoctorId, false);
-        let messages = this.loadConversationMessages(conversation_id);
+        let messages = this.loadConversationMessages(conversationId);
 
         // 🔑 v3.0 关键修复：如果最新对话已有处方（已完成），自动创建新对话
         console.log(`🔍 [DEBUG] 检查处方 - 消息数量: ${messages ? messages.length : 0}`);
@@ -284,7 +284,7 @@ class ConversationManager {
      * 结束对话
      * @param {string} conversationId - 对话ID
      */
-    endConversation(conversation_id) {
+    endConversation(conversationId) {
         const userId = this.currentUserId;
         if (!userId) return;
 

@@ -17,12 +17,12 @@ class PrescriptionPaymentManager {
      * @param {string} prescriptionId 处方ID
      * @returns {boolean} 是否已支付
      */
-    isPrescriptionPaid(prescription_id) {
-        if (!prescription_id) return false;
+    isPrescriptionPaid(prescriptionId) {
+        if (!prescriptionId) return false;
         
         // 1. 检查内存缓存
-        if (this.paymentStatus.has(prescription_id)) {
-            return this.paymentStatus.get(prescription_id);
+        if (this.paymentStatus.has(prescriptionId)) {
+            return this.paymentStatus.get(prescriptionId);
         }
         
         // 2. 检查localStorage
@@ -41,8 +41,8 @@ class PrescriptionPaymentManager {
      * 设置处方为已支付状态
      * @param {string} prescriptionId 处方ID
      */
-    markAsPaid(prescription_id) {
-        if (!prescription_id) return;
+    markAsPaid(prescriptionId) {
+        if (!prescriptionId) return;
         
         // 1. 更新内存缓存
         this.paymentStatus.set(prescription_id, true);
@@ -54,14 +54,14 @@ class PrescriptionPaymentManager {
         console.log(`✅ 标记处方已支付: ${prescription_id}`);
         
         // 3. 触发页面更新
-        this.refreshPrescriptionDisplay(prescription_id);
+        this.refreshPrescriptionDisplay(prescriptionId);
     }
 
     /**
      * 刷新处方显示
      * @param {string} prescriptionId 处方ID
      */
-    refreshPrescriptionDisplay(prescription_id) {
+    refreshPrescriptionDisplay(prescriptionId) {
         // 查找包含此处方ID的消息
         const messageElements = document.querySelectorAll(`[data-prescription-id="${prescription_id}"]`);
         
@@ -113,9 +113,9 @@ class PrescriptionPaymentManager {
                 // 显示支付确认对话框
                 const confirmed = await this.showPaymentConfirmDialog(prescription_id, amount);
                 if (confirmed) {
-                    await this.simulatePaymentProcess(prescription_id);
+                    await this.simulatePaymentProcess(prescriptionId);
                     // 🔧 使用实际的处方ID处理支付成功
-                    this.handlePaymentSuccess(prescription_id);
+                    this.handlePaymentSuccess(prescriptionId);
                 }
                 return;
             }
@@ -130,7 +130,7 @@ class PrescriptionPaymentManager {
                 console.warn('⚠️ 支付系统不可用，使用简化流程');
                 const confirmed = await this.showPaymentConfirmDialog(prescription_id, amount);
                 if (confirmed) {
-                    this.handlePaymentSuccess(prescription_id);
+                    this.handlePaymentSuccess(prescriptionId);
                 }
             }
             
@@ -208,7 +208,7 @@ class PrescriptionPaymentManager {
     /**
      * 模拟支付处理过程
      */
-    async simulatePaymentProcess(prescription_id) {
+    async simulatePaymentProcess(prescriptionId) {
         // 显示支付处理中的提示
         const processingModal = document.createElement('div');
         processingModal.style.cssText = `
@@ -249,8 +249,8 @@ class PrescriptionPaymentManager {
      * 处理支付成功
      * @param {string} prescriptionId 处方ID
      */
-    handlePaymentSuccess(prescription_id) {
-        console.log('🎉 支付成功处理:', prescription_id);
+    handlePaymentSuccess(prescriptionId) {
+        console.log('🎉 支付成功处理:', prescriptionId);
 
         // 🔑 关键修复：确保prescriptionId是字符串类型
         const idStr = String(prescriptionId || '');
@@ -286,7 +286,7 @@ class PrescriptionPaymentManager {
                 // 🔧 关键修复：将真实的处方ID标记为已支付，并保存到localStorage
                 this.markAsPaid(realPrescriptionId);
                 // 🔧 同时也标记临时ID为已支付，防止重复支付
-                this.markAsPaid(prescription_id);
+                this.markAsPaid(prescriptionId);
                 
                 // 🔧 确保使用正确的原始内容进行渲染
                 const renderer = window.prescriptionContentRenderer;
@@ -313,7 +313,7 @@ class PrescriptionPaymentManager {
             }
         } else {
             // 处理真实处方ID
-            this.markAsPaid(prescription_id);
+            this.markAsPaid(prescriptionId);
         }
         
         // 显示成功消息
@@ -393,9 +393,9 @@ class PrescriptionContentRenderer {
         
         console.log(`🔍 开始检查支付状态 - 原始ID: ${prescription_id}`);
         
-        if (prescription_id) {
+        if (prescriptionId) {
             // 首先检查原始处方ID
-            isPaid = this.getPaymentManager().isPrescriptionPaid(prescription_id);
+            isPaid = this.getPaymentManager().isPrescriptionPaid(prescriptionId);
             console.log(`🔍 原始ID检查结果: ${isPaid}`);
             
             // 🔧 如果原始ID未支付，检查是否有基于内容生成的处方ID已支付
@@ -445,9 +445,9 @@ class PrescriptionContentRenderer {
         console.log(`📋 渲染处方内容: prescriptionId=${prescription_id}, isPaid=${isPaid}`);
 
         if (isPaid) {
-            return this.renderPaidContent(content, prescription_id);
+            return this.renderPaidContent(content, prescriptionId);
         } else {
-            return this.renderUnpaidContent(content, prescription_id);
+            return this.renderUnpaidContent(content, prescriptionId);
         }
     }
 
@@ -502,7 +502,7 @@ class PrescriptionContentRenderer {
     /**
      * 渲染已支付的完整处方
      */
-    renderPaidContent(content, prescription_id) {
+    renderPaidContent(content, prescriptionId) {
         const herbs = this.extractHerbs(content);
         
         let herbsListHtml = '';
@@ -536,7 +536,7 @@ class PrescriptionContentRenderer {
     /**
      * 渲染未支付的处方预览
      */
-    renderUnpaidContent(content, prescription_id) {
+    renderUnpaidContent(content, prescriptionId) {
         const herbs = this.extractHerbs(content);
         const diagnosisInfo = this.extractDiagnosisInfo(content);
         const previewCount = Math.min(2, herbs.length);
@@ -1132,11 +1132,11 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // 兼容现有系统的函数
-window.unlockPrescription = function(prescription_id) {
-    window.prescriptionPaymentManager.startPayment(prescription_id);
+window.unlockPrescription = function(prescriptionId) {
+    window.prescriptionPaymentManager.startPayment(prescriptionId);
 };
 
-window.showDecorationInfo = function(prescription_id) {
+window.showDecorationInfo = function(prescriptionId) {
     const info = `
 🍵 中药代煎服务
 
@@ -1170,7 +1170,7 @@ window.showDecorationInfo = function(prescription_id) {
     }
 };
 
-window.downloadPrescription = function(prescription_id) {
+window.downloadPrescription = function(prescriptionId) {
     try {
         // 获取处方内容
         const prescriptionElement = document.querySelector(`[data-prescription-id="${prescription_id}"]`);
@@ -1262,7 +1262,7 @@ function debugPrescriptionMatching() {
             const value = localStorage.getItem(key);
             const prescriptionId = key.replace('prescription_paid_', '');
             console.log(`✅ 已支付ID: ${prescription_id} (${value})`);
-            allPaidIds.push(prescription_id);
+            allPaidIds.push(prescriptionId);
         }
     }
     

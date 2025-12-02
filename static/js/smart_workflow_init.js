@@ -797,7 +797,7 @@
             const conversationId = window.currentConversationId;
 
             if (conversationId && window.conversationManager) {
-                const messages = window.conversationManager.loadConversationMessages(conversation_id);
+                const messages = window.conversationManager.loadConversationMessages(conversationId);
 
                 if (messages && messages.length > 0) {
                     // 转换为后端期望的格式

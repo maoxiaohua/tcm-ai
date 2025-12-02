@@ -498,7 +498,7 @@
             if (result.success && result.data) {
                 // 显示支付宝操作选择
                 hidePaymentModal();
-                showAlipayOptions(result.data.payment_url, result.data.payment_id, prescription_id);
+                showAlipayOptions(result.data.payment_url, result.data.payment_id, prescriptionId);
             } else {
                 if (typeof showMessage === 'function') {
                     showMessage(result.message || '支付创建失败', 'error');
@@ -519,7 +519,7 @@
      * @param {string} paymentId - 支付ID
      * @param {string} prescriptionId - 处方ID
      */
-    function showAlipayOptions(paymentUrl, paymentId, prescription_id) {
+    function showAlipayOptions(paymentUrl, paymentId, prescriptionId) {
         let modal = document.getElementById('alipayOptionsModal');
         if (!modal) {
             modal = document.createElement('div');
@@ -581,7 +581,7 @@
      * @param {string} paymentId - 支付ID
      * @param {string} prescriptionId - 处方ID
      */
-    async function testAlipayPaymentSuccess(paymentId, prescription_id) {
+    async function testAlipayPaymentSuccess(paymentId, prescriptionId) {
         try {
             // 检查登录状态 (调试信息)
             console.log('用户登录状态 - Token:', !!window.userToken, 'User:', !!window.currentUser);
@@ -620,11 +620,11 @@
                 }
 
                 // 更新UI中的处方状态为已支付
-                await markPrescriptionAsPaid(result.prescription_id || prescription_id);
+                await markPrescriptionAsPaid(result.prescription_id || prescriptionId);
 
                 // 显示代煎服务信息
                 setTimeout(() => {
-                    showDecorationInfo(result.prescription_id || prescription_id);
+                    showDecorationInfo(result.prescription_id || prescriptionId);
                 }, 2000);
             } else {
                 console.error('支付宝支付测试失败:', result);
@@ -893,7 +893,7 @@
      * 显示代煎服务信息
      * @param {string} prescriptionId - 处方ID
      */
-    function showDecorationInfo(prescription_id) {
+    function showDecorationInfo(prescriptionId) {
         if (typeof showMessage === 'function') {
             showMessage('代煎服务已启动，我们将在24小时内联系您安排配送', 'success');
         }
@@ -908,8 +908,8 @@
      * 标记处方为已支付状态并重新渲染完整内容
      * @param {string} prescriptionId - 处方ID
      */
-    async function markPrescriptionAsPaid(prescription_id) {
-        console.log('标记处方为已支付:', prescription_id);
+    async function markPrescriptionAsPaid(prescriptionId) {
+        console.log('标记处方为已支付:', prescriptionId);
 
         // 支付成功后将处方提交给医生审核
         try {
@@ -944,7 +944,7 @@
                 }
 
                 // 如果提交审核成功，不显示完整处方，只显示等待审核状态
-                updatePrescriptionToReviewStatus(prescription_id);
+                updatePrescriptionToReviewStatus(prescriptionId);
 
                 // 同步状态到服务器
                 await syncPrescriptionStatusToServer(prescription_id, 'pending_review', {
@@ -1010,7 +1010,7 @@
             });
 
             // 如果指定了处方ID，优先匹配ID
-            if (prescriptionId && msgPrescriptionId && msgPrescriptionId !== prescription_id) {
+            if (prescriptionId && msgPrescriptionId && msgPrescriptionId !== prescriptionId) {
                 console.log(`跳过消息 ${i+1} - ID不匹配`);
                 continue; // 跳过不匹配的处方
             }
@@ -1027,7 +1027,7 @@
             console.log(`处理消息 ${i+1} - 开始获取原始处方内容`);
 
             // 获取原始处方内容（异步从API获取）
-            let originalContent = await getOriginalPrescriptionContent(messageDiv, prescription_id);
+            let originalContent = await getOriginalPrescriptionContent(messageDiv, prescriptionId);
 
             // 如果API获取失败，尝试获取完整处方内容
             if (!originalContent) {
@@ -1135,8 +1135,8 @@
                 }
 
                 // 标记处方ID和支付状态
-                if (prescription_id) {
-                    messageDiv.setAttribute('data-prescription-id', prescription_id);
+                if (prescriptionId) {
+                    messageDiv.setAttribute('data-prescription-id', prescriptionId);
                     messageDiv.setAttribute('data-paid', 'true');
                 }
 
@@ -1155,8 +1155,8 @@
      * 更新处方显示为等待审核状态
      * @param {string} prescriptionId - 处方ID
      */
-    function updatePrescriptionToReviewStatus(prescription_id) {
-        console.log('更新处方为等待审核状态:', prescription_id);
+    function updatePrescriptionToReviewStatus(prescriptionId) {
+        console.log('更新处方为等待审核状态:', prescriptionId);
 
         // 查找包含处方的消息
         const messagesContainer = document.getElementById('messagesContainer') || document.getElementById('mobileMessagesContainer');
@@ -1170,7 +1170,7 @@
             const hasPrescriptionContent = messageContent.includes('处方') || messageContent.includes('方剂');
 
             // 如果是目标处方消息
-            if ((prescriptionId && msgPrescriptionId === prescription_id) ||
+            if ((prescriptionId && msgPrescriptionId === prescriptionId) ||
                 (!prescriptionId && hasPrescriptionContent)) {
 
                 const contentDiv = messageDiv.querySelector('.message-text') || messageDiv.querySelector('.message-content');
@@ -1207,7 +1207,7 @@
 
                     // 标记处方状态
                     messageDiv.setAttribute('data-prescription-status', 'pending_review');
-                    messageDiv.setAttribute('data-prescription-id', prescription_id);
+                    messageDiv.setAttribute('data-prescription-id', prescriptionId);
 
                     // 同步状态到localStorage，确保刷新后能恢复
                     syncPrescriptionStatusToStorage(prescription_id, 'pending_review');
@@ -1249,7 +1249,7 @@
      * @param {string} prescriptionId - 处方ID
      * @returns {string|null} 处方状态
      */
-    function getPrescriptionStatusFromStorage(prescription_id) {
+    function getPrescriptionStatusFromStorage(prescriptionId) {
         try {
             const userId = typeof getCurrentUserId === 'function' ? getCurrentUserId() : 'default';
             const storageKey = `prescription_status_${userId}`;
@@ -1268,9 +1268,9 @@
      * 检查处方审核状态 - 增强实时同步
      * @param {string} prescriptionId - 处方ID
      */
-    async function checkPrescriptionStatus(prescription_id) {
+    async function checkPrescriptionStatus(prescriptionId) {
         try {
-            console.log('检查处方审核状态:', prescription_id);
+            console.log('检查处方审核状态:', prescriptionId);
 
             const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {
                 'Content-Type': 'application/json',
@@ -1309,7 +1309,7 @@
                 const result = await response.json();
                 const errorMsg = result.message || '无法获取处方状态';
                 if (result.error_code === 'PRESCRIPTION_NOT_FOUND') {
-                    console.warn('处方不存在:', prescription_id);
+                    console.warn('处方不存在:', prescriptionId);
                     if (typeof showMessage === 'function') {
                         showMessage(`处方记录不存在(ID: ${prescription_id})`, 'warning');
                     }
@@ -1342,7 +1342,7 @@
      * 静默检查处方状态（不显示UI提示）
      * @param {string} prescriptionId - 处方ID
      */
-    async function checkPrescriptionStatusSilently(prescription_id) {
+    async function checkPrescriptionStatusSilently(prescriptionId) {
         try {
             const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {
                 'Content-Type': 'application/json',
@@ -1358,7 +1358,7 @@
 
                 if (result.success && result.data && result.data.is_reviewed) {
                     // 审核完成，自动更新界面
-                    console.log('检测到处方审核完成:', prescription_id);
+                    console.log('检测到处方审核完成:', prescriptionId);
                     if (typeof showMessage === 'function') {
                         showMessage('您有处方审核完成，正在更新显示...', 'success');
                     }
@@ -1389,7 +1389,7 @@
                     if (prescriptionStatuses[prescription_id]) {
                         delete prescriptionStatuses[prescription_id];
                         localStorage.setItem(storageKey, JSON.stringify(prescriptionStatuses));
-                        console.log('已清理无效处方ID:', prescription_id);
+                        console.log('已清理无效处方ID:', prescriptionId);
                     }
                 } catch (cleanupError) {
                     console.warn('清理无效处方ID失败:', cleanupError);
@@ -1416,7 +1416,7 @@
 
             for (let messageDiv of messageElements) {
                 const msgPrescriptionId = messageDiv.getAttribute('data-prescription-id');
-                if (msgPrescriptionId === prescription_id) {
+                if (msgPrescriptionId === prescriptionId) {
                     const contentDiv = messageDiv.querySelector('.message-text') || messageDiv.querySelector('.message-content');
                     if (contentDiv) {
                         // 获取审核后的完整处方内容
@@ -1471,11 +1471,11 @@
      * @param {string} prescriptionId - 处方ID
      * @returns {Promise<string|null>} 处方内容
      */
-    async function getOriginalPrescriptionContent(messageDiv, prescription_id) {
+    async function getOriginalPrescriptionContent(messageDiv, prescriptionId) {
         // 优先从API获取原始处方内容
-        if (prescription_id) {
+        if (prescriptionId) {
             try {
-                console.log('从API获取处方详情:', prescription_id);
+                console.log('从API获取处方详情:', prescriptionId);
 
                 const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {
                     'Content-Type': 'application/json',
@@ -1510,7 +1510,7 @@
                 // 从最近的消息中查找处方内容
                 for (let i = currentHistory.length - 1; i >= 0; i--) {
                     const msg = currentHistory[i];
-                    if (msg.type === 'ai' && (msg.prescriptionId === prescriptionId || msg.prescriptionData?.prescriptionId === prescription_id)) {
+                    if (msg.type === 'ai' && (msg.prescriptionId === prescriptionId || msg.prescriptionData?.prescriptionId === prescriptionId)) {
                         console.log('从历史记录找到原始处方内容');
                         return msg.originalContent || msg.content;
                     }
@@ -1573,7 +1573,7 @@
                         // 检查是否已过期（超过24小时不再检查）
                         const hoursAgo = (Date.now() - statusData.timestamp) / (1000 * 60 * 60);
                         if (hoursAgo < 24 && prescriptionId && prescriptionId !== 'undefined') {
-                            await checkPrescriptionStatusSilently(prescription_id);
+                            await checkPrescriptionStatusSilently(prescriptionId);
                         }
                     }
                 }
@@ -1601,8 +1601,8 @@
             // 遍历所有本地存储的处方状态
             for (const [prescription_id, statusData] of Object.entries(prescriptionStatuses)) {
                 if (statusData.status === 'pending_review') {
-                    console.log('恢复待审核处方:', prescription_id);
-                    updatePrescriptionToReviewStatus(prescription_id);
+                    console.log('恢复待审核处方:', prescriptionId);
+                    updatePrescriptionToReviewStatus(prescriptionId);
                 }
             }
 

@@ -108,7 +108,7 @@
      * 加载指定对话
      * @param {string} conversationId - 对话ID
      */
-    async function loadConversation(conversation_id) {
+    async function loadConversation(conversationId) {
         try {
             const userId = typeof getCurrentUserId === 'function' ? getCurrentUserId() : null;
             if (!userId) return;
@@ -117,12 +117,12 @@
             const isMobile = window.innerWidth <= 768;
             const containerSelector = isMobile ? 'mobileMessagesContainer' : 'messagesContainer';
             const messagesContainer = document.getElementById(containerSelector);
-            if (messagesContainer && messagesContainer.children.length > 0 && window.currentConversationId !== conversation_id) {
+            if (messagesContainer && messagesContainer.children.length > 0 && window.currentConversationId !== conversationId) {
                 await saveCurrentConversationToHistory();
             }
 
             // 从localStorage加载对话数据
-            const storageKey = `conversation_${userId}_${conversation_id}`;
+            const storageKey = `conversation_${userId}_${conversationId}`;
             const conversationData = localStorage.getItem(storageKey);
 
             if (!conversationData) {
@@ -169,7 +169,7 @@
 
             // 保存当前对话ID
             const storageKeyConv = `conversationId_${userId}`;
-            localStorage.setItem(storageKeyConv, conversation_id);
+            localStorage.setItem(storageKeyConv, conversationId);
 
             console.log('✅ 对话加载成功:', conversation.title);
             if (typeof showMessage === 'function') {
@@ -188,7 +188,7 @@
      * 删除对话
      * @param {string} conversationId - 对话ID
      */
-    async function deleteConversation(conversation_id) {
+    async function deleteConversation(conversationId) {
         if (!confirm('确定要删除这个对话吗？此操作不可恢复。')) {
             return;
         }
@@ -198,13 +198,13 @@
             if (!userId) return;
 
             // 从localStorage删除对话数据
-            const storageKey = `conversation_${userId}_${conversation_id}`;
+            const storageKey = `conversation_${userId}_${conversationId}`;
             localStorage.removeItem(storageKey);
 
             // 从索引中移除
             const indexKey = `conversation_index_${userId}`;
             let index = JSON.parse(localStorage.getItem(indexKey) || '[]');
-            index = index.filter(item => item.id !== conversation_id);
+            index = index.filter(item => item.id !== conversationId);
             localStorage.setItem(indexKey, JSON.stringify(index));
 
             // 更新内存中的历史记录
@@ -213,7 +213,7 @@
             }
 
             // 如果删除的是当前对话，创建新对话
-            if (window.currentConversationId === conversation_id) {
+            if (window.currentConversationId === conversationId) {
                 if (typeof clearAllMessages === 'function') {
                     clearAllMessages();
                 }
@@ -230,7 +230,7 @@
                 renderConversationList();
             }
 
-            console.log('🗑️ 对话已删除:', conversation_id);
+            console.log('🗑️ 对话已删除:', conversationId);
             if (typeof showMessage === 'function') {
                 showMessage('对话已删除', 'success');
             }
@@ -756,7 +756,7 @@
         const selectedDoctor = window.selectedDoctor;
         const conversationId = window.currentConversationId;
 
-        if (!selectedDoctor || !conversation_id) {
+        if (!selectedDoctor || !conversationId) {
             console.warn('⚠️ 缺少selectedDoctor或conversationId，跳过保存');
             return;
         }
@@ -984,11 +984,11 @@
 
                 if (isMobile) {
                     if (typeof addMobileMessage === 'function') {
-                        await addMobileMessage(msg.type, displayContent, shouldShowFeedback, isPaid, prescription_id);
+                        await addMobileMessage(msg.type, displayContent, shouldShowFeedback, isPaid, prescriptionId);
                     }
                 } else {
                     if (typeof addMessageWithTime === 'function') {
-                        addMessageWithTime(msg.type, displayContent, msg.time, shouldShowFeedback, isPaid, prescription_id);
+                        addMessageWithTime(msg.type, displayContent, msg.time, shouldShowFeedback, isPaid, prescriptionId);
                     }
                 }
             }

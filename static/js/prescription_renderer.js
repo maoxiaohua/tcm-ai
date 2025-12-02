@@ -235,7 +235,7 @@ class PrescriptionRenderer {
         console.log(`📋 处方支付状态检查 - isPaid: ${isPaid}, prescription_id: ${prescription_id}`);
 
         // 🚨 检测到处方内容 - 根据支付状态决定显示方式
-        console.log('🔒 检测到处方内容，支付状态:', isPaid, '处方ID:', prescription_id);
+        console.log('🔒 检测到处方内容，支付状态:', isPaid, '处方ID:', prescriptionId);
 
         if (this.isTemporaryAdvice(content)) {
             // 临时建议，显示完整内容但加特殊标识
@@ -1134,8 +1134,8 @@ class PrescriptionRenderer {
 }
 
 // 全局处方解锁函数
-function unlockPrescription(prescription_id) {
-    console.log('🔓 开始处方解锁流程:', prescription_id);
+function unlockPrescription(prescriptionId) {
+    console.log('🔓 开始处方解锁流程:', prescriptionId);
     
     // 🔑 增强的登录状态检查逻辑
     const isLoggedIn = checkUserLoginStatus();
@@ -1161,7 +1161,7 @@ function unlockPrescription(prescription_id) {
         createPrescriptionRecord();
     } else {
         // 直接进入支付流程
-        initiatePrescriptionPayment(prescription_id);
+        initiatePrescriptionPayment(prescriptionId);
     }
 }
 
@@ -1344,29 +1344,29 @@ async function createPrescriptionRecord() {
         // 1. 尝试从 window 对象获取
         if (window.currentConversationId && window.currentConversationId !== 'undefined' && window.currentConversationId !== 'null') {
             conversationId = window.currentConversationId;
-            console.log('🔧 从window获取到对话ID:', conversation_id);
+            console.log('🔧 从window获取到对话ID:', conversationId);
         }
         // 2. 尝试从全局作用域获取 (尝试访问页面级变量)
         else if (typeof currentConversationId !== 'undefined' && currentConversationId && currentConversationId !== 'null') {
             conversationId = currentConversationId;
-            console.log('🔧 从全局变量获取到对话ID:', conversation_id);
+            console.log('🔧 从全局变量获取到对话ID:', conversationId);
         }
         // 3. 尝试从父窗口获取 (iframe情况)
         else if (window.parent && window.parent.currentConversationId && window.parent.currentConversationId !== 'undefined') {
             conversationId = window.parent.currentConversationId;
-            console.log('🔧 从父窗口获取到对话ID:', conversation_id);
+            console.log('🔧 从父窗口获取到对话ID:', conversationId);
         }
         // 4. 尝试从localStorage获取
         else if (localStorage.getItem(`conversationId_${patientId}`)) {
             conversationId = localStorage.getItem(`conversationId_${patientId}`);
-            console.log('🔧 从localStorage获取到对话ID:', conversation_id);
+            console.log('🔧 从localStorage获取到对话ID:', conversationId);
         }
         // 5. 生成新的对话ID
         else {
             conversationId = this.generateConversationId();
-            console.log('🔧 生成新的对话ID:', conversation_id);
+            console.log('🔧 生成新的对话ID:', conversationId);
             // 保存到localStorage以便后续使用
-            localStorage.setItem(`conversationId_${patientId}`, conversation_id);
+            localStorage.setItem(`conversationId_${patientId}`, conversationId);
         }
         
         console.log('🔍 准备创建处方记录:', {
@@ -1411,8 +1411,8 @@ async function createPrescriptionRecord() {
 }
 
 // 启动处方支付流程
-function initiatePrescriptionPayment(prescription_id) {
-    console.log('💰 启动支付流程:', prescription_id);
+function initiatePrescriptionPayment(prescriptionId) {
+    console.log('💰 启动支付流程:', prescriptionId);
     
     // 🧪 沙盒测试模式：检查是否启用测试支付
     console.log('🔒 正式支付模式：启动真实支付流程');
@@ -1425,13 +1425,13 @@ function initiatePrescriptionPayment(prescription_id) {
     
     // 🔒 启动真实支付流程
     console.log('🔒 启动真实支付流程');
-    useRealPayment(prescription_id);
+    useRealPayment(prescriptionId);
 }
 
 /**
  * 🧪 模拟支付成功 - 沙盒测试模式
  */
-function simulatePaymentSuccess(prescription_id) {
+function simulatePaymentSuccess(prescriptionId) {
     console.log('🧪 开始模拟支付流程...');
     
     // 显示支付进度
@@ -1441,7 +1441,7 @@ function simulatePaymentSuccess(prescription_id) {
         showCompatibleMessage('支付成功！处方已解锁', 'success');
         
         // 模拟支付成功，更新处方状态
-        handlePaymentSuccess(prescription_id);
+        handlePaymentSuccess(prescriptionId);
         
         // 刷新页面显示已支付状态
         setTimeout(() => {
@@ -1453,7 +1453,7 @@ function simulatePaymentSuccess(prescription_id) {
 /**
  * 🧪 显示测试支付选项
  */
-function showTestPaymentOptions(prescription_id) {
+function showTestPaymentOptions(prescriptionId) {
     const testHtml = `
         <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center;" onclick="this.remove()">
             <div style="background: white; padding: 30px; border-radius: 15px; max-width: 400px; text-align: center;" onclick="event.stopPropagation()">
@@ -1493,8 +1493,8 @@ function processRealPayment() {
 /**
  * 💰 使用真实支付系统
  */
-function useRealPayment(prescription_id) {
-    console.log('💰 使用真实支付系统:', prescription_id);
+function useRealPayment(prescriptionId) {
+    console.log('💰 使用真实支付系统:', prescriptionId);
     
     // 调用现有的支付模态框
     if (typeof window.showPaymentModal === 'function') {
@@ -1517,8 +1517,8 @@ window.useRealPayment = useRealPayment;
 /**
  * 处理支付成功后的逻辑
  */
-function handlePaymentSuccess(prescription_id) {
-    console.log('✅ 支付成功，处方ID:', prescription_id);
+function handlePaymentSuccess(prescriptionId) {
+    console.log('✅ 支付成功，处方ID:', prescriptionId);
     
     // 更新本地存储的支付状态
     const userId = getCurrentUserId();
@@ -1597,14 +1597,14 @@ function getCurrentSymptoms() {
 }
 
 // 下载处方
-function downloadPrescription(prescription_id) {
-    console.log('📄 下载处方:', prescription_id);
+function downloadPrescription(prescriptionId) {
+    console.log('📄 下载处方:', prescriptionId);
     showCompatibleMessage('处方下载功能开发中', 'info');
 }
 
 // 显示代煎服务信息
-function showDecorationInfo(prescription_id) {
-    console.log('🍵 显示代煎服务信息:', prescription_id);
+function showDecorationInfo(prescriptionId) {
+    console.log('🍵 显示代煎服务信息:', prescriptionId);
     showCompatibleMessage('代煎服务功能开发中', 'info');
 }
 

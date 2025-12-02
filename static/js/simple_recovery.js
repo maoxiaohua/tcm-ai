@@ -249,7 +249,7 @@ ${finalPrescription}
     /**
      * 查看处方审核状态
      */
-    async checkPrescriptionStatus(prescription_id) {
+    async checkPrescriptionStatus(prescriptionId) {
         try {
             console.log(`🔍 查看处方 ${prescription_id} 的审核状态...`);
             
@@ -259,7 +259,7 @@ ${finalPrescription}
             }
             
             const prescriptions = await this.fetchPrescriptions(userId);
-            const prescription = prescriptions.find(p => p.id == prescription_id);
+            const prescription = prescriptions.find(p => p.id == prescriptionId);
             
             if (!prescription) {
                 throw new Error('处方不存在');
