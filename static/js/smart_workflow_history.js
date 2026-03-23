@@ -796,7 +796,7 @@
 
                         if (prescriptionId || isPaid || hasActions) {
                             messageData.prescriptionData = {
-                                prescription_id: prescription_id,
+                                prescription_id: prescriptionId,
                                 isPaid: isPaid,
                                 hasActions: hasActions
                             };

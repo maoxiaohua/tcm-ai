@@ -110,12 +110,15 @@ export class HistoryAPI {
      */
     async getCurrentUser() {
         try {
-            // 🔑 关键修复：优先从服务器API获取最新用户信息，避免localStorage缓存错误
-            const token = localStorage.getItem('tcm_auth_token') || localStorage.getItem('auth_token') || localStorage.getItem('session_token');
+            // 🔑 v4.3修复：统一token获取顺序，与authManager保持一致
+            const token = localStorage.getItem('session_token') ||
+                          localStorage.getItem('tcm_auth_token') ||
+                          localStorage.getItem('auth_token');
 
             if (token) {
                 try {
-                    const response = await fetch('/api/auth/me', {
+                    // 🔑 修复：使用正确的API端点 /api/v2/auth/profile
+                    const response = await fetch('/api/v2/auth/profile', {
                         headers: {
                             'Authorization': `Bearer ${token}`,
                             'Content-Type': 'application/json'
@@ -130,14 +133,23 @@ export class HistoryAPI {
                             localStorage.setItem('currentUser', JSON.stringify(data.user));
                             return data.user;
                         }
+                    } else {
+                        console.warn('⚠️ API返回非200状态:', response.status);
                     }
                 } catch (apiError) {
                     console.warn('⚠️ API获取用户信息失败，尝试使用缓存:', apiError);
                 }
             }
 
-            // 备选方案1：从localStorage读取缓存（可能过期）
-            const userDataStr = localStorage.getItem('userData') || localStorage.getItem('currentUser');
+            // 🔑 v4.3修复：优先使用authManager（它总是包含最新的登录状态）
+            if (window.authManager && typeof window.authManager.isLoggedIn === 'function' && window.authManager.isLoggedIn()) {
+                const user = window.authManager.getCurrentUser();
+                console.log('✅ 从authManager获取用户信息:', user);
+                return user;
+            }
+
+            // 备选方案：从localStorage读取缓存（可能过期）
+            const userDataStr = localStorage.getItem('currentUser') || localStorage.getItem('userData');
             if (userDataStr) {
                 try {
                     const userData = JSON.parse(userDataStr);
@@ -146,13 +158,6 @@ export class HistoryAPI {
                 } catch (e) {
                     console.warn('⚠️ 解析localStorage用户数据失败');
                 }
-            }
-
-            // 备选方案2：使用全局 authManager（如果可用）
-            if (window.authManager && typeof window.authManager.isLoggedIn === 'function' && window.authManager.isLoggedIn()) {
-                const user = window.authManager.getCurrentUser();
-                console.log('✅ 从authManager获取用户信息:', user);
-                return user;
             }
 
             console.log('⚠️ 无用户信息，返回null');

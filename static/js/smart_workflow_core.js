@@ -304,7 +304,12 @@ function detectUserChange() {
 function handleUserSwitch() {
     console.log('🔄 开始处理用户切换...');
 
-    // 1. 清理当前页面状态
+    // 🔑 关键修复：先获取新用户信息，再决定是否清理
+    const newUserStr = localStorage.getItem('currentUser');
+    const newUser = newUserStr ? JSON.parse(newUserStr) : {};
+    const hasNewUser = !!(newUser.id || newUser.user_id);
+
+    // 1. 清理当前页面状态（UI）
     if (typeof clearAllMessages === 'function') {
         clearAllMessages();
     }
@@ -312,11 +317,17 @@ function handleUserSwitch() {
         resetDoctorSelection();
     }
 
-    // 2. 清理旧用户的会话数据
-    clearCurrentUserData();
+    // 2. 只有在切换到不同用户或登出时才清理旧数据
+    // 🔑 修复：如果有新用户登录，不要清除用户认证信息
+    if (!hasNewUser) {
+        // 用户登出了，清理所有数据
+        clearCurrentUserData();
+    } else {
+        // 用户切换，只清理历史数据缓存，保留认证信息
+        console.log('🔄 用户切换，保留新用户认证信息');
+    }
 
     // 3. 重新初始化当前用户
-    const newUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
     if (newUser.id || newUser.user_id) {
         window.currentUser = newUser;
         currentUser = newUser;

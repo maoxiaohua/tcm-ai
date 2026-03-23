@@ -799,18 +799,18 @@
 
             // 如果有真实处方ID，存储映射关系和状态
             if (prescriptionId && responseData.data?.contains_prescription) {
-                window.lastRealPrescriptionId = prescription_id;
+                window.lastRealPrescriptionId = prescriptionId;
                 window.lastPrescriptionData = responseData.data.prescription_data || {};
-                window.lastPrescriptionData.prescription_id = prescription_id;
+                window.lastPrescriptionData.prescription_id = prescriptionId;
 
-                console.log(`[Chat] 获取到真实处方ID: ${prescription_id}`);
+                console.log(`[Chat] 获取到真实处方ID: ${prescriptionId}`);
                 console.log(`[Chat] 处方数据:`, window.lastPrescriptionData);
             }
 
             console.log('[Chat] 前端处方状态分析:', {
                 containsActualPrescription: containsActualPrescription,
                 isTemporaryAdvice: isTemporaryAdvice,
-                prescription_id: prescription_id,
+                prescriptionId: prescriptionId,
                 isPaid: isPaid,
                 backendContainsPrescription: responseData.data?.contains_prescription
             });

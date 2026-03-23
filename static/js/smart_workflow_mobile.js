@@ -1103,6 +1103,305 @@
         });
     }
 
+    // ========== 移动端页面切换 ==========
+
+    /**
+     * 显示移动端聊天页面
+     */
+    function showMobileChatPage() {
+        const doctorPage = document.querySelector('.mobile-doctor-page');
+        const chatPage = document.querySelector('.mobile-chat-page');
+
+        if (doctorPage) doctorPage.style.display = 'none';
+        if (chatPage) chatPage.style.display = 'flex';
+
+        console.log('📱 切换到移动端聊天页面');
+
+        // 确保输入框可见
+        setTimeout(() => ensureMobileInputVisible(), 300);
+    }
+
+    /**
+     * 显示移动端医生选择页面
+     */
+    function showMobileDoctorPage() {
+        const doctorPage = document.querySelector('.mobile-doctor-page');
+        const chatPage = document.querySelector('.mobile-chat-page');
+
+        if (chatPage) chatPage.style.display = 'none';
+        if (doctorPage) doctorPage.style.display = 'block';
+
+        console.log('📱 切换到移动端医生选择页面');
+    }
+
+    /**
+     * 移动端医生选择
+     * @param {string} doctorKey - 医生标识符
+     * @param {Object} doctor - 医生信息对象（可选）
+     */
+    function selectMobileDoctor(doctorKey, doctor) {
+        console.log('📱 移动端选择医生:', doctorKey);
+
+        // 获取医生信息
+        const doctors = window.doctors || {};
+        const doctorInfo = doctor || doctors[doctorKey];
+
+        if (!doctorInfo) {
+            console.error('❌ 未找到医生信息:', doctorKey);
+            return;
+        }
+
+        // 保存当前医生的对话历史（如果有）
+        if (window.selectedDoctor && window.selectedDoctor !== doctorKey) {
+            if (typeof window.saveCurrentDoctorHistory === 'function') {
+                window.saveCurrentDoctorHistory();
+            }
+        }
+
+        // 设置当前医生
+        window.selectedDoctor = doctorKey;
+
+        // 更新移动端医生信息显示
+        const avatarEl = document.getElementById('mobileDoctorAvatar');
+        const nameEl = document.getElementById('mobileDoctorName');
+        const descEl = document.getElementById('mobileDoctorDesc');
+
+        if (avatarEl) avatarEl.textContent = doctorInfo.avatar || '👨‍⚕️';
+        if (nameEl) nameEl.textContent = doctorInfo.name || '医师';
+        if (descEl) descEl.textContent = doctorInfo.school || doctorInfo.specialty || '';
+
+        // 生成新的对话ID
+        if (typeof window.generateConversationId === 'function') {
+            window.generateConversationId();
+        } else {
+            window.currentConversationId = `mobile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+
+        // 加载该医生的历史对话
+        if (typeof window.loadDoctorHistory === 'function') {
+            window.loadDoctorHistory(doctorKey);
+        } else {
+            // 清空消息容器并添加欢迎消息
+            const container = document.getElementById('mobileMessagesContainer');
+            if (container) {
+                container.innerHTML = '';
+            }
+            addMobileMessage('ai', `您好！我是${doctorInfo.name}，${doctorInfo.school || ''}传人。请详细描述您的症状，我将为您进行专业的中医分析。`);
+        }
+
+        // 切换到聊天页面
+        showMobileChatPage();
+
+        // 确保输入框可见
+        setTimeout(() => ensureMobileInputVisible(), 500);
+    }
+
+    // ========== 问诊指导功能 ==========
+
+    /**
+     * 显示问诊指导
+     */
+    function showGuidance() {
+        // 创建遮罩层
+        const overlay = document.createElement('div');
+        overlay.className = 'guidance-overlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;';
+        overlay.onclick = hideGuidance;
+        document.body.appendChild(overlay);
+
+        // 检查是否有现有的指导面板，没有则创建
+        let guidancePanel = document.getElementById('guidanceTips');
+        if (!guidancePanel) {
+            guidancePanel = createGuidancePanel();
+            document.body.appendChild(guidancePanel);
+        }
+
+        guidancePanel.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+
+    /**
+     * 隐藏问诊指导
+     */
+    function hideGuidance() {
+        const guidancePanel = document.getElementById('guidanceTips');
+        if (guidancePanel) {
+            guidancePanel.style.display = 'none';
+        }
+        const overlay = document.querySelector('.guidance-overlay');
+        if (overlay) {
+            overlay.remove();
+        }
+        document.body.style.overflow = 'auto';
+    }
+
+    /**
+     * 创建问诊指导面板
+     */
+    function createGuidancePanel() {
+        const panel = document.createElement('div');
+        panel.id = 'guidanceTips';
+        panel.className = 'guidance-tips';
+        panel.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            max-width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        `;
+
+        panel.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                <h4 style="margin:0;color:#1e40af;">💡 问诊指导</h4>
+                <button onclick="hideGuidance()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;">×</button>
+            </div>
+            <div style="font-size:14px;line-height:1.8;">
+                <div style="margin-bottom:15px;">
+                    <h5 style="color:#059669;margin-bottom:8px;">🔍 主要症状描述</h5>
+                    <ul style="margin:0;padding-left:20px;color:#374151;">
+                        <li>主要不适感觉（疼痛、发热、咳嗽等）</li>
+                        <li>症状持续时间（几天、几周、几个月）</li>
+                        <li>症状程度（轻微、中等、严重）</li>
+                        <li>发作规律（持续性、间歇性、特定时间）</li>
+                    </ul>
+                </div>
+                <div style="margin-bottom:15px;">
+                    <h5 style="color:#059669;margin-bottom:8px;">🩺 伴随症状</h5>
+                    <ul style="margin:0;padding-left:20px;color:#374151;">
+                        <li>睡眠情况（入睡困难、易醒、多梦）</li>
+                        <li>食欲状况（食欲不振、消化不良）</li>
+                        <li>大小便情况（便秘、腹泻、尿频等）</li>
+                        <li>情绪状态（焦虑、抑郁、易怒）</li>
+                    </ul>
+                </div>
+                <div style="margin-bottom:15px;">
+                    <h5 style="color:#059669;margin-bottom:8px;">📋 既往病史</h5>
+                    <ul style="margin:0;padding-left:20px;color:#374151;">
+                        <li>是否有慢性病（高血压、糖尿病等）</li>
+                        <li>过敏史（药物、食物过敏）</li>
+                        <li>手术史</li>
+                        <li>家族病史</li>
+                    </ul>
+                </div>
+                <div style="background:#f0fdf4;padding:12px;border-radius:8px;margin-top:10px;">
+                    <p style="margin:0;color:#166534;font-size:13px;">
+                        💡 <strong>提示：</strong>描述越详细，AI分析越准确。可以上传舌苔和面部照片辅助诊断。
+                    </p>
+                </div>
+            </div>
+        `;
+
+        return panel;
+    }
+
+    // ========== 图片上传功能 ==========
+
+    /**
+     * 显示移动端图片选择弹窗
+     */
+    function showMobileImageOptions() {
+        console.log('📷 显示移动端图片选择弹窗');
+
+        // 创建遮罩层
+        const overlay = document.createElement('div');
+        overlay.className = 'mobile-image-overlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;';
+        overlay.onclick = () => overlay.remove();
+
+        // 创建选择面板
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 16px 16px 0 0;
+            padding: 20px;
+            z-index: 1000;
+            animation: slideUp 0.3s ease;
+        `;
+
+        panel.innerHTML = `
+            <style>
+                @keyframes slideUp {
+                    from { transform: translateY(100%); }
+                    to { transform: translateY(0); }
+                }
+            </style>
+            <div style="text-align:center;margin-bottom:20px;">
+                <h3 style="margin:0 0 8px 0;color:#1e40af;">📷 选择图片类型</h3>
+                <p style="margin:0;color:#6b7280;font-size:14px;">上传舌象或面象照片辅助诊断</p>
+            </div>
+            <div style="display:flex;gap:15px;margin-bottom:15px;">
+                <button onclick="selectMobileImage('tongue')" style="
+                    flex:1;
+                    padding:20px;
+                    background:linear-gradient(135deg,#ec4899,#db2777);
+                    color:white;
+                    border:none;
+                    border-radius:12px;
+                    font-size:16px;
+                    cursor:pointer;
+                ">
+                    👅<br><span style="font-size:14px;margin-top:8px;display:block;">舌诊照片</span>
+                </button>
+                <button onclick="selectMobileImage('face')" style="
+                    flex:1;
+                    padding:20px;
+                    background:linear-gradient(135deg,#3b82f6,#2563eb);
+                    color:white;
+                    border:none;
+                    border-radius:12px;
+                    font-size:16px;
+                    cursor:pointer;
+                ">
+                    😊<br><span style="font-size:14px;margin-top:8px;display:block;">面诊照片</span>
+                </button>
+            </div>
+            <button onclick="this.parentElement.previousElementSibling.remove();this.parentElement.remove();" style="
+                width:100%;
+                padding:15px;
+                background:#f3f4f6;
+                color:#374151;
+                border:none;
+                border-radius:12px;
+                font-size:16px;
+                cursor:pointer;
+            ">取消</button>
+        `;
+
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+    }
+
+    /**
+     * 选择移动端图片类型
+     */
+    function selectMobileImage(type) {
+        console.log('📷 选择图片类型:', type);
+
+        // 移除弹窗
+        const overlay = document.querySelector('.mobile-image-overlay');
+        if (overlay) overlay.remove();
+
+        // 触发对应的文件选择
+        if (type === 'tongue') {
+            const input = document.getElementById('mobileTongueUpload');
+            if (input) input.click();
+        } else if (type === 'face') {
+            const input = document.getElementById('mobileFaceUpload');
+            if (input) input.click();
+        }
+    }
+
     // ========== 模块初始化 ==========
 
     /**
@@ -1138,6 +1437,17 @@
     window.showMobileNavigation = showMobileNavigation;
     window.startNewChat = startNewChat;
     window.exportConversation = exportConversation;
+
+    // 移动端页面切换与医生选择
+    window.showMobileChatPage = showMobileChatPage;
+    window.showMobileDoctorPage = showMobileDoctorPage;
+    window.selectMobileDoctor = selectMobileDoctor;
+
+    // 问诊指导与图片上传
+    window.showGuidance = showGuidance;
+    window.hideGuidance = hideGuidance;
+    window.showMobileImageOptions = showMobileImageOptions;
+    window.selectMobileImage = selectMobileImage;
 
     // 移动端消息系统
     window.addMobileMessage = addMobileMessage;

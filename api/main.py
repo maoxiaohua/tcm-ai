@@ -4527,7 +4527,7 @@ async def get_user_devices_api(request: Request):
 async def phone_binding_page():
     """手机号绑定页面"""
     try:
-        with open("static/phone_binding.html", "r", encoding="utf-8") as f:
+        with open("/opt/tcm-ai/static/phone_binding.html", "r", encoding="utf-8") as f:
             html_content = f.read()
         return HTMLResponse(html_content)
     except Exception as e:

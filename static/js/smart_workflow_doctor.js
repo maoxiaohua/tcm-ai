@@ -333,7 +333,7 @@
             clearMessageContainers(messagesContainer, mobileMessagesContainer);
 
             // 更新全局变量
-            window.currentConversationId = result.conversationId;
+            window.currentConversationId = result.conversation_id;
 
             // 🔑 v4.3 修复：如果API返回0条消息，尝试从本地加载
             let messages = result.messages || [];

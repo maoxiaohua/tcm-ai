@@ -251,29 +251,29 @@ ${finalPrescription}
      */
     async checkPrescriptionStatus(prescriptionId) {
         try {
-            console.log(`🔍 查看处方 ${prescription_id} 的审核状态...`);
-            
+            console.log(`🔍 查看处方 ${prescriptionId} 的审核状态...`);
+
             const userId = this.getCurrentUserId();
             if (!userId) {
                 throw new Error('无法获取用户ID');
             }
-            
+
             const prescriptions = await this.fetchPrescriptions(userId);
             const prescription = prescriptions.find(p => p.id == prescriptionId);
-            
+
             if (!prescription) {
                 throw new Error('处方不存在');
             }
-            
+
             const statusMap = {
                 'pending_review': '等待医生审核',
                 'doctor_approved': '医生审核通过',
                 'doctor_modified': '医生已调整',
                 'completed': '已完成'
             };
-            
+
             const statusText = statusMap[prescription.status] || prescription.status;
-            alert(`处方审核状态：${statusText}\n\n处方ID: ${prescription_id}\n支付状态: ${prescription.payment_status}\n创建时间: ${new Date(prescription.created_at).toLocaleString()}`);
+            alert(`处方审核状态：${statusText}\n\n处方ID: ${prescriptionId}\n支付状态: ${prescription.payment_status}\n创建时间: ${new Date(prescription.created_at).toLocaleString()}`);
             
             // 如果状态已更新，刷新页面显示
             if (prescription.status === 'doctor_approved' || prescription.status === 'doctor_modified') {
@@ -370,19 +370,19 @@ ${finalPrescription}
             
             for (const prescription of latestSinglePrescription) {
                 const prescriptionId = prescription.id;
-                
+
                 // 检查是否已存在
-                const existingMsg = messagesContainer.querySelector(`[data-prescription-id="${prescription_id}"]`);
+                const existingMsg = messagesContainer.querySelector(`[data-prescription-id="${prescriptionId}"]`);
                 if (existingMsg) {
-                    console.log(`ℹ️ 处方 ${prescription_id} 已存在，跳过创建`);
+                    console.log(`ℹ️ 处方 ${prescriptionId} 已存在，跳过创建`);
                     continue;
                 }
-                
+
                 // 创建新消息
                 const messageHtml = this.createPrescriptionMessage(prescription);
                 if (messageHtml) {
                     messagesContainer.insertAdjacentHTML('beforeend', messageHtml);
-                    console.log(`✅ 恢复了处方 ${prescription_id} (${prescription.status})`);
+                    console.log(`✅ 恢复了处方 ${prescriptionId} (${prescription.status})`);
                     restoredCount++;
                 }
             }

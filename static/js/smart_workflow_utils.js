@@ -987,6 +987,203 @@ ${data.analysis_result}`;
         }
     }
 
-    console.log('Smart Workflow Utils loaded successfully (including mobile image upload)');
+    // ===================== PC端图片上传 =====================
+
+    /**
+     * 触发PC端舌诊图片上传
+     */
+    window.triggerTongueUpload = function() {
+        const input = document.getElementById('tongueImageUpload');
+        if (input) {
+            input.click();
+        } else {
+            console.warn('tongueImageUpload input not found');
+        }
+    };
+
+    /**
+     * 处理PC端舌诊图片上传
+     */
+    window.handleTongueImageUpload = function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            window.tongueImage = file;
+            const uploadArea = document.getElementById('tongueUploadArea');
+            if (uploadArea) {
+                uploadArea.classList.add('has-file');
+                uploadArea.innerHTML = `
+                    <div class="upload-icon">✅</div>
+                    <div class="upload-text">舌诊照片已选择</div>
+                `;
+            }
+            updateUploadStatus();
+            uploadImages();
+        }
+    };
+
+    /**
+     * 触发PC端面诊图片上传
+     */
+    window.triggerFaceUpload = function() {
+        const input = document.getElementById('faceImageUpload');
+        if (input) {
+            input.click();
+        } else {
+            console.warn('faceImageUpload input not found');
+        }
+    };
+
+    /**
+     * 处理PC端面诊图片上传
+     */
+    window.handleFaceImageUpload = function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            window.faceImage = file;
+            const uploadArea = document.getElementById('faceUploadArea');
+            if (uploadArea) {
+                uploadArea.classList.add('has-file');
+                uploadArea.innerHTML = `
+                    <div class="upload-icon">✅</div>
+                    <div class="upload-text">面诊照片已选择</div>
+                `;
+            }
+            updateUploadStatus();
+            uploadImages();
+        }
+    };
+
+    /**
+     * 更新上传状态显示（PC端）
+     */
+    function updateUploadStatus() {
+        const statusDiv = document.getElementById('uploadStatus');
+        const tongueStatus = document.getElementById('tongueStatus');
+        const faceStatus = document.getElementById('faceStatus');
+
+        if (tongueStatus) {
+            const span = tongueStatus.querySelector('span');
+            if (span) span.textContent = window.tongueImage ? '已上传' : '未上传';
+        }
+
+        if (faceStatus) {
+            const span = faceStatus.querySelector('span');
+            if (span) span.textContent = window.faceImage ? '已上传' : '未上传';
+        }
+
+        if (statusDiv && (window.tongueImage || window.faceImage)) {
+            statusDiv.style.display = 'block';
+        }
+    }
+
+    // ===================== 语音输入功能 =====================
+
+    // 语音录制状态
+    let isVoiceRecording = false;
+    let mediaRecorder = null;
+    let audioChunks = [];
+
+    /**
+     * 切换语音录制状态
+     */
+    window.toggleVoiceRecording = function() {
+        if (isVoiceRecording) {
+            stopVoiceRecording();
+        } else {
+            startVoiceRecordingInternal();
+        }
+    };
+
+    /**
+     * 开始语音录制
+     */
+    async function startVoiceRecordingInternal() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                await processVoiceInputInternal(audioBlob);
+                // 停止所有音轨
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            isVoiceRecording = true;
+
+            const voiceBtn = document.getElementById('voiceBtn');
+            if (voiceBtn) {
+                voiceBtn.textContent = '🔴 停止录音';
+                voiceBtn.classList.add('recording');
+            }
+
+            console.log('🎤 开始语音录制');
+
+        } catch (error) {
+            console.error('语音录制失败:', error);
+            alert('无法访问麦克风，请检查权限设置');
+        }
+    }
+
+    /**
+     * 停止语音录制
+     */
+    function stopVoiceRecording() {
+        if (mediaRecorder && isVoiceRecording) {
+            mediaRecorder.stop();
+            isVoiceRecording = false;
+
+            const voiceBtn = document.getElementById('voiceBtn');
+            if (voiceBtn) {
+                voiceBtn.textContent = '🎤 开始语音输入';
+                voiceBtn.classList.remove('recording');
+            }
+
+            console.log('🛑 停止语音录制');
+        }
+    }
+
+    /**
+     * 处理语音输入
+     */
+    async function processVoiceInputInternal(audioBlob) {
+        const formData = new FormData();
+        formData.append('audio_file', audioBlob, 'voice.webm');
+
+        try {
+            const response = await fetch('/api/speech_to_text', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error(`语音识别失败: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.text) {
+                const messageInput = document.getElementById('messageInput');
+                if (messageInput) {
+                    messageInput.value = data.text;
+                    messageInput.focus();
+                }
+                console.log('✅ 语音识别结果:', data.text);
+            } else {
+                alert('语音识别结果为空，请重试');
+            }
+
+        } catch (error) {
+            console.error('语音识别失败:', error);
+            alert('语音识别失败: ' + error.message);
+        }
+    }
+
+    console.log('Smart Workflow Utils loaded successfully (PC upload + mobile upload + voice)');
 
 })();

@@ -90,16 +90,16 @@ class SessionManager {
             // 4. 日志输出
             if (data.is_new) {
                 console.log(`✨ [SessionManager] 新对话: ${data.reason}`);
-                console.log(`   Consultation ID: ${this.conversation_id}`);
+                console.log(`   Consultation ID: ${this.conversationId}`);
             } else {
                 console.log(`📋 [SessionManager] 继续对话: ${data.reason}`);
-                console.log(`   Consultation ID: ${this.conversation_id}`);
+                console.log(`   Consultation ID: ${this.conversationId}`);
                 console.log(`   历史消息: ${this.messages.length}条`);
             }
 
             // 5. 返回数据供UI层使用
             return {
-                conversation_id: this.conversation_id,
+                conversation_id: this.conversationId,
                 messages: this.messages,
                 isNew: data.is_new,
                 reason: data.reason,

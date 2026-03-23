@@ -309,7 +309,7 @@
 
     /**
      * 自动恢复对话历史（支持登录用户和游客）
-     * 🔑 v4.3 修复：优先使用本地存储，确保切换医生时保留对话
+     * 🔑 v4.4 修复：增加从ConversationManager恢复的逻辑
      */
     async function autoRestoreConversationHistory() {
         const defaultDoctor = window.selectedDoctor || 'jin_daifu';
@@ -339,6 +339,20 @@
             }
         }
 
+        // 🔑 1.5 如果本地存储没有，尝试从ConversationManager加载
+        if (messages.length === 0 && window.conversationManager) {
+            try {
+                const latestConv = window.conversationManager.getLatestConversation(defaultDoctor);
+                if (latestConv && latestConv.messages && latestConv.messages.length > 0) {
+                    messages = latestConv.messages;
+                    conversationId = latestConv.conversationId;
+                    console.log(`✅ 从ConversationManager加载${defaultDoctor}医生的${messages.length}条历史记录`);
+                }
+            } catch (e) {
+                console.warn('从ConversationManager加载失败:', e);
+            }
+        }
+
         // 2. 如果本地没有，尝试从API加载（仅登录用户）
         const isLoggedIn = !!(window.userToken || localStorage.getItem('tcm_auth_token'));
         if (messages.length === 0 && isLoggedIn && window.sessionManager) {
@@ -346,7 +360,7 @@
                 const result = await window.sessionManager.switchDoctor(defaultDoctor);
                 console.log(`📡 API返回: conversationId=${result.conversation_id}, messages=${result.messages?.length || 0}`);
 
-                conversationId = result.conversationId;
+                conversationId = result.conversation_id;
                 if (result.messages && result.messages.length > 0) {
                     messages = result.messages;
                 }
@@ -816,7 +830,7 @@
                         };
                     }).filter(msg => msg.content.length > 0); // 过滤空消息
 
-                    console.log(`📋 从ConversationManager加载对话 ${conversation_id}: ${conversationHistory.length}条历史`);
+                    console.log(`📋 从ConversationManager加载对话 ${conversationId}: ${conversationHistory.length}条历史`);
 
                     // 返回最近20轮对话（后端会进一步限制为10轮）
                     return conversationHistory.slice(-20);

@@ -232,7 +232,7 @@ class PrescriptionRenderer {
         }
 
         // 🔒 正式模式：仅依赖API返回的支付状态
-        console.log(`📋 处方支付状态检查 - isPaid: ${isPaid}, prescription_id: ${prescription_id}`);
+        console.log(`📋 处方支付状态检查 - isPaid: ${isPaid}, prescriptionId: ${prescriptionId}`);
 
         // 🚨 检测到处方内容 - 根据支付状态决定显示方式
         console.log('🔒 检测到处方内容，支付状态:', isPaid, '处方ID:', prescriptionId);
@@ -1461,7 +1461,7 @@ function showTestPaymentOptions(prescriptionId) {
                 <p style="color: #666; margin-bottom: 20px;">请选择支付方式</p>
                 
                 <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <button onclick="useRealPayment('${prescription_id}'); this.closest('div').remove();" 
+                    <button onclick="useRealPayment('${prescriptionId}'); this.closest('div').remove();" 
                             style="background: #3b82f6; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px;">
                         💳 确认处方并支付
                     </button>
@@ -1519,13 +1519,13 @@ window.useRealPayment = useRealPayment;
  */
 function handlePaymentSuccess(prescriptionId) {
     console.log('✅ 支付成功，处方ID:', prescriptionId);
-    
+
     // 更新本地存储的支付状态
     const userId = getCurrentUserId();
-    const paymentKey = `prescription_paid_${prescription_id}`;
-    
+    const paymentKey = `prescription_paid_${prescriptionId}`;
+
     console.log('💾 保存支付状态:', {
-        prescription_id,
+        prescriptionId,
         userId,
         paymentKey
     });
