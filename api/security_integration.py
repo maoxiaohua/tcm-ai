@@ -38,6 +38,10 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             elif request.url.path in ["/patient", "/patient/", "/patient-portal"]:
                 # 重定向患者相关页面到智能工作流
                 return RedirectResponse(url="/smart", status_code=302)
+            elif request.url.path in ["/prescription/checker", "/prescription/learning", "/prescription/debug"]:
+                # 处方检查相关页面 - 公开访问，无需认证
+                response = await call_next(request)
+                return response
             elif request.url.path in ["/admin", "/admin/"]:
                 # 检查管理员认证状态 - 使用统一认证系统
                 # 从多个来源获取session_token

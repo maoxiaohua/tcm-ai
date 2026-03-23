@@ -1,6 +1,6 @@
 # 参数一致性修复建议
 
-**生成时间**: 2025-12-09 09:20:19
+**生成时间**: 2026-03-23 20:44:31
 
 ---
 
@@ -57,11 +57,11 @@
 标准名称: message
 描述: 消息内容
 当前使用情况:
-  - content: 864 次使用 ✗ 别名
+  - content: 866 次使用 ✗ 别名
     文件: doctor_management.html, doctor_management.html, doctor_portal.html
   - message: 415 次使用 ✓ 标准
     文件: doctor_management.html, doctor_portal.html, phone_binding.html
-  - body: 346 次使用 ✗ 别名
+  - body: 351 次使用 ✗ 别名
     文件: phone_binding.html, phone_binding.html, prescription_checker_v2.html
   - text: 162 次使用 ✗ 别名
     文件: prescription_checker_v2.html, prescription_checker_v2.html, prescription_checker_v2.html

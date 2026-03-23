@@ -879,6 +879,13 @@
             // 操作按钮
             elements.newCheckBtn.addEventListener('click', resetInterface);
             elements.exportBtn.addEventListener('click', exportReport);
+
+            // 添加触摸事件支持移动端
+            elements.exportBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                console.log('📄 [Export] 导出按钮touchend触发');
+                exportReport();
+            });
         }
 
         // 模式切换
@@ -2444,56 +2451,139 @@
         // 移动端PDF导出备用方案
         function exportReportMobile() {
             try {
+                console.log('🔍 [Mobile Export] 开始导出流程...');
+                console.log('🔍 [Mobile Export] currentResult:', currentResult);
+
+                // 数据验证
+                if (!currentResult) {
+                    console.error('❌ [Mobile Export] currentResult 为空');
+                    alert('没有可导出的报告数据，请先进行处方检查');
+                    return;
+                }
+
                 // 显示加载状态
                 const originalText = elements.exportBtn.textContent;
+                console.log('🔍 [Mobile Export] 原始按钮文本:', originalText);
                 elements.exportBtn.textContent = '🔄 生成报告中...';
                 elements.exportBtn.disabled = true;
 
                 // 生成简化的HTML报告
+                console.log('🔍 [Mobile Export] 开始生成HTML报告...');
                 const reportContent = generateSimpleHTMLReport(currentResult);
-                
+                console.log('🔍 [Mobile Export] HTML报告生成成功，长度:', reportContent.length);
+
                 // 创建新窗口显示报告
+                console.log('🔍 [Mobile Export] 尝试打开新窗口...');
                 const reportWindow = window.open('', '_blank');
-                
+                console.log('🔍 [Mobile Export] window.open结果:', reportWindow);
+
                 if (!reportWindow) {
                     // 如果弹窗被阻止，使用blob下载
+                    console.warn('⚠️ [Mobile Export] 弹窗被阻止，使用备用下载方案');
+                    alert('浏览器阻止了弹窗，将自动下载HTML报告文件\n\n下载后请用浏览器打开HTML文件查看和打印');
                     downloadHTMLReport(reportContent);
                 } else {
-                    // 在新窗口中显示报告
-                    reportWindow.document.write(reportContent);
-                    reportWindow.document.close();
-                    
-                    // 设置标题
-                    reportWindow.document.title = '中医处方检查报告';
-                    
-                    // 添加打印按钮
-                    const printBtn = reportWindow.document.createElement('button');
-                    printBtn.innerHTML = '🖨️ 打印报告';
-                    printBtn.style.cssText = `
-                        position: fixed;
-                        top: 10px;
-                        right: 10px;
-                        z-index: 1000;
-                        padding: 10px 20px;
-                        background: #4f46e5;
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        font-size: 16px;
-                        cursor: pointer;
-                    `;
-                    printBtn.onclick = () => reportWindow.print();
-                    reportWindow.document.body.appendChild(printBtn);
+                    try {
+                        console.log('✅ [Mobile Export] 新窗口打开成功，写入内容...');
+
+                        // 在新窗口中显示报告
+                        reportWindow.document.write(reportContent);
+                        reportWindow.document.close();
+
+                        // 设置标题
+                        reportWindow.document.title = '中医处方检查报告';
+                        console.log('✅ [Mobile Export] 窗口标题设置完成');
+
+                        // 延迟添加打印按钮，确保DOM准备好
+                        setTimeout(() => {
+                            try {
+                                console.log('🔍 [Mobile Export] 添加打印按钮...');
+
+                                // 创建打印按钮
+                                const printBtn = reportWindow.document.createElement('button');
+                                printBtn.innerHTML = '🖨️ 打印报告';
+                                printBtn.style.cssText = `
+                                    position: fixed;
+                                    top: 10px;
+                                    right: 10px;
+                                    z-index: 1000;
+                                    padding: 10px 20px;
+                                    background: #4f46e5;
+                                    color: white;
+                                    border: none;
+                                    border-radius: 8px;
+                                    font-size: 16px;
+                                    cursor: pointer;
+                                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                                `;
+
+                                // 使用addEventListener添加click事件（更可靠）
+                                printBtn.addEventListener('click', function() {
+                                    console.log('🖨️ [Mobile Export] 打印按钮被点击');
+                                    try {
+                                        reportWindow.print();
+                                    } catch (printError) {
+                                        console.error('❌ [Mobile Export] 打印失败:', printError);
+                                        alert('打印功能调用失败，请尝试使用浏览器菜单打印');
+                                    }
+                                });
+
+                                // 添加touchend事件支持移动端
+                                printBtn.addEventListener('touchend', function(e) {
+                                    e.preventDefault();
+                                    console.log('🖨️ [Mobile Export] 打印按钮touchend触发');
+                                    try {
+                                        reportWindow.print();
+                                    } catch (printError) {
+                                        console.error('❌ [Mobile Export] 打印失败:', printError);
+                                        alert('打印功能调用失败');
+                                    }
+                                });
+
+                                // 备用的onclick处理器
+                                printBtn.onclick = function() {
+                                    console.log('🖨️ [Mobile Export] 打印按钮onclick触发');
+                                    try {
+                                        reportWindow.print();
+                                    } catch (printError) {
+                                        console.error('❌ [Mobile Export] 打印失败:', printError);
+                                        alert('打印功能调用失败');
+                                    }
+                                };
+
+                                reportWindow.document.body.appendChild(printBtn);
+                                console.log('✅ [Mobile Export] 打印按钮添加成功');
+
+                            } catch (btnError) {
+                                console.error('❌ [Mobile Export] 添加打印按钮失败:', btnError);
+                                // 不影响报告显示，只是没有打印按钮
+                            }
+                        }, 100); // 100ms延迟确保DOM准备好
+
+                        console.log('✅ [Mobile Export] 报告窗口创建成功');
+
+                    } catch (windowError) {
+                        console.error('❌ [Mobile Export] 窗口操作失败:', windowError);
+                        // 失败时使用下载备用方案
+                        alert('报告窗口创建失败，将下载HTML文件');
+                        downloadHTMLReport(reportContent);
+                    }
                 }
 
                 // 恢复按钮状态
-                elements.exportBtn.textContent = originalText;
+                elements.exportBtn.textContent = '✅ 报告已生成';
                 elements.exportBtn.disabled = false;
 
+                // 2秒后恢复原始文本
+                setTimeout(() => {
+                    elements.exportBtn.textContent = originalText;
+                }, 2000);
+
             } catch (error) {
-                console.error('移动端报告生成失败:', error);
-                alert('报告生成失败，请稍后重试');
-                
+                console.error('❌ [Mobile Export] 失败:', error);
+                console.error('❌ [Mobile Export] 错误堆栈:', error.stack);
+                alert(`报告生成失败: ${error.message}`);
+
                 // 恢复按钮状态
                 elements.exportBtn.textContent = '📄 导出PDF报告';
                 elements.exportBtn.disabled = false;
@@ -2573,8 +2663,27 @@
                             border-left-color: #38a169;
                         }
                         @media print {
-                            body { background: white; }
-                            button { display: none !important; }
+                            body {
+                                background: white;
+                                padding: 0;
+                                margin: 0;
+                            }
+                            button {
+                                display: none !important;
+                            }
+                            .report-container {
+                                box-shadow: none;
+                                border-radius: 0;
+                                max-width: 100%;
+                                page-break-inside: avoid;
+                            }
+                            .section {
+                                page-break-inside: avoid;
+                            }
+                            @page {
+                                margin: 1.5cm;
+                                size: A4;
+                            }
                         }
                     </style>
                 </head>
@@ -2644,15 +2753,37 @@
 
         // 下载HTML报告（当弹窗被阻止时的备用方案）
         function downloadHTMLReport(htmlContent) {
-            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `中医处方检查报告_${new Date().toLocaleDateString().replace(/\//g, '-')}.html`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            try {
+                console.log('💾 [Download] 开始下载HTML报告...');
+                console.log('💾 [Download] 内容长度:', htmlContent.length);
+
+                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+
+                const timestamp = new Date().toISOString().slice(0,19).replace(/:/g, '-');
+                const filename = `中医处方检查报告_${timestamp}.html`;
+                a.download = filename;
+
+                console.log('💾 [Download] 文件名:', filename);
+
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                console.log('✅ [Download] HTML报告下载成功');
+
+                // 用户指引
+                setTimeout(() => {
+                    alert('报告已下载到您的设备\n\n请在下载文件夹找到HTML文件并用浏览器打开查看和打印');
+                }, 500);
+
+            } catch (error) {
+                console.error('❌ [Download] 下载失败:', error);
+                alert('下载失败: ' + error.message);
+            }
         }
 
     </script>
