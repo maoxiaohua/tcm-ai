@@ -2014,8 +2014,108 @@
                 console.log('📄 [Export] ⑤ 开始下载...');
                 elements.exportBtn.textContent = '🔄 正在下载...';
                 const fileName = `中医处方检查报告_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
-                pdf.save(fileName);
-                console.log('✅ [Export] PDF导出成功！文件名:', fileName);
+
+                // 微信浏览器特殊处理
+                if (isWechat()) {
+                    console.log('📄 [Export] 检测到微信浏览器，使用特殊下载方式');
+                    try {
+                        // 方案1：尝试在新窗口中打开PDF
+                        const pdfDataUri = pdf.output('dataurlstring');
+                        const pdfWindow = window.open();
+
+                        if (pdfWindow) {
+                            console.log('📄 [Export] 在新窗口中打开PDF');
+                            pdfWindow.document.write(`
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                    <meta charset="UTF-8">
+                                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                                    <title>处方检查报告</title>
+                                    <style>
+                                        body {
+                                            margin: 0;
+                                            padding: 20px;
+                                            background: #f5f5f5;
+                                            font-family: sans-serif;
+                                        }
+                                        .tip {
+                                            background: #fff;
+                                            padding: 20px;
+                                            border-radius: 10px;
+                                            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                                            margin-bottom: 20px;
+                                            text-align: center;
+                                        }
+                                        .tip h3 {
+                                            color: #4f46e5;
+                                            margin-bottom: 10px;
+                                        }
+                                        .tip p {
+                                            color: #666;
+                                            line-height: 1.6;
+                                            margin: 5px 0;
+                                        }
+                                        .btn {
+                                            display: inline-block;
+                                            background: #4f46e5;
+                                            color: white;
+                                            padding: 12px 24px;
+                                            border-radius: 8px;
+                                            text-decoration: none;
+                                            margin: 10px 5px;
+                                        }
+                                        iframe {
+                                            width: 100%;
+                                            height: 80vh;
+                                            border: none;
+                                            border-radius: 10px;
+                                            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                                        }
+                                    </style>
+                                </head>
+                                <body>
+                                    <div class="tip">
+                                        <h3>📱 微信浏览器使用提示</h3>
+                                        <p>由于微信浏览器限制，PDF无法直接下载</p>
+                                        <p><strong>请点击右上角 [...] → 在浏览器中打开</strong></p>
+                                        <p>然后即可正常下载PDF文件</p>
+                                        <a href="${pdfDataUri}" download="${fileName}" class="btn">📥 尝试下载</a>
+                                    </div>
+                                    <iframe src="${pdfDataUri}"></iframe>
+                                </body>
+                                </html>
+                            `);
+                            pdfWindow.document.close();
+                            console.log('✅ [Export] PDF已在新窗口中打开');
+                        } else {
+                            // 窗口被阻止，尝试直接下载
+                            console.warn('⚠️ [Export] 新窗口被阻止，尝试直接下载');
+                            const link = document.createElement('a');
+                            link.href = pdfDataUri;
+                            link.download = fileName;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+
+                            alert(
+                                '由于微信浏览器限制，PDF可能无法直接下载\n\n' +
+                                '建议操作：\n' +
+                                '1. 点击右上角 [...]\n' +
+                                '2. 选择"在浏览器中打开"\n' +
+                                '3. 用浏览器即可正常下载PDF'
+                            );
+                        }
+                    } catch (wechatError) {
+                        console.error('❌ [Export] 微信特殊处理失败:', wechatError);
+                        // 降级到标准下载
+                        pdf.save(fileName);
+                    }
+                } else {
+                    // 标准浏览器：直接下载
+                    pdf.save(fileName);
+                    console.log('✅ [Export] PDF导出成功！文件名:', fileName);
+                }
 
                 // 恢复按钮状态
                 elements.exportBtn.textContent = '✅ 导出成功';
