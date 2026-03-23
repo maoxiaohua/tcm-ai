@@ -1758,24 +1758,33 @@
 
         // 导出PDF报告
         async function exportReport() {
-            if (!currentResult) return;
+            console.log('📄 [Export] 开始导出PDF...');
+            console.log('📄 [Export] 设备类型:', isMobileDevice() ? '移动端' : 'PC端');
+            console.log('📄 [Export] currentResult:', currentResult);
 
-            // 移动端使用备用方案
-            if (isMobileDevice()) {
-                exportReportMobile();
+            if (!currentResult) {
+                console.error('❌ [Export] currentResult 为空');
+                alert('没有可导出的报告数据，请先进行处方检查');
                 return;
             }
 
             try {
+                // 统一使用PDF生成逻辑（移动端和PC端相同）
+                console.log('📄 [Export] 使用统一PDF生成逻辑');
+
                 // 显示加载状态
                 const originalText = elements.exportBtn.textContent;
-                elements.exportBtn.textContent = '🔄 生成PDF中...';
+                elements.exportBtn.textContent = '🔄 生成内容中...';
                 elements.exportBtn.disabled = true;
 
                 // 创建PDF报告内容
+                console.log('📄 [Export] ① 生成HTML内容...');
                 const reportHtml = await generatePDFReportContent(currentResult);
-                
+                console.log('📄 [Export] HTML内容生成成功，长度:', reportHtml.length);
+
                 // 创建临时容器用于PDF生成
+                console.log('📄 [Export] ② 准备Canvas容器...');
+                elements.exportBtn.textContent = '🔄 准备渲染...';
                 const tempContainer = document.createElement('div');
                 tempContainer.innerHTML = reportHtml;
                 tempContainer.style.position = 'absolute';
@@ -1787,47 +1796,60 @@
                 document.body.appendChild(tempContainer);
 
                 // 生成PDF
+                console.log('📄 [Export] ③ 转换为Canvas...');
+                elements.exportBtn.textContent = '🔄 渲染图片中...';
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('p', 'mm', 'a4');
-                
-                // 使用html2canvas转换为图片然后插入PDF
+
+                // 根据设备类型调整参数优化性能
+                const isMobile = isMobileDevice();
+                console.log('📄 [Export] 设备优化参数 - scale:', isMobile ? 1.5 : 2);
                 const canvas = await html2canvas(tempContainer, {
-                    scale: 2,
+                    scale: isMobile ? 1.5 : 2,  // 移动端降低缩放比，减少内存占用
                     useCORS: true,
-                    backgroundColor: '#ffffff'
+                    backgroundColor: '#ffffff',
+                    logging: false,  // 关闭html2canvas的调试日志
+                    allowTaint: false,  // 防止跨域污染
+                    imageTimeout: 15000,  // 增加超时时间适应移动网络
                 });
-                
+                console.log('📄 [Export] Canvas生成成功:', canvas.width, 'x', canvas.height);
+
+                console.log('📄 [Export] ④ 生成PDF文档...');
+                elements.exportBtn.textContent = '🔄 生成PDF中...';
                 const imgData = canvas.toDataURL('image/png');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pdfHeight = pdf.internal.pageSize.getHeight();
                 const imgWidth = pdfWidth - 20; // 左右边距各10mm
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                
+
                 let y = 10;
                 const pageHeight = pdfHeight - 20; // 上下边距各10mm
-                
+
                 // 如果内容超过一页，需要分页
                 if (imgHeight > pageHeight) {
+                    console.log('📄 [Export] 内容需要分页，总页数:', Math.ceil(imgHeight / pageHeight));
                     const pageCount = Math.ceil(imgHeight / pageHeight);
                     for (let i = 0; i < pageCount; i++) {
                         if (i > 0) pdf.addPage();
-                        
+
                         const sourceY = i * pageHeight * (canvas.height / imgHeight);
                         const sourceHeight = Math.min(pageHeight * (canvas.height / imgHeight), canvas.height - sourceY);
-                        
+
                         // 创建页面片段
                         const pageCanvas = document.createElement('canvas');
                         pageCanvas.width = canvas.width;
                         pageCanvas.height = sourceHeight;
                         const pageCtx = pageCanvas.getContext('2d');
                         pageCtx.drawImage(canvas, 0, sourceY, canvas.width, sourceHeight, 0, 0, canvas.width, sourceHeight);
-                        
+
                         const pageImgData = pageCanvas.toDataURL('image/png');
                         const pageImgHeight = (sourceHeight * imgWidth) / canvas.width;
-                        
+
                         pdf.addImage(pageImgData, 'PNG', 10, 10, imgWidth, pageImgHeight);
+                        console.log('📄 [Export] 已生成第', (i+1), '页');
                     }
                 } else {
+                    console.log('📄 [Export] 单页PDF');
                     pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
                 }
 
@@ -1835,17 +1857,39 @@
                 document.body.removeChild(tempContainer);
 
                 // 下载PDF
+                console.log('📄 [Export] ⑤ 开始下载...');
+                elements.exportBtn.textContent = '🔄 正在下载...';
                 const fileName = `中医处方检查报告_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
                 pdf.save(fileName);
+                console.log('✅ [Export] PDF导出成功！文件名:', fileName);
 
                 // 恢复按钮状态
-                elements.exportBtn.textContent = originalText;
+                elements.exportBtn.textContent = '✅ 导出成功';
+                setTimeout(() => {
+                    elements.exportBtn.textContent = originalText;
+                }, 2000);
                 elements.exportBtn.disabled = false;
 
             } catch (error) {
-                console.error('PDF生成失败:', error);
-                alert('PDF生成失败，请稍后重试');
-                
+                console.error('❌ [Export] PDF生成失败:', error);
+                console.error('❌ [Export] 错误堆栈:', error.stack);
+                console.error('❌ [Export] 错误位置:', error.message);
+
+                // 详细的错误提示
+                let errorMsg = 'PDF生成失败\n\n';
+
+                if (error.message.includes('html2canvas')) {
+                    errorMsg += '原因：图片转换失败\n建议：请检查网络连接或刷新页面重试';
+                } else if (error.message.includes('jsPDF')) {
+                    errorMsg += '原因：PDF库加载失败\n建议：请刷新页面重新加载';
+                } else if (error.message.includes('canvas')) {
+                    errorMsg += '原因：浏览器不支持Canvas\n建议：请使用Chrome或Safari浏览器';
+                } else {
+                    errorMsg += `错误信息：${error.message}\n建议：请截图此错误并联系技术支持`;
+                }
+
+                alert(errorMsg);
+
                 // 恢复按钮状态
                 elements.exportBtn.textContent = '📄 导出PDF报告';
                 elements.exportBtn.disabled = false;
@@ -2449,6 +2493,11 @@
         }
 
         // 移动端PDF导出备用方案
+        // ==========================================
+        // 以下是旧版移动端导出函数（已废弃）
+        // 保留用于向后兼容和紧急降级
+        // 当前统一使用 exportReport() 函数生成真正的PDF文件
+        // ==========================================
         function exportReportMobile() {
             try {
                 console.log('🔍 [Mobile Export] 开始导出流程...');
