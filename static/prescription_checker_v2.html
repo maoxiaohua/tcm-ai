@@ -50,6 +50,44 @@
             opacity: 0.9;
         }
 
+        .version-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .cache-warning {
+            display: none;
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            color: #92400e;
+            padding: 15px;
+            margin: -40px -40px 20px -40px;
+            text-align: center;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .cache-warning button {
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-weight: bold;
+        }
+
         .main-content {
             padding: 40px;
         }
@@ -621,6 +659,13 @@
         <div class="header">
             <h1>🏥 智能处方检查系统</h1>
             <p>多模态AI智能分析 + 安全性检查 + 名医经验分析</p>
+            <div class="version-badge" id="versionBadge">加载中...</div>
+        </div>
+
+        <!-- 缓存警告（默认隐藏） -->
+        <div class="cache-warning" id="cacheWarning">
+            ⚠️ 检测到旧版本缓存！请立即清除浏览器缓存以使用最新功能
+            <button onclick="location.reload(true)">强制刷新</button>
         </div>
 
         <!-- 主要内容 -->
@@ -771,9 +816,10 @@
         // 统一移动端和PC端PDF导出逻辑
         // ==========================================
         const SYSTEM_VERSION = 'v2.2.0-unified-pdf';
+        const BUILD_DATE = '2026-03-23 22:30';
         console.log('🔄 [System] 处方检查系统启动');
         console.log('🔄 [System] 版本:', SYSTEM_VERSION);
-        console.log('🔄 [System] 构建时间: 2026-03-23 21:09');
+        console.log('🔄 [System] 构建时间:', BUILD_DATE);
         console.log('🔄 [System] 特性: 移动端PC端统一PDF导出');
         console.log('🔄 [System] User Agent:', navigator.userAgent);
 
@@ -785,6 +831,20 @@
         }
         console.log('🔄 [System] 设备类型:', isMobileDevice() ? '移动端' : 'PC端');
         console.log('🔄 [System] 窗口尺寸:', window.innerWidth, 'x', window.innerHeight);
+
+        // 检测是否为微信浏览器
+        function isWechat() {
+            return /MicroMessenger/i.test(navigator.userAgent);
+        }
+        console.log('🔄 [System] 是否微信浏览器:', isWechat());
+
+        // 更新页面版本号显示
+        window.addEventListener('load', function() {
+            const versionBadge = document.getElementById('versionBadge');
+            if (versionBadge) {
+                versionBadge.textContent = `版本 ${SYSTEM_VERSION} (${BUILD_DATE})`;
+            }
+        });
 
         // 全局变量
         let currentResult = null;
@@ -848,30 +908,49 @@
 
             // 检查是否有缓存版本
             const cachedVersion = localStorage.getItem('system_version');
+            const cacheWarning = document.getElementById('cacheWarning');
+
             if (cachedVersion && cachedVersion !== SYSTEM_VERSION) {
                 console.warn('⚠️ [System] 检测到版本更新！');
                 console.warn('⚠️ [System] 旧版本:', cachedVersion);
                 console.warn('⚠️ [System] 新版本:', SYSTEM_VERSION);
                 console.warn('⚠️ [System] 建议清除缓存以获得最新功能');
 
-                // 移动端显示缓存清除提示
+                // 显示警告横幅
+                if (cacheWarning) {
+                    cacheWarning.style.display = 'block';
+                }
+
+                // 移动端额外显示弹窗提示
                 if (isMobileDevice()) {
                     setTimeout(() => {
-                        const shouldClear = confirm(
-                            '检测到系统版本更新！\n\n' +
-                            '旧版本: ' + cachedVersion + '\n' +
-                            '新版本: ' + SYSTEM_VERSION + '\n\n' +
-                            '为确保功能正常，建议清除缓存：\n' +
-                            '1. Chrome: 设置 > 隐私 > 清除浏览数据\n' +
-                            '2. Safari: 设置 > Safari > 清除历史记录\n' +
-                            '3. 微信: 我 > 设置 > 通用 > 清理缓存\n\n' +
-                            '是否立即刷新页面？'
+                        alert(
+                            '⚠️ 检测到旧版本缓存！\n\n' +
+                            '当前缓存版本: ' + cachedVersion + '\n' +
+                            '最新版本: ' + SYSTEM_VERSION + '\n\n' +
+                            '【重要】请按以下步骤清除缓存：\n\n' +
+                            (isWechat() ?
+                                '微信浏览器：\n' +
+                                '1. 退出当前页面\n' +
+                                '2. 微信 → 我 → 设置 → 通用\n' +
+                                '3. 存储空间 → 清理缓存\n' +
+                                '4. 重新打开页面\n\n' +
+                                '或使用其他浏览器（Chrome/Safari）访问'
+                                :
+                                'Chrome/Safari：\n' +
+                                '1. 长按刷新按钮\n' +
+                                '2. 选择"硬性重新加载"\n' +
+                                '3. 或 设置 → 隐私 → 清除浏览数据'
+                            ) + '\n\n' +
+                            '清除缓存后功能才能正常使用！'
                         );
-                        if (shouldClear) {
-                            localStorage.setItem('system_version', SYSTEM_VERSION);
-                            location.reload(true);
-                        }
                     }, 1000);
+                }
+            } else {
+                console.log('✅ [System] 版本检查通过');
+                // 隐藏警告横幅
+                if (cacheWarning) {
+                    cacheWarning.style.display = 'none';
                 }
             }
             localStorage.setItem('system_version', SYSTEM_VERSION);
@@ -1807,8 +1886,35 @@
         // 导出PDF报告
         async function exportReport() {
             console.log('📄 [Export] 开始导出PDF...');
+            console.log('📄 [Export] 版本:', SYSTEM_VERSION);
             console.log('📄 [Export] 设备类型:', isMobileDevice() ? '移动端' : 'PC端');
+            console.log('📄 [Export] 是否微信:', isWechat());
             console.log('📄 [Export] currentResult:', currentResult);
+
+            // 强制版本检查 - 防止旧代码执行
+            const cachedVersion = localStorage.getItem('system_version');
+            if (cachedVersion && cachedVersion !== SYSTEM_VERSION) {
+                console.error('❌ [Export] 检测到旧版本缓存！阻止执行');
+                alert(
+                    '⚠️ 检测到浏览器缓存了旧版本代码！\n\n' +
+                    '请按以下步骤清除缓存：\n\n' +
+                    (isWechat() ?
+                        '【微信浏览器】\n' +
+                        '1. 完全退出当前页面\n' +
+                        '2. 打开微信 → 我 → 设置\n' +
+                        '3. 通用 → 存储空间 → 清理缓存\n' +
+                        '4. 重新打开页面\n\n' +
+                        '建议：使用Chrome或Safari浏览器访问'
+                        :
+                        '【Chrome/Safari】\n' +
+                        '1. 长按屏幕上的刷新按钮\n' +
+                        '2. 选择"硬性重新加载"\n' +
+                        '3. 或进入设置 → 隐私 → 清除缓存'
+                    ) + '\n\n' +
+                    '清除缓存后才能使用最新功能！'
+                );
+                return;
+            }
 
             if (!currentResult) {
                 console.error('❌ [Export] currentResult 为空');
