@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏥 智能处方检查系统 v2.1 - 多模态AI版</title>
+    <title>🏥 智能处方检查系统 v2.2 - 统一PDF导出版</title>
+    <!-- 版本号：v2.2 - 2026-03-23 - 统一移动端PC端PDF导出 -->
     <!-- PDF生成库 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -765,6 +766,26 @@
     </div>
 
     <script>
+        // ==========================================
+        // 系统版本检测 - v2.2 (2026-03-23)
+        // 统一移动端和PC端PDF导出逻辑
+        // ==========================================
+        const SYSTEM_VERSION = 'v2.2.0-unified-pdf';
+        console.log('🔄 [System] 处方检查系统启动');
+        console.log('🔄 [System] 版本:', SYSTEM_VERSION);
+        console.log('🔄 [System] 构建时间: 2026-03-23 21:09');
+        console.log('🔄 [System] 特性: 移动端PC端统一PDF导出');
+        console.log('🔄 [System] User Agent:', navigator.userAgent);
+
+        // 检测是否为移动设备
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ||
+                   window.innerWidth <= 768;
+        }
+        console.log('🔄 [System] 设备类型:', isMobileDevice() ? '移动端' : 'PC端');
+        console.log('🔄 [System] 窗口尺寸:', window.innerWidth, 'x', window.innerHeight);
+
         // 全局变量
         let currentResult = null;
         let currentMode = 'upload';
@@ -822,8 +843,42 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ [System] DOM加载完成');
+            console.log('✅ [System] 初始化事件监听器...');
+
+            // 检查是否有缓存版本
+            const cachedVersion = localStorage.getItem('system_version');
+            if (cachedVersion && cachedVersion !== SYSTEM_VERSION) {
+                console.warn('⚠️ [System] 检测到版本更新！');
+                console.warn('⚠️ [System] 旧版本:', cachedVersion);
+                console.warn('⚠️ [System] 新版本:', SYSTEM_VERSION);
+                console.warn('⚠️ [System] 建议清除缓存以获得最新功能');
+
+                // 移动端显示缓存清除提示
+                if (isMobileDevice()) {
+                    setTimeout(() => {
+                        const shouldClear = confirm(
+                            '检测到系统版本更新！\n\n' +
+                            '旧版本: ' + cachedVersion + '\n' +
+                            '新版本: ' + SYSTEM_VERSION + '\n\n' +
+                            '为确保功能正常，建议清除缓存：\n' +
+                            '1. Chrome: 设置 > 隐私 > 清除浏览数据\n' +
+                            '2. Safari: 设置 > Safari > 清除历史记录\n' +
+                            '3. 微信: 我 > 设置 > 通用 > 清理缓存\n\n' +
+                            '是否立即刷新页面？'
+                        );
+                        if (shouldClear) {
+                            localStorage.setItem('system_version', SYSTEM_VERSION);
+                            location.reload(true);
+                        }
+                    }, 1000);
+                }
+            }
+            localStorage.setItem('system_version', SYSTEM_VERSION);
+
             initializeEventListeners();
             updateCharCounter();
+            console.log('✅ [System] 初始化完成');
         });
 
         // 事件监听器初始化
@@ -1747,13 +1802,6 @@
                     <a href="/" class="action-btn secondary">🏠 返回主页</a>
                 </div>
             `;
-        }
-
-        // 检测是否为移动端
-        function isMobileDevice() {
-            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) || // iPad Pro
-                   window.innerWidth <= 768;
         }
 
         // 导出PDF报告
