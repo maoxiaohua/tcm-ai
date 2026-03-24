@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏥 智能处方检查系统 v2.2 - 统一PDF导出版</title>
-    <!-- 版本号：v2.2 - 2026-03-23 - 统一移动端PC端PDF导出 -->
+    <title>🏥 智能处方检查系统 v2.3 - 移动端图片导出版</title>
+    <!-- 版本号：v2.3 - 2026-03-24 - 移动端图片导出，修复按钮响应 -->
     <!-- PDF生成库 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -114,6 +114,9 @@
             transition: all 0.3s ease;
             background: transparent;
             color: #64748b;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
         .mode-btn.active {
@@ -570,6 +573,9 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
         .action-btn.primary {
@@ -672,8 +678,8 @@
         <div class="main-content">
             <!-- 模式切换器 -->
             <div class="mode-switcher">
-                <button class="mode-btn active" data-mode="upload">📸 图片识别</button>
-                <button class="mode-btn" data-mode="text">✏️ 文字输入</button>
+                <button class="mode-btn active" data-mode="upload" onclick="switchMode('upload')">📸 图片识别</button>
+                <button class="mode-btn" data-mode="text" onclick="switchMode('text')">✏️ 文字输入</button>
             </div>
 
             <!-- 图片上传模式 -->
@@ -689,10 +695,10 @@
                 </div>
 
                 <div class="camera-buttons">
-                    <button class="camera-btn primary" id="cameraBtn">
+                    <button class="camera-btn primary" id="cameraBtn" onclick="triggerCamera()">
                         📷 拍照识别
                     </button>
-                    <button class="camera-btn secondary" id="fileBtn">
+                    <button class="camera-btn secondary" id="fileBtn" onclick="triggerFileSelect()">
                         📁 选择文件
                     </button>
                 </div>
@@ -724,10 +730,10 @@
                 </div>
 
                 <div class="action-buttons">
-                    <button class="action-btn primary" id="checkTextBtn">
+                    <button class="action-btn primary" id="checkTextBtn" onclick="checkTextPrescription()">
                         🔍 开始检查
                     </button>
-                    <button class="action-btn secondary" id="clearTextBtn">
+                    <button class="action-btn secondary" id="clearTextBtn" onclick="clearText()">
                         🗑️ 清空内容
                     </button>
                 </div>
@@ -790,11 +796,11 @@
 
                 <!-- 操作按钮 -->
                 <div class="action-buttons">
-                    <button class="action-btn primary" id="newCheckBtn">
+                    <button class="action-btn primary" id="newCheckBtn" onclick="resetInterface()">
                         🔄 重新检查
                     </button>
-                    <button class="action-btn secondary" id="exportBtn">
-                        📄 导出PDF报告
+                    <button class="action-btn secondary" id="exportBtn" onclick="exportReport()">
+                        📷 下载报告
                     </button>
                     <a href="/" class="action-btn secondary">
                         🏠 返回主页
@@ -815,8 +821,8 @@
         // 系统版本检测 - v2.2 (2026-03-23)
         // 统一移动端和PC端PDF导出逻辑
         // ==========================================
-        const SYSTEM_VERSION = 'v2.2.0-unified-pdf';
-        const BUILD_DATE = '2026-03-23 22:30';
+        const SYSTEM_VERSION = 'v2.3.0-mobile-image';
+        const BUILD_DATE = '2026-03-24 11:00';
         console.log('🔄 [System] 处方检查系统启动');
         console.log('🔄 [System] 版本:', SYSTEM_VERSION);
         console.log('🔄 [System] 构建时间:', BUILD_DATE);
@@ -901,64 +907,30 @@
             exportBtn: document.getElementById('exportBtn')
         };
 
-        // 初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('✅ [System] DOM加载完成');
-            console.log('✅ [System] 初始化事件监听器...');
-
-            // 检查是否有缓存版本
-            const cachedVersion = localStorage.getItem('system_version');
-            const cacheWarning = document.getElementById('cacheWarning');
-
-            if (cachedVersion && cachedVersion !== SYSTEM_VERSION) {
-                console.warn('⚠️ [System] 检测到版本更新！');
-                console.warn('⚠️ [System] 旧版本:', cachedVersion);
-                console.warn('⚠️ [System] 新版本:', SYSTEM_VERSION);
-                console.warn('⚠️ [System] 建议清除缓存以获得最新功能');
-
-                // 显示警告横幅
-                if (cacheWarning) {
-                    cacheWarning.style.display = 'block';
-                }
-
-                // 移动端额外显示弹窗提示
-                if (isMobileDevice()) {
-                    setTimeout(() => {
-                        alert(
-                            '⚠️ 检测到旧版本缓存！\n\n' +
-                            '当前缓存版本: ' + cachedVersion + '\n' +
-                            '最新版本: ' + SYSTEM_VERSION + '\n\n' +
-                            '【重要】请按以下步骤清除缓存：\n\n' +
-                            (isWechat() ?
-                                '微信浏览器：\n' +
-                                '1. 退出当前页面\n' +
-                                '2. 微信 → 我 → 设置 → 通用\n' +
-                                '3. 存储空间 → 清理缓存\n' +
-                                '4. 重新打开页面\n\n' +
-                                '或使用其他浏览器（Chrome/Safari）访问'
-                                :
-                                'Chrome/Safari：\n' +
-                                '1. 长按刷新按钮\n' +
-                                '2. 选择"硬性重新加载"\n' +
-                                '3. 或 设置 → 隐私 → 清除浏览数据'
-                            ) + '\n\n' +
-                            '清除缓存后功能才能正常使用！'
-                        );
-                    }, 1000);
-                }
-            } else {
-                console.log('✅ [System] 版本检查通过');
-                // 隐藏警告横幅
-                if (cacheWarning) {
-                    cacheWarning.style.display = 'none';
-                }
+        // 初始化（健壮版 v2.3）
+        function doInit() {
+            console.log('✅ [System] 开始初始化 v2.3...');
+            try {
+                try { localStorage.setItem('system_version', SYSTEM_VERSION); } catch(e) { console.warn('localStorage不可用:', e); }
+                // 动态更新导出按钮文字
+                const expBtn = document.getElementById('exportBtn');
+                if (expBtn) expBtn.textContent = isMobileDevice() ? '📷 下载图片报告' : '📄 导出PDF报告';
+                initializeEventListeners();
+                updateCharCounter();
+                console.log('✅ [System] 初始化完成');
+            } catch(err) {
+                console.error('❌ [System] 初始化出错（onclick回退仍可用）:', err);
             }
-            localStorage.setItem('system_version', SYSTEM_VERSION);
+        }
+        document.addEventListener('DOMContentLoaded', doInit);
+        // 防止脚本在body末尾执行时DOMContentLoaded已触发
+        if (document.readyState === 'interactive' || document.readyState === 'complete') {
+            setTimeout(doInit, 0);
+        }
 
-            initializeEventListeners();
-            updateCharCounter();
-            console.log('✅ [System] 初始化完成');
-        });
+        // onclick触发helpers（移动端兼容回退）
+        function triggerCamera() { var c = document.getElementById('cameraInput'); if (c) c.click(); }
+        function triggerFileSelect() { var f = document.getElementById('fileInput'); if (f) f.click(); }
 
         // 事件监听器初始化
         function initializeEventListeners() {
@@ -1883,41 +1855,86 @@
             `;
         }
 
-        // 导出PDF报告
+        // 导出报告 - 移动端导出图片，PC端导出PDF
         async function exportReport() {
-            console.log('📄 [Export] 开始导出PDF...');
-            console.log('📄 [Export] 版本:', SYSTEM_VERSION);
-            console.log('📄 [Export] 设备类型:', isMobileDevice() ? '移动端' : 'PC端');
-            console.log('📄 [Export] 是否微信:', isWechat());
-            console.log('📄 [Export] currentResult:', currentResult);
-
-            // 强制版本检查 - 防止旧代码执行
-            const cachedVersion = localStorage.getItem('system_version');
-            if (cachedVersion && cachedVersion !== SYSTEM_VERSION) {
-                console.error('❌ [Export] 检测到旧版本缓存！阻止执行');
-                alert(
-                    '⚠️ 检测到浏览器缓存了旧版本代码！\n\n' +
-                    '请按以下步骤清除缓存：\n\n' +
-                    (isWechat() ?
-                        '【微信浏览器】\n' +
-                        '1. 完全退出当前页面\n' +
-                        '2. 打开微信 → 我 → 设置\n' +
-                        '3. 通用 → 存储空间 → 清理缓存\n' +
-                        '4. 重新打开页面\n\n' +
-                        '建议：使用Chrome或Safari浏览器访问'
-                        :
-                        '【Chrome/Safari】\n' +
-                        '1. 长按屏幕上的刷新按钮\n' +
-                        '2. 选择"硬性重新加载"\n' +
-                        '3. 或进入设置 → 隐私 → 清除缓存'
-                    ) + '\n\n' +
-                    '清除缓存后才能使用最新功能！'
-                );
+            if (!currentResult) {
+                alert('没有可导出的报告数据，请先进行处方检查');
                 return;
             }
+            if (isMobileDevice()) {
+                await exportAsImage();
+            } else {
+                await exportAsPDF();
+            }
+        }
+
+        // 移动端：导出为图片（内容与PC端一致）
+        async function exportAsImage() {
+            const exportBtn = document.getElementById('exportBtn');
+            const originalText = exportBtn ? exportBtn.textContent : '📷 下载图片报告';
+            if (exportBtn) { exportBtn.textContent = '🔄 生成内容中...'; exportBtn.disabled = true; }
+            try {
+                console.log('📷 [Export] 开始导出图片...');
+                const reportHtml = await generatePDFReportContent(currentResult);
+                const tempContainer = document.createElement('div');
+                tempContainer.innerHTML = reportHtml;
+                tempContainer.style.cssText = 'position:absolute;left:-9999px;width:750px;background:white;padding:30px;font-family:sans-serif;';
+                document.body.appendChild(tempContainer);
+                if (exportBtn) exportBtn.textContent = '🔄 渲染图片中...';
+                const canvas = await html2canvas(tempContainer, {
+                    scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, allowTaint: false
+                });
+                document.body.removeChild(tempContainer);
+                console.log('📷 [Export] Canvas生成:', canvas.width, 'x', canvas.height);
+                const imgData = canvas.toDataURL('image/png');
+                const dateStr = new Date().toLocaleDateString('zh-CN').replace(/\//g, '-');
+                const fileName = '中医处方检查报告_' + dateStr + '.png';
+                if (isWechat()) {
+                    showImageForSave(imgData);
+                } else {
+                    if (exportBtn) exportBtn.textContent = '🔄 正在下载...';
+                    const link = document.createElement('a');
+                    link.download = fileName;
+                    link.href = imgData;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    console.log('✅ [Export] 图片导出成功:', fileName);
+                }
+                if (exportBtn) {
+                    exportBtn.textContent = '✅ 导出成功';
+                    setTimeout(function() { exportBtn.textContent = originalText; exportBtn.disabled = false; }, 2000);
+                }
+            } catch (error) {
+                console.error('❌ [Export] 图片生成失败:', error);
+                alert('图片生成失败：' + error.message + '\n\n请刷新页面后重试');
+                if (exportBtn) { exportBtn.textContent = originalText; exportBtn.disabled = false; }
+            }
+        }
+
+        // 微信专用：全屏显示图片，用户长按保存到相册
+        function showImageForSave(imgData) {
+            var existing = document.getElementById('imgSaveOverlay');
+            if (existing) existing.remove();
+            var overlay = document.createElement('div');
+            overlay.id = 'imgSaveOverlay';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:99999;display:flex;flex-direction:column;align-items:center;overflow-y:auto;padding:15px;box-sizing:border-box;-webkit-overflow-scrolling:touch;';
+            overlay.innerHTML =
+                '<div style="color:white;text-align:center;padding:15px;background:rgba(79,70,229,0.85);border-radius:12px;width:100%;margin-bottom:15px;box-sizing:border-box;">' +
+                    '<div style="font-size:17px;font-weight:bold;margin-bottom:6px;">📱 长按图片保存到相册</div>' +
+                    '<div style="font-size:13px;opacity:0.9;margin-bottom:10px;">长按下方图片 → 选择"保存图片"</div>' +
+                    '<button onclick="document.getElementById(\'imgSaveOverlay\').remove()" style="background:white;color:#4f46e5;border:none;padding:9px 22px;border-radius:8px;font-weight:bold;font-size:15px;cursor:pointer;touch-action:manipulation;">✕ 关闭</button>' +
+                '</div>' +
+                '<img src="' + imgData + '" style="max-width:100%;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.4);display:block;" />' +
+                '<div style="color:rgba(255,255,255,0.6);text-align:center;margin-top:12px;font-size:12px;padding-bottom:20px;">图片包含完整处方检查报告内容，与PC端一致</div>';
+            document.body.appendChild(overlay);
+        }
+
+        // PC端：导出PDF
+        async function exportAsPDF() {
+            console.log('📄 [Export] 开始导出PDF...');
 
             if (!currentResult) {
-                console.error('❌ [Export] currentResult 为空');
                 alert('没有可导出的报告数据，请先进行处方检查');
                 return;
             }
