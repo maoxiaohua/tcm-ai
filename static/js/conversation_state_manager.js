@@ -701,6 +701,7 @@ class ConversationStateManager {
                 body: JSON.stringify({
                     user_id: userId,
                     doctor_id: selectedDoctor,
+                    selected_doctor: selectedDoctor,
                     state_data: stateData,
                     device_info: deviceInfo
                 })

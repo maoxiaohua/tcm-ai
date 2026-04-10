@@ -599,7 +599,7 @@
                     },
                     body: JSON.stringify({
                         message: message,
-                        conversation_id: conversation_id,
+                        conversation_id: conversationId,
                         selected_doctor: 'zhang_zhongjing',
                         conversation_history: conversationHistory
                     })
@@ -609,14 +609,15 @@
                 document.getElementById('responseTime').textContent = `${responseTime.toFixed(0)}ms`;
                 
                 const data = await response.json();
+                const aiReply = (data && data.data && data.data.reply) || data.reply || '';
                 
                 if (data.success) {
                     // 显示AI响应
-                    addMessage(data.data.reply, 'assistant');
+                    addMessage(aiReply, 'assistant');
                     
                     // 更新对话历史
                     conversationHistory.push({role: 'user', content: message});
-                    conversationHistory.push({role: 'assistant', content: data.data.reply});
+                    conversationHistory.push({role: 'assistant', content: aiReply});
                     
                     // 更新界面状态
                     updateUIState(data.data);
@@ -737,7 +738,7 @@
         // 确认处方
         async function confirmPrescription() {
             try {
-                const response = await fetch(`/api/consultation/conversation/${conversation_id}/confirm-prescription`, {
+                const response = await fetch(`/api/consultation/conversation/${conversationId}/confirm-prescription`, {
                     method: 'POST'
                 });
                 const data = await response.json();
@@ -765,7 +766,7 @@
             if (!confirm('确定要结束当前对话吗？')) return;
             
             try {
-                const response = await fetch(`/api/consultation/conversation/${conversation_id}/end`, {
+                const response = await fetch(`/api/consultation/conversation/${conversationId}/end`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

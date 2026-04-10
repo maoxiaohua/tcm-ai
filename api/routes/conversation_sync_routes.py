@@ -14,6 +14,18 @@ from app.services import local_sqlite_service as sqlite_service
 
 router = APIRouter(prefix="/api/conversation", tags=["对话状态同步"])
 
+
+def _first_non_empty(*values: Any) -> Optional[Any]:
+    for value in values:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if normalized:
+                return normalized
+            continue
+        if value is not None:
+            return value
+    return None
+
 class ConversationState(BaseModel):
     """对话状态模型"""
     conversation_id: str
@@ -28,9 +40,16 @@ class ConversationState(BaseModel):
 
 class ConversationSyncRequest(BaseModel):
     """对话同步请求"""
-    user_id: str
-    doctor_id: str
-    state_data: Dict[str, Any]
+    user_id: Optional[str] = None
+    userId: Optional[str] = None
+    patient_id: Optional[str] = None
+    patientId: Optional[str] = None
+    doctor_id: Optional[str] = None
+    selected_doctor: Optional[str] = None
+    doctor_name: Optional[str] = None
+    state_data: Optional[Dict[str, Any]] = None
+    stateData: Optional[Dict[str, Any]] = None
+    conversation_data: Optional[Dict[str, Any]] = None
     device_info: Optional[Dict[str, Any]] = {}
 
 class HistoryResponse(BaseModel):
@@ -43,12 +62,28 @@ class HistoryResponse(BaseModel):
 async def sync_conversation_state(request: ConversationSyncRequest, req: Request):
     """同步对话状态到服务器"""
     try:
-        user_id = request.user_id
-        doctor_id = request.doctor_id
-        state_data = request.state_data
+        user_id = _first_non_empty(
+            request.user_id,
+            request.userId,
+            request.patient_id,
+            request.patientId,
+        )
+        doctor_id = _first_non_empty(
+            request.doctor_id,
+            request.selected_doctor,
+            request.doctor_name,
+        )
+        state_data = (
+            request.state_data
+            or request.stateData
+            or request.conversation_data
+            or {}
+        )
         
         if not user_id or not doctor_id:
             raise HTTPException(status_code=400, detail="用户ID和医生ID不能为空")
+        user_id = str(user_id)
+        doctor_id = str(doctor_id)
         now_iso = datetime.now().isoformat()
         ip_address = req.client.host if req.client else "unknown"
         user_agent = req.headers.get("User-Agent", "unknown")
@@ -103,12 +138,23 @@ async def get_conversation_history(user_id: str, doctor_id: Optional[str] = None
 async def clear_conversation_history(request: Dict[str, Any]):
     """清空用户与特定医生的对话记录"""
     try:
-        user_id = request.get('user_id')
-        doctor_id = request.get('doctor_id')
+        user_id = _first_non_empty(
+            request.get('user_id'),
+            request.get('userId'),
+            request.get('patient_id'),
+            request.get('patientId'),
+        )
+        doctor_id = _first_non_empty(
+            request.get('doctor_id'),
+            request.get('selected_doctor'),
+            request.get('doctor_name'),
+        )
         clear_type = request.get('clear_type', 'all')
         
         if not user_id or not doctor_id:
             raise HTTPException(status_code=400, detail="用户ID和医生ID不能为空")
+        user_id = str(user_id)
+        doctor_id = str(doctor_id)
 
         deleted_count = sqlite_service.clear_conversation_history_records(
             user_id=user_id,

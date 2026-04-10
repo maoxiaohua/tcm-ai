@@ -34,12 +34,36 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+
+def _first_non_empty(*values: Any) -> Optional[Any]:
+    """返回首个非空值（字符串会自动strip）"""
+    for value in values:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if normalized:
+                return normalized
+            continue
+        if value is not None:
+            return value
+    return None
+
+
 # Pydantic模型
 class ChatMessage(BaseModel):
-    message: str
-    conversation_id: str
-    selected_doctor: str = "zhang_zhongjing"
+    message: Optional[str] = None
+    content: Optional[str] = None
+    text: Optional[str] = None
+    conversation_id: Optional[str] = None
+    conversationId: Optional[str] = None
+    session_id: Optional[str] = None
+    sessionId: Optional[str] = None
+    selected_doctor: Optional[str] = None
+    doctor_id: Optional[str] = None
+    doctor_name: Optional[str] = None
     patient_id: Optional[str] = None
+    user_id: Optional[str] = None
+    userId: Optional[str] = None
+    patientId: Optional[str] = None
     has_images: bool = False
     conversation_history: Optional[List[Dict[str, str]]] = None
 
@@ -48,14 +72,62 @@ class ChatResponse(BaseModel):
     data: Dict[str, Any]
     message: str = ""
 
+
+def _normalize_chat_message(raw_request: ChatMessage) -> ChatMessage:
+    """将多种字段命名归一为统一问诊所需字段"""
+    normalized_message = _first_non_empty(
+        raw_request.message,
+        raw_request.content,
+        raw_request.text,
+    )
+    if not normalized_message:
+        raise HTTPException(status_code=422, detail="message/content/text 不能为空")
+
+    normalized_conversation_id = _first_non_empty(
+        raw_request.conversation_id,
+        raw_request.conversationId,
+        raw_request.session_id,
+        raw_request.sessionId,
+    )
+    if not normalized_conversation_id:
+        normalized_conversation_id = str(uuid.uuid4())
+        logger.warning("chat请求缺少conversation_id，已自动生成: %s", normalized_conversation_id)
+
+    normalized_selected_doctor = _first_non_empty(
+        raw_request.selected_doctor,
+        raw_request.doctor_id,
+        raw_request.doctor_name,
+        "zhang_zhongjing",
+    )
+    normalized_patient_id = _first_non_empty(
+        raw_request.patient_id,
+        raw_request.user_id,
+        raw_request.userId,
+        raw_request.patientId,
+    )
+
+    return ChatMessage(
+        message=str(normalized_message),
+        conversation_id=str(normalized_conversation_id),
+        selected_doctor=str(normalized_selected_doctor),
+        patient_id=str(normalized_patient_id) if normalized_patient_id is not None else None,
+        has_images=raw_request.has_images,
+        conversation_history=raw_request.conversation_history or [],
+    )
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def unified_chat_endpoint(request: ChatMessage, http_request: Request):
     """
     统一问诊聊天接口 - 支持跨设备同步
     兼容智能工作流程和原系统的调用方式
     """
+    normalized_request: Optional[ChatMessage] = None
     try:
-        logger.info(f"统一问诊请求: 医生={request.selected_doctor}, 消息长度={len(request.message)}")
+        normalized_request = _normalize_chat_message(request)
+        logger.info(
+            f"统一问诊请求: 医生={normalized_request.selected_doctor}, 消息长度={len(normalized_request.message or '')}"
+        )
         
         # 🔑 获取真实用户ID (优先认证用户，回退到设备用户)
         real_user_id = None
@@ -75,7 +147,7 @@ async def unified_chat_endpoint(request: ChatMessage, http_request: Request):
         
         # 2. 如果没有认证用户，使用前端传递的patient_id或生成设备用户
         if not real_user_id:
-            real_user_id = request.patient_id or "guest"
+            real_user_id = normalized_request.patient_id or "guest"
             logger.info(f"⚠️ 使用设备/guest用户进行问诊: {real_user_id}")
         
         # 获取统一问诊服务
@@ -83,19 +155,19 @@ async def unified_chat_endpoint(request: ChatMessage, http_request: Request):
         
         # 构建请求对象 (使用真实用户ID)
         consultation_request = ConsultationRequest(
-            message=request.message,
-            conversation_id=request.conversation_id,
-            selected_doctor=request.selected_doctor,
-            conversation_history=request.conversation_history or [],
+            message=normalized_request.message or "",
+            conversation_id=normalized_request.conversation_id or "",
+            selected_doctor=normalized_request.selected_doctor or "zhang_zhongjing",
+            conversation_history=normalized_request.conversation_history or [],
             patient_id=real_user_id,  # 🔑 使用真实用户ID
-            has_images=request.has_images
+            has_images=normalized_request.has_images
         )
         
         # 处理问诊
         response = await consultation_service.process_consultation(consultation_request)
         
         # 🔑 存储问诊记录到数据库（唯一保存点，避免重复）
-        await _store_consultation_record(real_user_id, request, response)
+        await _store_consultation_record(real_user_id, normalized_request, response)
         
         # 构建响应数据
         response_data = {
@@ -128,8 +200,16 @@ async def unified_chat_endpoint(request: ChatMessage, http_request: Request):
             success=False,
             data={
                 "reply": f"抱歉，AI医生暂时无法回应，请稍后重试。",
-                "conversation_id": request.conversation_id,
-                "doctor_name": request.selected_doctor,
+                "conversation_id": (
+                    normalized_request.conversation_id
+                    if normalized_request
+                    else (_first_non_empty(request.conversation_id, request.conversationId, request.session_id, request.sessionId) or "")
+                ),
+                "doctor_name": (
+                    normalized_request.selected_doctor
+                    if normalized_request
+                    else (_first_non_empty(request.selected_doctor, request.doctor_id, request.doctor_name, "zhang_zhongjing") or "zhang_zhongjing")
+                ),
                 "contains_prescription": False,
                 "error": str(e)
             },
@@ -143,8 +223,9 @@ async def legacy_chat_endpoint(request: ChatMessage, http_request: Request):
     返回格式与原chat_with_ai完全兼容
     """
     try:
+        normalized_request = _normalize_chat_message(request)
         # 调用统一问诊处理
-        unified_response = await unified_chat_endpoint(request, http_request)
+        unified_response = await unified_chat_endpoint(normalized_request, http_request)
         
         if unified_response.success:
             # 返回原系统兼容的格式
@@ -157,14 +238,16 @@ async def legacy_chat_endpoint(request: ChatMessage, http_request: Request):
             # 错误处理
             return {
                 "reply": unified_response.data["reply"],
-                "conversation_id": request.conversation_id
+                "conversation_id": normalized_request.conversation_id
             }
             
     except Exception as e:
         logger.error(f"兼容接口处理失败: {e}")
         return {
             "reply": "抱歉，AI医生暂时无法回应，请稍后重试。",
-            "conversation_id": request.conversation_id
+            "conversation_id": (
+                _first_non_empty(request.conversation_id, request.conversationId, request.session_id, request.sessionId) or ""
+            )
         }
 
 @router.get("/doctor-info/{doctor_name}")
@@ -254,13 +337,68 @@ async def get_service_status():
 # 新增：对话保存相关的数据模型
 class ConsultationSaveRequest(BaseModel):
     """对话保存请求"""
-    consultation_id: str
-    patient_id: str
-    doctor_id: str
-    conversation_log: str  # JSON字符串格式的对话记录
+    consultation_id: Optional[str] = None
+    conversation_id: Optional[str] = None
+    session_id: Optional[str] = None
+    sessionId: Optional[str] = None
+    patient_id: Optional[str] = None
+    user_id: Optional[str] = None
+    userId: Optional[str] = None
+    patientId: Optional[str] = None
+    doctor_id: Optional[str] = None
+    selected_doctor: Optional[str] = None
+    doctor_name: Optional[str] = None
+    conversation_log: Optional[Any] = None
+    conversation_data: Optional[Any] = None
     status: str = "completed"
-    created_at: str
-    updated_at: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+def _normalize_consultation_save_request(raw_request: ConsultationSaveRequest) -> Dict[str, str]:
+    """标准化保存问诊接口入参，兼容多种字段命名"""
+    consultation_id = _first_non_empty(
+        raw_request.consultation_id,
+        raw_request.conversation_id,
+        raw_request.session_id,
+        raw_request.sessionId,
+    )
+    if not consultation_id:
+        consultation_id = str(uuid.uuid4())
+        logger.warning("save请求缺少consultation_id，已自动生成: %s", consultation_id)
+
+    patient_id = _first_non_empty(
+        raw_request.patient_id,
+        raw_request.user_id,
+        raw_request.userId,
+        raw_request.patientId,
+    ) or "guest"
+    doctor_id = _first_non_empty(
+        raw_request.doctor_id,
+        raw_request.selected_doctor,
+        raw_request.doctor_name,
+        "zhang_zhongjing",
+    )
+
+    conversation_log_raw = _first_non_empty(raw_request.conversation_log, raw_request.conversation_data, {})
+    if isinstance(conversation_log_raw, str):
+        conversation_log = conversation_log_raw
+    else:
+        conversation_log = json.dumps(conversation_log_raw, ensure_ascii=False)
+
+    now_iso = datetime.now().isoformat()
+    created_at = _first_non_empty(raw_request.created_at, now_iso) or now_iso
+    updated_at = _first_non_empty(raw_request.updated_at, now_iso) or now_iso
+
+    return {
+        "consultation_id": str(consultation_id),
+        "patient_id": str(patient_id),
+        "doctor_id": str(doctor_id),
+        "conversation_log": conversation_log,
+        "status": raw_request.status or "completed",
+        "created_at": str(created_at),
+        "updated_at": str(updated_at),
+    }
 
 @router.post("/save")
 async def save_consultation(request: ConsultationSaveRequest):
@@ -270,13 +408,14 @@ async def save_consultation(request: ConsultationSaveRequest):
     此接口主要用于兼容性，不再执行实际的插入操作
     """
     try:
+        normalized = _normalize_consultation_save_request(request)
         conn = get_db_connection()
         cursor = conn.cursor()
         
         # 检查是否已存在相同的consultation_id
         cursor.execute("""
             SELECT uuid, updated_at FROM consultations WHERE uuid = ?
-        """, (request.consultation_id,))
+        """, (normalized["consultation_id"],))
         
         existing = cursor.fetchone()
         
@@ -291,14 +430,16 @@ async def save_consultation(request: ConsultationSaveRequest):
                     updated_at = ?
                 WHERE uuid = ?
             """, (
-                request.patient_id,
-                request.doctor_id,
-                request.conversation_log,
-                request.status,
-                request.updated_at,
-                request.consultation_id
+                normalized["patient_id"],
+                normalized["doctor_id"],
+                normalized["conversation_log"],
+                normalized["status"],
+                normalized["updated_at"],
+                normalized["consultation_id"]
             ))
-            logger.info(f"问诊记录已存在，已同步更新状态: {request.consultation_id}, status={request.status}")
+            logger.info(
+                f"问诊记录已存在，已同步更新状态: {normalized['consultation_id']}, status={normalized['status']}"
+            )
             message = "问诊记录已存在，状态与内容已更新"
         else:
             # 记录不存在，说明自动保存可能失败，这时才手动保存
@@ -308,21 +449,21 @@ async def save_consultation(request: ConsultationSaveRequest):
                     conversation_log, status, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (
-                request.consultation_id,
-                request.patient_id,
-                request.doctor_id,
-                request.conversation_log,
-                request.status,
-                request.created_at,
-                request.updated_at
+                normalized["consultation_id"],
+                normalized["patient_id"],
+                normalized["doctor_id"],
+                normalized["conversation_log"],
+                normalized["status"],
+                normalized["created_at"],
+                normalized["updated_at"]
             ))
-            logger.info(f"补充保存问诊记录: {request.consultation_id}")
+            logger.info(f"补充保存问诊记录: {normalized['consultation_id']}")
             message = "问诊记录已补充保存"
         
         # 🔑 关键修复：同步到doctor_sessions表，确保历史记录显示
         try:
             # 解析对话日志获取摘要信息
-            conversation_data = json.loads(request.conversation_log)
+            conversation_data = json.loads(normalized["conversation_log"])
             chief_complaint = "问诊咨询"
             total_conversations = 0
             
@@ -339,7 +480,7 @@ async def save_consultation(request: ConsultationSaveRequest):
             # 检查doctor_sessions表是否已存在记录
             cursor.execute("""
                 SELECT session_id FROM doctor_sessions WHERE session_id = ?
-            """, (request.consultation_id,))
+            """, (normalized["consultation_id"],))
             
             session_exists = cursor.fetchone()
             
@@ -355,11 +496,11 @@ async def save_consultation(request: ConsultationSaveRequest):
                 """, (
                     chief_complaint,
                     total_conversations,
-                    'completed' if request.status == 'completed' else 'active',
-                    request.updated_at,
-                    request.consultation_id
+                    'completed' if normalized["status"] == 'completed' else 'active',
+                    normalized["updated_at"],
+                    normalized["consultation_id"]
                 ))
-                logger.info(f"更新doctor_sessions记录: {request.consultation_id}")
+                logger.info(f"更新doctor_sessions记录: {normalized['consultation_id']}")
             else:
                 # 插入新的doctor_sessions记录
                 cursor.execute("""
@@ -369,17 +510,17 @@ async def save_consultation(request: ConsultationSaveRequest):
                         created_at, last_updated
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    request.consultation_id,
-                    request.patient_id,
-                    request.doctor_id,
+                    normalized["consultation_id"],
+                    normalized["patient_id"],
+                    normalized["doctor_id"],
                     1,  # 默认为第1次问诊
                     chief_complaint,
                     total_conversations,
-                    'completed' if request.status == 'completed' else 'active',
-                    request.created_at,
-                    request.updated_at
+                    'completed' if normalized["status"] == 'completed' else 'active',
+                    normalized["created_at"],
+                    normalized["updated_at"]
                 ))
-                logger.info(f"新增doctor_sessions记录: {request.consultation_id}")
+                logger.info(f"新增doctor_sessions记录: {normalized['consultation_id']}")
             
         except Exception as sync_error:
             logger.warning(f"同步到doctor_sessions失败，但consultations已保存: {sync_error}")
@@ -392,10 +533,10 @@ async def save_consultation(request: ConsultationSaveRequest):
             "success": True,
             "message": message,
             "data": {
-                "consultation_id": request.consultation_id,
-                "patient_id": request.patient_id,
-                "doctor_id": request.doctor_id,
-                "status": request.status,
+                "consultation_id": normalized["consultation_id"],
+                "patient_id": normalized["patient_id"],
+                "doctor_id": normalized["doctor_id"],
+                "status": normalized["status"],
                 "note": "系统已在聊天过程中自动保存数据，避免重复记录"
             }
         }

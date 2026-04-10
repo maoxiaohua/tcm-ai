@@ -1,6 +1,6 @@
 # 参数一致性修复建议
 
-**生成时间**: 2026-04-05 21:04:37
+**生成时间**: 2026-04-10 18:13:05
 
 ---
 
@@ -15,9 +15,9 @@
 标准名称: message
 描述: 消息内容
 当前使用情况:
-  - content: 875 次使用 ✗ 别名
+  - content: 883 次使用 ✗ 别名
     文件: prescription_learning_dashboard.html, prescription_learning_dashboard.html, patient_prescription_confirm.html
-  - message: 423 次使用 ✓ 标准
+  - message: 428 次使用 ✓ 标准
     文件: prescription_structured_editor.html, register.html, system_monitor.html
   - body: 358 次使用 ✗ 别名
     文件: prescription_learning_dashboard.html, patient_prescription_confirm.html, patient_prescription_confirm.html
@@ -54,13 +54,13 @@
 标准名称: doctor_id
 描述: 医生唯一标识
 当前使用情况:
-  - doctor_id: 92 次使用 ✓ 标准
+  - doctor_id: 96 次使用 ✓ 标准
     文件: prescription_structured_editor.html, prescription_structured_editor.html, prescription_structured_editor.html
   - doctor_name: 55 次使用 ✗ 别名
     文件: patient_prescription_confirm.html, decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html
-  - doctorId: 25 次使用 ✗ 别名
-    文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, js/smart_workflow_history.js
-  - selected_doctor: 10 次使用 ✗ 别名
+  - doctorId: 27 次使用 ✗ 别名
+    文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, js/smart_workflow_chat.js
+  - selected_doctor: 12 次使用 ✗ 别名
     文件: index_v2.html, index_v2.html, conversation_state_demo.html
   - doctor_code: 4 次使用 ✗ 别名
     文件: js/smart_workflow_doctor.js, js/modules/history_data.js
@@ -96,10 +96,10 @@
 标准名称: prescription_id
 描述: 处方唯一标识
 当前使用情况:
-  - prescription_id: 56 次使用 ✓ 标准
-    文件: patient_prescription_confirm.html, patient_prescription_confirm.html, prescription_structured_editor.html
-  - prescriptionId: 53 次使用 ✗ 别名
+  - prescriptionId: 63 次使用 ✗ 别名
     文件: prescription_structured_editor.html, doctor/index.html, doctor/index.html
+  - prescription_id: 62 次使用 ✓ 标准
+    文件: patient_prescription_confirm.html, patient_prescription_confirm.html, prescription_structured_editor.html
 
 建议: 统一使用 'prescription_id'
 ```
@@ -129,9 +129,9 @@
 标准名称: user_id
 描述: 用户/患者唯一标识
 当前使用情况:
-  - userId: 91 次使用 ✗ 别名
+  - userId: 95 次使用 ✗ 别名
     文件: index_v2.html, js/realtime_sync.js, js/restore_pending_prescription.js
-  - user_id: 78 次使用 ✓ 标准
+  - user_id: 80 次使用 ✓ 标准
     文件: decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html
   - patient_id: 30 次使用 ✗ 别名
     文件: decision_tree_v3_data_driven.html, doctor_dashboard.html, doctor_review_portal.html
@@ -166,9 +166,9 @@
 标准名称: conversation_id
 描述: 对话会话唯一标识
 当前使用情况:
-  - conversation_id: 85 次使用 ✓ 标准
+  - conversation_id: 87 次使用 ✓ 标准
     文件: index_v2.html, index_v2.html, conversation_state_demo.html
-  - conversationId: 43 次使用 ✗ 别名
+  - conversationId: 41 次使用 ✗ 别名
     文件: conversation_state_demo.html, js/session_manager.js, js/session_manager.js
   - session_id: 31 次使用 ✗ 别名
     文件: auth_portal.html, doctor/login.html, js/restore_pending_prescription.js

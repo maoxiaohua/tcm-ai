@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from dataclasses import dataclass
 import asyncio
-import os
+from app.core.settings import AI_CONFIG
 
 # 导入dashscope用于AI语义分析
 try:
@@ -57,7 +57,7 @@ class DecisionTreeMatcher:
     def __init__(self, db_path: str = "/opt/tcm-ai/data/user_history.sqlite"):
         """初始化决策树匹配服务"""
         self.db_path = db_path
-        self.api_key = os.getenv('DASHSCOPE_API_KEY', '')
+        self.api_key = AI_CONFIG.get("dashscope_api_key", "")
 
         # 🔑 疾病别名映射 - 支持中医疾病的多种表述
         self.disease_aliases = {

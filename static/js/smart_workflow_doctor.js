@@ -552,8 +552,7 @@
             const data = {
                 messages: messages,
                 timestamp: Date.now(),
-                conversation_id: window.currentConversationId,
-                conversationId: window.currentConversationId
+                conversation_id: window.currentConversationId
             };
             localStorage.setItem(storageKey, JSON.stringify(data));
             console.log(`💾 已保存${doctorKey}的${messages.length}条消息到本地`);

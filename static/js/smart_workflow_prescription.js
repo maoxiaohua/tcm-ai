@@ -217,7 +217,9 @@
             const conversationSummary = extractConversationSummary();
 
             // 准备请求数据
-            const userId = typeof getCurrentUserId === 'function' ? getCurrentUserId() : (window.currentUser.id || window.currentUser.user_id);
+            const userId = typeof window.resolveUserId === 'function'
+                ? window.resolveUserId(window.currentUser, (typeof getCurrentUserId === 'function' ? getCurrentUserId() : null))
+                : (typeof getCurrentUserId === 'function' ? getCurrentUserId() : (window.currentUser.id || window.currentUser.user_id));
             const conversationId = window.currentConversationId || (typeof generateConversationId === 'function' ? generateConversationId() : Date.now().toString());
 
             const requestData = {
@@ -316,6 +318,7 @@
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify({
+                    message: prescriptionContent,
                     content: prescriptionContent,
                     doctor_id: window.selectedDoctor,
                     status: 'saved'

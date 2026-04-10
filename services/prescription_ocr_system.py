@@ -5,7 +5,6 @@
 作者：TCM AI System
 """
 
-import os
 import re
 import json
 import base64
@@ -17,6 +16,8 @@ from io import BytesIO
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+
+from app.core.settings import AI_CONFIG
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -301,28 +302,9 @@ class BaiduOCRService:
     
     def __init__(self):
         """初始化百度OCR服务"""
-        # 从.env文件读取API密钥
-        self.api_key = None
-        self.secret_key = None
-        
-        # 尝试从.env文件加载配置
-        env_file = '/opt/tcm/.env'
-        if os.path.exists(env_file):
-            with open(env_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#') and '=' in line:
-                        key, value = line.split('=', 1)
-                        if key == 'BAIDU_OCR_API_KEY':
-                            self.api_key = value
-                        elif key == 'BAIDU_OCR_SECRET_KEY':
-                            self.secret_key = value
-        
-        # 如果还没有找到，尝试环境变量
-        if not self.api_key:
-            self.api_key = os.getenv('BAIDU_OCR_API_KEY')
-        if not self.secret_key:
-            self.secret_key = os.getenv('BAIDU_OCR_SECRET_KEY')
+        # 密钥统一从 config/settings.py 读取（已兼容 BAIDU_* 历史变量）
+        self.api_key = AI_CONFIG.get("baidu_ocr_api_key", "")
+        self.secret_key = AI_CONFIG.get("baidu_ocr_secret_key", "")
         
         # 如果没有设置，使用测试密钥（实际生产中应该设置真实密钥）
         if not self.api_key or not self.secret_key:

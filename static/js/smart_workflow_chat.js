@@ -659,6 +659,32 @@
     // ========================================
 
     /**
+     * 统一解析问诊接口响应，避免新旧字段混用导致的隐性错误
+     * @param {Object} responseData
+     * @returns {{reply: string, prescriptionId: string|null, isPaid: boolean, containsPrescription: boolean}}
+     */
+    function normalizeConsultationChatResponse(responseData) {
+        const data = responseData && typeof responseData === 'object' ? (responseData.data || {}) : {};
+        const resolvedReply = typeof window.resolveMessageText === 'function'
+            ? (window.resolveMessageText(data) || window.resolveMessageText(responseData))
+            : (data.reply || (responseData ? responseData.reply : ''));
+        return {
+            reply: resolvedReply || '',
+            prescriptionId: data.prescription_id || (responseData ? responseData.prescription_id : null) || null,
+            isPaid: Boolean(
+                (data.is_paid !== undefined ? data.is_paid : undefined) ??
+                (responseData ? responseData.is_paid : false) ??
+                false
+            ),
+            containsPrescription: Boolean(
+                (data.contains_prescription !== undefined ? data.contains_prescription : undefined) ??
+                (responseData ? responseData.contains_prescription : false) ??
+                false
+            )
+        };
+    }
+
+    /**
      * 发送消息到后端
      * 核心消息发送函数，处理与后端API的通信
      */
@@ -666,10 +692,10 @@
         const input = document.getElementById('messageInput');
         const message = input.value.trim();
 
-        const selectedDoctor = window.selectedDoctor;
+        const doctorId = window.selectedDoctor;
 
-        if (!message || !selectedDoctor) {
-            if (!selectedDoctor) {
+        if (!message || !doctorId) {
+            if (!doctorId) {
                 alert('请先选择一位医师');
             }
             return;
@@ -725,6 +751,9 @@
             if (typeof window.getCurrentUserId === 'function') {
                 userId = window.getCurrentUserId();
             }
+            if (typeof window.resolveUserId === 'function') {
+                userId = window.resolveUserId(userId, window.currentUser);
+            }
 
             const response = await fetch('/api/consultation/chat', {
                 method: 'POST',
@@ -732,7 +761,8 @@
                 body: JSON.stringify({
                     message: message,
                     conversation_id: window.currentConversationId,
-                    selected_doctor: selectedDoctor,
+                    doctor_id: doctorId,
+                    selected_doctor: doctorId,
                     patient_id: userId,
                     conversation_history: conversationHistory
                 }),
@@ -747,18 +777,13 @@
             // 调试：打印完整API响应
             console.log('[Chat] PC端API完整响应:', responseData);
 
-            // 处理新的API响应格式
-            let aiReply;
-            if (responseData.success && responseData.data && responseData.data.reply) {
-                aiReply = responseData.data.reply;
-                console.log('[Chat] PC端使用新格式，回复内容长度:', aiReply.length);
-            } else if (responseData.reply) {
-                aiReply = responseData.reply; // 兼容旧格式
-                console.log('[Chat] PC端使用旧格式，回复内容长度:', aiReply.length);
-            } else {
+            const normalizedResponse = normalizeConsultationChatResponse(responseData);
+            const aiReply = normalizedResponse.reply;
+            if (!aiReply) {
                 console.error('[Chat] PC端API响应格式错误，响应结构:', Object.keys(responseData));
                 throw new Error('API响应格式错误: 未找到reply字段');
             }
+            console.log('[Chat] PC端回复内容长度:', aiReply.length);
 
             // 医疗安全检查
             if (typeof window.checkMedicalSafety === 'function') {
@@ -794,13 +819,13 @@
             const shouldShowFeedback = true;
 
             // 处方相关状态管理
-            let prescriptionId = responseData.data?.prescription_id || null;
-            const isPaid = responseData.data?.is_paid || false;
+            let prescriptionId = normalizedResponse.prescriptionId;
+            const isPaid = normalizedResponse.isPaid;
 
             // 如果有真实处方ID，存储映射关系和状态
-            if (prescriptionId && responseData.data?.contains_prescription) {
+            if (prescriptionId && normalizedResponse.containsPrescription) {
                 window.lastRealPrescriptionId = prescriptionId;
-                window.lastPrescriptionData = responseData.data.prescription_data || {};
+                window.lastPrescriptionData = responseData?.data?.prescription_data || {};
                 window.lastPrescriptionData.prescription_id = prescriptionId;
 
                 console.log(`[Chat] 获取到真实处方ID: ${prescriptionId}`);
@@ -812,7 +837,7 @@
                 isTemporaryAdvice: isTemporaryAdvice,
                 prescriptionId: prescriptionId,
                 isPaid: isPaid,
-                backendContainsPrescription: responseData.data?.contains_prescription
+                backendContainsPrescription: normalizedResponse.containsPrescription
             });
 
             // 完整处方且未付费时需要支付

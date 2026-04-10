@@ -136,6 +136,10 @@
                 ? window.getAuthHeaders()
                 : { 'Content-Type': 'application/json' };
 
+            const userId = typeof window.resolveUserId === 'function'
+                ? window.resolveUserId(window.currentUser)
+                : (window.currentUser ? (window.currentUser.id || window.currentUser.user_id) : null);
+
             const response = await fetch('/api/review/feedback', {
                 method: 'POST',
                 headers: headers,
@@ -144,7 +148,7 @@
                     doctor_id: window.selectedDoctor,
                     rating: rating,
                     feedback_type: 'consultation',
-                    user_id: window.currentUser ? window.currentUser.id : null,
+                    user_id: userId,
                     timestamp: new Date().toISOString()
                 }),
             });
@@ -174,6 +178,13 @@
      */
     async function logSecurityEvent(eventType, content, details = {}) {
         try {
+            const eventMessage = typeof window.resolveMessageText === 'function'
+                ? window.resolveMessageText(content, '')
+                : (typeof content === 'string' ? content : '');
+            const userId = typeof window.resolveUserId === 'function'
+                ? window.resolveUserId(window.currentUser)
+                : (window.currentUser ? (window.currentUser.id || window.currentUser.user_id) : null);
+
             const headers = typeof window.getAuthHeaders === 'function'
                 ? window.getAuthHeaders()
                 : { 'Content-Type': 'application/json' };
@@ -183,9 +194,10 @@
                 headers: headers,
                 body: JSON.stringify({
                     event_type: eventType,
-                    content: content,
+                    message: eventMessage,
+                    content: eventMessage,
                     details: details,
-                    user_id: window.currentUser ? window.currentUser.id : null,
+                    user_id: userId,
                     conversation_id: window.currentConversationId,
                     timestamp: new Date().toISOString()
                 })
@@ -274,6 +286,9 @@
      */
     async function createFollowUpReminder(title, days, message) {
         try {
+            const normalizedMessage = typeof window.resolveMessageText === 'function'
+                ? window.resolveMessageText({ message }, '')
+                : message;
             const headers = typeof window.getAuthHeaders === 'function'
                 ? window.getAuthHeaders()
                 : { 'Content-Type': 'application/json' };
@@ -283,7 +298,8 @@
                 headers: headers,
                 body: JSON.stringify({
                     title: title,
-                    message: message,
+                    message: normalizedMessage,
+                    content: normalizedMessage,
                     days_after: days,
                     doctor_id: window.selectedDoctor,
                     related_consultation_id: window.currentConversationId

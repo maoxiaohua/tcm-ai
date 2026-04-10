@@ -328,12 +328,29 @@
     /**
      * 移动端发送消息
      */
+    function normalizeMobileConsultationResponse(responseData) {
+        const data = responseData && typeof responseData === 'object' ? (responseData.data || {}) : {};
+        const resolvedReply = typeof window.resolveMessageText === 'function'
+            ? (window.resolveMessageText(data) || window.resolveMessageText(responseData))
+            : (data.reply || (responseData ? responseData.reply : ''));
+        return {
+            reply: resolvedReply || '',
+            prescriptionId: data.prescription_id || (responseData ? responseData.prescription_id : null) || null,
+            isPaid: Boolean(
+                (data.is_paid !== undefined ? data.is_paid : undefined) ??
+                (responseData ? responseData.is_paid : false) ??
+                false
+            )
+        };
+    }
+
     async function sendMobileMessage() {
         const input = document.getElementById('mobileMessageInput');
         const message = input.value.trim();
+        const doctorId = window.selectedDoctor;
 
-        if (!message || !window.selectedDoctor) {
-            if (!window.selectedDoctor) {
+        if (!message || !doctorId) {
+            if (!doctorId) {
                 alert('请先选择一位医师');
             }
             return;
@@ -377,7 +394,10 @@
                 window.getCurrentConversationHistory() : [];
 
             const headers = window.getAuthHeaders ? window.getAuthHeaders() : { 'Content-Type': 'application/json' };
-            const userId = window.getCurrentUserId ? window.getCurrentUserId() : 'anonymous';
+            let userId = window.getCurrentUserId ? window.getCurrentUserId() : 'anonymous';
+            if (typeof window.resolveUserId === 'function') {
+                userId = window.resolveUserId(userId, window.currentUser);
+            }
             const conversationId = window.currentConversationId || '';
 
             const response = await fetch('/api/consultation/chat', {
@@ -386,7 +406,8 @@
                 body: JSON.stringify({
                     message: message,
                     conversation_id: conversationId,
-                    selected_doctor: window.selectedDoctor,
+                    doctor_id: doctorId,
+                    selected_doctor: doctorId,
                     patient_id: userId,
                     conversation_history: conversationHistory
                 }),
@@ -410,17 +431,13 @@
             console.log('移动端API完整响应:', data);
 
             // 处理API响应格式
-            let aiReply;
-            if (data.success && data.data && data.data.reply) {
-                aiReply = data.data.reply;
-                console.log('移动端使用新格式，回复内容长度:', aiReply.length);
-            } else if (data.reply) {
-                aiReply = data.reply;
-                console.log('移动端使用旧格式，回复内容长度:', aiReply.length);
-            } else {
+            const normalizedResponse = normalizeMobileConsultationResponse(data);
+            const aiReply = normalizedResponse.reply;
+            if (!aiReply) {
                 console.error('移动端API响应格式错误，响应结构:', Object.keys(data));
                 throw new Error('API响应格式错误: 未找到reply字段');
             }
+            console.log('移动端回复内容长度:', aiReply.length);
 
             if (aiReply) {
                 const containsActualPrescription = window.containsPrescription ?
@@ -430,8 +447,8 @@
 
                 const shouldShowFeedback = true;
 
-                let prescriptionId = data.data?.prescription_id || null;
-                const isPaid = data.data?.is_paid || false;
+                let prescriptionId = normalizedResponse.prescriptionId;
+                const isPaid = normalizedResponse.isPaid;
 
                 const needsPayment = containsActualPrescription && !isTemporaryAdvice && !isPaid;
 
@@ -448,7 +465,7 @@
                 await addMobileMessage('ai', aiReply, shouldShowFeedback, isPaid, prescriptionId);
 
                 if (shouldShowFeedback) {
-                    console.log('移动端检测到处方内容，显示点评功能，处方ID:', prescription_id, '支付状态:', isPaid);
+                    console.log('移动端检测到处方内容，显示点评功能，处方ID:', prescriptionId, '支付状态:', isPaid);
                 }
             } else {
                 await addMobileMessage('ai', '抱歉，我现在无法回答您的问题，请稍后再试。');

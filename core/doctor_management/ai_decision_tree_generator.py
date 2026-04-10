@@ -12,11 +12,11 @@ AI智能决策树生成器 - 思维导图模式
 
 import json
 import logging
-import os
 import re
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 from dataclasses import dataclass, asdict
+from app.core.settings import AI_CONFIG
 
 try:
     from dashscope import Generation
@@ -56,7 +56,7 @@ class AIDecisionTreeGenerator:
     """AI智能决策树生成器"""
 
     def __init__(self):
-        self.api_key = os.getenv('DASHSCOPE_API_KEY', '')
+        self.api_key = AI_CONFIG.get("dashscope_api_key", "")
         if not DASHSCOPE_AVAILABLE or not self.api_key:
             logger.warning("⚠️ Dashscope不可用，AI决策树生成功能将被禁用")
 

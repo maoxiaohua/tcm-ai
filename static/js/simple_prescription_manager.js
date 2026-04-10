@@ -1544,7 +1544,7 @@ window.prescriptionContentRenderer = {
      * 注意：内部实际是异步的，但返回Promise让调用者自己决定是否await
      */
     renderContent: function(content, prescriptionId) {
-        console.log('📞 [兼容层] renderContent被调用:', { prescription_id });
+        console.log('📞 [兼容层] renderContent被调用:', { prescriptionId });
         // 返回Promise，调用者可以await或直接使用
         return window.simplePrescriptionManager.processContent(content, prescriptionId);
     },

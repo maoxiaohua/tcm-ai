@@ -22,8 +22,10 @@ class SessionManager {
      * 初始化（页面加载时调用）
      */
     init(userId) {
-        this.userId = userId;
-        console.log(`SessionManager initialized for user: ${userId}`);
+        this.userId = typeof window.resolveUserId === 'function'
+            ? window.resolveUserId(userId, window.currentUser)
+            : userId;
+        console.log(`SessionManager initialized for user: ${this.userId}`);
     }
 
     /**
@@ -115,7 +117,8 @@ class SessionManager {
                 messages: this.messages,
                 isNew: data.is_new,
                 reason: data.reason,
-                message: data.message
+                message: data.message || data.content || '',
+                content: data.content || data.message || ''
             };
 
         } catch (error) {

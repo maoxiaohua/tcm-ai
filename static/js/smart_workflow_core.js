@@ -377,6 +377,62 @@ function cleanupOldUserData() {
     });
 }
 
+/**
+ * 统一提取用户ID（兼容 user_id/userId/patient_id/patientId/global_user_id/id）
+ * @param {...any} sources
+ * @returns {string|null}
+ */
+function resolveUserId(...sources) {
+    const idKeys = ['global_user_id', 'user_id', 'userId', 'patient_id', 'patientId', 'id'];
+
+    for (const source of sources) {
+        if (!source) continue;
+        if (typeof source === 'string') {
+            const trimmed = source.trim();
+            if (trimmed && trimmed !== 'undefined' && trimmed !== 'null') {
+                return trimmed;
+            }
+            continue;
+        }
+        if (typeof source === 'object') {
+            for (const key of idKeys) {
+                const value = source[key];
+                if (typeof value === 'string') {
+                    const trimmed = value.trim();
+                    if (trimmed && trimmed !== 'undefined' && trimmed !== 'null') {
+                        return trimmed;
+                    }
+                }
+            }
+        }
+    }
+
+    // 回退到当前核心逻辑
+    return getCurrentUserId();
+}
+
+/**
+ * 统一提取文本（兼容 message/content/text/reply）
+ * @param {any} source
+ * @param {string} fallback
+ * @returns {string}
+ */
+function resolveMessageText(source, fallback = '') {
+    if (typeof source === 'string') {
+        return source;
+    }
+    if (source && typeof source === 'object') {
+        const keys = ['message', 'content', 'text', 'reply'];
+        for (const key of keys) {
+            const value = source[key];
+            if (typeof value === 'string' && value.length > 0) {
+                return value;
+            }
+        }
+    }
+    return fallback;
+}
+
 // ============================================
 // 暴露函数到全局作用域
 // ============================================
@@ -388,6 +444,8 @@ window.switchUserContext = switchUserContext;
 window.detectUserChange = detectUserChange;
 window.handleUserSwitch = handleUserSwitch;
 window.cleanupOldUserData = cleanupOldUserData;
+window.resolveUserId = resolveUserId;
+window.resolveMessageText = resolveMessageText;
 
 // 模块加载完成日志
 console.log('✅ [smart_workflow_core.js] 核心模块加载完成');

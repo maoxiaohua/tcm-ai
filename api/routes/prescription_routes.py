@@ -46,6 +46,18 @@ async def get_current_user_from_header(authorization: Optional[str] = Header(Non
         logging.error(f"认证过程出错: {e}")
         raise HTTPException(status_code=500, detail=f"认证系统错误: {str(e)}")
 
+
+def _first_non_empty(*values: Any) -> Optional[Any]:
+    for value in values:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if normalized:
+                return normalized
+            continue
+        if value is not None:
+            return value
+    return None
+
 # 具体路由必须在参数路由之前定义
 @router.get("/by-consultation/{consultation_id}")
 async def get_prescriptions_by_consultation(consultation_id: str):
@@ -269,14 +281,23 @@ async def get_prescription_learning_stats():
 
 class CreatePrescriptionRequest(BaseModel):
     """创建处方请求"""
-    patient_id: str
-    conversation_id: str
-    doctor_id: Optional[int] = None  # 🆕 添加医生ID字段
+    patient_id: Optional[str] = None
+    user_id: Optional[str] = None
+    userId: Optional[str] = None
+    patientId: Optional[str] = None
+    conversation_id: Optional[str] = None
+    session_id: Optional[str] = None
+    sessionId: Optional[str] = None
+    doctor_id: Optional[Any] = None
+    selected_doctor: Optional[str] = None
+    doctor_name: Optional[str] = None
     patient_name: Optional[str] = None
     patient_phone: Optional[str] = None
     symptoms: Optional[str] = None
     diagnosis: Optional[str] = None
-    ai_prescription: str
+    ai_prescription: Optional[str] = None
+    message: Optional[str] = None
+    content: Optional[str] = None
 
 class PatientConfirmRequest(BaseModel):
     """患者确认处方请求"""
@@ -296,6 +317,40 @@ async def create_prescription(request: CreatePrescriptionRequest):
     cursor = conn.cursor()
 
     try:
+        patient_id = _first_non_empty(
+            request.patient_id,
+            request.user_id,
+            request.userId,
+            request.patientId,
+        )
+        conversation_id = _first_non_empty(
+            request.conversation_id,
+            request.session_id,
+            request.sessionId,
+        )
+        doctor_id = _first_non_empty(
+            request.doctor_id,
+            request.selected_doctor,
+            request.doctor_name,
+        )
+        ai_prescription = _first_non_empty(
+            request.ai_prescription,
+            request.message,
+            request.content,
+        )
+
+        if not patient_id:
+            raise HTTPException(status_code=400, detail="patient_id 不能为空")
+        if not conversation_id:
+            raise HTTPException(status_code=400, detail="conversation_id 不能为空")
+        if not ai_prescription:
+            raise HTTPException(status_code=400, detail="ai_prescription/message/content 不能为空")
+
+        patient_id = str(patient_id)
+        conversation_id = str(conversation_id)
+        doctor_id = str(doctor_id) if doctor_id is not None else None
+        ai_prescription = str(ai_prescription)
+
         # 🔑 查找或创建consultation记录
         import json
         import uuid as uuid_lib
@@ -306,14 +361,14 @@ async def create_prescription(request: CreatePrescriptionRequest):
             SELECT uuid FROM consultations
             WHERE uuid = ? OR conversation_log LIKE ?
             ORDER BY created_at DESC LIMIT 1
-        """, (request.conversation_id, f'%"conversation_id": "{request.conversation_id}"%'))
+        """, (conversation_id, f'%"conversation_id": "{conversation_id}"%'))
         result = cursor.fetchone()
 
         if result:
             consultation_uuid = result['uuid']
         else:
             # 🔑 关键修复：统一使用conversation_id作为consultation UUID
-            consultation_uuid = request.conversation_id
+            consultation_uuid = conversation_id
             cursor.execute("""
                 INSERT INTO consultations (
                     uuid, patient_id, selected_doctor_id, conversation_log,
@@ -321,9 +376,9 @@ async def create_prescription(request: CreatePrescriptionRequest):
                 ) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
             """, (
                 consultation_uuid,
-                request.patient_id,
-                request.doctor_id,
-                json.dumps({"conversation_id": request.conversation_id, "conversation_history": []}),
+                patient_id,
+                doctor_id,
+                json.dumps({"conversation_id": conversation_id, "conversation_history": []}),
                 'in_progress'
             ))
 
@@ -334,15 +389,15 @@ async def create_prescription(request: CreatePrescriptionRequest):
                 symptoms, diagnosis, ai_prescription, status, payment_status, review_status
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            request.patient_id,
-            request.conversation_id,
+            patient_id,
+            conversation_id,
             consultation_uuid,  # 🔑 关键：添加consultation_id
-            request.doctor_id,
+            doctor_id,
             request.patient_name,
             request.patient_phone,
             request.symptoms,
             request.diagnosis,
-            request.ai_prescription,
+            ai_prescription,
             'ai_generated',  # 🔑 使用标准状态
             'pending',  # 待支付
             'not_submitted'  # 未提交审核
@@ -362,6 +417,112 @@ async def create_prescription(request: CreatePrescriptionRequest):
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"创建处方失败: {e}")
+    finally:
+        conn.close()
+
+
+class SavePrescriptionRequest(BaseModel):
+    """保存处方文本兼容接口请求"""
+    message: Optional[str] = None
+    content: Optional[str] = None
+    text: Optional[str] = None
+    doctor_id: Optional[str] = None
+    selected_doctor: Optional[str] = None
+    doctor_name: Optional[str] = None
+    patient_id: Optional[str] = None
+    user_id: Optional[str] = None
+    userId: Optional[str] = None
+    patientId: Optional[str] = None
+    conversation_id: Optional[str] = None
+    session_id: Optional[str] = None
+    sessionId: Optional[str] = None
+    status: Optional[str] = "saved"
+
+
+@router.post("/save")
+async def save_prescription_text(
+    request: SavePrescriptionRequest,
+    authorization: Optional[str] = Header(None),
+):
+    """兼容前端/api/prescription/save：保存处方文本到本地记录表"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        content = _first_non_empty(request.message, request.content, request.text)
+        if not content:
+            raise HTTPException(status_code=400, detail="message/content/text 不能为空")
+
+        patient_id = _first_non_empty(
+            request.patient_id,
+            request.user_id,
+            request.userId,
+            request.patientId,
+        )
+        if not patient_id and authorization:
+            try:
+                user, _ = await get_current_user_from_header(authorization)
+                patient_id = user.global_user_id
+            except Exception:
+                patient_id = None
+
+        doctor_id = _first_non_empty(
+            request.doctor_id,
+            request.selected_doctor,
+            request.doctor_name,
+            "unknown",
+        )
+        conversation_id = _first_non_empty(
+            request.conversation_id,
+            request.session_id,
+            request.sessionId,
+            "",
+        )
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS saved_prescriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                patient_id TEXT NOT NULL,
+                doctor_id TEXT,
+                conversation_id TEXT,
+                content TEXT NOT NULL,
+                status TEXT DEFAULT 'saved',
+                created_at TEXT NOT NULL
+            )
+        """)
+
+        cursor.execute("""
+            INSERT INTO saved_prescriptions
+            (patient_id, doctor_id, conversation_id, content, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            str(patient_id or "guest"),
+            str(doctor_id or "unknown"),
+            str(conversation_id or ""),
+            str(content),
+            str(request.status or "saved"),
+            datetime.now().isoformat(),
+        ))
+
+        saved_id = cursor.lastrowid
+        conn.commit()
+
+        return {
+            "success": True,
+            "message": "处方已保存",
+            "saved_prescription_id": saved_id,
+            "data": {
+                "patient_id": str(patient_id or "guest"),
+                "doctor_id": str(doctor_id or "unknown"),
+                "conversation_id": str(conversation_id or ""),
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"保存处方失败: {e}")
     finally:
         conn.close()
 

@@ -6,13 +6,25 @@
 
 from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
 
 # 导入统一账号管理器
 from core.unified_account.account_manager import unified_account_manager
 from app.services import local_sqlite_service as sqlite_service
 
 router = APIRouter()
+
+
+def _first_non_empty(*values: Any) -> Optional[Any]:
+    for value in values:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if normalized:
+                return normalized
+            continue
+        if value is not None:
+            return value
+    return None
 
 # 辅助函数：从token获取用户
 async def get_current_user_from_header(authorization: Optional[str] = Header(None)):
@@ -51,7 +63,9 @@ async def get_current_user_from_header(authorization: Optional[str] = Header(Non
 
 
 class SwitchDoctorRequest(BaseModel):
-    doctor_id: str
+    doctor_id: Optional[str] = None
+    selected_doctor: Optional[str] = None
+    doctor_name: Optional[str] = None
 
 
 class SwitchDoctorResponse(BaseModel):
@@ -89,9 +103,17 @@ async def switch_doctor(
     user_id = user.global_user_id
 
     try:
+        doctor_id = _first_non_empty(
+            request.doctor_id,
+            request.selected_doctor,
+            request.doctor_name,
+        )
+        if not doctor_id:
+            raise HTTPException(status_code=400, detail="doctor_id 不能为空")
+
         result = sqlite_service.switch_doctor_conversation(
             user_id=user_id,
-            doctor_id=request.doctor_id,
+            doctor_id=str(doctor_id),
         )
 
         return SwitchDoctorResponse(

@@ -2515,9 +2515,10 @@
                 }
 
                 const data = await response.json();
+                const aiReply = (data && data.data && data.data.reply) || data.reply || '';
                 // 智能判断是否显示点评 - 只有包含处方时才显示
-                const shouldShowFeedback = containsPrescription(data.reply);
-                addMessage('ai', data.reply, shouldShowFeedback);
+                const shouldShowFeedback = containsPrescription(aiReply);
+                addMessage('ai', aiReply, shouldShowFeedback);
                 
                 // 记录诊断阶段
                 if (shouldShowFeedback) {
@@ -3689,6 +3690,7 @@ ${data.analysis_result}`;
                 }
 
                 const data = await response.json();
+                const aiReply = (data && data.data && data.data.reply) || data.reply || '';
                 
                 // 移除加载消息
                 const loadingMsg = document.querySelector('.loading-message');
@@ -3696,10 +3698,10 @@ ${data.analysis_result}`;
                     loadingMsg.remove();
                 }
                 
-                if (data.reply) {
+                if (aiReply) {
                     // 智能判断是否显示评价系统 - 只有包含处方时才显示
-                    const shouldShowFeedback = containsPrescription(data.reply);
-                    addMobileMessage('ai', data.reply, shouldShowFeedback);
+                    const shouldShowFeedback = containsPrescription(aiReply);
+                    addMobileMessage('ai', aiReply, shouldShowFeedback);
                     
                     // 记录诊断阶段
                     if (shouldShowFeedback) {

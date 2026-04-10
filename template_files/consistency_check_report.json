@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-04-05T21:04:33.227882",
+  "timestamp": "2026-04-10T18:13:01.492139",
   "statistics": {
-    "backend_apis": 165,
+    "backend_apis": 166,
     "frontend_apis": 92,
     "database_tables": 76
   },
   "summary": {
     "errors": 58,
-    "warnings": 9,
+    "warnings": 7,
     "info": 3
   },
   "details": {
@@ -320,16 +320,6 @@
         "details": "  - 使用 'selected_doctor', 建议 'doctor_id'"
       },
       {
-        "category": "参数命名",
-        "message": "API参数命名不一致: /api/prescription/save",
-        "details": "  - 使用 'content', 建议 'message'"
-      },
-      {
-        "category": "参数命名",
-        "message": "API参数命名不一致: /api/security/log-event",
-        "details": "  - 使用 'content', 建议 'message'"
-      },
-      {
         "category": "常见错误",
         "message": "响应数据结构不一致: index_v2.html",
         "details": "直接访问.reply可能失败，应检查data.reply或result.data.reply"
@@ -353,7 +343,7 @@
     "info": [
       {
         "category": "Backend",
-        "message": "扫描到 165 个API端点"
+        "message": "扫描到 166 个API端点"
       },
       {
         "category": "Frontend",

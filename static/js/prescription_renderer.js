@@ -206,12 +206,12 @@ class PrescriptionRenderer {
         console.log('📋 renderContent 被调用:', {
             contentLength: content.length,
             isPaid,
-            prescription_id,
+            prescription_id: prescriptionId,
             contentPreview: content.substring(0, 100)
         });
         
         this.paymentStatus = isPaid;
-        this.prescriptionId = prescription_id;
+        this.prescriptionId = prescriptionId;
 
         // 🔒 信任后端的处方检测结果，同时进行前端验证
         const backendDetectedPrescription = prescriptionId !== null && prescriptionId !== undefined;
@@ -313,10 +313,10 @@ class PrescriptionRenderer {
                     ${this.formatPrescriptionContent(parsedPrescription)}
                 </div>
                 <div class="prescription-actions">
-                    <button class="action-btn decoction-btn" onclick="showDecorationInfo('${this.prescription_id}')">
+                    <button class="action-btn decoction-btn" onclick="showDecorationInfo('${this.prescriptionId}')">
                         🍵 联系代煎服务
                     </button>
-                    <button class="action-btn download-btn" onclick="downloadPrescription('${this.prescription_id}')">
+                    <button class="action-btn download-btn" onclick="downloadPrescription('${this.prescriptionId}')">
                         📄 下载处方
                     </button>
                 </div>
@@ -1371,7 +1371,7 @@ async function createPrescriptionRecord() {
         
         console.log('🔍 准备创建处方记录:', {
             patient_id: patientId,
-            conversation_id: conversation_id,
+            conversation_id: conversationId,
             prescription_length: prescriptionContent.length,
             source: window.currentConversationId ? 'window' : 'generated'
         });
@@ -1381,7 +1381,7 @@ async function createPrescriptionRecord() {
             headers: headers,
             body: JSON.stringify({
                 patient_id: patientId,
-                conversation_id: conversation_id,
+                conversation_id: conversationId,
                 ai_prescription: prescriptionContent,
                 symptoms: getCurrentSymptoms()
             })
@@ -1499,10 +1499,10 @@ function useRealPayment(prescriptionId) {
     // 调用现有的支付模态框
     if (typeof window.showPaymentModal === 'function') {
         console.log('📞 调用真实支付 window.showPaymentModal');
-        window.showPaymentModal(prescription_id, 88.00);
+        window.showPaymentModal(prescriptionId, 88.00);
     } else if (typeof showPaymentModal === 'function') {
         console.log('📞 调用真实支付 showPaymentModal');
-        showPaymentModal(prescription_id, 88.00);
+        showPaymentModal(prescriptionId, 88.00);
     } else {
         console.warn('⚠️ 真实支付系统不可用');
         showCompatibleMessage('支付系统暂时不可用，请稍后再试', 'warning');

@@ -111,18 +111,18 @@ export class UserSession {
      * @param {string} conversationId - 会话ID
      * @returns {Array} 会话历史
      */
-    loadConversationHistory(conversation_id) {
-        const storageKey = `conversationId_${conversation_id}`;
+    loadConversationHistory(conversationId) {
+        const storageKey = `conversationId_${conversationId}`;
         const sessionData = StorageUtils.getUserData(storageKey, false, null);
 
         if (sessionData && sessionData.history) {
-            this.currentConversationId = conversation_id;
+            this.currentConversationId = conversationId;
             this.conversationHistory = sessionData.history;
             console.log(`✅ 加载了${sessionData.history.length}条消息`);
             return sessionData.history;
         }
 
-        console.warn('⚠️ 未找到会话历史:', conversation_id);
+        console.warn('⚠️ 未找到会话历史:', conversationId);
         return [];
     }
 
@@ -179,17 +179,17 @@ export class UserSession {
      * 删除会话
      * @param {string} conversationId - 会话ID
      */
-    deleteSession(conversation_id) {
-        const storageKey = `conversationId_${conversation_id}`;
-        const metaKey = `session_meta_${conversation_id}`;
+    deleteSession(conversationId) {
+        const storageKey = `conversationId_${conversationId}`;
+        const metaKey = `session_meta_${conversationId}`;
 
         localStorage.removeItem(storageKey);
         localStorage.removeItem(metaKey);
 
-        console.log('🗑️ 已删除会话:', conversation_id);
+        console.log('🗑️ 已删除会话:', conversationId);
 
         // 如果是当前会话，清除状态
-        if (this.currentConversationId === conversation_id) {
+        if (this.currentConversationId === conversationId) {
             this.currentConversationId = null;
             this.conversationHistory = [];
         }
@@ -213,8 +213,8 @@ export class UserSession {
      * @param {string} conversationId - 会话ID
      * @returns {Object|null} 会话摘要
      */
-    getSessionSummary(conversation_id) {
-        const history = this.loadConversationHistory(conversation_id);
+    getSessionSummary(conversationId) {
+        const history = this.loadConversationHistory(conversationId);
 
         if (history.length === 0) {
             return null;
@@ -231,7 +231,7 @@ export class UserSession {
         const aiMessages = history.filter(m => m.type === 'ai').length;
 
         return {
-            conversation_id,
+            conversation_id: conversationId,
             chiefComplaint,
             messageCount: history.length,
             userMessageCount: userMessages,
@@ -246,17 +246,17 @@ export class UserSession {
      * @param {string} conversationId - 会话ID
      * @returns {boolean} 是否成功恢复
      */
-    restoreSession(conversation_id) {
-        const history = this.loadConversationHistory(conversation_id);
+    restoreSession(conversationId) {
+        const history = this.loadConversationHistory(conversationId);
 
         if (history.length > 0) {
-            this.currentConversationId = conversation_id;
+            this.currentConversationId = conversationId;
             this.conversationHistory = history;
-            console.log(`✅ 恢复会话: ${conversation_id}, ${history.length}条消息`);
+            console.log(`✅ 恢复会话: ${conversationId}, ${history.length}条消息`);
             return true;
         }
 
-        console.warn('⚠️ 无法恢复会话:', conversation_id);
+        console.warn('⚠️ 无法恢复会话:', conversationId);
         return false;
     }
 
@@ -307,9 +307,9 @@ export class UserSession {
      * @param {string} conversationId - 会话ID
      * @returns {Object} 导出的数据
      */
-    exportSession(conversation_id) {
-        const history = this.loadConversationHistory(conversation_id);
-        const metaKey = `session_meta_${conversation_id}`;
+    exportSession(conversationId) {
+        const history = this.loadConversationHistory(conversationId);
+        const metaKey = `session_meta_${conversationId}`;
         const metadata = StorageUtils.getUserData(metaKey, false, {});
 
         return {

@@ -15,13 +15,37 @@ from app.services import local_sqlite_service as sqlite_service
 
 router = APIRouter(prefix="/api/security", tags=["安全管理"])
 
+
+def _first_non_empty(*values: Any) -> Optional[Any]:
+    for value in values:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if normalized:
+                return normalized
+            continue
+        if value is not None:
+            return value
+    return None
+
+
 class SecurityEventRequest(BaseModel):
     """安全事件记录请求"""
-    event_type: str
+    event_type: Optional[str] = None
+    eventType: Optional[str] = None
     user_id: Optional[str] = None
-    event_data: Dict[str, Any] = {}
+    userId: Optional[str] = None
+    patient_id: Optional[str] = None
+    patientId: Optional[str] = None
+    event_data: Optional[Dict[str, Any]] = None
+    details: Optional[Dict[str, Any]] = None
     severity: Optional[str] = "info"  # info, warning, error, critical
+    risk_level: Optional[str] = None
     description: Optional[str] = ""
+    message: Optional[str] = None
+    content: Optional[str] = None
+    text: Optional[str] = None
+    conversation_id: Optional[str] = None
+    timestamp: Optional[str] = None
 
 class SecurityLogResponse(BaseModel):
     """安全日志响应"""
@@ -38,13 +62,38 @@ async def log_security_event(request: SecurityEventRequest, req: Request):
         user_agent = req.headers.get("User-Agent", "unknown")
         now_iso = datetime.now().isoformat()
         request_id = hashlib.md5(f"{ip_address}_{now_iso}".encode()).hexdigest()[:12]
+        event_type = _first_non_empty(request.event_type, request.eventType, "frontend_event")
+        user_id = _first_non_empty(
+            request.user_id,
+            request.userId,
+            request.patient_id,
+            request.patientId,
+        )
+        severity = str(_first_non_empty(request.severity, request.risk_level, "info")).lower()
+        if severity not in {"info", "warning", "error", "critical"}:
+            severity = "info"
+        description = _first_non_empty(
+            request.description,
+            request.message,
+            request.content,
+            request.text,
+            "",
+        ) or ""
+
+        event_data: Dict[str, Any] = dict(request.event_data or {})
+        if isinstance(request.details, dict):
+            event_data.update(request.details)
+        if request.conversation_id:
+            event_data.setdefault("conversation_id", request.conversation_id)
+        if request.timestamp:
+            event_data.setdefault("timestamp", request.timestamp)
 
         event_id = sqlite_service.log_security_event(
-            event_type=request.event_type,
-            user_id=request.user_id,
-            severity=request.severity or "info",
-            description=request.description or "",
-            event_data_json=json.dumps(request.event_data),
+            event_type=str(event_type),
+            user_id=str(user_id) if user_id is not None else None,
+            severity=severity,
+            description=str(description),
+            event_data_json=json.dumps(event_data, ensure_ascii=False),
             ip_address=ip_address,
             user_agent=user_agent,
             request_id=request_id,

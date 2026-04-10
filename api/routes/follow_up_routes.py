@@ -5,15 +5,51 @@
 为前端提供随访管理功能的后端支持
 """
 
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 import sqlite3
-import json
-import uuid
 from datetime import datetime, timedelta
+from core.unified_account.account_manager import unified_account_manager
 
 router = APIRouter(prefix="/api/follow-up", tags=["随访管理"])
+
+
+def _first_non_empty(*values: Any) -> Optional[Any]:
+    for value in values:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if normalized:
+                return normalized
+            continue
+        if value is not None:
+            return value
+    return None
+
+
+def _resolve_request_user_id(req: Request, payload_user_id: Optional[str] = None) -> str:
+    """优先使用payload/header中的用户ID，再回退认证会话"""
+    user_id = _first_non_empty(
+        payload_user_id,
+        req.headers.get("X-User-ID"),
+        req.headers.get("X-UserId"),
+        req.headers.get("X-Patient-ID"),
+        req.headers.get("X-Patient-Id"),
+    )
+    if user_id:
+        return str(user_id)
+
+    auth_header = req.headers.get("Authorization") or req.headers.get("authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        session_id = auth_header.replace("Bearer ", "", 1).strip()
+        try:
+            session = unified_account_manager.get_session(session_id)
+            if session and getattr(session, "user_id", None):
+                return str(session.user_id)
+        except Exception:
+            pass
+
+    return "guest"
 
 def get_db_connection():
     """获取数据库连接"""
@@ -24,14 +60,25 @@ def get_db_connection():
 class CreateFollowUpRequest(BaseModel):
     """创建随访提醒请求"""
     title: str
-    message: str
-    scheduled_days: int = 7
+    message: Optional[str] = None
+    content: Optional[str] = None
+    text: Optional[str] = None
+    scheduled_days: Optional[int] = None
+    days_after: Optional[int] = None
     patient_id: Optional[str] = None
+    user_id: Optional[str] = None
+    userId: Optional[str] = None
+    patientId: Optional[str] = None
     consultation_id: Optional[str] = None
+    related_consultation_id: Optional[str] = None
+    conversation_id: Optional[str] = None
+    session_id: Optional[str] = None
 
 class PostponeFollowUpRequest(BaseModel):
     """延期随访请求"""
-    postpone_days: int
+    postpone_days: Optional[int] = None
+    days: Optional[int] = None
+    delay_days: Optional[int] = None
 
 class FollowUpResponse(BaseModel):
     """随访响应"""
@@ -43,8 +90,7 @@ class FollowUpResponse(BaseModel):
 async def get_follow_up_reminders(request: Request):
     """获取当前用户的随访提醒"""
     try:
-        # 从请求头或会话中获取用户信息（简化版本）
-        user_id = request.headers.get("X-User-ID", "guest")
+        user_id = _resolve_request_user_id(request)
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -93,7 +139,7 @@ async def get_follow_up_reminders(request: Request):
 async def get_follow_up_list(request: Request, status: Optional[str] = None):
     """获取随访列表"""
     try:
-        user_id = request.headers.get("X-User-ID", "guest")
+        user_id = _resolve_request_user_id(request)
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -148,7 +194,24 @@ async def get_follow_up_list(request: Request, status: Optional[str] = None):
 async def create_follow_up_reminder(request: CreateFollowUpRequest, req: Request):
     """创建随访提醒"""
     try:
-        user_id = req.headers.get("X-User-ID", "guest")
+        user_id = _resolve_request_user_id(
+            req,
+            _first_non_empty(request.patient_id, request.user_id, request.userId, request.patientId),
+        )
+        reminder_message = _first_non_empty(request.message, request.content, request.text, "随访提醒") or "随访提醒"
+        scheduled_days = _first_non_empty(request.scheduled_days, request.days_after, 7) or 7
+        try:
+            scheduled_days = int(scheduled_days)
+        except (TypeError, ValueError):
+            scheduled_days = 7
+        if scheduled_days < 0:
+            scheduled_days = 0
+        consultation_id = _first_non_empty(
+            request.consultation_id,
+            request.related_consultation_id,
+            request.conversation_id,
+            request.session_id,
+        )
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -169,7 +232,7 @@ async def create_follow_up_reminder(request: CreateFollowUpRequest, req: Request
         """)
         
         # 计算预约日期
-        scheduled_date = (datetime.now() + timedelta(days=request.scheduled_days)).isoformat()
+        scheduled_date = (datetime.now() + timedelta(days=scheduled_days)).isoformat()
         
         # 插入随访提醒
         cursor.execute("""
@@ -179,10 +242,10 @@ async def create_follow_up_reminder(request: CreateFollowUpRequest, req: Request
         """, (
             user_id,
             request.title,
-            request.message,
+            reminder_message,
             scheduled_date,
             datetime.now().isoformat(),
-            request.consultation_id
+            consultation_id
         ))
         
         follow_up_id = cursor.lastrowid
@@ -208,7 +271,7 @@ async def create_follow_up_reminder(request: CreateFollowUpRequest, req: Request
 async def complete_follow_up(follow_up_id: int, req: Request):
     """完成随访"""
     try:
-        user_id = req.headers.get("X-User-ID", "guest")
+        user_id = _resolve_request_user_id(req)
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -245,7 +308,16 @@ async def complete_follow_up(follow_up_id: int, req: Request):
 async def postpone_follow_up(follow_up_id: int, request: PostponeFollowUpRequest, req: Request):
     """延期随访"""
     try:
-        user_id = req.headers.get("X-User-ID", "guest")
+        user_id = _resolve_request_user_id(req)
+        postpone_days = _first_non_empty(request.postpone_days, request.days, request.delay_days)
+        if postpone_days is None:
+            return FollowUpResponse(success=False, message="缺少postpone_days/days参数")
+        try:
+            postpone_days = int(postpone_days)
+        except (TypeError, ValueError):
+            return FollowUpResponse(success=False, message="延期天数格式无效")
+        if postpone_days <= 0:
+            return FollowUpResponse(success=False, message="延期天数必须大于0")
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -266,7 +338,7 @@ async def postpone_follow_up(follow_up_id: int, request: PostponeFollowUpRequest
         
         # 计算新的预约日期
         current_date = datetime.fromisoformat(row['scheduled_date'])
-        new_date = current_date + timedelta(days=request.postpone_days)
+        new_date = current_date + timedelta(days=postpone_days)
         
         # 更新预约日期
         cursor.execute("""
@@ -280,7 +352,7 @@ async def postpone_follow_up(follow_up_id: int, request: PostponeFollowUpRequest
         
         return FollowUpResponse(
             success=True,
-            message=f"随访已延期{request.postpone_days}天",
+            message=f"随访已延期{postpone_days}天",
             data={
                 "new_scheduled_date": new_date.isoformat()
             }
@@ -296,7 +368,7 @@ async def postpone_follow_up(follow_up_id: int, request: PostponeFollowUpRequest
 async def delete_follow_up(follow_up_id: int, req: Request):
     """删除随访提醒"""
     try:
-        user_id = req.headers.get("X-User-ID", "guest")
+        user_id = _resolve_request_user_id(req)
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -332,7 +404,7 @@ async def delete_follow_up(follow_up_id: int, req: Request):
 async def get_follow_up_statistics(req: Request):
     """获取随访统计信息"""
     try:
-        user_id = req.headers.get("X-User-ID", "guest")
+        user_id = _resolve_request_user_id(req)
         
         conn = get_db_connection()
         cursor = conn.cursor()

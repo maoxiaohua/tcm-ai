@@ -1139,7 +1139,6 @@ from core.knowledge_retrieval.tcm_knowledge_graph import TCMKnowledgeGraph
 from services.famous_doctor_learning_system import FamousDoctorLearningSystem
 from services.prescription_learning_integrator import get_prescription_learning_integrator
 import pickle
-from dotenv import load_dotenv
 
 # 导入增强检索和人格化系统
 # 重新启用增强系统，所有依赖已修复
@@ -1215,12 +1214,11 @@ except ImportError as e:
 # 日志配置（阶段2：迁移到app.core.logging_config）
 logger = configure_app_logging(logger_name=__name__)
 
-# 加载环境变量
-load_dotenv()
-logger.info("Attempted to load environment variables from .env file.")
+# 环境变量由 config/settings.py 统一加载
+logger.info("Environment variables initialized via config.settings.")
 
 # API配置
-DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
+DASHSCOPE_API_KEY = AI_CONFIG.get("dashscope_api_key", "")
 if not DASHSCOPE_API_KEY:
     logger.error("CRITICAL: DASHSCOPE_API_KEY not set.")
 else:
@@ -1233,8 +1231,8 @@ RAG_EMBEDDING_DIM = 1024
 CONVERSATION_LOG_DIR = "./conversation_logs"
 os.makedirs(CONVERSATION_LOG_DIR, exist_ok=True)
 
-# FAISS知识库路径配置
-KNOWLEDGE_DB_PATH = os.getenv("KNOWLEDGE_DB_PATH", str(PATHS['knowledge_db']))
+# FAISS知识库路径配置（由统一配置 PATHS 提供，可被 KNOWLEDGE_DB_PATH 覆盖）
+KNOWLEDGE_DB_PATH = str(PATHS["knowledge_db"])
 FAISS_INDEX_FILE = os.path.join(KNOWLEDGE_DB_PATH, "knowledge.index")
 DOCUMENTS_FILE = os.path.join(KNOWLEDGE_DB_PATH, "documents.pkl")
 METADATA_FILE = os.path.join(KNOWLEDGE_DB_PATH, "metadata.pkl")
@@ -2160,6 +2158,22 @@ class FeedbackInput(BaseModel):
 class FeedbackOutput(BaseModel):
     success: bool
     message: str
+
+
+class FeedbackCompatInput(BaseModel):
+    conversation_id: Optional[str] = None
+    conversationId: Optional[str] = None
+    session_id: Optional[str] = None
+    sessionId: Optional[str] = None
+    rating: Optional[int] = None
+    score: Optional[int] = None
+    feedback_text: Optional[str] = None
+    message: Optional[str] = None
+    content: Optional[str] = None
+    timestamp: Optional[str] = None
+    user_id: Optional[str] = None
+    doctor_id: Optional[str] = None
+    feedback_type: Optional[str] = None
 
 # 系统提示词 - 中医诊疗辅助系统
 SYSTEM_PROMPT_TCM_DIALOGUE_ENHANCED = ENHANCED_MEDICAL_SAFETY_PROMPT + """
@@ -3369,6 +3383,55 @@ async def submit_feedback_endpoint(feedback_input: FeedbackInput):
     except Exception as e:
         logger.error(f"Error in submit_feedback_endpoint: {e}")
         return FeedbackOutput(success=False, message="提交反馈时发生错误")
+
+
+@app.post("/api/review/feedback", response_model=FeedbackOutput)
+async def submit_feedback_compat_endpoint(feedback_input: FeedbackCompatInput):
+    """兼容旧版前端反馈入口，统一转发到 /submit_feedback"""
+    def _first_non_empty(*values):
+        for value in values:
+            if isinstance(value, str):
+                normalized = value.strip()
+                if normalized:
+                    return normalized
+                continue
+            if value is not None:
+                return value
+        return None
+
+    conversation_id = _first_non_empty(
+        feedback_input.conversation_id,
+        feedback_input.conversationId,
+        feedback_input.session_id,
+        feedback_input.sessionId,
+    )
+    if not conversation_id:
+        return FeedbackOutput(success=False, message="conversation_id不能为空")
+
+    raw_rating = _first_non_empty(feedback_input.rating, feedback_input.score)
+    if raw_rating is None:
+        return FeedbackOutput(success=False, message="rating不能为空")
+    try:
+        rating = int(raw_rating)
+    except (TypeError, ValueError):
+        return FeedbackOutput(success=False, message="rating格式错误")
+    if rating < 1 or rating > 5:
+        return FeedbackOutput(success=False, message="rating必须在1到5之间")
+
+    feedback_text = _first_non_empty(
+        feedback_input.feedback_text,
+        feedback_input.message,
+        feedback_input.content,
+    )
+    timestamp = feedback_input.timestamp or datetime.now().isoformat()
+
+    normalized_feedback = FeedbackInput(
+        conversation_id=str(conversation_id),
+        rating=rating,
+        feedback_text=str(feedback_text) if feedback_text is not None else None,
+        timestamp=timestamp,
+    )
+    return await submit_feedback_endpoint(normalized_feedback)
 
 # 医生思维决策树系统API端点 (保持所有原有端点)
 class CaseInput(BaseModel):

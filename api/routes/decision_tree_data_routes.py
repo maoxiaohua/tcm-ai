@@ -18,8 +18,8 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from services.decision_tree_data_service import DecisionTreeDataService
+from app.core.settings import AI_CONFIG
 import dashscope
-import os
 
 
 # ============================================
@@ -69,7 +69,7 @@ router = APIRouter(prefix="/api/decision-tree-data", tags=["决策树数据"])
 data_service = DecisionTreeDataService()
 
 # 初始化dashscope
-DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
+DASHSCOPE_API_KEY = AI_CONFIG.get("dashscope_api_key", "")
 if DASHSCOPE_API_KEY:
     dashscope.api_key = DASHSCOPE_API_KEY
 

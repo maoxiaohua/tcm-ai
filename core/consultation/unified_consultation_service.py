@@ -105,7 +105,7 @@ class UnifiedConsultationService:
             
             # AI配置
             self.ai_model = AI_CONFIG.get("main_model", "qwen-turbo")
-            self.ai_timeout = AI_CONFIG.get("timeout", 40.0)
+            self.ai_timeout = float(AI_CONFIG.get("model_timeout", AI_CONFIG.get("timeout", 40.0)))
             
             # 医疗安全提示词（备用）
             self.medical_safety_prompt = self._get_medical_safety_prompt()

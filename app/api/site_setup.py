@@ -52,6 +52,17 @@ def setup_static_and_site_routes(
                 logger.error(f"读取微信验证文件失败: {e}")
                 return PlainTextResponse("Error reading verification file", status_code=500)
 
+        @app.get("/9bc1b8fbf3176b5ca5254dc9d18d84fb.txt")
+        async def domain_verification_txt():
+            try:
+                file_path = os.path.join(static_dir, "9bc1b8fbf3176b5ca5254dc9d18d84fb.txt")
+                with open(file_path, "r") as f:
+                    content = f.read()
+                return PlainTextResponse(content)
+            except Exception as e:
+                logger.error(f"读取域名验证文件失败: {e}")
+                return PlainTextResponse("File not found", status_code=404)
+
         @app.get("/MP_verify_wechat_verification.txt")
         async def wechat_verification():
             try:

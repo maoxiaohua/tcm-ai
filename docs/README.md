@@ -149,18 +149,40 @@ python api/main.py
 ```bash
 # 阿里云DashScope配置
 DASHSCOPE_API_KEY=your_api_key_here
-
-# 数据库配置
-DATABASE_URL=postgresql://user:password@localhost/tcm_db
+MAIN_MODEL=qwen-turbo
+DECISION_TREE_MODEL=qwen-max
+MULTIMODAL_MODEL=qwen-vl-max
+MODEL_TIMEOUT=40
+SYNTHESIS_TIMEOUT=45
+MULTIMODAL_TIMEOUT=80
 
 # 服务配置
 HOST=0.0.0.0
 PORT=8000
 WORKERS=1
+LOG_LEVEL=INFO
+
+# 数据库配置（标准字段）
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=tcm_db
+DB_USER=tcm_user
+DB_PASSWORD=
+
+# 路径配置
+KNOWLEDGE_DB_PATH=/opt/tcm-ai/knowledge_db
+
+# OCR（可选）
+BAIDU_OCR_API_KEY=
+BAIDU_OCR_SECRET_KEY=
 
 # 安全配置
 SECRET_KEY=your_secret_key
+ALLOWED_ORIGINS=https://mxh0510.cn,https://www.mxh0510.cn,http://localhost:8000
+DOMAIN=mxh0510.cn
 ```
+
+兼容说明：若历史环境只配置了 `DATABASE_URL`，系统会自动解析为 `DB_*` 配置；旧变量别名（如 `QWEN_API_KEY`、`BAIDU_API_KEY`）仍可用，但建议迁移到标准字段。
 
 ### 数据库配置
 

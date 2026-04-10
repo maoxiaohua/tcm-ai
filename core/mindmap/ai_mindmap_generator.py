@@ -12,10 +12,10 @@ AI通用思维导图生成器
 
 import json
 import logging
-import os
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 from datetime import datetime
+from app.core.settings import AI_CONFIG
 
 try:
     from dashscope import Generation
@@ -60,7 +60,7 @@ class AIMindMapGenerator:
 
     def __init__(self):
         """初始化生成器"""
-        self.api_key = os.getenv('DASHSCOPE_API_KEY', '')
+        self.api_key = AI_CONFIG.get("dashscope_api_key", "")
         if self.api_key and DASHSCOPE_AVAILABLE:
             dashscope.api_key = self.api_key
             logger.info("✅ AI思维导图生成器初始化成功")
