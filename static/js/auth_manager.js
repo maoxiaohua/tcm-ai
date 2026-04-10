@@ -38,9 +38,16 @@ class AuthManager {
      */
     saveLoginState(user, token, remember = false) {
         try {
+            // 先清理可能残留的旧token键，避免不同模块读取到过期token
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('tcm_auth_token');
+
             // 保存用户信息到localStorage
             localStorage.setItem(this.KEYS.USER, JSON.stringify(user));
             localStorage.setItem(this.KEYS.TOKEN, token);
+            // 兼容旧模块：同步写入历史token键
+            localStorage.setItem('auth_token', token);
+            localStorage.setItem('tcm_auth_token', token);
             
             // 保存token到cookie (用于后端验证)
             this.setCookie(this.KEYS.TOKEN, token, this.COOKIE_CONFIG);
@@ -120,6 +127,8 @@ class AuthManager {
         // 清除localStorage
         localStorage.removeItem(this.KEYS.USER);
         localStorage.removeItem(this.KEYS.TOKEN);
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('tcm_auth_token');
         localStorage.removeItem('patientToken');
         localStorage.removeItem('doctorToken');
         localStorage.removeItem('adminToken');

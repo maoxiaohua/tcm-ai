@@ -385,7 +385,7 @@
                 headers: headers,
                 body: JSON.stringify({
                     message: message,
-                    conversation_id: conversation_id,
+                    conversation_id: conversationId,
                     selected_doctor: window.selectedDoctor,
                     patient_id: userId,
                     conversation_history: conversationHistory
@@ -1177,8 +1177,16 @@
             window.currentConversationId = `mobile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         }
 
-        // 加载该医生的历史对话
-        if (typeof window.loadDoctorHistory === 'function') {
+        const forceFreshConversation = window.refreshConversationStrategy === 'new_conversation';
+        if (forceFreshConversation) {
+            const container = document.getElementById('mobileMessagesContainer');
+            if (container) {
+                container.innerHTML = '';
+            }
+            window.messages = [];
+            addMobileMessage('ai', `您好！我是${doctorInfo.name}，${doctorInfo.school || ''}传人。请详细描述您的症状，我将为您进行专业的中医分析。`);
+        } else if (typeof window.loadDoctorHistory === 'function') {
+            // 加载该医生的历史对话
             window.loadDoctorHistory(doctorKey);
         } else {
             // 清空消息容器并添加欢迎消息

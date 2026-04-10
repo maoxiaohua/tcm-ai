@@ -20,9 +20,8 @@ import sqlite3
 from services.famous_doctor_learning_system import FamousDoctorLearningSystem
 from api.security_integration import get_current_user
 from core.security.rbac_system import UserSession, UserRole
-from core.prescription.tcm_formula_analyzer import TCMFormulaAnalyzer
 from core.doctor_management.doctor_auth import doctor_auth_manager
-from config.settings import AI_CONFIG
+from app.core.settings import AI_CONFIG, PATHS
 
 # 检查Dashscope可用性
 try:
@@ -38,9 +37,18 @@ logger = logging.getLogger(__name__)
 # 创建路由器
 router = APIRouter(prefix="/api", tags=["doctor-decision-tree"])
 
-# 初始化服务
-doctor_learning_system = FamousDoctorLearningSystem()
-formula_analyzer = TCMFormulaAnalyzer()
+# 懒加载服务，避免模块导入时触发重初始化
+_doctor_learning_system: Optional[FamousDoctorLearningSystem] = None
+USER_DB_PATH = str(PATHS["user_db"])
+
+
+def get_doctor_learning_system() -> FamousDoctorLearningSystem:
+    global _doctor_learning_system
+    if _doctor_learning_system is None:
+        _doctor_learning_system = FamousDoctorLearningSystem()
+    return _doctor_learning_system
+
+
 security_bearer = HTTPBearer(auto_error=False)
 
 # 混合认证依赖函数 - 支持RBAC session和医生JWT token
@@ -92,7 +100,7 @@ async def get_current_user_or_doctor(
 
         if doctor_payload:
             # 从doctors表获取医生信息
-            conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+            conn = sqlite3.connect(USER_DB_PATH)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
@@ -229,7 +237,7 @@ async def analyze_thinking(
         
         # 调用AI分析
         try:
-            analysis_result = await doctor_learning_system.analyze_doctor_thinking(
+            analysis_result = await get_doctor_learning_system().analyze_doctor_thinking(
                 thinking_process=request.thinking_process,
                 disease_name=request.disease_name,
                 analysis_prompt=analysis_prompt
@@ -383,7 +391,7 @@ async def generate_decision_tree(
         
         try:
             # 调用AI生成决策树
-            tree_result = await doctor_learning_system.generate_decision_tree(
+            tree_result = await get_doctor_learning_system().generate_decision_tree(
                 disease_name=request.disease_name,
                 thinking_process=request.thinking_process,
                 schools=selected_school_names,
@@ -739,10 +747,10 @@ async def generate_visual_decision_tree(
             print(f"  - 疾病名称: {request.disease_name}")
             print(f"  - 思维过程长度: {len(request.thinking_process.strip()) if request.thinking_process else 0}")
             print(f"  - use_ai: {request.use_ai}")
-            print(f"  - 调用doctor_learning_system.generate_decision_paths...")
+            print(f"  - 调用get_doctor_learning_system().generate_decision_paths...")
             
             # 调用新的智能生成方法
-            generation_result = await doctor_learning_system.generate_decision_paths(
+            generation_result = await get_doctor_learning_system().generate_decision_paths(
                 disease_name=request.disease_name,
                 thinking_process=request.thinking_process,
                 use_ai=request.use_ai,  # 使用前端传递的参数
@@ -761,7 +769,7 @@ async def generate_visual_decision_tree(
                 "message": f"{generation_result['source'].upper()}生成完成",
                 "data": generation_result,
                 "ai_status": {
-                    "enabled": doctor_learning_system.ai_enabled,
+                    "enabled": get_doctor_learning_system().ai_enabled,
                     "source": generation_result['source'],
                     "generation_time": generation_result.get('generation_time', '未知')
                 }
@@ -775,7 +783,7 @@ async def generate_visual_decision_tree(
                 "message": f"AI生成失败: {str(ai_error)}",
                 "data": None,
                 "ai_status": {
-                    "enabled": doctor_learning_system.ai_enabled,
+                    "enabled": get_doctor_learning_system().ai_enabled,
                     "source": "ai_failed",
                     "error": str(ai_error)
                 }
@@ -803,7 +811,7 @@ async def analyze_tree_tcm_theory(
         
         try:
             # 优先尝试AI分析
-            analysis_result = await doctor_learning_system.analyze_tcm_theory_with_ai(
+            analysis_result = await get_doctor_learning_system().analyze_tcm_theory_with_ai(
                 tree_data=request.tree_data,
                 disease_name=request.disease_name
             )
@@ -814,12 +822,12 @@ async def analyze_tree_tcm_theory(
             
             return {
                 "success": True,
-                "message": f"AI理论分析完成（{doctor_learning_system.ai_enabled and 'AI' or '模板'}模式）",
+                "message": f"AI理论分析完成（{get_doctor_learning_system().ai_enabled and 'AI' or '模板'}模式）",
                 "data": {
                     "analysis": formatted_analysis,
                     "suggestions": formatted_suggestions,
-                    "source": "ai" if doctor_learning_system.ai_enabled else "template",
-                    "ai_enabled": doctor_learning_system.ai_enabled
+                    "source": "ai" if get_doctor_learning_system().ai_enabled else "template",
+                    "ai_enabled": get_doctor_learning_system().ai_enabled
                 }
             }
             
@@ -1236,7 +1244,7 @@ async def get_user_preferences(
         if current_user.user_id != user_id and not is_admin:
             raise HTTPException(status_code=403, detail="无权限访问")
         
-        preferences = doctor_learning_system.get_user_preferences(user_id)
+        preferences = get_doctor_learning_system().get_user_preferences(user_id)
         
         return {
             "success": True,
@@ -1271,7 +1279,7 @@ async def save_user_preferences(
             "custom_templates": request.custom_templates
         }
         
-        doctor_learning_system.save_user_preferences(user_id, preferences)
+        get_doctor_learning_system().save_user_preferences(user_id, preferences)
         
         return {
             "success": True,
@@ -1291,15 +1299,15 @@ async def get_ai_status():
             "success": True,
             "message": "AI状态获取成功",
             "data": {
-                "ai_enabled": doctor_learning_system.ai_enabled,
-                "ai_model": getattr(doctor_learning_system, 'ai_model', 'unknown'),
+                "ai_enabled": get_doctor_learning_system().ai_enabled,
+                "ai_model": getattr(get_doctor_learning_system(), 'ai_model', 'unknown'),
                 "dashscope_available": DASHSCOPE_AVAILABLE,
-                "learning_enabled": getattr(doctor_learning_system, 'learning_enabled', False),
+                "learning_enabled": getattr(get_doctor_learning_system(), 'learning_enabled', False),
                 "features": {
-                    "decision_tree_generation": doctor_learning_system.ai_enabled,
-                    "theory_analysis": doctor_learning_system.ai_enabled,
+                    "decision_tree_generation": get_doctor_learning_system().ai_enabled,
+                    "theory_analysis": get_doctor_learning_system().ai_enabled,
                     "hybrid_mode": True,
-                    "user_learning": getattr(doctor_learning_system, 'learning_enabled', False)
+                    "user_learning": getattr(get_doctor_learning_system(), 'learning_enabled', False)
                 }
             }
         }
@@ -1359,7 +1367,7 @@ async def analyze_diagnostic_completeness(
         logger.info(f"诊疗流程完整性分析 - 疾病: {request.disease_name}, 用户: {current_user.user_id}")
         
         # 调用名医学习系统进行完整性分析
-        completeness_result = await doctor_learning_system._analyze_diagnostic_completeness(
+        completeness_result = await get_doctor_learning_system()._analyze_diagnostic_completeness(
             request.disease_name, 
             request.thinking_process
         )
@@ -1816,7 +1824,7 @@ async def get_doctor_clinical_patterns(
         logger.info(f"获取医生 {doctor_id} 的临床模式")
         
         # 🗄️ 从数据库查询临床模式
-        db_path = "/opt/tcm-ai/data/user_history.sqlite"
+        db_path = USER_DB_PATH
         
         with sqlite3.connect(db_path) as conn:
             conn.row_factory = sqlite3.Row
@@ -1894,7 +1902,7 @@ async def delete_clinical_pattern(
         logger.info(f"删除临床模式请求 - pattern_id: {pattern_id}, user: {current_user.user_id}")
 
         # 连接数据库
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect(USER_DB_PATH)
         cursor = conn.cursor()
 
         try:
@@ -1972,7 +1980,7 @@ async def _save_pattern_to_database(pattern_data: Dict[str, Any]) -> str:
     pattern_id = str(uuid.uuid4())
     
     # 连接数据库
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect(USER_DB_PATH)
     cursor = conn.cursor()
     
     try:
@@ -2192,7 +2200,7 @@ async def get_pattern_usage_statistics(
         elif time_range == "month":
             time_filter = "AND c.created_at >= datetime('now', '-30 days')"
 
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect(USER_DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -2292,7 +2300,7 @@ async def get_pattern_usage_detail(
     try:
         logger.info(f"获取决策树 {pattern_id} 的详细使用记录")
 
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect(USER_DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -2377,7 +2385,7 @@ async def get_consultation_detail(
         logger.info(f"🔍 [决策树]获取问诊详情请求: consultation_id={consultation_id}, user_id={current_user.user_id}, roles={user_roles}")
         logger.info(f"🔍 [决策树]current_user完整信息: {current_user.__dict__}")
 
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect(USER_DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -2542,7 +2550,7 @@ async def _save_mind_map_to_database(
     """保存思维导图到数据库（使用UPSERT策略）"""
     import uuid
 
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect(USER_DB_PATH)
     cursor = conn.cursor()
 
     # 检查是否已存在相同疾病的决策树

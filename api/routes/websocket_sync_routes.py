@@ -11,9 +11,9 @@ from typing import Dict, List, Set, Any
 import json
 import asyncio
 import logging
-import sqlite3
 from datetime import datetime
 import uuid
+from app.services import local_sqlite_service as sqlite_service
 
 router = APIRouter()
 
@@ -142,12 +142,6 @@ class ConnectionManager:
 # 全局连接管理器
 manager = ConnectionManager()
 
-def get_db_connection():
-    """获取数据库连接"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-    conn.row_factory = sqlite3.Row
-    return conn
-
 @router.websocket("/ws/sync/{user_id}")
 async def websocket_sync_endpoint(websocket: WebSocket, user_id: str, device_id: str = None):
     """WebSocket实时同步端点"""
@@ -224,36 +218,23 @@ async def handle_conversation_update(user_id: str, device_id: str, data: dict):
     if not conversation_id or not current_stage:
         return
     
-    # 保存到数据库
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("""
-            INSERT OR REPLACE INTO conversation_states 
-            (conversation_id, user_id, current_stage, last_activity, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            conversation_id,
-            user_id,
-            current_stage,
-            datetime.now().isoformat(),
-            datetime.now().isoformat()
-        ))
-        conn.commit()
-        
-        # 广播给用户的其他设备
-        await manager.broadcast_to_user_devices(user_id, {
-            "type": "state_sync",
-            "data": {
-                "conversation_id": conversation_id,
-                "current_stage": current_stage,
-                "updated_by": device_id
-            }
-        }, exclude_device=device_id)
-        
-    finally:
-        conn.close()
+    now_iso = datetime.now().isoformat()
+    sqlite_service.upsert_conversation_state(
+        conversation_id=conversation_id,
+        user_id=user_id,
+        current_stage=current_stage,
+        updated_at=now_iso,
+    )
+
+    # 广播给用户的其他设备
+    await manager.broadcast_to_user_devices(user_id, {
+        "type": "state_sync",
+        "data": {
+            "conversation_id": conversation_id,
+            "current_stage": current_stage,
+            "updated_by": device_id
+        }
+    }, exclude_device=device_id)
 
 async def handle_new_message_sync(user_id: str, device_id: str, data: dict):
     """处理新消息同步"""
@@ -311,42 +292,17 @@ async def handle_doctor_switch(user_id: str, device_id: str, data: dict):
 
 async def send_latest_state(user_id: str, device_id: str, websocket: WebSocket):
     """发送最新状态给设备"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # 获取最新的对话状态
-        cursor.execute("""
-            SELECT * FROM conversation_states 
-            WHERE user_id = ? AND is_active = 1
-            ORDER BY last_activity DESC LIMIT 1
-        """, (user_id,))
-        
-        latest_conversation = cursor.fetchone()
-        
-        # 获取最近的消息
-        cursor.execute("""
-            SELECT message_content, sender, created_at
-            FROM consultation_messages cm
-            JOIN consultations c ON cm.consultation_id = c.uuid
-            WHERE c.patient_id = ?
-            ORDER BY cm.created_at DESC LIMIT 5
-        """, (user_id,))
-        
-        recent_messages = [dict(row) for row in cursor.fetchall()]
-        
-        # 发送最新状态
-        await manager.send_personal_message({
-            "type": "latest_state",
-            "data": {
-                "conversation_state": dict(latest_conversation) if latest_conversation else None,
-                "recent_messages": recent_messages,
-                "sync_timestamp": datetime.now().isoformat()
-            }
-        }, websocket)
-        
-    finally:
-        conn.close()
+    latest_state = sqlite_service.fetch_latest_sync_state(user_id=user_id, recent_limit=5)
+
+    # 发送最新状态
+    await manager.send_personal_message({
+        "type": "latest_state",
+        "data": {
+            "conversation_state": latest_state["conversation_state"],
+            "recent_messages": latest_state["recent_messages"],
+            "sync_timestamp": datetime.now().isoformat()
+        }
+    }, websocket)
 
 async def handle_conflict_resolution(user_id: str, device_id: str, data: dict):
     """处理冲突解决"""

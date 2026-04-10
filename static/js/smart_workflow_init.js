@@ -312,34 +312,108 @@
      * 🔑 v4.4 修复：增加从ConversationManager恢复的逻辑
      */
     async function autoRestoreConversationHistory() {
-        const defaultDoctor = window.selectedDoctor || 'jin_daifu';
+        const defaultDoctorRaw = window.selectedDoctor || 'jin_daifu';
+        const defaultDoctor = typeof window.normalizeDoctorKey === 'function'
+            ? window.normalizeDoctorKey(defaultDoctorRaw)
+            : defaultDoctorRaw;
         const userId = typeof window.getCurrentUserId === 'function'
             ? window.getCurrentUserId()
             : 'default';
 
         console.log(`🔄 页面初始化：自动加载${defaultDoctor}医生的对话历史...`);
 
+        const forceFreshConversation = window.refreshConversationStrategy === 'new_conversation';
+        if (forceFreshConversation) {
+            if (typeof window.setDefaultDoctor === 'function') {
+                window.setDefaultDoctor(defaultDoctor, true);
+            } else {
+                window.selectedDoctor = defaultDoctor;
+            }
+
+            if (typeof window.clearAllMessages === 'function') {
+                window.clearAllMessages();
+            } else {
+                const messagesContainer = document.getElementById('messagesContainer');
+                const mobileMessagesContainer = document.getElementById('mobileMessagesContainer');
+                if (messagesContainer) messagesContainer.innerHTML = '';
+                if (mobileMessagesContainer) mobileMessagesContainer.innerHTML = '';
+            }
+
+            if (typeof window.generateConversationId === 'function') {
+                window.generateConversationId();
+            } else {
+                window.currentConversationId = `fresh_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+            }
+            window.messages = [];
+
+            const doctorInfo = (window.doctors || {})[defaultDoctor] || {};
+            const doctorName = doctorInfo.name || (typeof window.getDoctorDisplayName === 'function'
+                ? window.getDoctorDisplayName(defaultDoctor)
+                : '中医师');
+            const doctorSchool = doctorInfo.school || '';
+            const welcomeMessage = `您好！我是${doctorName}${doctorSchool ? `，${doctorSchool}传人` : ''}。请详细描述您的症状，我将为您进行专业的中医分析。`;
+            const isMobile = window.innerWidth <= 768;
+
+            if (isMobile && typeof window.addMobileMessage === 'function') {
+                await window.addMobileMessage('ai', welcomeMessage);
+            } else if (typeof window.addMessage === 'function') {
+                await window.addMessage('ai', welcomeMessage, false, false, null);
+            } else if (typeof window.addWelcomeMessage === 'function') {
+                window.addWelcomeMessage(defaultDoctor);
+            }
+
+            console.log('🧹 刷新策略生效：已强制开启新会话（不自动恢复历史）');
+            return;
+        }
+
         let messages = [];
         let conversationId = null;
+        const token = (window.authManager && typeof window.authManager.getToken === 'function'
+            ? window.authManager.getToken()
+            : null) ||
+            window.userToken ||
+            localStorage.getItem('session_token') ||
+            localStorage.getItem('tcm_auth_token') ||
+            localStorage.getItem('auth_token');
+        const isLoggedIn = !!token;
 
-        // 1. 优先从本地存储加载（最可靠）
-        const historyKey = `tcm_doctor_history_${userId}_${defaultDoctor}`;
-        const storedHistory = localStorage.getItem(historyKey);
-
-        if (storedHistory) {
+        // 1. 登录用户优先从API加载，避免本地旧缓存覆盖最新会话
+        if (isLoggedIn && window.sessionManager) {
             try {
-                const historyData = JSON.parse(storedHistory);
-                if (historyData.messages && historyData.messages.length > 0) {
-                    messages = historyData.messages;
-                    conversationId = historyData.conversationId;
-                    console.log(`✅ 从本地加载${defaultDoctor}医生的${messages.length}条历史记录（版本：${historyData.version || '1.0'}）`);
+                window.userToken = token;
+                const result = await window.sessionManager.switchDoctor(defaultDoctor);
+                console.log(`📡 API返回: conversationId=${result.conversation_id}, messages=${result.messages?.length || 0}`);
+
+                conversationId = result.conversation_id;
+                if (result.messages && result.messages.length > 0) {
+                    messages = result.messages;
+                    console.log(`✅ 从API恢复${defaultDoctor}医生的${messages.length}条历史记录`);
                 }
-            } catch (e) {
-                console.warn('解析本地历史失败:', e);
+            } catch (error) {
+                console.warn('API加载失败，使用本地数据:', error);
             }
         }
 
-        // 🔑 1.5 如果本地存储没有，尝试从ConversationManager加载
+        // 2. API无数据时，从本地存储回退
+        if (messages.length === 0) {
+            const historyKey = `tcm_doctor_history_${userId}_${defaultDoctor}`;
+            const storedHistory = localStorage.getItem(historyKey);
+
+            if (storedHistory) {
+                try {
+                    const historyData = JSON.parse(storedHistory);
+                    if (historyData.messages && historyData.messages.length > 0) {
+                        messages = historyData.messages;
+                        conversationId = historyData.conversation_id || historyData.conversationId;
+                        console.log(`✅ 从本地加载${defaultDoctor}医生的${messages.length}条历史记录（版本：${historyData.version || '1.0'}）`);
+                    }
+                } catch (e) {
+                    console.warn('解析本地历史失败:', e);
+                }
+            }
+        }
+
+        // 3. 本地仍无数据，尝试从ConversationManager加载
         if (messages.length === 0 && window.conversationManager) {
             try {
                 const latestConv = window.conversationManager.getLatestConversation(defaultDoctor);
@@ -353,27 +427,11 @@
             }
         }
 
-        // 2. 如果本地没有，尝试从API加载（仅登录用户）
-        const isLoggedIn = !!(window.userToken || localStorage.getItem('tcm_auth_token'));
-        if (messages.length === 0 && isLoggedIn && window.sessionManager) {
-            try {
-                const result = await window.sessionManager.switchDoctor(defaultDoctor);
-                console.log(`📡 API返回: conversationId=${result.conversation_id}, messages=${result.messages?.length || 0}`);
-
-                conversationId = result.conversation_id;
-                if (result.messages && result.messages.length > 0) {
-                    messages = result.messages;
-                }
-            } catch (error) {
-                console.warn('API加载失败，使用本地数据:', error);
-            }
-        }
-
-        // 3. 更新全局变量
+        // 4. 更新全局变量
         window.currentConversationId = conversationId || `local_${Date.now()}`;
         window.messages = messages;
 
-        // 4. 渲染消息到UI
+        // 5. 渲染消息到UI
         if (messages.length > 0) {
             console.log(`📝 页面初始化：恢复 ${messages.length} 条历史消息到UI`);
             for (const msg of messages) {
@@ -645,7 +703,16 @@
             // 获取认证头
             const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${window.userToken || ''}`
+                'Authorization': `Bearer ${
+                    (window.authManager && typeof window.authManager.getToken === 'function'
+                        ? window.authManager.getToken()
+                        : null) ||
+                    window.userToken ||
+                    localStorage.getItem('session_token') ||
+                    localStorage.getItem('tcm_auth_token') ||
+                    localStorage.getItem('auth_token') ||
+                    ''
+                }`
             };
 
             // 从后端API获取会话详情
@@ -704,6 +771,10 @@
 
             // 格式2: conversation_messages (旧格式)
             const messages = conversation.conversation_messages || conversation.messages || conversation.conversation_log || [];
+            const restoredPrescriptionId =
+                conversation?.prescription?.prescription_id ||
+                conversation?.prescription_info?.prescription_id ||
+                null;
 
             let restoredCount = 0;
 
@@ -723,7 +794,7 @@
                     // 渲染AI回复
                     if (turn.ai_response) {
                         if (typeof window.addMessage === 'function') {
-                            await window.addMessage('ai', turn.ai_response);
+                            await window.addMessage('ai', turn.ai_response, false, false, restoredPrescriptionId);
                             restoredCount++;
                         }
                     }
@@ -745,9 +816,26 @@
                         }
                     } else if (sender === 'assistant' || sender === 'ai') {
                         if (typeof window.addMessage === 'function') {
-                            // 检查是否包含处方
                             const prescriptionData = message.prescription_data || message.prescriptionData || null;
-                            await window.addMessage('ai', content, false, false, prescriptionData);
+                            let prescriptionId = restoredPrescriptionId;
+                            if (prescriptionData) {
+                                if (typeof prescriptionData === 'object') {
+                                    prescriptionId =
+                                        prescriptionData.prescription_id ||
+                                        prescriptionData.prescriptionId ||
+                                        prescriptionId;
+                                } else {
+                                    prescriptionId = prescriptionData;
+                                }
+                            }
+
+                            const isPaid = Boolean(
+                                prescriptionData &&
+                                typeof prescriptionData === 'object' &&
+                                (prescriptionData.isPaid || prescriptionData.is_paid)
+                            );
+
+                            await window.addMessage('ai', content, false, isPaid, prescriptionId);
                             restoredCount++;
                         }
                     }

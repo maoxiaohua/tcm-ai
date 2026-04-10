@@ -1884,6 +1884,7 @@
         // 全局变量
         let currentConversationId = '';
         let selectedDoctor = 'zhang_zhongjing'; // 默认张仲景
+        const REFRESH_STRATEGY = 'new_conversation'; // 刷新策略：new_conversation / restore_last
         let isVoiceRecording = false;
         let mediaRecorder = null;
         let audioChunks = [];
@@ -1944,10 +1945,15 @@
             cleanupOldUserData();
             
             renderDoctorCards();
-            loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
-            
+            generateConversationId();
+
             // 设置默认医生 - 张仲景（最全面的医师）
-            setDefaultDoctor('zhang_zhongjing');
+            if (REFRESH_STRATEGY === 'new_conversation') {
+                setDefaultDoctor('zhang_zhongjing', true);
+            } else {
+                loadConversationHistory(); // 这个函数内部会调用generateConversationId如果需要
+                setDefaultDoctor('zhang_zhongjing');
+            }
             
             // 添加调试功能（仅在开发环境或特定条件下）
             if (isDebugMode()) {
@@ -1971,7 +1977,7 @@
         }
         
         // 设置默认医生（不会有确认提示）
-        function setDefaultDoctor(doctorKey) {
+        function setDefaultDoctor(doctorKey, forceNewConversation = false) {
             const doctor = doctors[doctorKey];
             if (!doctor) return;
             
@@ -1989,9 +1995,17 @@
             document.getElementById('currentDoctorAvatar').textContent = doctor.avatar;
             document.getElementById('currentDoctorName').textContent = `${doctor.name} - ${doctor.school}`;
             document.getElementById('currentDoctorDesc').textContent = `擅长：${doctor.specialty}`;
-            
-            // 加载该医生的历史记录
-            loadDoctorHistory(doctorKey);
+
+            if (forceNewConversation) {
+                const messagesContainer = document.getElementById('messagesContainer');
+                const mobileMessagesContainer = document.getElementById('mobileMessagesContainer');
+                if (messagesContainer) messagesContainer.innerHTML = '';
+                if (mobileMessagesContainer) mobileMessagesContainer.innerHTML = '';
+                addWelcomeMessage(doctorKey);
+            } else {
+                // 加载该医生的历史记录
+                loadDoctorHistory(doctorKey);
+            }
         }
 
         // 生成对话ID - 按用户类型隔离
@@ -2153,11 +2167,15 @@
                 // 生成新的对话ID，强制开始新对话
                 generateConversationId();
             }
-            
-            // 加载当前医生的对话历史，不清空历史记录
+
             if (!previousDoctor || previousDoctor !== doctorKey) {
-                // 加载该医生的历史对话
-                loadDoctorHistory(doctorKey);
+                if (REFRESH_STRATEGY === 'new_conversation') {
+                    messagesContainer.innerHTML = '';
+                    addWelcomeMessage(doctorKey);
+                } else {
+                    // 加载该医生的历史对话
+                    loadDoctorHistory(doctorKey);
+                }
             }
             
             // 显示输入框
@@ -3495,9 +3513,17 @@ ${data.analysis_result}`;
             
             // 生成新的对话ID，强制开始新对话
             generateConversationId();
-            
-            // 直接加载该医生的历史对话（loadDoctorHistory会自动清空容器）
-            loadDoctorHistory(doctorKey);
+
+            if (REFRESH_STRATEGY === 'new_conversation') {
+                const mobileContainer = document.getElementById('mobileMessagesContainer');
+                if (mobileContainer) {
+                    mobileContainer.innerHTML = '';
+                }
+                addWelcomeMessage(doctorKey);
+            } else {
+                // 直接加载该医生的历史对话（loadDoctorHistory会自动清空容器）
+                loadDoctorHistory(doctorKey);
+            }
             
             // 切换到聊天页面
             showMobileChatPage();

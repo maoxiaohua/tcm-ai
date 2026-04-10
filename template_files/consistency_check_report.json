@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-23T20:44:27.458252",
+  "timestamp": "2026-04-05T21:04:33.227882",
   "statistics": {
     "backend_apis": 165,
     "frontend_apis": 92,
@@ -7,40 +7,45 @@
   },
   "summary": {
     "errors": 58,
-    "warnings": 10,
+    "warnings": 9,
     "info": 3
   },
   "details": {
     "errors": [
       {
         "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/user/info",
+        "details": "调用文件: register.html"
+      },
+      {
+        "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/auth/send-verification-code",
-        "details": "调用文件: phone_binding.html, auth_portal.html, register.html"
+        "details": "调用文件: register.html, auth_portal.html, phone_binding.html"
       },
       {
         "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/auth/verify-phone-code",
-        "details": "调用文件: phone_binding.html, auth_portal.html, register.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/auth/phone-login",
-        "details": "调用文件: phone_binding.html"
+        "details": "调用文件: register.html, auth_portal.html, phone_binding.html"
       },
       {
         "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/auth/bind-phone",
-        "details": "调用文件: phone_binding.html, auth_portal.html, register.html"
+        "details": "调用文件: register.html, auth_portal.html, phone_binding.html"
       },
       {
         "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/share_visit",
-        "details": "调用文件: wechat_share.html"
+        "message": "前端调用的API不存在于后端: /api/auth/register/email",
+        "details": "调用文件: register.html, auth_portal.html"
       },
       {
         "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/v2/auth/profile",
-        "details": "调用文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, doctor/index_optimized.html"
+        "message": "前端调用的API不存在于后端: /api/auth/register/username",
+        "details": "调用文件: register.html, admin/index.html"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/generate_paths_from_thinking",
+        "details": "调用文件: decision_tree_v3.html"
       },
       {
         "category": "API一致性",
@@ -54,33 +59,8 @@
       },
       {
         "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/generate_paths_from_thinking",
-        "details": "调用文件: decision_tree_v3.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/v2/auth/login",
-        "details": "调用文件: auth_portal.html, doctor/login.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/auth/register/email",
-        "details": "调用文件: auth_portal.html, register.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/v2/auth/register",
-        "details": "调用文件: auth_portal.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/database/overview",
-        "details": "调用文件: database_manager.html"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/database/query",
-        "details": "调用文件: database_manager.html"
+        "message": "前端调用的API不存在于后端: /api/v2/auth/profile",
+        "details": "调用文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, doctor/index_optimized.html"
       },
       {
         "category": "API一致性",
@@ -124,18 +104,38 @@
       },
       {
         "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/user/info",
-        "details": "调用文件: register.html"
+        "message": "前端调用的API不存在于后端: /api/share_visit",
+        "details": "调用文件: wechat_share.html"
       },
       {
         "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/auth/register/username",
-        "details": "调用文件: register.html, admin/index.html"
+        "message": "前端调用的API不存在于后端: /api/v2/auth/login",
+        "details": "调用文件: auth_portal.html, doctor/login.html"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/v2/auth/register",
+        "details": "调用文件: auth_portal.html"
       },
       {
         "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/consultation/chat",
-        "details": "调用文件: conversation_state_demo.html, js/smart_workflow_mobile.js, js/smart_workflow_chat.js"
+        "details": "调用文件: conversation_state_demo.html, js/smart_workflow_chat.js, js/smart_workflow_mobile.js"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/database/overview",
+        "details": "调用文件: database_manager.html"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/database/query",
+        "details": "调用文件: database_manager.html"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/auth/phone-login",
+        "details": "调用文件: phone_binding.html"
       },
       {
         "category": "API一致性",
@@ -209,13 +209,8 @@
       },
       {
         "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/conversation/sync",
-        "details": "调用文件: js/conversation_state_manager.js"
-      },
-      {
-        "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/user-sync/full-sync",
-        "details": "调用文件: js/conversation_state_manager.js"
+        "message": "前端调用的API不存在于后端: /api/conversation/switch-doctor",
+        "details": "调用文件: js/session_manager.js"
       },
       {
         "category": "API一致性",
@@ -224,13 +219,8 @@
       },
       {
         "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/review/feedback",
-        "details": "调用文件: js/smart_workflow_utils.js"
-      },
-      {
-        "category": "API一致性",
         "message": "前端调用的API不存在于后端: /api/conversation/clear",
-        "details": "调用文件: js/smart_workflow_mobile.js, js/smart_workflow_history.js"
+        "details": "调用文件: js/smart_workflow_history.js, js/smart_workflow_mobile.js"
       },
       {
         "category": "API一致性",
@@ -249,8 +239,18 @@
       },
       {
         "category": "API一致性",
-        "message": "前端调用的API不存在于后端: /api/conversation/switch-doctor",
-        "details": "调用文件: js/session_manager.js"
+        "message": "前端调用的API不存在于后端: /api/review/feedback",
+        "details": "调用文件: js/smart_workflow_utils.js"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/conversation/sync",
+        "details": "调用文件: js/conversation_state_manager.js"
+      },
+      {
+        "category": "API一致性",
+        "message": "前端调用的API不存在于后端: /api/user-sync/full-sync",
+        "details": "调用文件: js/conversation_state_manager.js"
       },
       {
         "category": "API一致性",
@@ -321,17 +321,12 @@
       },
       {
         "category": "参数命名",
-        "message": "API参数命名不一致: /api/prescription/create",
-        "details": "  - 使用 'patient_id', 建议 'user_id'"
-      },
-      {
-        "category": "参数命名",
-        "message": "API参数命名不一致: /api/security/log-event",
+        "message": "API参数命名不一致: /api/prescription/save",
         "details": "  - 使用 'content', 建议 'message'"
       },
       {
         "category": "参数命名",
-        "message": "API参数命名不一致: /api/prescription/save",
+        "message": "API参数命名不一致: /api/security/log-event",
         "details": "  - 使用 'content', 建议 'message'"
       },
       {
@@ -346,12 +341,12 @@
       },
       {
         "category": "常见错误",
-        "message": "响应数据结构不一致: js/smart_workflow_mobile.js",
+        "message": "响应数据结构不一致: js/smart_workflow_chat.js",
         "details": "直接访问.reply可能失败，应检查data.reply或result.data.reply"
       },
       {
         "category": "常见错误",
-        "message": "响应数据结构不一致: js/smart_workflow_chat.js",
+        "message": "响应数据结构不一致: js/smart_workflow_mobile.js",
         "details": "直接访问.reply可能失败，应检查data.reply或result.data.reply"
       }
     ],

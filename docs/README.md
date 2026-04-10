@@ -46,22 +46,39 @@ pip install -r requirements.txt
 
 4. **配置环境变量**
 ```bash
-cp .env.example .env
-# 编辑.env文件，填入您的API密钥和数据库配置
+cp .env.example config/.env
+# 编辑 config/.env 文件，填入您的API密钥和数据库配置
 ```
 
-5. **启动服务**
+5. **启动服务（开发热重载，推荐）**
 ```bash
-python main.py
+bash scripts/dev_server.sh
+```
+
+或兼容旧方式：
+```bash
+python api/main.py
 ```
 
 访问 `http://localhost:8000` 开始使用
 
 ## 🏗️ 系统架构
 
+### 重构阶段文档
+
+- Stage-1（骨架）: `docs/ARCHITECTURE_STAGE1.md`
+- Stage-2（配置与日志）: `docs/ARCHITECTURE_STAGE2.md`
+- Stage-3（注册解耦）: `docs/ARCHITECTURE_STAGE3.md`
+- Stage-4（站点路由解耦）: `docs/ARCHITECTURE_STAGE4.md`
+- Stage-5（运维端点解耦）: `docs/ARCHITECTURE_STAGE5.md`
+- Stage-6（监控与调试路由解耦）: `docs/ARCHITECTURE_STAGE6.md`
+- Stage-7（三界面/门户页面路由解耦）: `docs/ARCHITECTURE_STAGE7.md`
+- Stage-8（控制台/测试/医生工具页面路由解耦）: `docs/ARCHITECTURE_STAGE8.md`
+
 ### 核心模块
 
-- **主服务**: `main.py` - FastAPI应用服务器
+- **新入口（阶段1）**: `app.factory:create_app` / `app/asgi.py`
+- **兼容主服务**: `api/main.py` - 现有FastAPI应用服务器
 - **医生系统**: `tcm_doctor_personas.py` - 五大流派医生角色
 - **诊断控制**: `medical_diagnosis_controller.py` - 诊断流程控制
 - **处方系统**: `prescription_checker.py` - 处方检测和分析
@@ -127,7 +144,7 @@ python main.py
 
 ## ⚙️ 配置说明
 
-### 环境变量 (.env)
+### 环境变量 (config/.env)
 
 ```bash
 # 阿里云DashScope配置
@@ -159,17 +176,37 @@ SECRET_KEY=your_secret_key
 
 ```
 tcm/
-├── main.py                     # 主服务入口
-├── tcm_doctor_personas.py      # 医生角色系统
-├── prescription_checker.py     # 处方检测
-├── user_history_system.py      # 用户系统
+├── app/                        # 新架构骨架（阶段1）
+│   ├── factory.py              # App Factory入口
+│   ├── asgi.py                 # ASGI启动模块
+│   ├── api/                    # 新API层（待迁移）
+│   │   ├── registration.py     # 路由/中间件注册装配（阶段3）
+│   │   ├── site_setup.py       # 静态/站点路由装配（阶段4）
+│   │   ├── ops_setup.py        # 运维状态端点装配（阶段5）
+│   │   ├── monitor_setup.py    # 监控/调试路由装配（阶段6）
+│   │   ├── page_setup.py       # 三界面/门户页面路由装配（阶段7）
+│   │   └── feature_page_setup.py # 控制台/测试/医生工具页面路由装配（阶段8）
+│   ├── services/               # 新服务层（待迁移）
+│   ├── repositories/           # 新仓储层（待迁移）
+│   ├── domain/                 # 新领域层（待迁移）
+│   └── schemas/                # 新Schema层（待迁移）
+├── api/main.py                 # 主服务入口
+├── core/                       # 核心业务逻辑
+├── services/                   # 应用服务层
+├── api/routes/                 # 路由层
 ├── static/                     # 前端静态文件
-│   ├── index_v2.html          # 主界面
-│   ├── register.html          # 注册页面
-│   └── ...
 ├── data/                       # 数据目录
-├── conversation_logs/          # 对话日志
-└── knowledge_db/              # 知识库
+└── knowledge_db/               # 知识库
+```
+
+### 开发热重载
+
+```bash
+# 推荐：改代码后自动重载，无需手工重启
+bash scripts/dev_server.sh
+
+# 生产运行（无reload）
+bash scripts/run_server.sh
 ```
 
 ### API接口

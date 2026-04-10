@@ -42,7 +42,13 @@ class SessionManager {
 
         try {
             // 1. 获取认证token（与其他模块保持一致）
-            const token = window.userToken || localStorage.getItem('tcm_auth_token');
+            const token = (window.authManager && typeof window.authManager.getToken === 'function'
+                ? window.authManager.getToken()
+                : null) ||
+                window.userToken ||
+                localStorage.getItem('session_token') ||
+                localStorage.getItem('tcm_auth_token') ||
+                localStorage.getItem('auth_token');
             if (!token) {
                 throw new Error('未登录或会话已过期');
             }
@@ -66,7 +72,13 @@ class SessionManager {
                     alert('您的登录已过期，请重新登录');
 
                     // 清除过期token
-                    localStorage.removeItem('tcm_auth_token');
+                    if (window.authManager && typeof window.authManager.clearLoginState === 'function') {
+                        window.authManager.clearLoginState();
+                    } else {
+                        localStorage.removeItem('session_token');
+                        localStorage.removeItem('tcm_auth_token');
+                        localStorage.removeItem('auth_token');
+                    }
                     window.userToken = null;
 
                     // 跳转到登录页

@@ -11,7 +11,7 @@ sys.path.insert(0, '/opt/tcm-ai/services')
 sys.path.insert(0, '/opt/tcm-ai/database')
 
 # 导入统一配置
-from config.settings import PATHS, API_CONFIG, DATABASE_CONFIG, AI_CONFIG, SECURITY_CONFIG
+from app.core.settings import PATHS, API_CONFIG, DATABASE_CONFIG, AI_CONFIG, SECURITY_CONFIG
 
 # 加强的医疗安全检查
 ENHANCED_MEDICAL_SAFETY_PROMPT = """
@@ -1052,7 +1052,6 @@ import asyncio
 import logging
 import re
 import json
-import sqlite3
 import tempfile
 import platform
 import base64
@@ -1063,6 +1062,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Res
 
 # 先定义logger，再导入安全系统
 import logging
+from app.core.logging_config import configure_app_logging
 logger = logging.getLogger(__name__)
 
 # 导入安全系统
@@ -1076,12 +1076,11 @@ except ImportError as e:
 from fastapi.responses import PlainTextResponse
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import numpy as np
 import requests
 
-# 导入医生路由
+# 导入医生路由（保持原有导入时机，避免历史模块路径副作用）
 from api.routes.doctor_routes import router as doctor_router
 from api.routes.prescription_routes import router as prescription_router
 from api.routes.payment_routes import router as payment_router
@@ -1107,6 +1106,28 @@ from api.routes.session_routes import router as session_router
 from api.routes.security_routes import router as security_router
 from api.routes.prescription_review_routes import router as prescription_review_router
 from api.routes.prescription_structured_edit_routes import router as prescription_structured_edit_router
+
+from app.api.registration import (
+    register_all_routes,
+    setup_exception_and_security,
+    setup_cors_middleware,
+)
+from app.api.site_setup import (
+    register_common_browser_file_routes,
+    setup_static_and_site_routes,
+)
+from app.api.ops_setup import register_operational_routes
+from app.api.monitor_setup import register_monitor_and_debug_routes
+from app.api.page_setup import (
+    register_auth_portal_routes,
+    register_three_interface_page_routes,
+)
+from app.api.feature_page_setup import (
+    register_auth_entry_routes,
+    register_console_and_test_page_routes,
+    register_doctor_tool_page_routes,
+)
+from app.services import local_sqlite_service as sqlite_service
 import faiss
 
 # 导入智能缓存系统
@@ -1191,16 +1212,8 @@ except ImportError as e:
     print(f"Required libraries missing: {e}. Please run 'pip install dashscope'")
     sys.exit(1)
 
-# 日志配置
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('/var/log/tcm_api.log'),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
+# 日志配置（阶段2：迁移到app.core.logging_config）
+logger = configure_app_logging(logger_name=__name__)
 
 # 加载环境变量
 load_dotenv()
@@ -1952,39 +1965,19 @@ async def get_prescription_learning_details():
         
         # 获取详细的学习案例
         details = []
-        
-        # 尝试从数据库获取学习案例
-        import sqlite3
-        import os
-        
-        # 检查学习数据库是否存在
-        learning_db_path = '/opt/tcm-ai/data/learning_db.sqlite'
-        if os.path.exists(learning_db_path):
-            conn = sqlite3.connect(learning_db_path)
-            cursor = conn.cursor()
-            
-            try:
-                # 获取最近的学习案例
-                cursor.execute("""
-                    SELECT * FROM learning_cases 
-                    ORDER BY learned_at DESC 
-                    LIMIT 20
-                """)
-                rows = cursor.fetchall()
-                
-                for row in rows:
-                    details.append({
-                        'diagnosis': row[2] if len(row) > 2 else '未知',
-                        'syndrome': row[3] if len(row) > 3 else '未知',
-                        'prescription': row[4] if len(row) > 4 else '',
-                        'confidence': row[5] if len(row) > 5 else 0.0,
-                        'learned_at': row[6] if len(row) > 6 else '未知'
-                    })
-                
-                conn.close()
-            except Exception as db_error:
-                logger.error(f"读取学习数据库失败: {db_error}")
-                conn.close()
+
+        try:
+            rows = sqlite_service.fetch_recent_learning_cases(limit=20)
+            for row in rows:
+                details.append({
+                    'diagnosis': row[2] if len(row) > 2 else '未知',
+                    'syndrome': row[3] if len(row) > 3 else '未知',
+                    'prescription': row[4] if len(row) > 4 else '',
+                    'confidence': row[5] if len(row) > 5 else 0.0,
+                    'learned_at': row[6] if len(row) > 6 else '未知'
+                })
+        except Exception as db_error:
+            logger.error(f"读取学习数据库失败: {db_error}")
         
         return {
             "success": True,
@@ -2002,38 +1995,21 @@ async def get_prescription_learning_details():
 async def get_recent_learning_activities():
     """获取最近的学习活动"""
     try:
-        import sqlite3
-        
         # 模拟最近学习活动数据
         activities = []
-        
-        # 尝试从数据库读取真实数据
-        learning_db_path = '/opt/tcm-ai/data/learning_db.sqlite'
-        if os.path.exists(learning_db_path):
-            conn = sqlite3.connect(learning_db_path)
-            cursor = conn.cursor()
-            
-            try:
-                cursor.execute("""
-                    SELECT * FROM learning_cases 
-                    ORDER BY learned_at DESC 
-                    LIMIT 10
-                """)
-                rows = cursor.fetchall()
-                
-                for row in rows:
-                    activities.append({
-                        'type': '处方学习',
-                        'diagnosis': row[2] if len(row) > 2 else '未知诊断',
-                        'syndrome': row[3] if len(row) > 3 else '未识别',
-                        'confidence': row[5] if len(row) > 5 else 0.0,
-                        'time_ago': calculate_time_ago(row[6]) if len(row) > 6 else '未知时间'
-                    })
-                
-                conn.close()
-            except Exception as db_error:
-                logger.error(f"读取学习活动失败: {db_error}")
-                conn.close()
+
+        try:
+            rows = sqlite_service.fetch_recent_learning_cases(limit=10)
+            for row in rows:
+                activities.append({
+                    'type': '处方学习',
+                    'diagnosis': row[2] if len(row) > 2 else '未知诊断',
+                    'syndrome': row[3] if len(row) > 3 else '未识别',
+                    'confidence': row[5] if len(row) > 5 else 0.0,
+                    'time_ago': calculate_time_ago(row[6]) if len(row) > 6 else '未知时间'
+                })
+        except Exception as db_error:
+            logger.error(f"读取学习活动失败: {db_error}")
         
         return {
             "success": True,
@@ -2046,162 +2022,63 @@ async def get_recent_learning_activities():
             "data": []
         }
 
-# 先注册静态页面路由（在API路由之前）
-# 医生端友好URL路由 (去除.html扩展名)
-@app.get("/doctor")
-async def doctor_main():
-    """医生工作台主页 - 完整功能版本"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/doctor/index.html')
+# 先注册控制台与测试页面路由（阶段8）
+register_console_and_test_page_routes(app)
 
-# 管理员端路由
-@app.get("/admin")
-async def admin_main():
-    """管理员系统主页"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/admin/index.html')
+# 🔧 处理浏览器常见自动请求 - 避免不必要的404日志（阶段4）
+register_common_browser_file_routes(app)
 
-# 思维导图系统路由
-@app.get("/mindmap")
-async def mindmap_main():
-    """AI智能思维导图生成器"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/mindmap/index.html')
-
-@app.get("/decision_tree_visual_builder.html")
-async def decision_tree_builder():
-    """决策树可视化构建器 - 向后兼容路由"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/decision_tree_visual_builder.html')
-
-@app.get("/debug-doctor")
-async def get_debug_doctor_page():
-    """医生工作台调试页面"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/debug_doctor.html')
-
-@app.get("/test-prescription")
-async def get_test_prescription_page():
-    """处方解锁功能测试页面"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/test_prescription_unlock.html')
-
-@app.get("/test-persistence")
-async def test_persistence_page():
-    """测试页面刷新持久性"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/test_persistence.html')
-
-@app.get("/test-cross-device")
-async def test_cross_device_page():
-    """测试跨设备支付同步"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/test_cross_device.html')
-
-@app.get("/test-history-sync")
-async def test_history_sync_page():
-    """测试跨设备历史记录同步"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/test_cross_device_history.html')
-
-@app.get("/test-history-load")
-async def test_history_load_page():
-    """测试历史记录从数据库加载"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/template_files/test_history_load.html')
-
-@app.get("/test-quick-chat")
-async def test_quick_chat_page():
-    """快速测试问诊功能"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/template_files/quick_test_chat.html')
-
-@app.get("/test-consultation-detail")
-async def test_consultation_detail_page():
-    """测试问诊详情显示功能"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/template_files/test_consultation_detail.html')
-
-@app.get("/test-prescription-status")
-async def test_prescription_status_page():
-    """测试处方状态显示功能"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/template_files/test_prescription_status.html')
-
-@app.get("/debug-user-api")
-async def debug_user_api_page():
-    """调试用户API"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/debug_user_api.html')
-
-# 🔧 处理浏览器常见自动请求 - 避免不必要的404日志
-from fastapi.responses import Response
-
-@app.get("/favicon.ico")
-@app.get("/robots.txt")
-@app.get("/sitemap.xml")
-@app.get("/ads.txt")
-@app.get("/apple-touch-icon.png")
-@app.get("/apple-touch-icon-precomposed.png")
-async def common_browser_files():
-    """处理浏览器常见自动请求 - 返回204减少404日志噪音"""
-    return Response(status_code=204)
-
-# 集成所有路由
-app.include_router(auth_router)
-app.include_router(unified_auth_router)  # 新的统一认证系统
-app.include_router(unified_login_router)  # ⭐ 统一登录API (v3.0)
-app.include_router(doctor_router)
-
+# 集成所有路由（阶段3：迁移到 app.api.registration）
 # 添加管理员路由
 from api.routes.admin_routes import router as admin_router
-app.include_router(admin_router)
-app.include_router(prescription_router)
 
 # AI增强处方管理路由
 from api.routes.prescription_ai_routes import router as prescription_ai_router
-app.include_router(prescription_ai_router)
-
-app.include_router(payment_router)
-app.include_router(decoction_router)
-app.include_router(decision_tree_router)
-app.include_router(decision_tree_data_router)  # ⭐ 决策树数据驱动v3.0
-app.include_router(symptom_analysis_router)
-# app.include_router(doctor_matching_router)  # AI推荐医生功能已移除
-app.include_router(review_router)
-app.include_router(unified_consultation_router)
-app.include_router(database_management_router)
-app.include_router(conversation_sync_router)
-app.include_router(user_data_sync_router)
-app.include_router(data_migration_router)
-app.include_router(user_sessions_router)
-app.include_router(medical_knowledge_router)
-app.include_router(follow_up_router)
-app.include_router(session_router)
-app.include_router(security_router)
-app.include_router(decision_tree_usage_router)  # 🧠 决策树使用记录
-app.include_router(prescription_review_router)
-app.include_router(prescription_structured_edit_router)
 
 # 思维导图路由
 from api.routes.mindmap_routes import router as mindmap_router
-app.include_router(mindmap_router)
 
 # WebSocket实时同步路由
 from api.routes.websocket_sync_routes import router as websocket_sync_router
-app.include_router(websocket_sync_router)
 
 # 对话管理路由 - v4.0重构版
 from api.routes.conversation_management_routes import router as conversation_management_router
-app.include_router(conversation_management_router, prefix="/api", tags=["conversation"])
 
-# 设置全局异常处理器
-from api.middleware.exception_handler import setup_exception_handlers
-setup_exception_handlers(app)
+register_all_routes(
+    app,
+    auth_router=auth_router,
+    unified_auth_router=unified_auth_router,
+    unified_login_router=unified_login_router,
+    doctor_router=doctor_router,
+    admin_router=admin_router,
+    prescription_router=prescription_router,
+    prescription_ai_router=prescription_ai_router,
+    payment_router=payment_router,
+    decoction_router=decoction_router,
+    decision_tree_router=decision_tree_router,
+    decision_tree_data_router=decision_tree_data_router,
+    symptom_analysis_router=symptom_analysis_router,
+    review_router=review_router,
+    unified_consultation_router=unified_consultation_router,
+    database_management_router=database_management_router,
+    conversation_sync_router=conversation_sync_router,
+    user_data_sync_router=user_data_sync_router,
+    data_migration_router=data_migration_router,
+    user_sessions_router=user_sessions_router,
+    medical_knowledge_router=medical_knowledge_router,
+    follow_up_router=follow_up_router,
+    session_router=session_router,
+    security_router=security_router,
+    decision_tree_usage_router=decision_tree_usage_router,
+    prescription_review_router=prescription_review_router,
+    prescription_structured_edit_router=prescription_structured_edit_router,
+    mindmap_router=mindmap_router,
+    websocket_sync_router=websocket_sync_router,
+    conversation_management_router=conversation_management_router,
+)
 
-# 保护现有API路由
-if SECURITY_AVAILABLE:
-    protect_api_routes(app)
+# 设置全局异常处理器与安全保护（阶段3）
+setup_exception_and_security(app, SECURITY_AVAILABLE, protect_api_routes)
 
 # 初始化处方检查系统 - 延迟初始化，避免启动时错误
 prescription_checker = None
@@ -2238,192 +2115,14 @@ def get_famous_doctor_system():
             logger.error(f"名医系统初始化失败: {e}")
     return famous_doctor_system
 
-# CORS中间件配置
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://mxh0510.cn", 
-        "https://www.mxh0510.cn",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://localhost",
-        "http://127.0.0.1"
-    ],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-)
+# CORS中间件配置（阶段3：迁移到 app.api.registration）
+setup_cors_middleware(app)
 
-# 静态文件挂载
-try:
-    app.mount("/static", StaticFiles(directory="/opt/tcm-ai/static"), name="static")
-    
-    # 移动端弹窗测试页面
-    @app.get("/mobile-modal-test")
-    async def mobile_modal_test():
-        """移动端图片选择弹窗测试页面"""
-        with open(str(PATHS['static_dir'] / 'mobile_modal_test.html'), "r", encoding="utf-8") as f:
-            content = f.read()
-        return HTMLResponse(content=content)
-    
-    # 微信验证文件支持 - 通用路由
-    @app.get("/MP_verify_{filename}.txt")
-    async def wechat_verification_dynamic(filename: str):
-        """微信公众平台域名验证 - 支持任意MP_verify_*.txt文件"""
-        try:
-            file_path = f"/opt/tcm-ai/static/MP_verify_{filename}.txt"
-            if os.path.exists(file_path):
-                with open(file_path, "r") as f:
-                    content = f.read().strip()
-                logger.info(f"成功读取微信验证文件: MP_verify_{filename}.txt")
-                return PlainTextResponse(content)
-            else:
-                logger.warning(f"微信验证文件不存在: MP_verify_{filename}.txt")
-                return PlainTextResponse("File not found", status_code=404)
-        except Exception as e:
-            logger.error(f"读取微信验证文件失败: {e}")
-            return PlainTextResponse("Error reading verification file", status_code=500)
-    
-    # 保留原有的通用验证文件路由（向后兼容）
-    @app.get("/MP_verify_wechat_verification.txt")
-    async def wechat_verification():
-        """微信公众平台域名验证 - 向后兼容"""
-        try:
-            with open("/opt/tcm-ai/static/MP_verify_wechat_verification.txt", "r") as f:
-                content = f.read()
-            return PlainTextResponse(content)
-        except:
-            return PlainTextResponse("wechat_verification_tcm_ai_medical_system")
-    
-    @app.get("/robots.txt") 
-    async def robots_txt():
-        """搜索引擎robots.txt"""
-        try:
-            with open("/opt/tcm-ai/static/robots.txt", "r") as f:
-                content = f.read()
-            return PlainTextResponse(content)
-        except:
-            return PlainTextResponse("User-agent: *\nAllow: /")
-    
-    @app.get("/sitemap.xml")
-    async def sitemap_xml():
-        """搜索引擎站点地图"""
-        sitemap_content = '''<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://mxh0510.cn/</loc>
-    <lastmod>2025-08-06</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://mxh0510.cn/register</loc>
-    <lastmod>2025-08-06</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-</urlset>'''
-        return Response(content=sitemap_content, media_type="application/xml")
-    
-    @app.post("/api/log_wechat_visit")
-    async def log_wechat_visit(request: Request):
-        """记录微信公众号访问统计"""
-        try:
-            data = await request.json()
-            logger.info(f"微信公众号访问统计: {data}")
-            
-            # 这里可以将数据保存到数据库或日志文件
-            # 暂时先记录到日志中
-            log_entry = {
-                'timestamp': data.get('timestamp'),
-                'source': data.get('source', 'unknown'),
-                'from_wechat': data.get('from_wechat', False),
-                'is_wechat_browser': data.get('is_wechat_browser', False),
-                'page': data.get('page', 'unknown'),
-                'ip': request.client.host if hasattr(request, 'client') else 'unknown'
-            }
-            
-            # 可以扩展为保存到数据库
-            # await save_wechat_visit_to_db(log_entry)
-            
-            return {"status": "success", "message": "微信访问记录成功"}
-        except Exception as e:
-            logger.error(f"记录微信访问失败: {e}")
-            return {"status": "error", "message": str(e)}
-    
-except Exception as e:
-    logger.warning(f"Static files not mounted: {e}")
+# 静态文件挂载与站点辅助路由（阶段4）
+setup_static_and_site_routes(app, logger, PATHS)
 
-@app.get("/doctor/portal")
-async def doctor_portal():
-    """医生门户 - 友好URL"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/doctor_portal.html')
-
-@app.get("/doctor/review")
-async def doctor_review_portal():
-    """医生处方审查门户"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/doctor_review_portal.html')
-
-@app.get("/prescription/confirm")
-async def patient_prescription_confirm():
-    """患者处方确认页面"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/patient_prescription_confirm.html')
-
-@app.get("/doctor/thinking")  
-async def doctor_thinking():
-    """医生思维录入 - 友好URL"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/doctor_thinking_input.html')
-
-@app.get("/doctor/thinking-v2")
-async def doctor_thinking_v2():
-    """医生思维录入V2 - 友好URL (推荐)"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/doctor_thinking_input_v2.html')
-
-@app.get("/doctor/management")
-async def doctor_management():
-    """医生管理 - 友好URL"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/doctor_management.html')
-
-@app.get("/doctor-test")
-async def doctor_selection_test():
-    """医生选择测试页面"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/doctor_test.html')
-
-@app.get("/test-doctor-selection")
-async def test_doctor_selection_simple():
-    """简单医生选择功能测试"""
-    from fastapi.responses import FileResponse
-    return FileResponse('test_doctor_selection.html')
-
-
-# 添加缺失的直接路由
-@app.get("/doctor_portal")
-async def doctor_portal_direct():
-    """医生门户 - 直接URL (兼容性)"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/doctor_portal.html')
-
-# 旧的独立注册页面路由已移除 - 统一使用 auth_portal.html
-# 所有注册功能现在通过 /register 自动重定向到注册标签页
-
-@app.get("/user_history")  
-async def user_history_page():
-    """用户历史记录页面"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/user_history.html')
-
-@app.get("/qr_gallery")
-async def qr_gallery_page():
-    """二维码管理页面"""
-    from fastapi.responses import FileResponse
-    return FileResponse('/opt/tcm-ai/static/qr_code_gallery.html')
+# 医生工具页面与兼容页面路由（阶段8）
+register_doctor_tool_page_routes(app)
 
 # Pydantic 模型
 class ChatMessageInput(BaseModel): 
@@ -2883,53 +2582,48 @@ async def get_doctor_introductions_endpoint():
         logger.error(f"Error getting doctor introductions: {e}")
         return {"success": False, "error": str(e)}
 
-@app.get("/debug_status")
-async def debug_status_endpoint():
-    """调试状态端点"""
-    try:
-        status = {
-            "server_status": "running",
-            "enhanced_system_available": ENHANCED_SYSTEM_AVAILABLE,
-            "doctor_mind_system_available": DOCTOR_MIND_SYSTEM_AVAILABLE,
-            "zhang_zhongjing_system_available": ZHANG_ZHONGJING_SYSTEM_AVAILABLE,
-            "cache_system_available": CACHE_SYSTEM_AVAILABLE,
-            "conversation_store_size": len(conversation_history_store),
-            "session_store_size": len(conversation_session_store),
-            "knowledge_db_path": KNOWLEDGE_DB_PATH,
-            "api_key_configured": bool(DASHSCOPE_API_KEY)
-        }
-        
-        # 添加缓存统计信息
-        if CACHE_SYSTEM_AVAILABLE and cache_system:
-            try:
-                cache_stats = cache_system.get_cache_stats()
-                status["cache_stats"] = {
-                    "total_entries": cache_stats.total_entries,
-                    "hit_rate": f"{cache_stats.hit_rate:.3f}",
-                    "cache_size_mb": f"{cache_stats.cache_size_mb:.2f}",
-                    "total_queries": cache_system.total_queries,
-                    "cache_hits": cache_system.cache_hits,
-                    "cache_misses": cache_system.cache_misses
-                }
-            except Exception as e:
-                status["cache_stats"] = {"error": str(e)}
-        
-        if ENHANCED_SYSTEM_AVAILABLE:
-            status["enhanced_retrieval_initialized"] = enhanced_retrieval is not None
-            status["persona_generator_initialized"] = persona_generator is not None
-            status["learning_system_initialized"] = learning_system is not None
-        
-        if DOCTOR_MIND_SYSTEM_AVAILABLE:
-            status["enhanced_treatment_generator_initialized"] = enhanced_treatment_generator is not None
-            status["doctor_mind_api_initialized"] = doctor_mind_api is not None
-        
-        if ZHANG_ZHONGJING_SYSTEM_AVAILABLE:
-            status["zhang_zhongjing_system_initialized"] = zhang_zhongjing_system is not None
-        
-        return status
-    except Exception as e:
-        logger.error(f"Error in debug_status: {e}")
-        return {"error": str(e)}
+def _build_debug_status_payload():
+    """构建调试状态数据（阶段5：用于ops_setup统一注册）"""
+    status = {
+        "server_status": "running",
+        "enhanced_system_available": ENHANCED_SYSTEM_AVAILABLE,
+        "doctor_mind_system_available": DOCTOR_MIND_SYSTEM_AVAILABLE,
+        "zhang_zhongjing_system_available": ZHANG_ZHONGJING_SYSTEM_AVAILABLE,
+        "cache_system_available": CACHE_SYSTEM_AVAILABLE,
+        "conversation_store_size": len(conversation_history_store),
+        "session_store_size": len(conversation_session_store),
+        "knowledge_db_path": KNOWLEDGE_DB_PATH,
+        "api_key_configured": bool(DASHSCOPE_API_KEY)
+    }
+
+    # 添加缓存统计信息
+    if CACHE_SYSTEM_AVAILABLE and cache_system:
+        try:
+            cache_stats = cache_system.get_cache_stats()
+            status["cache_stats"] = {
+                "total_entries": cache_stats.total_entries,
+                "hit_rate": f"{cache_stats.hit_rate:.3f}",
+                "cache_size_mb": f"{cache_stats.cache_size_mb:.2f}",
+                "total_queries": cache_system.total_queries,
+                "cache_hits": cache_system.cache_hits,
+                "cache_misses": cache_system.cache_misses
+            }
+        except Exception as e:
+            status["cache_stats"] = {"error": str(e)}
+
+    if ENHANCED_SYSTEM_AVAILABLE:
+        status["enhanced_retrieval_initialized"] = enhanced_retrieval is not None
+        status["persona_generator_initialized"] = persona_generator is not None
+        status["learning_system_initialized"] = learning_system is not None
+
+    if DOCTOR_MIND_SYSTEM_AVAILABLE:
+        status["enhanced_treatment_generator_initialized"] = enhanced_treatment_generator is not None
+        status["doctor_mind_api_initialized"] = doctor_mind_api is not None
+
+    if ZHANG_ZHONGJING_SYSTEM_AVAILABLE:
+        status["zhang_zhongjing_system_initialized"] = zhang_zhongjing_system is not None
+
+    return status
 
 @app.get("/test_upload_page")
 async def test_upload_page():
@@ -3931,54 +3625,58 @@ async def get_user_info_api(request: Request):
 async def get_user_info_by_token(token: str):
     """通过token获取用户信息"""
     try:
-        # 检查统一会话系统
-        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
-        cursor = conn.cursor()
-        
-        # 🔑 修复：正确的表连接和字段查询
-        cursor.execute("""
-            SELECT us.user_id, uu.username, uu.email, ur.role_name
-            FROM unified_sessions us
-            JOIN unified_users uu ON us.user_id = uu.global_user_id
-            LEFT JOIN user_roles_new ur ON uu.global_user_id = ur.user_id AND ur.is_active = 1 AND ur.is_primary = 1
-            WHERE us.session_id = ? AND us.session_status = 'active' 
-            AND datetime(us.expires_at) > datetime('now')
-        """, (token,))
-        
-        result = cursor.fetchone()
-        
-        if result:
-            user_id, username, email, role_name = result
-            return {
-                'user_id': user_id,
-                'username': username,
-                'email': email,
-                'role': role_name.lower() if role_name else 'patient'
-            }
-        
-        # 检查传统会话系统
-        cursor.execute("""
-            SELECT user_id, role
-            FROM user_sessions 
-            WHERE session_token = ? AND is_active = 1
-            AND expires_at > datetime('now')
-        """, (token,))
-        
-        result = cursor.fetchone()
-        if result:
-            return {
-                'user_id': result[0],
-                'role': result[1]
-            }
-            
-        return None
-        
+        return sqlite_service.get_user_info_by_token(token)
     except Exception as e:
         logger.error(f"Token验证失败: {e}")
         return None
-    finally:
-        if 'conn' in locals():
-            conn.close()
+
+
+def _build_request_info(request: Request) -> Dict[str, str]:
+    return {
+        "user_agent": request.headers.get("user-agent", ""),
+        "client_ip": request.client.host if request.client else "unknown",
+        "accept_language": request.headers.get("accept-language", ""),
+    }
+
+
+async def _resolve_effective_user_id(
+    request: Request,
+    requested_user_id: str = None,
+):
+    """解析有效用户ID：token优先，URL参数次之，最后设备指纹兜底。"""
+    from services.user_history_system import UserHistorySystem
+
+    history_service = UserHistorySystem()
+    token_user_id = None
+
+    auth_header = request.headers.get("authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.replace("Bearer ", "")
+        try:
+            auth_user_info = await get_user_info_by_token(token)
+            if auth_user_info and auth_user_info.get("user_id") and auth_user_info.get("user_id") != "anonymous":
+                token_user_id = auth_user_info["user_id"]
+        except Exception as e:
+            logger.warning(f"Token解析失败: {e}")
+
+    if token_user_id:
+        if requested_user_id and requested_user_id != "anonymous" and requested_user_id != token_user_id:
+            logger.warning(
+                f"⚠️ 忽略与token不一致的user_id参数: requested={requested_user_id}, token={token_user_id}"
+            )
+        logger.info(f"✅ 使用token解析的用户ID: {token_user_id}")
+        return token_user_id, history_service
+
+    if requested_user_id and requested_user_id != "anonymous":
+        logger.info(f"✅ 使用URL参数中的用户ID: {requested_user_id}")
+        return requested_user_id, history_service
+
+    request_info = _build_request_info(request)
+    device_fingerprint = history_service.generate_device_fingerprint(request_info)
+    fallback_user_id = history_service.register_or_get_user(device_fingerprint)
+    logger.info(f"⚠️ 使用设备指纹获取历史记录用户ID: {fallback_user_id}")
+    return fallback_user_id, history_service
+
 
 @app.get("/api/user/sessions")
 async def get_user_sessions_api(request: Request, limit: int = 20, user_id: str = None):
@@ -3987,44 +3685,7 @@ async def get_user_sessions_api(request: Request, limit: int = 20, user_id: str 
         return {"success": False, "error": "用户历史系统不可用"}
     
     try:
-        # 🔑 修复：优先使用URL参数中的user_id，然后从token解析
-        final_user_id = None
-        
-        # 1. 如果URL提供了user_id且不是anonymous，直接使用
-        if user_id and user_id != 'anonymous':
-            final_user_id = user_id
-            logger.info(f"✅ 使用URL参数中的用户ID: {final_user_id}")
-        else:
-            # 2. 尝试从认证token获取用户ID
-            auth_header = request.headers.get('authorization')
-            if auth_header and auth_header.startswith('Bearer '):
-                token = auth_header.replace('Bearer ', '')
-                try:
-                    auth_user_info = await get_user_info_by_token(token)
-                    if auth_user_info and auth_user_info.get('user_id') and auth_user_info.get('user_id') != 'anonymous':
-                        final_user_id = auth_user_info['user_id']
-                        logger.info(f"✅ 从token解析出用户ID: {final_user_id}")
-                except Exception as e:
-                    logger.warning(f"Token解析失败: {e}")
-        
-        # 3. 如果还是没有获取到有效用户ID，回退到设备指纹
-        if not final_user_id:
-            # 🔧 直接创建实例避免导入问题
-            from services.user_history_system import UserHistorySystem
-            history_service = UserHistorySystem()
-            
-            request_info = {
-                'user_agent': request.headers.get('user-agent', ''),
-                'client_ip': request.client.host,
-                'accept_language': request.headers.get('accept-language', '')
-            }
-            device_fingerprint = history_service.generate_device_fingerprint(request_info)
-            final_user_id = history_service.register_or_get_user(device_fingerprint)
-            logger.info(f"⚠️ 使用设备指纹获取历史记录: {final_user_id}")
-        else:
-            # 认证用户也需要创建服务实例
-            from services.user_history_system import UserHistorySystem
-            history_service = UserHistorySystem()
+        final_user_id, history_service = await _resolve_effective_user_id(request, user_id)
         
         # 获取会话历史
         sessions = history_service.get_user_sessions(final_user_id, limit)
@@ -4062,17 +3723,10 @@ async def get_user_doctor_sessions_api(doctor_name: str, request: Request):
         return {"success": False, "error": "用户历史系统不可用"}
     
     try:
-        # 获取用户ID
-        request_info = {
-            'user_agent': request.headers.get('user-agent', ''),
-            'client_ip': request.client.host,
-            'accept_language': request.headers.get('accept-language', '')
-        }
-        device_fingerprint = user_history.generate_device_fingerprint(request_info)
-        user_id = user_history.register_or_get_user(device_fingerprint)
+        user_id, history_service = await _resolve_effective_user_id(request)
         
         # 获取特定医生的会话历史
-        sessions = user_history.get_sessions_by_doctor(user_id, doctor_name)
+        sessions = history_service.get_sessions_by_doctor(user_id, doctor_name)
         
         return {
             "success": True,
@@ -4092,15 +3746,10 @@ async def get_conversation_detail_api(conversation_id: str, request: Request):
     
     try:
         # 验证用户权限
-        user_agent = request.headers.get('user-agent', '')
-        client_ip = request.client.host
-        accept_language = request.headers.get('accept-language', '')
-        request_info = {'user_agent': user_agent, 'client_ip': client_ip, 'accept_language': accept_language}
-        device_fingerprint = user_history.generate_device_fingerprint(request_info)
-        user_id = user_history.register_or_get_user(device_fingerprint)
+        user_id, history_service = await _resolve_effective_user_id(request)
         
         # 获取对话详情
-        conversation_detail = user_history.get_conversation_detail(conversation_id, user_id)
+        conversation_detail = history_service.get_conversation_detail(conversation_id, user_id)
         
         if not conversation_detail:
             return {"success": False, "error": "对话不存在或无权限访问"}
@@ -4119,26 +3768,21 @@ async def export_conversation_api(conversation_id: str, request: Request, format
     
     try:
         # 验证用户权限
-        user_agent = request.headers.get('user-agent', '')
-        client_ip = request.client.host
-        accept_language = request.headers.get('accept-language', '')
-        request_info = {'user_agent': user_agent, 'client_ip': client_ip, 'accept_language': accept_language}
-        device_fingerprint = user_history.generate_device_fingerprint(request_info)
-        user_id = user_history.register_or_get_user(device_fingerprint)
+        user_id, history_service = await _resolve_effective_user_id(request)
         
         # 获取对话详情
-        conversation_detail = user_history.get_conversation_detail(conversation_id, user_id)
+        conversation_detail = history_service.get_conversation_detail(conversation_id, user_id)
         
         if not conversation_detail:
             return Response("对话不存在或无权限访问", status_code=404, media_type="text/plain")
         
         # 生成专业医疗格式
         if format == "medical_record":
-            exported_content = user_history.export_as_medical_record(conversation_detail)
+            exported_content = history_service.export_as_medical_record(conversation_detail)
             media_type = "text/html; charset=utf-8"
             filename = f"TCM_病历_{conversation_id[:8]}_{datetime.now().strftime('%Y%m%d')}.html"
         else:
-            exported_content = user_history.export_as_text(conversation_detail)
+            exported_content = history_service.export_as_text(conversation_detail)
             media_type = "text/plain; charset=utf-8"
             filename = f"TCM_记录_{conversation_id[:8]}_{datetime.now().strftime('%Y%m%d')}.txt"
         
@@ -4332,24 +3976,8 @@ async def register_with_email(request: Request):
         if not password or len(password) < 6 or len(password) > 20:
             return {"success": False, "error": "密码长度为6-20位"}
         
-        # 检查邮箱是否已存在
-        import sqlite3
-        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT user_id FROM users WHERE email = ?", (email,))
-        existing_user = cursor.fetchone()
-        
-        if existing_user:
-            conn.close()
-            return {"success": False, "error": "该邮箱已被注册"}
-        
-        # 创建新用户
-        import uuid
         import hashlib
-        from datetime import datetime
-        
-        user_id = str(uuid.uuid4())
+
         # 简单密码加密（生产环境应使用更安全的加密方式）
         password_hash = hashlib.sha256(password.encode()).hexdigest()
         
@@ -4363,29 +3991,21 @@ async def register_with_email(request: Request):
         import time
         fingerprint_data = f"{request_info.get('user_agent', '')}|{request_info.get('client_ip', '')}|{request_info.get('accept_language', '')}|{str(int(time.time() / 3600))}"
         device_fingerprint = hashlib.md5(fingerprint_data.encode('utf-8')).hexdigest()[:32]
-        
-        cursor.execute("""
-            INSERT INTO users (
-                user_id, device_fingerprint, nickname, registration_type, 
-                created_at, last_active, is_verified, email, password_hash,
-                role, is_active, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            user_id, device_fingerprint, nickname or email.split('@')[0], 'email',
-            datetime.now().isoformat(), datetime.now().isoformat(), 1,
-            email, password_hash, 'patient', 1, datetime.now().isoformat()
-        ))
-        
-        conn.commit()
-        conn.close()
+
+        created = sqlite_service.register_email_user(
+            email=email,
+            password_hash=password_hash,
+            nickname=nickname,
+            device_fingerprint=device_fingerprint,
+        )
+        if not created:
+            return {"success": False, "error": "该邮箱已被注册"}
         
         logger.info(f"邮箱注册成功: {email}")
         return {"success": True, "message": "注册成功"}
         
     except Exception as e:
         logger.error(f"邮箱注册失败: {e}")
-        if 'conn' in locals():
-            conn.close()
         return {"success": False, "error": "注册失败，请重试"}
 
 @app.post("/api/auth/register/username")
@@ -4409,32 +4029,8 @@ async def register_with_username(request: Request):
         if not password or len(password) < 6 or len(password) > 20:
             return {"success": False, "error": "密码长度为6-20位"}
         
-        # 🔧 修复：检查用户名是否已存在（检查两个表）
-        import sqlite3
-        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
-        cursor = conn.cursor()
-        
-        # 检查旧用户表
-        cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,))
-        existing_user = cursor.fetchone()
-        
-        # 检查新统一用户表
-        cursor.execute("SELECT global_user_id FROM unified_users WHERE username = ?", (username,))
-        existing_unified_user = cursor.fetchone()
-        
-        if existing_user or existing_unified_user:
-            conn.close()
-            return {"success": False, "error": "该用户名已被注册"}
-        
-        # 创建新用户
-        import uuid
         import hashlib
         import secrets
-        from datetime import datetime
-        
-        # 生成统一格式的用户ID
-        global_user_id = f"usr_{datetime.now().strftime('%Y%m%d')}_{secrets.token_hex(6)}"
-        user_id = str(uuid.uuid4())  # 兼容旧表格式
         
         # 生成加密密码
         salt = secrets.token_hex(16)
@@ -4451,51 +4047,22 @@ async def register_with_username(request: Request):
         import time
         fingerprint_data = f"{request_info.get('user_agent', '')}|{request_info.get('client_ip', '')}|{request_info.get('accept_language', '')}|{str(int(time.time() / 3600))}"
         device_fingerprint = hashlib.md5(fingerprint_data.encode('utf-8')).hexdigest()[:32]
-        
-        # 🔧 修复：同时插入到两个用户表系统
-        
-        # 1. 插入到统一用户表（新系统）
-        cursor.execute("""
-            INSERT INTO unified_users (
-                global_user_id, username, display_name, password_hash, salt,
-                account_status, created_at, updated_at, registration_source, registration_ip
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            global_user_id, username, username, salted_password_hash, salt,
-            'active', datetime.now().isoformat(), datetime.now().isoformat(),
-            'web_register', request.client.host if request.client else 'unknown'
-        ))
-        
-        # 2. 插入到旧用户表（兼容性）
-        cursor.execute("""
-            INSERT INTO users (
-                user_id, device_fingerprint, nickname, registration_type, 
-                created_at, last_active, is_verified, username, password_hash, 
-                role, is_active, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            user_id, device_fingerprint, username, 'username',
-            datetime.now().isoformat(), datetime.now().isoformat(), 1,
-            username, salted_password_hash, 'patient', 1, datetime.now().isoformat()
-        ))
-        
-        # 3. 创建用户角色（默认为患者）
-        cursor.execute("""
-            INSERT OR IGNORE INTO user_roles_new (
-                user_id, role_name, is_active
-            ) VALUES (?, ?, ?)
-        """, (global_user_id, 'patient', 1))
-        
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"用户名注册成功: {username} (统一ID: {global_user_id})")
+
+        registration_result = sqlite_service.register_username_user(
+            username=username,
+            salted_password_hash=salted_password_hash,
+            salt=salt,
+            device_fingerprint=device_fingerprint,
+            registration_ip=request.client.host if request.client else 'unknown',
+        )
+        if not registration_result.get("created"):
+            return {"success": False, "error": "该用户名已被注册"}
+
+        logger.info(f"用户名注册成功: {username} (统一ID: {registration_result.get('global_user_id')})")
         return {"success": True, "message": "注册成功"}
         
     except Exception as e:
         logger.error(f"用户名注册失败: {e}")
-        if 'conn' in locals():
-            conn.close()
         return {"success": False, "error": "注册失败，请重试"}
 
 @app.get("/api/user/devices")
@@ -4523,462 +4090,32 @@ async def get_user_devices_api(request: Request):
         logger.error(f"获取用户设备API失败: {e}")
         return {"success": False, "error": "获取设备列表失败"}
 
-@app.get("/phone-binding")
-async def phone_binding_page():
-    """手机号绑定页面"""
-    try:
-        with open("/opt/tcm-ai/static/phone_binding.html", "r", encoding="utf-8") as f:
-            html_content = f.read()
-        return HTMLResponse(html_content)
-    except Exception as e:
-        logger.error(f"加载手机绑定页面失败: {e}")
-        return HTMLResponse("<h1>页面加载失败</h1>", status_code=500)
+# 认证入口页面路由（阶段8）
+register_auth_entry_routes(app, logger)
 
-@app.get("/register")
-async def register_page():
-    """现代化统一认证门户 - 注册模式（自动切换到注册标签页）"""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/login?tab=register", status_code=302)
+# 系统监控/健康状态端点（阶段5：迁移到 app.api.ops_setup）
+register_operational_routes(
+    app,
+    logger=logger,
+    debug_status_provider=_build_debug_status_payload,
+    cache_system_available=CACHE_SYSTEM_AVAILABLE,
+    dashscope_api_key=DASHSCOPE_API_KEY,
+)
 
-# 系统监控相关端点
-@app.get("/db_stats")
-async def get_database_stats():
-    """获取数据库连接池统计"""
-    try:
-        # 导入简单数据库连接池
-        from simple_db_pool import get_db_pool
-        
-        pool = get_db_pool()
-        stats = pool.get_stats()
-        
-        return {
-            "status": "healthy",
-            "active_connections": stats["active_connections"],
-            "total_connections": stats["total_connections"],
-            "max_connections": stats["max_connections"],
-            "total_queries": stats["total_queries"],
-            "uptime_minutes": stats["uptime_minutes"]
-        }
-    except Exception as e:
-        logger.error(f"获取数据库统计失败: {e}")
-        return {"error": str(e)}
-
-@app.get("/health")
-async def health_check():
-    """系统健康检查"""
-    import time
-    start_time = time.time()
-    
-    try:
-        # 测试基本功能
-        health_status = {
-            "status": "healthy",
-            "timestamp": datetime.now().isoformat(),
-            "checks": {
-                "api": "ok",
-                "database": "ok", 
-                "cache": "ok",
-                "ai_service": "ok"
-            }
-        }
-        
-        # 数据库连接检查
-        try:
-            from simple_db_pool import db_execute
-            result = db_execute("SELECT 1", fetch='one')
-            if not result:
-                health_status["checks"]["database"] = "error"
-                health_status["status"] = "unhealthy"
-        except:
-            health_status["checks"]["database"] = "error"
-            health_status["status"] = "unhealthy"
-            
-        # 缓存系统检查
-        if not CACHE_SYSTEM_AVAILABLE:
-            health_status["checks"]["cache"] = "warning"
-            
-        # AI服务检查
-        if not DASHSCOPE_API_KEY:
-            health_status["checks"]["ai_service"] = "error"
-            health_status["status"] = "unhealthy"
-            
-        # 计算响应时间
-        response_time = round((time.time() - start_time) * 1000, 2)
-        health_status["response_time"] = response_time
-        
-        return health_status
-        
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }
-
-@app.get("/system_monitor")
-async def system_monitor():
-    """系统监控面板页面"""
-    try:
-        with open("static/system_monitor.html", "r", encoding="utf-8") as f:
-            html_content = f.read()
-        return HTMLResponse(html_content)
-    except Exception as e:
-        logger.error(f"加载监控面板页面失败: {e}")
-        return HTMLResponse("<h1>监控面板加载失败</h1>", status_code=500)
-
-@app.get("/error_stats")
-async def get_error_statistics():
-    """获取错误统计信息"""
-    try:
-        from enhanced_error_handler import get_error_handler
-        handler = get_error_handler()
-        stats = handler.get_error_statistics()
-        return stats
-    except Exception as e:
-        logger.error(f"获取错误统计失败: {e}")
-        return {"error": str(e)}
-
-@app.post("/report_error")
-async def report_client_error(error_data: dict):
-    """接收客户端错误报告"""
-    try:
-        from enhanced_error_handler import get_error_handler, ErrorCategory
-        
-        handler = get_error_handler()
-        
-        # 根据错误类型分类
-        error_type = error_data.get("type", "unknown")
-        if "network" in error_type.lower() or "fetch" in error_type.lower():
-            category = ErrorCategory.NETWORK
-        elif "validation" in error_type.lower() or "input" in error_type.lower():
-            category = ErrorCategory.VALIDATION
-        else:
-            category = ErrorCategory.SYSTEM
-            
-        # 创建异常对象
-        client_error = Exception(error_data.get("message", "Client error"))
-        
-        # 处理错误
-        result = handler.handle_error(
-            client_error,
-            category,
-            context=error_data.get("context", {}),
-            user_id=error_data.get("user_id"),
-            language=error_data.get("language", "zh")
-        )
-        
-        return result
-        
-    except Exception as e:
-        logger.error(f"处理客户端错误报告失败: {e}")
-        return {
-            "success": False,
-            "message": "错误报告处理失败",
-            "error": str(e)
-        }
-
-# ==================== 系统健康监控API ====================
-
-@app.get("/api/system/health")
-async def get_system_health_api():
-    """系统健康监控API端点"""
-    try:
-        from system_health_monitor import get_system_health
-        health_data = await get_system_health()
-        return health_data
-    except Exception as e:
-        logger.error(f"系统健康检查失败: {e}")
-        return {
-            "timestamp": datetime.now().isoformat(),
-            "overall_status": "critical",
-            "error": f"监控系统异常: {str(e)}",
-            "checks": {}
-        }
-
-@app.get("/api/system/health/trends")
-async def get_health_trends_api():
-    """系统健康趋势API端点"""
-    try:
-        from system_health_monitor import get_health_trends
-        trends_data = get_health_trends()
-        return trends_data
-    except Exception as e:
-        logger.error(f"获取健康趋势失败: {e}")
-        return {
-            "error": f"趋势分析异常: {str(e)}",
-            "message": "No health history available"
-        }
-
-@app.get("/api/integration/status")
-async def get_integration_status():
-    """系统集成状态API端点"""
-    try:
-        return {
-            "status": "healthy",
-            "services": {
-                "qwen_turbo": "available",
-                "qwen_vl_plus": "available",
-                "dashscope_api": "configured",
-                "postgresql": "connected",
-                "cache_system": "active"
-            },
-            "integration_type": "unified_monitoring",
-            "message": "所有服务正常集成运行",
-            "timestamp": datetime.now().isoformat()
-        }
-    except Exception as e:
-        logger.error(f"获取集成状态失败: {e}")
-        return {
-            "status": "error",
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }
-
-@app.get("/security_status")
-async def get_security_status():
-    """获取安全监控状态"""
-    try:
-        # 模拟安全监控数据
-        return {
-            "medical_safety_enabled": True,
-            "hallucination_detection_active": True,
-            "prescription_safety_enabled": True,
-            "safety_checks_total": 1247,
-            "risks_detected": 3,
-            "last_check": datetime.now().isoformat(),
-            "security_modules": {
-                "medical_safety": "active",
-                "hallucination_filter": "active", 
-                "prescription_validator": "active",
-                "content_sanitizer": "active"
-            }
-        }
-    except Exception as e:
-        return {
-            "error": str(e),
-            "medical_safety_enabled": False,
-            "hallucination_detection_active": False,
-            "prescription_safety_enabled": False
-        }
-
-@app.get("/system/monitor")
-async def unified_system_monitor():
-    """统一系统监控面板 - 集成性能和安全监控"""
-    try:
-        from fastapi.responses import FileResponse
-        return FileResponse("/opt/tcm-ai/static/unified_system_monitor.html")
-    except Exception as e:
-        return HTMLResponse(f"<h1>统一监控面板加载失败</h1><p>{str(e)}</p>")
-
-@app.get("/debug/layout")
-async def debug_layout():
-    """页面布局调试工具"""
-    try:
-        from fastapi.responses import FileResponse
-        return FileResponse("/opt/tcm-ai/static/debug_layout.html")
-    except Exception as e:
-        return HTMLResponse(f"<h1>调试工具加载失败</h1><p>{str(e)}</p>")
-
-@app.get("/system_monitor")
-async def legacy_system_monitor():
-    """重定向到统一监控面板"""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/system/monitor")
+register_monitor_and_debug_routes(app, logger)
 
 # ==================== 三界面系统路由 ====================
 
 # 医生端路由
 # 医生端路由已移动到 security_integration.py 中，带有适当的权限检查
-
-@app.get("/doctor/login")
-async def doctor_login():
-    """医生登录页面"""
-    return FileResponse("/opt/tcm-ai/static/doctor/login.html")
-
-@app.get("/doctor/login.html")
-async def doctor_login_html():
-    """医生登录页面 - 兼容.html后缀"""
-    return FileResponse("/opt/tcm-ai/static/doctor/login.html")
-
-# 患者端路由已迁移至智能工作流 (/smart)
-# 冗余路由移除 - 统一由security middleware处理重定向
-
-@app.get("/smart")
-async def smart_workflow():
-    """智能工作流程 - 症状收集→医生推荐→AI问诊"""
-    from fastapi.responses import Response
-    try:
-        with open("/opt/tcm-ai/static/index_smart_workflow.html", "r", encoding="utf-8") as f:
-            content = f.read()
-            response = Response(content=content, media_type="text/html")
-            # 禁用缓存
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
-            return response
-    except FileNotFoundError:
-        return HTMLResponse("""
-        <html>
-            <head><title>智能工作流程页面未找到</title></head>
-            <body>
-                <h1>页面未找到</h1>
-                <p>智能工作流程页面暂时不可用</p>
-                <a href="/">返回主页</a>
-            </body>
-        </html>
-        """)
-
-@app.get("/chrome-test")
-async def chrome_test():
-    """Chrome浏览器兼容性测试页面"""
-    from fastapi.responses import Response
-    try:
-        with open("/opt/tcm-ai/static/chrome_test.html", "r", encoding="utf-8") as f:
-            content = f.read()
-            response = Response(content=content, media_type="text/html")
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
-            return response
-    except FileNotFoundError:
-        return HTMLResponse("<h1>测试页面未找到</h1>")
-
-@app.get("/simple-test")
-async def simple_mobile_test():
-    """简化版移动端测试页面"""
-    from fastapi.responses import Response
-    try:
-        with open("/opt/tcm-ai/static/simple_mobile_test.html", "r", encoding="utf-8") as f:
-            content = f.read()
-            response = Response(content=content, media_type="text/html")
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
-            return response
-    except FileNotFoundError:
-        return HTMLResponse("<h1>测试页面未找到</h1>")
-
-@app.get("/doctor-dashboard")
-@app.get("/doctor_dashboard.html")
-async def doctor_dashboard():
-    """医生工作台 - 现代化医生门户"""
-    from fastapi.responses import Response
-    try:
-        with open("/opt/tcm-ai/static/doctor_dashboard.html", "r", encoding="utf-8") as f:
-            content = f.read()
-            response = Response(content=content, media_type="text/html")
-            # 禁用缓存
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
-            return response
-    except FileNotFoundError:
-        return HTMLResponse("""
-        <html>
-            <head><title>医生工作台页面未找到</title></head>
-            <body>
-                <h1>页面未找到</h1>
-                <p>医生工作台页面暂时不可用</p>
-                <a href="/">返回主页</a>
-            </body>
-        </html>
-        """)
-
-@app.get("/history")
-async def user_history():
-    """用户历史记录页面"""
-    from fastapi.responses import Response
-    try:
-        with open("/opt/tcm-ai/static/user_history.html", "r", encoding="utf-8") as f:
-            content = f.read()
-            response = Response(content=content, media_type="text/html")
-            # 禁用缓存
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
-            return response
-    except FileNotFoundError:
-        return HTMLResponse("""
-        <html>
-            <head><title>用户历史页面未找到</title></head>
-            <body>
-                <h1>页面未找到</h1>
-                <p>用户历史页面暂时不可用</p>
-                <a href="/">返回主页</a>
-            </body>
-        </html>
-        """)
-
-@app.get("/patient-portal")
-async def patient_portal_redirect():
-    """患者门户 - 重定向到智能工作流程"""
-    from fastapi.responses import RedirectResponse
-    # 重定向到智能工作流程，提供更好的AI问诊体验和已修复的支付功能
-    return RedirectResponse(url="/smart", status_code=301)
-
-# 患者门户旧版本已移除 - 统一使用智能工作流 (/smart)
-
-@app.get("/database")
-async def database_manager():
-    """数据库管理界面"""
-    return FileResponse("/opt/tcm-ai/static/database_manager.html")
-
-@app.get("/nav")
-async def navigation_page():
-    """导航页面 - 选择不同的功能入口"""
-    from fastapi.responses import Response
-    try:
-        with open("/opt/tcm-ai/static/navigation.html", "r", encoding="utf-8") as f:
-            content = f.read()
-            response = Response(content=content, media_type="text/html")
-            # 禁用缓存
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
-            return response
-    except FileNotFoundError:
-        return HTMLResponse("""
-        <html>
-            <head><title>导航页面未找到</title></head>
-            <body>
-                <h1>页面未找到</h1>
-                <p>导航页面暂时不可用</p>
-                <a href="/">返回主页</a>
-            </body>
-        </html>
-        """)
+register_three_interface_page_routes(app)
 
 # 公共API - 医生列表
 @app.get("/api/doctors/list")
 async def get_doctors_list(page: int = 1, per_page: int = 20):
     """获取医生列表 - 支持分页"""
-    import sqlite3
-    
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        # 计算总数 - 只统计金大夫(ID=1)和张仲景(ID=4)
-        cursor.execute("SELECT COUNT(*) FROM doctors WHERE status = 'active' AND id IN (1, 4)")
-        total = cursor.fetchone()[0]
-        
-        # 分页查询 - 只返回金大夫(ID=1)和张仲景(ID=4)
-        offset = (page - 1) * per_page
-        cursor.execute("""
-            SELECT id, name, license_no, speciality, hospital, created_at
-            FROM doctors
-            WHERE status = 'active' AND id IN (1, 4)
-            ORDER BY
-                CASE
-                    WHEN id = 1 THEN 0
-                    WHEN id = 4 THEN 1
-                    ELSE 2
-                END
-            LIMIT ? OFFSET ?
-        """, (per_page, offset))
-        
-        rows = cursor.fetchall()
+        rows = sqlite_service.fetch_active_public_doctors(page=page, per_page=per_page)
         doctors = []
         
         # 获取默认医生数据模板
@@ -5073,9 +4210,6 @@ async def get_doctors_list(page: int = 1, per_page: int = 20):
                 "has_prev": False
             }
         }
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 def get_doctor_avatar(name: str) -> str:
     """根据医生姓名生成头像表情"""
@@ -5175,111 +4309,26 @@ def get_default_doctors() -> list:
 
 # 管理端路由已移动到 security_integration.py 中，带有适当的权限检查
 
-@app.get("/login")
-async def login_portal():
-    """现代化统一认证门户"""
-    return FileResponse("/opt/tcm-ai/static/auth_portal.html")
-
-@app.get("/login-test")
-async def login_test_page():
-    """登录功能调试页面"""
-    return FileResponse("/opt/tcm-ai/template_files/simple_login_test.html")
-
-@app.get("/admin/login")
-async def admin_login():
-    """管理员登录页面 - 重定向到统一认证门户角色选择"""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/login?tab=roles")
-
-@app.get("/doctor/login-portal")
-async def doctor_login_portal():
-    """医生登录门户 - 重定向到统一认证门户角色选择"""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/login?tab=roles")
+register_auth_portal_routes(app)
 
 # 管理员API端点
 @app.get("/api/admin/dashboard")
 async def admin_dashboard():
     """管理员仪表板数据 - 实时统计"""
-    import sqlite3
-    from datetime import datetime, timedelta
+    from datetime import datetime
     
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-        cursor = conn.cursor()
-        
-        # 1. 统计总用户数（使用统一用户表）
-        cursor.execute("SELECT COUNT(*) FROM unified_users WHERE account_status = 'active'")
-        total_users_result = cursor.fetchone()
-        total_users = total_users_result[0] if total_users_result else 0
-        
-        # 2. 统计活跃医生数（有医生角色的用户）
-        cursor.execute("""
-            SELECT COUNT(DISTINCT u.global_user_id) 
-            FROM unified_users u
-            JOIN user_roles_new r ON u.global_user_id = r.user_id
-            WHERE UPPER(r.role_name) = 'DOCTOR' AND r.is_active = 1 AND u.account_status = 'active'
-        """)
-        active_doctors_result = cursor.fetchone()
-        active_doctors = active_doctors_result[0] if active_doctors_result else 0
-        
-        # 3. 统计今日问诊数（从多个可能的表查询）
-        today_consultations = 0
-        
-        # 查询consultations_new表（优先）
-        try:
-            cursor.execute("SELECT COUNT(*) FROM consultations_new WHERE DATE(created_at) = DATE('now')")
-            result = cursor.fetchone()
-            today_consultations = result[0] if result else 0
-        except:
-            # 备选：查询conversation_metadata表
-            try:
-                cursor.execute("SELECT COUNT(*) FROM conversation_metadata WHERE DATE(created_at) = DATE('now')")
-                result = cursor.fetchone()
-                today_consultations = result[0] if result else 0
-            except:
-                # 最后备选：查询user_sessions表
-                try:
-                    cursor.execute("SELECT COUNT(*) FROM user_sessions WHERE DATE(created_at) = DATE('now')")
-                    result = cursor.fetchone()
-                    today_consultations = result[0] if result else 0
-                except:
-                    today_consultations = 0
-        
-        # 4. 统计待审核处方数
-        pending_prescriptions = 0
-        try:
-            cursor.execute("SELECT COUNT(*) FROM prescriptions WHERE status = 'pending'")
-            result = cursor.fetchone()
-            pending_prescriptions = result[0] if result else 0
-        except:
-            pending_prescriptions = 0
-        
-        # 5. 统计本月新增用户
-        try:
-            cursor.execute("""
-                SELECT COUNT(*) FROM unified_users 
-                WHERE DATE(created_at) >= DATE('now', 'start of month')
-            """)
-            result = cursor.fetchone()
-            monthly_new_users = result[0] if result else 0
-        except:
-            monthly_new_users = 0
-        
-        # 6. 系统健康检查
+        stats = sqlite_service.fetch_admin_dashboard_stats()
+
+        total_users = stats["total_users"]
+        active_doctors = stats["active_doctors"]
+        today_consultations = stats["today_consultations"]
+        pending_prescriptions = stats["pending_prescriptions"]
+        monthly_new_users = stats["monthly_new_users"]
+
         system_status = "normal"
         system_uptime = "99.9%"
-        
-        # 检查活跃会话数
-        try:
-            cursor.execute("""
-                SELECT COUNT(*) FROM unified_sessions 
-                WHERE session_status = 'active' AND datetime(expires_at) > datetime('now')
-            """)
-            result = cursor.fetchone()
-            active_sessions = result[0] if result else 0
-        except:
-            active_sessions = 0
+        active_sessions = stats["active_sessions"]
         
         return {
             "success": True,
@@ -5328,33 +4377,13 @@ async def admin_dashboard():
                 "system_status": "normal"
             }
         }
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 @app.get("/api/admin/users")
 async def admin_get_users(page: int = 1, per_page: int = 20):
     """获取用户列表"""
-    import sqlite3
-    
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        # 使用用户表和对话元数据
+        rows, total = sqlite_service.fetch_admin_users(page=page, per_page=per_page)
         offset = (page - 1) * per_page
-        cursor.execute("""
-            SELECT u.user_id, u.nickname, u.phone_number, u.created_at, u.last_active,
-                   u.is_verified, COUNT(cm.conversation_id) as conversation_count
-            FROM users u
-            LEFT JOIN conversation_metadata cm ON u.user_id = cm.session_id
-            GROUP BY u.user_id
-            ORDER BY u.last_active DESC
-            LIMIT ? OFFSET ?
-        """, (per_page, offset))
-        
-        rows = cursor.fetchall()
         users = []
         
         for i, row in enumerate(rows):
@@ -5369,10 +4398,6 @@ async def admin_get_users(page: int = 1, per_page: int = 20):
                 "conversation_count": row['conversation_count'] or 0
             }
             users.append(user_data)
-        
-        # 计算总数
-        cursor.execute("SELECT COUNT(*) FROM users")
-        total = cursor.fetchone()[0]
         
         return {
             "success": True,
@@ -5393,35 +4418,12 @@ async def admin_get_users(page: int = 1, per_page: int = 20):
             "users": [],
             "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0}
         }
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 @app.get("/api/admin/doctors")
 async def admin_get_doctors(page: int = 1, per_page: int = 20):
     """获取医生列表（管理员视图）"""
-    import sqlite3
-    
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        offset = (page - 1) * per_page
-        cursor.execute("""
-            SELECT id, name, license_no, phone, email, speciality, hospital, 
-                   status, created_at, last_login
-            FROM doctors 
-            ORDER BY created_at DESC
-            LIMIT ? OFFSET ?
-        """, (per_page, offset))
-        
-        rows = cursor.fetchall()
-        doctors = [dict(row) for row in rows]
-        
-        # 计算总数
-        cursor.execute("SELECT COUNT(*) FROM doctors")
-        total = cursor.fetchone()[0]
+        doctors, total = sqlite_service.fetch_admin_doctors(page=page, per_page=per_page)
         
         return {
             "success": True,
@@ -5442,103 +4444,42 @@ async def admin_get_doctors(page: int = 1, per_page: int = 20):
             "doctors": [],
             "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0}
         }
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 @app.post("/api/admin/doctors")
 async def admin_add_doctor(doctor_data: dict):
     """添加新医生"""
-    import sqlite3
-    
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-        cursor = conn.cursor()
-        
         # 验证必填字段
         required_fields = ['name', 'license_no']
         for field in required_fields:
             if not doctor_data.get(field):
                 return {"success": False, "message": f"缺少必填字段: {field}"}
-        
-        # 检查执业证号是否已存在
-        cursor.execute("SELECT id FROM doctors WHERE license_no = ?", (doctor_data['license_no'],))
-        if cursor.fetchone():
+
+        result = sqlite_service.admin_add_doctor(doctor_data)
+        if result["status"] == "license_exists":
             return {"success": False, "message": "执业证号已存在"}
-        
-        # 插入新医生
-        cursor.execute("""
-            INSERT INTO doctors (name, license_no, phone, email, speciality, hospital, 
-                               introduction, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'active', datetime('now'), datetime('now'))
-        """, (
-            doctor_data['name'],
-            doctor_data['license_no'],
-            doctor_data.get('phone'),
-            doctor_data.get('email'),
-            doctor_data.get('speciality'),
-            doctor_data.get('hospital'),
-            doctor_data.get('introduction')
-        ))
-        
-        doctor_id = cursor.lastrowid
-        conn.commit()
-        
+
         return {
             "success": True,
             "message": "医生添加成功",
-            "doctor_id": doctor_id
+            "doctor_id": result.get("doctor_id")
         }
         
     except Exception as e:
         logger.error(f"添加医生失败: {e}")
         return {"success": False, "message": f"添加医生失败: {e}"}
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 @app.put("/api/admin/doctors/{doctor_id}")
 async def admin_update_doctor(doctor_id: int, doctor_data: dict):
     """更新医生信息"""
-    import sqlite3
-    
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-        cursor = conn.cursor()
-        
-        # 检查医生是否存在
-        cursor.execute("SELECT id FROM doctors WHERE id = ?", (doctor_id,))
-        if not cursor.fetchone():
+        result = sqlite_service.admin_update_doctor(doctor_id, doctor_data)
+        if result["status"] == "not_found":
             return {"success": False, "message": "医生不存在"}
-        
-        # 构建更新字段
-        update_fields = []
-        values = []
-        
-        allowed_fields = ['name', 'license_no', 'phone', 'email', 'speciality', 'hospital', 'introduction', 'status']
-        for field in allowed_fields:
-            if field in doctor_data:
-                update_fields.append(f"{field} = ?")
-                values.append(doctor_data[field])
-        
-        if not update_fields:
+        if result["status"] == "no_fields":
             return {"success": False, "message": "没有提供更新字段"}
-        
-        # 如果更新执业证号，检查是否重复
-        if 'license_no' in doctor_data:
-            cursor.execute("SELECT id FROM doctors WHERE license_no = ? AND id != ?", 
-                         (doctor_data['license_no'], doctor_id))
-            if cursor.fetchone():
-                return {"success": False, "message": "执业证号已被其他医生使用"}
-        
-        # 添加更新时间
-        update_fields.append("updated_at = datetime('now')")
-        values.append(doctor_id)
-        
-        # 执行更新
-        sql = f"UPDATE doctors SET {', '.join(update_fields)} WHERE id = ?"
-        cursor.execute(sql, values)
-        conn.commit()
+        if result["status"] == "license_exists":
+            return {"success": False, "message": "执业证号已被其他医生使用"}
         
         return {
             "success": True,
@@ -5548,35 +4489,15 @@ async def admin_update_doctor(doctor_id: int, doctor_data: dict):
     except Exception as e:
         logger.error(f"更新医生信息失败: {e}")
         return {"success": False, "message": f"更新医生信息失败: {e}"}
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 @app.post("/api/admin/doctors/{doctor_id}/approve")
 async def admin_approve_doctor(doctor_id: int):
     """审核通过医生申请"""
-    import sqlite3
-    
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-        cursor = conn.cursor()
-        
-        # 检查医生是否存在且为待审核状态
-        cursor.execute("SELECT id, status FROM doctors WHERE id = ?", (doctor_id,))
-        doctor = cursor.fetchone()
-        
-        if not doctor:
+        result = sqlite_service.admin_approve_doctor(doctor_id)
+        if result["status"] == "not_found":
             return {"success": False, "message": "医生不存在"}
-        
-        # 更新状态为active
-        cursor.execute("""
-            UPDATE doctors 
-            SET status = 'active', updated_at = datetime('now')
-            WHERE id = ?
-        """, (doctor_id,))
-        
-        conn.commit()
-        
+
         return {
             "success": True,
             "message": "医生申请已通过"
@@ -5585,33 +4506,15 @@ async def admin_approve_doctor(doctor_id: int):
     except Exception as e:
         logger.error(f"审核医生失败: {e}")
         return {"success": False, "message": f"审核医生失败: {e}"}
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 @app.post("/api/admin/doctors/{doctor_id}/reject")
 async def admin_reject_doctor(doctor_id: int):
     """拒绝医生申请"""
-    import sqlite3
-    
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-        cursor = conn.cursor()
-        
-        # 检查医生是否存在
-        cursor.execute("SELECT id FROM doctors WHERE id = ?", (doctor_id,))
-        if not cursor.fetchone():
+        result = sqlite_service.admin_reject_doctor(doctor_id)
+        if result["status"] == "not_found":
             return {"success": False, "message": "医生不存在"}
-        
-        # 更新状态为rejected
-        cursor.execute("""
-            UPDATE doctors 
-            SET status = 'rejected', updated_at = datetime('now')
-            WHERE id = ?
-        """, (doctor_id,))
-        
-        conn.commit()
-        
+
         return {
             "success": True,
             "message": "医生申请已拒绝"
@@ -5620,35 +4523,12 @@ async def admin_reject_doctor(doctor_id: int):
     except Exception as e:
         logger.error(f"拒绝医生申请失败: {e}")
         return {"success": False, "message": f"拒绝医生申请失败: {e}"}
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 @app.get("/api/admin/prescriptions")
 async def admin_get_prescriptions(page: int = 1, per_page: int = 20):
     """获取处方列表"""
-    import sqlite3
-    
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        offset = (page - 1) * per_page
-        cursor.execute("""
-            SELECT p.*, d.name as doctor_name
-            FROM prescriptions p
-            LEFT JOIN doctors d ON p.doctor_id = d.id
-            ORDER BY p.created_at DESC
-            LIMIT ? OFFSET ?
-        """, (per_page, offset))
-        
-        rows = cursor.fetchall()
-        prescriptions = [dict(row) for row in rows]
-        
-        # 计算总数
-        cursor.execute("SELECT COUNT(*) FROM prescriptions")
-        total = cursor.fetchone()[0]
+        prescriptions, total = sqlite_service.fetch_admin_prescriptions(page=page, per_page=per_page)
         
         return {
             "success": True,
@@ -5669,37 +4549,19 @@ async def admin_get_prescriptions(page: int = 1, per_page: int = 20):
             "prescriptions": [],
             "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0}
         }
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 @app.get("/api/admin/prescription/{prescription_id}")
 async def admin_get_prescription(prescription_id: int):
     """获取单个处方详情 - 支持订单管理联动"""
-    import sqlite3
-    
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT p.*, d.name as doctor_name
-            FROM prescriptions p
-            LEFT JOIN doctors d ON p.doctor_id = d.id
-            WHERE p.id = ?
-        """, (prescription_id,))
-        
-        row = cursor.fetchone()
-        if not row:
+        prescription = sqlite_service.fetch_admin_prescription(prescription_id)
+        if not prescription:
             return {
                 "success": False,
                 "message": f"处方ID {prescription_id} 不存在",
                 "prescription": None
             }
-        
-        prescription = dict(row)
-        
+
         return {
             "success": True,
             "prescription": prescription
@@ -5712,9 +4574,6 @@ async def admin_get_prescription(prescription_id: int):
             "message": f"获取处方详情失败: {e}",
             "prescription": None
         }
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 @app.get("/api/admin/settings")
 async def admin_get_settings():
@@ -5942,28 +4801,8 @@ def cleanup_old_backups(directory, prefix, keep_count):
 @app.get("/api/admin/orders")
 async def admin_get_orders(page: int = 1, per_page: int = 20):
     """获取订单列表"""
-    import sqlite3
-    
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        offset = (page - 1) * per_page
-        cursor.execute("""
-            SELECT o.*, p.patient_name
-            FROM orders o
-            LEFT JOIN prescriptions p ON o.prescription_id = p.id
-            ORDER BY o.created_at DESC
-            LIMIT ? OFFSET ?
-        """, (per_page, offset))
-        
-        rows = cursor.fetchall()
-        orders = [dict(row) for row in rows]
-        
-        # 计算总数
-        cursor.execute("SELECT COUNT(*) FROM orders")
-        total = cursor.fetchone()[0]
+        orders, total = sqlite_service.fetch_admin_orders(page=page, per_page=per_page)
         
         return {
             "success": True,
@@ -5984,9 +4823,6 @@ async def admin_get_orders(page: int = 1, per_page: int = 20):
             "orders": [],
             "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0}
         }
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 @app.get("/api/admin/system")
 async def admin_system_monitor():
@@ -6065,97 +4901,13 @@ async def admin_get_logs(
 ):
     """获取系统日志 - 从审计日志和安全日志中提取"""
     try:
-        import sqlite3
-        # 获取数据库中的审计日志
-        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
-        cursor = conn.cursor()
-        
-        # 合并audit_logs和security_audit_logs，统一格式
-        query = """
-            SELECT 
-                created_at as timestamp,
-                'INFO' as level,
-                resource_type || ':' || action as source,
-                COALESCE(details, action || ' ' || COALESCE(resource_type, '')) as message
-            FROM audit_logs
-            UNION ALL
-            SELECT 
-                event_timestamp as timestamp,
-                CASE 
-                    WHEN risk_level = 'high' THEN 'ERROR'
-                    WHEN risk_level = 'medium' THEN 'WARN'
-                    ELSE 'INFO'
-                END as level,
-                audit_source as source,
-                event_type || ': ' || COALESCE(event_details, '') as message
-            FROM security_audit_logs
-            WHERE 1=1
-        """
-        params = []
-        
-        # 添加过滤条件
-        having_conditions = []
-        if level:
-            having_conditions.append("level = ?")
-            params.append(level)
-        
-        if keyword:
-            having_conditions.append("(message LIKE ? OR source LIKE ?)")
-            params.extend([f"%{keyword}%", f"%{keyword}%"])
-            
-        if date:
-            having_conditions.append("DATE(timestamp) = ?")
-            params.append(date)
-        
-        if having_conditions:
-            # 使用子查询来应用过滤
-            query = f"SELECT * FROM ({query}) WHERE {' AND '.join(having_conditions)}"
-        
-        # 排序和分页
-        query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
-        params.extend([per_page, (page - 1) * per_page])
-        
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        
-        logs = []
-        for row in rows:
-            logs.append({
-                "timestamp": row[0],
-                "level": row[1],
-                "source": row[2],
-                "message": row[3]
-            })
-        
-        # 获取总数
-        count_query = """
-            SELECT COUNT(*) FROM (
-                SELECT created_at as timestamp, 'INFO' as level, resource_type as source, details as message FROM audit_logs
-                UNION ALL
-                SELECT event_timestamp as timestamp, 
-                    CASE WHEN risk_level = 'high' THEN 'ERROR' WHEN risk_level = 'medium' THEN 'WARN' ELSE 'INFO' END as level,
-                    audit_source as source, event_type as message FROM security_audit_logs
-            )
-        """
-        count_params = []
-        
-        if level or keyword or date:
-            count_conditions = []
-            if level:
-                count_conditions.append("level = ?")
-                count_params.append(level)
-            if keyword:
-                count_conditions.append("(message LIKE ? OR source LIKE ?)")
-                count_params.extend([f"%{keyword}%", f"%{keyword}%"])
-            if date:
-                count_conditions.append("DATE(timestamp) = ?")
-                count_params.append(date)
-            count_query += " WHERE " + " AND ".join(count_conditions)
-        
-        cursor.execute(count_query, count_params)
-        total = cursor.fetchone()[0]
-        
-        conn.close()
+        logs, total = sqlite_service.fetch_admin_logs(
+            page=page,
+            per_page=per_page,
+            level=level,
+            keyword=keyword,
+            date=date,
+        )
         
         # 如果数据库没有日志，尝试读取文件日志
         if not logs:
@@ -6236,59 +4988,14 @@ async def admin_export_logs(
 ):
     """导出系统日志为CSV格式"""
     try:
-        import sqlite3
         from fastapi.responses import StreamingResponse
         import csv
         from io import StringIO
-        
-        # 获取所有符合条件的日志
-        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
-        cursor = conn.cursor()
-        
-        # 构建查询 - 合并audit_logs和security_audit_logs
-        query = """
-            SELECT 
-                created_at as timestamp,
-                'INFO' as level,
-                resource_type || ':' || action as source,
-                COALESCE(details, action || ' ' || COALESCE(resource_type, '')) as message
-            FROM audit_logs
-            UNION ALL
-            SELECT 
-                event_timestamp as timestamp,
-                CASE 
-                    WHEN risk_level = 'high' THEN 'ERROR'
-                    WHEN risk_level = 'medium' THEN 'WARN'
-                    ELSE 'INFO'
-                END as level,
-                audit_source as source,
-                event_type || ': ' || COALESCE(event_details, '') as message
-            FROM security_audit_logs
-        """
-        params = []
-        
-        # 添加过滤条件
-        conditions = []
-        if level:
-            conditions.append("level = ?")
-            params.append(level)
-        
-        if keyword:
-            conditions.append("(message LIKE ? OR source LIKE ?)")
-            params.extend([f"%{keyword}%", f"%{keyword}%"])
-            
-        if date:
-            conditions.append("DATE(timestamp) = ?")
-            params.append(date)
-        
-        if conditions:
-            query = f"SELECT * FROM ({query}) WHERE {' AND '.join(conditions)}"
-        
-        query += " ORDER BY timestamp DESC"
-        
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        conn.close()
+        rows = sqlite_service.fetch_admin_logs_for_export(
+            level=level,
+            keyword=keyword,
+            date=date,
+        )
         
         # 创建CSV内容
         output = StringIO()

@@ -12,7 +12,12 @@ export class HistoryAPI {
      * 获取认证头
      */
     getAuthHeaders() {
-        const token = localStorage.getItem('auth_token') || localStorage.getItem('session_token');
+        const token = (window.authManager && typeof window.authManager.getToken === 'function'
+            ? window.authManager.getToken()
+            : null) ||
+            localStorage.getItem('session_token') ||
+            localStorage.getItem('tcm_auth_token') ||
+            localStorage.getItem('auth_token');
         const headers = {
             'Content-Type': 'application/json'
         };
@@ -31,9 +36,17 @@ export class HistoryAPI {
      */
     async getSessions(userId) {
         try {
-            const url = userId
-                ? `/api/user/sessions?user_id=${encodeURIComponent(userId)}`
-                : '/api/user/sessions';
+            const token = (window.authManager && typeof window.authManager.getToken === 'function'
+                ? window.authManager.getToken()
+                : null) ||
+                localStorage.getItem('session_token') ||
+                localStorage.getItem('tcm_auth_token') ||
+                localStorage.getItem('auth_token');
+
+            // 登录用户优先由后端从token解析user_id，避免前端缓存旧user_id导致拉错历史
+            const url = token
+                ? '/api/user/sessions'
+                : (userId ? `/api/user/sessions?user_id=${encodeURIComponent(userId)}` : '/api/user/sessions');
 
             const response = await fetch(url, {
                 headers: this.getAuthHeaders()

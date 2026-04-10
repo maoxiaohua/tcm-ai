@@ -212,6 +212,30 @@ class PrescriptionStatusManager:
                     FROM prescriptions WHERE id = ?
                 """, (prescription_id, prescription_id))
 
+                # 同步问诊主状态，避免历史记录仍显示进行中
+                cursor.execute("""
+                    UPDATE consultations
+                    SET status = 'pending_review',
+                        updated_at = datetime('now', 'localtime')
+                    WHERE uuid = (
+                        SELECT COALESCE(consultation_id, conversation_id)
+                        FROM prescriptions
+                        WHERE id = ?
+                    )
+                """, (prescription_id,))
+
+                # 同步doctor_sessions状态
+                cursor.execute("""
+                    UPDATE doctor_sessions
+                    SET session_status = 'active',
+                        last_updated = datetime('now', 'localtime')
+                    WHERE session_id = (
+                        SELECT COALESCE(consultation_id, conversation_id)
+                        FROM prescriptions
+                        WHERE id = ?
+                    )
+                """, (prescription_id,))
+
                 logger.info(f"✅ 处方 {prescription_id} 支付成功，已进入审核队列")
 
             conn.commit()
@@ -332,6 +356,34 @@ class PrescriptionStatusManager:
                 SET status = ?, completed_at = datetime('now', 'localtime')
                 WHERE prescription_id = ?
             """, (queue_status, prescription_id))
+
+            # 同步问诊与会话状态，保持历史记录状态一致
+            if action in ("approve", "reject"):
+                consultation_status = "completed"
+                doctor_session_status = "completed"
+            else:
+                consultation_status = "pending_review"
+                doctor_session_status = "active"
+
+            cursor.execute("""
+                UPDATE consultations
+                SET status = ?, updated_at = datetime('now', 'localtime')
+                WHERE uuid = (
+                    SELECT COALESCE(consultation_id, conversation_id)
+                    FROM prescriptions
+                    WHERE id = ?
+                )
+            """, (consultation_status, prescription_id))
+
+            cursor.execute("""
+                UPDATE doctor_sessions
+                SET session_status = ?, last_updated = datetime('now', 'localtime')
+                WHERE session_id = (
+                    SELECT COALESCE(consultation_id, conversation_id)
+                    FROM prescriptions
+                    WHERE id = ?
+                )
+            """, (doctor_session_status, prescription_id))
 
             # 记录审核历史
             cursor.execute("""

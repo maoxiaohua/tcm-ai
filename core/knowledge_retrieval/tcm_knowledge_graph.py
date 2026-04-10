@@ -12,6 +12,13 @@ from pathlib import Path
 import networkx as nx
 from collections import defaultdict
 
+try:
+    from app.core.settings import PATHS
+    DEFAULT_KG_DB_PATH = PATHS["tcm_knowledge_graph_db"]
+except Exception:
+    # Fallback for standalone execution
+    DEFAULT_KG_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "tcm_knowledge_graph.sqlite"
+
 @dataclass
 class HerbInfo:
     """药物基本信息"""
@@ -41,8 +48,8 @@ class FormulaInfo:
 class TCMKnowledgeGraph:
     """中医知识图谱"""
     
-    def __init__(self, db_path: str = "/opt/tcm/data/tcm_knowledge_graph.sqlite"):
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: Optional[str] = None):
+        self.db_path = Path(db_path) if db_path else Path(DEFAULT_KG_DB_PATH)
         self.db_path.parent.mkdir(exist_ok=True)
         
         # 创建图结构

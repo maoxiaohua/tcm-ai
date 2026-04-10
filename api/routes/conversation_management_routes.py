@@ -7,13 +7,10 @@
 from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel
 from typing import Optional
-import sqlite3
-import json
-import uuid
-from datetime import datetime
 
 # 导入统一账号管理器
 from core.unified_account.account_manager import unified_account_manager
+from app.services import local_sqlite_service as sqlite_service
 
 router = APIRouter()
 
@@ -91,169 +88,23 @@ async def switch_doctor(
     user, session = current_user_data
     user_id = user.global_user_id
 
-    conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
-    cursor = conn.cursor()
-
     try:
-        # 1. 查询该医生的最新consultation
-        cursor.execute("""
-            SELECT uuid, conversation_log, created_at
-            FROM consultations
-            WHERE patient_id = ? AND selected_doctor_id = ?
-            ORDER BY created_at DESC
-            LIMIT 1
-        """, (user_id, request.doctor_id))
+        result = sqlite_service.switch_doctor_conversation(
+            user_id=user_id,
+            doctor_id=request.doctor_id,
+        )
 
-        latest = cursor.fetchone()
-
-        if latest:
-            consultation_id = latest[0]
-            conversation_log = latest[1]
-
-            # 2. 检查该consultation是否有prescription
-            cursor.execute("""
-                SELECT id, created_at
-                FROM prescriptions
-                WHERE consultation_id = ?
-                LIMIT 1
-            """, (consultation_id,))
-
-            prescription = cursor.fetchone()
-            has_prescription = prescription is not None
-
-            if has_prescription:
-                # === 情况A：该医生的最新对话已有处方 ===
-                # 创建新consultation，开启新对话
-
-                new_id = str(uuid.uuid4())
-                cursor.execute("""
-                    INSERT INTO consultations
-                    (uuid, patient_id, selected_doctor_id, conversation_log, created_at)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (
-                    new_id,
-                    user_id,
-                    request.doctor_id,
-                    json.dumps({
-                        "conversation_id": new_id,
-                        "conversation_history": [],
-                        "current_stage": "inquiry",
-                        "confidence_score": 0
-                    }),
-                    datetime.now().isoformat() + 'Z'
-                ))
-                conn.commit()
-
-                return SwitchDoctorResponse(
-                    success=True,
-                    consultation_id=new_id,
-                    messages=[],
-                    is_new=True,
-                    reason="previous_conversation_has_prescription",
-                    message=f"上次对话已完成（处方ID: {prescription[0]}），已开启新对话"
-                )
-
-            else:
-                # === 情况B：该医生的最新对话未完成（无处方） ===
-                # 返回现有consultation，继续对话
-
-                # 解析conversation_log获取历史消息
-                try:
-                    log_data = json.loads(conversation_log) if conversation_log else {}
-
-                    # 处理旧格式（list）和新格式（dict）
-                    if isinstance(log_data, list):
-                        conversation_history = log_data
-                    else:
-                        conversation_history = log_data.get('conversation_history', [])
-
-                    # 转换为前端格式
-                    messages = []
-                    for item in conversation_history:
-                        # 🔑 v4.2 修复：优先处理新格式 {type, content}
-                        if 'type' in item and 'content' in item:
-                            # 新格式：直接使用 type 和 content
-                            messages.append({
-                                'type': item['type'],
-                                'content': item['content'],
-                                'time': item.get('time', ''),
-                                'timestamp': item.get('timestamp', 0)
-                            })
-                        else:
-                            # 旧格式：patient_query / ai_response
-                            if 'patient_query' in item:
-                                messages.append({
-                                    'type': 'user',
-                                    'content': item['patient_query'],
-                                    'time': item.get('time', ''),
-                                    'timestamp': item.get('timestamp', 0)
-                                })
-                            if 'ai_response' in item:
-                                messages.append({
-                                    'type': 'ai',
-                                    'content': item['ai_response'],
-                                    'time': item.get('time', ''),
-                                    'timestamp': item.get('timestamp', 0)
-                                })
-
-                    return SwitchDoctorResponse(
-                        success=True,
-                        consultation_id=consultation_id,
-                        messages=messages,
-                        is_new=False,
-                        reason="continue_unfinished_conversation",
-                        message=f"继续未完成的对话（{len(messages)}条消息）"
-                    )
-
-                except json.JSONDecodeError:
-                    # conversation_log格式错误，返回空消息
-                    return SwitchDoctorResponse(
-                        success=True,
-                        consultation_id=consultation_id,
-                        messages=[],
-                        is_new=False,
-                        reason="continue_conversation_parse_error",
-                        message="继续对话（历史消息解析失败）"
-                    )
-
-        else:
-            # === 情况C：该医生无历史对话 ===
-            # 创建新consultation，首次对话
-
-            new_id = str(uuid.uuid4())
-            cursor.execute("""
-                INSERT INTO consultations
-                (uuid, patient_id, selected_doctor_id, conversation_log, created_at)
-                VALUES (?, ?, ?, ?, ?)
-            """, (
-                new_id,
-                user_id,
-                request.doctor_id,
-                json.dumps({
-                    "conversation_id": new_id,
-                    "conversation_history": [],
-                    "current_stage": "inquiry",
-                    "confidence_score": 0
-                }),
-                datetime.now().isoformat() + 'Z'
-            ))
-            conn.commit()
-
-            return SwitchDoctorResponse(
-                success=True,
-                consultation_id=new_id,
-                messages=[],
-                is_new=True,
-                reason="first_conversation_with_doctor",
-                message=f"首次与该医生对话"
-            )
+        return SwitchDoctorResponse(
+            success=True,
+            consultation_id=result["consultation_id"],
+            messages=result["messages"],
+            is_new=result["is_new"],
+            reason=result["reason"],
+            message=result["message"],
+        )
 
     except Exception as e:
-        conn.rollback()
         raise HTTPException(status_code=500, detail=f"切换医生失败: {str(e)}")
-
-    finally:
-        conn.close()
 
 
 @router.get("/conversation/info/{consultation_id}")
@@ -268,37 +119,16 @@ async def get_conversation_info(
     user, session = current_user_data
     user_id = user.global_user_id
 
-    conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
-    cursor = conn.cursor()
-
     try:
-        cursor.execute("""
-            SELECT
-                c.uuid,
-                c.selected_doctor_id,
-                c.conversation_log,
-                c.created_at,
-                p.id as prescription_id,
-                p.status as prescription_status
-            FROM consultations c
-            LEFT JOIN prescriptions p ON c.uuid = p.consultation_id
-            WHERE c.uuid = ? AND c.patient_id = ?
-        """, (consultation_id, user_id))
-
-        row = cursor.fetchone()
-
-        if not row:
+        info = sqlite_service.fetch_conversation_info(
+            consultation_id=consultation_id,
+            user_id=user_id,
+        )
+        if not info:
             raise HTTPException(status_code=404, detail="对话不存在")
 
-        return {
-            "success": True,
-            "consultation_id": row[0],
-            "doctor_id": row[1],
-            "created_at": row[3],
-            "has_prescription": row[4] is not None,
-            "prescription_id": row[4],
-            "prescription_status": row[5]
-        }
-
-    finally:
-        conn.close()
+        return info
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取对话信息失败: {str(e)}")

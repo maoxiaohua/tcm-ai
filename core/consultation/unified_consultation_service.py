@@ -493,6 +493,24 @@ class UnifiedConsultationService:
                     'in_progress'
                 ))
 
+            # 同一个问诊仅保留一个处方记录，防止重复创建导致状态混乱
+            cursor.execute("""
+                SELECT id
+                FROM prescriptions
+                WHERE consultation_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+            """, (consultation_uuid,))
+            existing_prescription = cursor.fetchone()
+            if existing_prescription:
+                existing_prescription_id = existing_prescription[0]
+                conn.close()
+                logger.warning(
+                    f"⚠️ 检测到已存在处方，跳过重复创建: consultation_id={consultation_uuid}, "
+                    f"prescription_id={existing_prescription_id}"
+                )
+                return existing_prescription_id
+
             cursor.execute("""
                 INSERT INTO prescriptions (
                     patient_id, conversation_id, consultation_id, doctor_id, patient_name,

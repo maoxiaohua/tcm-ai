@@ -281,9 +281,25 @@ async def save_consultation(request: ConsultationSaveRequest):
         existing = cursor.fetchone()
         
         if existing:
-            # 记录已存在，说明在聊天时已自动保存，无需重复操作
-            logger.info(f"问诊记录已存在，跳过重复保存: {request.consultation_id}")
-            message = "问诊记录已存在，数据已自动保存"
+            # 记录已存在时也要同步最新状态与对话，避免历史页状态滞后
+            cursor.execute("""
+                UPDATE consultations
+                SET patient_id = ?,
+                    selected_doctor_id = ?,
+                    conversation_log = ?,
+                    status = ?,
+                    updated_at = ?
+                WHERE uuid = ?
+            """, (
+                request.patient_id,
+                request.doctor_id,
+                request.conversation_log,
+                request.status,
+                request.updated_at,
+                request.consultation_id
+            ))
+            logger.info(f"问诊记录已存在，已同步更新状态: {request.consultation_id}, status={request.status}")
+            message = "问诊记录已存在，状态与内容已更新"
         else:
             # 记录不存在，说明自动保存可能失败，这时才手动保存
             cursor.execute("""
@@ -565,6 +581,7 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
     存储问诊记录到数据库以支持跨设备同步
     整合多个存储机制确保数据完整性
     """
+    conn = None
     try:
         import sqlite3
         import json
@@ -838,10 +855,13 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
                 logger.warning(f"记录决策树使用失败: {e}")
 
     except Exception as e:
+        if conn:
+            conn.rollback()
         logger.error(f"❌ 存储问诊记录失败: {e}")
         logger.error(traceback.format_exc())
+        raise RuntimeError(f"存储问诊记录失败: {e}") from e
     finally:
-        if 'conn' in locals():
+        if conn:
             conn.close()
 
 async def _submit_to_doctor_review_queue(cursor, prescription_id: int, request: ChatMessage, consultation_uuid: str) -> None:
@@ -884,16 +904,24 @@ async def _sync_prescription_status_to_patient(prescription_id: int, new_status:
         
         # 根据审核结果更新患者端可见性
         if new_status in ['doctor_approved', 'doctor_modified']:
-            # 审核通过，设置为支付等待状态
+            # 审核通过：
+            # - 已支付处方：直接解锁（completed）
+            # - 未支付处方：保持待支付（pending）
             cursor.execute("""
                 UPDATE prescriptions 
                 SET is_visible_to_patient = 1,
-                    payment_status = 'pending',
-                    visibility_unlock_time = datetime('now')
+                    payment_status = CASE
+                        WHEN payment_status IN ('paid', 'completed') THEN payment_status
+                        ELSE 'pending'
+                    END,
+                    visibility_unlock_time = CASE
+                        WHEN payment_status IN ('paid', 'completed') THEN datetime('now')
+                        ELSE visibility_unlock_time
+                    END
                 WHERE id = ?
             """, (prescription_id,))
             
-            logger.info(f"✅ 处方审核通过，患者可支付解锁: prescription_id={prescription_id}")
+            logger.info(f"✅ 处方审核通过，患者端状态已同步: prescription_id={prescription_id}")
             
         elif new_status == 'doctor_rejected':
             # 审核拒绝，仍保持不可见
@@ -1615,4 +1643,3 @@ def _determine_consultation_status(response) -> str:
         if hasattr(response, 'stage') and response.stage in ['prescription_complete', 'consultation_end', 'completed']:
             return 'completed'
         return 'in_progress'  # 仍在问诊中
-

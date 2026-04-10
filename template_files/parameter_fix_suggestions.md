@@ -1,12 +1,51 @@
 # 参数一致性修复建议
 
-**生成时间**: 2026-03-23 20:44:31
+**生成时间**: 2026-04-05 21:04:37
 
 ---
 
 ## 🔴 错误修复 (共 5 个)
 
-### 错误 1: 参数 'doctor_id' 使用了 5 种不同的命名
+### 错误 1: 参数 'message' 使用了 5 种不同的命名
+
+**类别**: 参数命名不一致
+
+**详情**:
+```
+标准名称: message
+描述: 消息内容
+当前使用情况:
+  - content: 875 次使用 ✗ 别名
+    文件: prescription_learning_dashboard.html, prescription_learning_dashboard.html, patient_prescription_confirm.html
+  - message: 423 次使用 ✓ 标准
+    文件: prescription_structured_editor.html, register.html, system_monitor.html
+  - body: 358 次使用 ✗ 别名
+    文件: prescription_learning_dashboard.html, patient_prescription_confirm.html, patient_prescription_confirm.html
+  - text: 174 次使用 ✗ 别名
+    文件: decision_tree_v3.html, decision_tree_v3.html, decision_tree_v3.html
+  - msg: 12 次使用 ✗ 别名
+    文件: index_v2.html, auth_portal.html, js/smart_workflow_history.js
+
+建议: 统一使用 'message'
+```
+
+**修复建议**:
+```javascript
+# 修复建议：统一使用 message
+
+# 前端代码示例:
+// ❌ 错误用法
+{  content: value  }  // 使用了别名
+{  msg: value  }  // 使用了别名
+
+// ✅ 正确用法
+{  message: value  }  // 使用标准名称
+
+```
+
+---
+
+### 错误 2: 参数 'doctor_id' 使用了 5 种不同的命名
 
 **类别**: 参数命名不一致
 
@@ -15,12 +54,12 @@
 标准名称: doctor_id
 描述: 医生唯一标识
 当前使用情况:
-  - doctor_id: 91 次使用 ✓ 标准
-    文件: doctor_management.html, doctor_management.html, doctor_management.html
-  - doctor_name: 56 次使用 ✗ 别名
-    文件: doctor_management.html, doctor_management.html, doctor_management.html
+  - doctor_id: 92 次使用 ✓ 标准
+    文件: prescription_structured_editor.html, prescription_structured_editor.html, prescription_structured_editor.html
+  - doctor_name: 55 次使用 ✗ 别名
+    文件: patient_prescription_confirm.html, decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html
   - doctorId: 25 次使用 ✗ 别名
-    文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, js/conversation_state_manager.js
+    文件: decision_tree_v3_data_driven.html, decision_tree_visual_builder.html, js/smart_workflow_history.js
   - selected_doctor: 10 次使用 ✗ 别名
     文件: index_v2.html, index_v2.html, conversation_state_demo.html
   - doctor_code: 4 次使用 ✗ 别名
@@ -48,46 +87,40 @@
 
 ---
 
-### 错误 2: 参数 'message' 使用了 5 种不同的命名
+### 错误 3: 参数 'prescription_id' 使用了 2 种不同的命名
 
 **类别**: 参数命名不一致
 
 **详情**:
 ```
-标准名称: message
-描述: 消息内容
+标准名称: prescription_id
+描述: 处方唯一标识
 当前使用情况:
-  - content: 866 次使用 ✗ 别名
-    文件: doctor_management.html, doctor_management.html, doctor_portal.html
-  - message: 415 次使用 ✓ 标准
-    文件: doctor_management.html, doctor_portal.html, phone_binding.html
-  - body: 351 次使用 ✗ 别名
-    文件: phone_binding.html, phone_binding.html, prescription_checker_v2.html
-  - text: 162 次使用 ✗ 别名
-    文件: prescription_checker_v2.html, prescription_checker_v2.html, prescription_checker_v2.html
-  - msg: 12 次使用 ✗ 别名
-    文件: auth_portal.html, index_v2.html, js/prescription_renderer.js
+  - prescription_id: 56 次使用 ✓ 标准
+    文件: patient_prescription_confirm.html, patient_prescription_confirm.html, prescription_structured_editor.html
+  - prescriptionId: 53 次使用 ✗ 别名
+    文件: prescription_structured_editor.html, doctor/index.html, doctor/index.html
 
-建议: 统一使用 'message'
+建议: 统一使用 'prescription_id'
 ```
 
 **修复建议**:
 ```javascript
-# 修复建议：统一使用 message
+# 修复建议：统一使用 prescription_id
 
 # 前端代码示例:
 // ❌ 错误用法
-{  content: value  }  // 使用了别名
-{  msg: value  }  // 使用了别名
+{  prescriptionId: value  }  // 使用了别名
+{  rx_id: value  }  // 使用了别名
 
 // ✅ 正确用法
-{  message: value  }  // 使用标准名称
+{  prescription_id: value  }  // 使用标准名称
 
 ```
 
 ---
 
-### 错误 3: 参数 'user_id' 使用了 4 种不同的命名
+### 错误 4: 参数 'user_id' 使用了 4 种不同的命名
 
 **类别**: 参数命名不一致
 
@@ -96,12 +129,12 @@
 标准名称: user_id
 描述: 用户/患者唯一标识
 当前使用情况:
-  - userId: 90 次使用 ✗ 别名
-    文件: index_v2.html, js/conversation_state_manager.js, js/conversation_state_manager.js
+  - userId: 91 次使用 ✗ 别名
+    文件: index_v2.html, js/realtime_sync.js, js/restore_pending_prescription.js
   - user_id: 78 次使用 ✓ 标准
     文件: decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html, decision_tree_v3_data_driven.html
   - patient_id: 30 次使用 ✗ 别名
-    文件: doctor_review_portal.html, decision_tree_v3_data_driven.html, decision_tree_visual_builder.html
+    文件: decision_tree_v3_data_driven.html, doctor_dashboard.html, doctor_review_portal.html
   - patientId: 1 次使用 ✗ 别名
     文件: js/prescription_renderer.js
 
@@ -124,39 +157,6 @@
 
 ---
 
-### 错误 4: 参数 'prescription_id' 使用了 2 种不同的命名
-
-**类别**: 参数命名不一致
-
-**详情**:
-```
-标准名称: prescription_id
-描述: 处方唯一标识
-当前使用情况:
-  - prescription_id: 53 次使用 ✓ 标准
-    文件: patient_prescription_confirm.html, patient_prescription_confirm.html, prescription_structured_editor.html
-  - prescriptionId: 50 次使用 ✗ 别名
-    文件: prescription_structured_editor.html, doctor/index.html, doctor/index.html
-
-建议: 统一使用 'prescription_id'
-```
-
-**修复建议**:
-```javascript
-# 修复建议：统一使用 prescription_id
-
-# 前端代码示例:
-// ❌ 错误用法
-{  prescriptionId: value  }  // 使用了别名
-{  rx_id: value  }  // 使用了别名
-
-// ✅ 正确用法
-{  prescription_id: value  }  // 使用标准名称
-
-```
-
----
-
 ### 错误 5: 参数 'conversation_id' 使用了 4 种不同的命名
 
 **类别**: 参数命名不一致
@@ -166,12 +166,12 @@
 标准名称: conversation_id
 描述: 对话会话唯一标识
 当前使用情况:
-  - conversation_id: 79 次使用 ✓ 标准
+  - conversation_id: 85 次使用 ✓ 标准
     文件: index_v2.html, index_v2.html, conversation_state_demo.html
-  - conversationId: 42 次使用 ✗ 别名
-    文件: conversation_state_demo.html, js/prescription_renderer.js, js/smart_workflow_doctor.js
-  - session_id: 29 次使用 ✗ 别名
-    文件: auth_portal.html, doctor/login.html, js/smart_workflow_records.js
+  - conversationId: 43 次使用 ✗ 别名
+    文件: conversation_state_demo.html, js/session_manager.js, js/session_manager.js
+  - session_id: 31 次使用 ✗ 别名
+    文件: auth_portal.html, doctor/login.html, js/restore_pending_prescription.js
   - sessionId: 3 次使用 ✗ 别名
     文件: js/user_history_main.js, js/user_history_main.js
 
@@ -202,7 +202,7 @@
 
 **详情**:
 ```
-文件: index_v2.html, conversation_state_demo.html, js/smart_workflow_mobile.js, js/smart_workflow_chat.js
+文件: index_v2.html, conversation_state_demo.html, js/smart_workflow_chat.js, js/smart_workflow_mobile.js
 
 问题: 直接访问可能因为响应格式不同而失败
 

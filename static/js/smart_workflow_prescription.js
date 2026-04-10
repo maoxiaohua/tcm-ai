@@ -222,7 +222,7 @@
 
             const requestData = {
                 patient_id: userId,
-                conversation_id: conversation_id,
+                conversation_id: conversationId,
                 patient_name: window.currentUser.username || window.currentUser.display_name || window.currentUser.name || '患者',
                 patient_phone: window.currentUser.phone || '',
                 symptoms: conversationSummary.symptoms,
@@ -376,7 +376,7 @@
      * @param {string} prescriptionId - 处方ID
      * @param {number} amount - 支付金额
      */
-    function showPaymentModal(prescription_id, amount) {
+    function showPaymentModal(prescriptionId, amount) {
         // 获取处方内容
         const prescriptionContent = getPrescriptionContent();
         let formattedContent = '';
@@ -428,11 +428,11 @@
                         </div>
 
                         <div style="margin-bottom: 24px;">
-                            <button onclick="payWithAlipay('${prescription_id}', ${amount})"
+                            <button onclick="payWithAlipay('${prescriptionId}', ${amount})"
                                     style="width: 100%; padding: 16px; border: 2px solid #1677ff; background: #f0f8ff; color: #1677ff; border-radius: 8px; font-size: 16px; font-weight: 500; cursor: pointer; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
                                 支付宝支付
                             </button>
-                            <button onclick="payWithWechat('${prescription_id}', ${amount})"
+                            <button onclick="payWithWechat('${prescriptionId}', ${amount})"
                                     style="width: 100%; padding: 16px; border: 2px solid #07c160; background: #f0fff4; color: #07c160; border-radius: 8px; font-size: 16px; font-weight: 500; cursor: pointer; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
                                 微信支付
                             </button>
@@ -476,7 +476,7 @@
      * @param {string} prescriptionId - 处方ID
      * @param {number} amount - 支付金额
      */
-    async function payWithAlipay(prescription_id, amount) {
+    async function payWithAlipay(prescriptionId, amount) {
         try {
             const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {
                 'Content-Type': 'application/json',
@@ -487,7 +487,7 @@
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify({
-                    prescription_id: prescription_id,
+                    prescription_id: prescriptionId,
                     amount: amount,
                     payment_method: 'alipay'
                 })
@@ -551,7 +551,7 @@
                             style="padding: 12px 20px; background: #1677ff; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
                         跳转支付宝网页支付
                     </button>
-                    <button onclick="testAlipayPaymentSuccess('${paymentId}', '${prescription_id}')"
+                    <button onclick="testAlipayPaymentSuccess('${paymentId}', '${prescriptionId}')"
                             style="padding: 12px 20px; background: #52c41a; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
                         测试支付成功
                     </button>
@@ -646,7 +646,7 @@
      * @param {string} prescriptionId - 处方ID
      * @param {number} amount - 支付金额
      */
-    async function payWithWechat(prescription_id, amount) {
+    async function payWithWechat(prescriptionId, amount) {
         try {
             const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {
                 'Content-Type': 'application/json',
@@ -657,7 +657,7 @@
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify({
-                    prescription_id: prescription_id,
+                    prescription_id: prescriptionId,
                     amount: amount,
                     payment_method: 'wechat'
                 })
@@ -913,7 +913,7 @@
 
         // 支付成功后将处方提交给医生审核
         try {
-            console.log('支付成功，正在提交处方给医生审核...', { prescription_id, type: typeof prescriptionId });
+            console.log('支付成功，正在提交处方给医生审核...', { prescriptionId, type: typeof prescriptionId });
 
             const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {
                 'Content-Type': 'application/json',
@@ -927,7 +927,7 @@
                     ...headers
                 },
                 body: JSON.stringify({
-                    prescription_id: prescription_id,
+                    prescription_id: prescriptionId,
                     payment_amount: 80.00,
                     payment_method: 'alipay'
                 })
@@ -947,7 +947,7 @@
                 updatePrescriptionToReviewStatus(prescriptionId);
 
                 // 同步状态到服务器
-                await syncPrescriptionStatusToServer(prescription_id, 'pending_review', {
+                await syncPrescriptionStatusToServer(prescriptionId, 'pending_review', {
                     action: 'payment_confirmed',
                     timestamp: new Date().toISOString()
                 });
@@ -1033,7 +1033,7 @@
             if (!originalContent) {
                 try {
                     console.log('[支付] 尝试获取完整处方内容...');
-                    const fullContentResponse = await fetch(`/api/prescription/${prescription_id}/full-content`);
+                    const fullContentResponse = await fetch(`/api/prescription/${prescriptionId}/full-content`);
                     if (fullContentResponse.ok) {
                         const fullContentData = await fullContentResponse.json();
                         if (fullContentData.success && fullContentData.prescription) {
@@ -1193,14 +1193,14 @@
                             </div>
 
                             <div style="text-align: center; margin-top: 15px;">
-                                <button onclick="checkPrescriptionStatus('${prescription_id}')"
+                                <button onclick="checkPrescriptionStatus('${prescriptionId}')"
                                         style="background: #f59e0b; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
                                     查看审核状态
                                 </button>
                             </div>
 
                             <div style="font-size: 12px; color: #92400e; text-align: center; margin-top: 10px; opacity: 0.8;">
-                                处方ID: ${prescription_id}
+                                处方ID: ${prescriptionId}
                             </div>
                         </div>
                     `;
@@ -1210,7 +1210,7 @@
                     messageDiv.setAttribute('data-prescription-id', prescriptionId);
 
                     // 同步状态到localStorage，确保刷新后能恢复
-                    syncPrescriptionStatusToStorage(prescription_id, 'pending_review');
+                    syncPrescriptionStatusToStorage(prescriptionId, 'pending_review');
 
                     console.log('已更新处方显示为等待审核状态');
                 }
@@ -1224,20 +1224,20 @@
      * @param {string} prescriptionId - 处方ID
      * @param {string} status - 处方状态
      */
-    function syncPrescriptionStatusToStorage(prescription_id, status) {
+    function syncPrescriptionStatusToStorage(prescriptionId, status) {
         try {
             const userId = typeof getCurrentUserId === 'function' ? getCurrentUserId() : 'default';
             const storageKey = `prescription_status_${userId}`;
             let prescriptionStatuses = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
-            prescriptionStatuses[prescription_id] = {
+            prescriptionStatuses[prescriptionId] = {
                 status: status,
                 timestamp: Date.now(),
                 lastUpdated: new Date().toISOString()
             };
 
             localStorage.setItem(storageKey, JSON.stringify(prescriptionStatuses));
-            console.log('已同步处方状态到本地存储:', prescription_id, status);
+            console.log('已同步处方状态到本地存储:', prescriptionId, status);
 
         } catch (error) {
             console.error('同步处方状态失败:', error);
@@ -1255,7 +1255,7 @@
             const storageKey = `prescription_status_${userId}`;
             const prescriptionStatuses = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
-            const statusData = prescriptionStatuses[prescription_id];
+            const statusData = prescriptionStatuses[prescriptionId];
             return statusData ? statusData.status : null;
 
         } catch (error) {
@@ -1277,7 +1277,7 @@
                 'Authorization': `Bearer ${window.userToken}`
             };
 
-            const response = await fetch(`/api/prescription-review/status/${prescription_id}`, {
+            const response = await fetch(`/api/prescription-review/status/${prescriptionId}`, {
                 headers: headers
             });
 
@@ -1287,20 +1287,27 @@
 
                 if (result.success && result.data) {
                     const statusData = result.data;
+                    const normalizedStatus = String(statusData.status || '').toLowerCase();
+                    const normalizedReviewStatus = String(statusData.review_status || '').toLowerCase();
+                    const actionRequired = String(statusData.action_required || '').toLowerCase();
+                    const isReviewed = Boolean(statusData.is_reviewed) ||
+                        ['approved', 'completed', 'doctor_approved', 'doctor_modified'].includes(normalizedStatus) ||
+                        ['approved', 'doctor_approved'].includes(normalizedReviewStatus) ||
+                        actionRequired === 'completed';
 
-                    if (statusData.is_reviewed) {
+                    if (isReviewed) {
                         // 审核完成，显示最终处方
                         if (typeof showMessage === 'function') {
                             showMessage('处方审核已完成！', 'success');
                         }
-                        await markPrescriptionAsCompleted(prescription_id, statusData);
+                        await markPrescriptionAsCompleted(prescriptionId, statusData);
 
                         // 同步状态更新到本地存储
-                        syncPrescriptionStatusToStorage(prescription_id, 'approved');
+                        syncPrescriptionStatusToStorage(prescriptionId, 'approved');
                     } else {
-                        // 仍在审核中
+                        // 仍在审核中，保持当前对话内容不变
                         if (typeof showMessage === 'function') {
-                            showMessage(`处方仍在审核中，状态：${statusData.status_description}`, 'info');
+                            showMessage(`处方仍在审核中，状态：${statusData.status_description || statusData.status || 'pending_review'}`, 'info');
                         }
                     }
                 }
@@ -1311,7 +1318,7 @@
                 if (result.error_code === 'PRESCRIPTION_NOT_FOUND') {
                     console.warn('处方不存在:', prescriptionId);
                     if (typeof showMessage === 'function') {
-                        showMessage(`处方记录不存在(ID: ${prescription_id})`, 'warning');
+                        showMessage(`处方记录不存在(ID: ${prescriptionId})`, 'warning');
                     }
                 } else {
                     if (typeof showMessage === 'function') {
@@ -1349,22 +1356,30 @@
                 'Authorization': `Bearer ${window.userToken}`
             };
 
-            const response = await fetch(`/api/prescription-review/status/${prescription_id}`, {
+            const response = await fetch(`/api/prescription-review/status/${prescriptionId}`, {
                 headers: headers
             });
 
             if (response.ok) {
                 const result = await response.json();
+                const statusData = result && result.data ? result.data : null;
+                const normalizedStatus = String(statusData?.status || '').toLowerCase();
+                const normalizedReviewStatus = String(statusData?.review_status || '').toLowerCase();
+                const actionRequired = String(statusData?.action_required || '').toLowerCase();
+                const isReviewed = Boolean(statusData?.is_reviewed) ||
+                    ['approved', 'completed', 'doctor_approved', 'doctor_modified'].includes(normalizedStatus) ||
+                    ['approved', 'doctor_approved'].includes(normalizedReviewStatus) ||
+                    actionRequired === 'completed';
 
-                if (result.success && result.data && result.data.is_reviewed) {
+                if (result.success && statusData && isReviewed) {
                     // 审核完成，自动更新界面
                     console.log('检测到处方审核完成:', prescriptionId);
                     if (typeof showMessage === 'function') {
                         showMessage('您有处方审核完成，正在更新显示...', 'success');
                     }
 
-                    await markPrescriptionAsCompleted(prescription_id, result.data);
-                    syncPrescriptionStatusToStorage(prescription_id, 'approved');
+                    await markPrescriptionAsCompleted(prescriptionId, statusData);
+                    syncPrescriptionStatusToStorage(prescriptionId, 'approved');
 
                     // 播放通知音效（如果可能）
                     if ('Audio' in window) {
@@ -1379,15 +1394,15 @@
                 }
             }
         } catch (error) {
-            console.warn('静默检查处方状态失败:', prescription_id, error);
+            console.warn('静默检查处方状态失败:', prescriptionId, error);
             // 如果是处方不存在的错误，从本地存储中移除
             if (error.message && error.message.includes('不存在')) {
                 try {
                     const userId = typeof getCurrentUserId === 'function' ? getCurrentUserId() : 'default';
                     const storageKey = `prescription_status_${userId}`;
                     const prescriptionStatuses = JSON.parse(localStorage.getItem(storageKey) || '{}');
-                    if (prescriptionStatuses[prescription_id]) {
-                        delete prescriptionStatuses[prescription_id];
+                    if (prescriptionStatuses[prescriptionId]) {
+                        delete prescriptionStatuses[prescriptionId];
                         localStorage.setItem(storageKey, JSON.stringify(prescriptionStatuses));
                         console.log('已清理无效处方ID:', prescriptionId);
                     }
@@ -1403,7 +1418,7 @@
      * @param {string} prescriptionId - 处方ID
      * @param {Object} statusData - 状态数据
      */
-    async function markPrescriptionAsCompleted(prescription_id, statusData) {
+    async function markPrescriptionAsCompleted(prescriptionId, statusData) {
         console.log('处方审核完成，显示最终处方');
 
         // 医生审核完成后才显示完整处方，不走支付流程
@@ -1446,14 +1461,14 @@
                                 </div>
 
                                 <div style="font-size: 12px; color: #059669; text-align: center; margin-top: 10px;">
-                                    处方ID: ${prescription_id}
+                                    处方ID: ${prescriptionId}
                                 </div>
                             </div>
                         `;
 
                         // 标记为审核完成状态
                         messageDiv.setAttribute('data-prescription-status', 'approved');
-                        syncPrescriptionStatusToStorage(prescription_id, 'approved');
+                        syncPrescriptionStatusToStorage(prescriptionId, 'approved');
 
                         console.log('已显示审核通过的最终处方');
                     }
@@ -1482,7 +1497,7 @@
                     'Authorization': `Bearer ${window.userToken}`
                 };
 
-                const response = await fetch(`/api/prescription/${prescription_id}`, {
+                const response = await fetch(`/api/prescription/${prescriptionId}`, {
                     headers: headers
                 });
 
@@ -1540,13 +1555,13 @@
      * @param {Object} additionalData - 附加数据
      * @returns {Promise<boolean>} 同步结果
      */
-    async function syncPrescriptionStatusToServer(prescription_id, status, additionalData = {}) {
+    async function syncPrescriptionStatusToServer(prescriptionId, status, additionalData = {}) {
         try {
-            console.log(`同步处方状态到服务器: ID=${prescription_id}, status=${status}`);
+            console.log(`同步处方状态到服务器: ID=${prescriptionId}, status=${status}`);
 
             // 这里可以调用服务器API同步状态
             // 暂时只做日志记录，稀后实现具体的同步逻辑
-            console.log('处方状态同步数据:', { prescription_id, status, ...additionalData });
+            console.log('处方状态同步数据:', { prescriptionId, status, ...additionalData });
 
             return true;
         } catch (error) {
@@ -1568,7 +1583,7 @@
                 const prescriptionStatuses = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
                 // 检查所有待审核的处方
-                for (const [prescription_id, statusData] of Object.entries(prescriptionStatuses)) {
+                for (const [prescriptionId, statusData] of Object.entries(prescriptionStatuses)) {
                     if (statusData.status === 'pending_review') {
                         // 检查是否已过期（超过24小时不再检查）
                         const hoursAgo = (Date.now() - statusData.timestamp) / (1000 * 60 * 60);
@@ -1599,7 +1614,7 @@
             console.log('检查并恢复所有待审核处方状态:', prescriptionStatuses);
 
             // 遍历所有本地存储的处方状态
-            for (const [prescription_id, statusData] of Object.entries(prescriptionStatuses)) {
+            for (const [prescriptionId, statusData] of Object.entries(prescriptionStatuses)) {
                 if (statusData.status === 'pending_review') {
                     console.log('恢复待审核处方:', prescriptionId);
                     updatePrescriptionToReviewStatus(prescriptionId);

@@ -21,6 +21,7 @@
 // 对话相关变量
 window.currentConversationId = '';
 window.selectedDoctor = 'jin_daifu'; // 默认金大夫
+window.refreshConversationStrategy = 'new_conversation'; // 刷新页面默认开启新会话
 
 // 语音功能变量
 window.isVoiceRecording = false;

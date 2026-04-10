@@ -41,6 +41,153 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+
+def _derive_consultation_status(
+    *,
+    consultation_status: Optional[str],
+    prescription_status: Optional[str],
+    review_status: Optional[str],
+    payment_status: Optional[str],
+) -> str:
+    normalized_consultation_status = (consultation_status or "").strip().lower()
+    normalized_prescription_status = (prescription_status or "").strip().lower()
+    normalized_review_status = (review_status or "").strip().lower()
+    normalized_payment_status = (payment_status or "").strip().lower()
+
+    if normalized_review_status in {"approved", "doctor_approved"} and normalized_payment_status in {"paid", "completed"}:
+        return "completed"
+
+    if normalized_review_status in {"rejected", "doctor_rejected"} or normalized_prescription_status in {"rejected", "doctor_rejected"}:
+        return "completed"
+
+    if normalized_review_status in {"pending_review", "modified"} or normalized_prescription_status == "pending_review":
+        return "pending_review"
+
+    if normalized_payment_status in {"paid", "completed"}:
+        return "pending_review"
+
+    if normalized_payment_status == "pending" or normalized_prescription_status in {"ai_generated", "pending", "patient_confirmed"}:
+        return "pending_payment"
+
+    if normalized_consultation_status in {"completed", "pending_review", "pending_payment", "in_progress"}:
+        return normalized_consultation_status
+
+    return "in_progress"
+
+
+def _sync_consultation_and_conversation_status(cursor, prescription_id: int) -> None:
+    cursor.execute(
+        """
+        SELECT consultation_id, conversation_id, patient_id, doctor_id,
+               status, review_status, payment_status
+        FROM prescriptions
+        WHERE id = ?
+        """,
+        (prescription_id,),
+    )
+    prescription_row = cursor.fetchone()
+    if not prescription_row:
+        return
+
+    consultation_id = prescription_row["consultation_id"]
+    conversation_id = prescription_row["conversation_id"]
+    patient_id = prescription_row["patient_id"]
+    doctor_id = prescription_row["doctor_id"]
+
+    cursor.execute(
+        """
+        SELECT status
+        FROM consultations
+        WHERE uuid = COALESCE(?, ?)
+        LIMIT 1
+        """,
+        (consultation_id, conversation_id),
+    )
+    consultation_row = cursor.fetchone()
+    current_consultation_status = consultation_row["status"] if consultation_row else None
+
+    next_status = _derive_consultation_status(
+        consultation_status=current_consultation_status,
+        prescription_status=prescription_row["status"],
+        review_status=prescription_row["review_status"],
+        payment_status=prescription_row["payment_status"],
+    )
+
+    cursor.execute(
+        """
+        UPDATE consultations
+        SET status = ?,
+            updated_at = datetime('now')
+        WHERE uuid = COALESCE(?, ?)
+        """,
+        (next_status, consultation_id, conversation_id),
+    )
+
+    current_stage = "completed" if next_status == "completed" else next_status
+    is_active = 0 if next_status == "completed" else 1
+
+    if consultation_id:
+        cursor.execute(
+            """
+            UPDATE conversation_states
+            SET current_stage = ?,
+                has_prescription = 1,
+                is_active = ?,
+                updated_at = datetime('now')
+            WHERE conversation_id = ?
+            """,
+            (current_stage, is_active, consultation_id),
+        )
+
+    if conversation_id and conversation_id != consultation_id:
+        cursor.execute(
+            """
+            UPDATE conversation_states
+            SET current_stage = ?,
+                has_prescription = 1,
+                is_active = ?,
+                updated_at = datetime('now')
+            WHERE conversation_id = ?
+            """,
+            (current_stage, is_active, conversation_id),
+        )
+
+    if patient_id and doctor_id:
+        cursor.execute(
+            """
+            UPDATE conversation_states
+            SET current_stage = ?,
+                has_prescription = 1,
+                is_active = ?,
+                updated_at = datetime('now')
+            WHERE user_id = ? AND doctor_id = ? AND is_active = 1
+            """,
+            (current_stage, is_active, patient_id, doctor_id),
+        )
+
+    doctor_session_status = "completed" if next_status == "completed" else "active"
+    if consultation_id:
+        cursor.execute(
+            """
+            UPDATE doctor_sessions
+            SET session_status = ?,
+                last_updated = datetime('now')
+            WHERE session_id = ?
+            """,
+            (doctor_session_status, consultation_id),
+        )
+
+    if conversation_id and conversation_id != consultation_id:
+        cursor.execute(
+            """
+            UPDATE doctor_sessions
+            SET session_status = ?,
+                last_updated = datetime('now')
+            WHERE session_id = ?
+            """,
+            (doctor_session_status, conversation_id),
+        )
+
 def calculate_prescription_amount(prescription_id: int) -> float:
     """计算处方费用（简化版本）"""
     # 这里可以根据具体的处方内容计算费用
@@ -338,30 +485,8 @@ async def test_wechat_payment_success(order_no: str):
                         submitted_at, status, priority
                     ) VALUES (?, ?, ?, datetime('now'), 'pending', 'normal')
                 """, (order_dict['prescription_id'], prescription_info['doctor_id'], prescription_info['consultation_id']))
-            
-            # 🔑 修复：通过consultation_id更新对应的问诊记录状态为已完成
-            cursor.execute("""
-                UPDATE consultations 
-                SET status = 'completed', 
-                    updated_at = datetime('now')
-                WHERE uuid = (
-                    SELECT consultation_id FROM prescriptions WHERE id = ?
-                )
-            """, (order_dict['prescription_id'],))
-            
-            # 更新对话状态为已完成
-            cursor.execute("""
-                UPDATE conversation_states 
-                SET current_stage = 'completed',
-                    has_prescription = 1,
-                    is_active = 0,
-                    updated_at = datetime('now')
-                WHERE user_id = (
-                    SELECT patient_id FROM prescriptions WHERE id = ?
-                ) AND doctor_id = (
-                    SELECT doctor_id FROM prescriptions WHERE id = ?
-                ) AND is_active = 1
-            """, (order_dict['prescription_id'], order_dict['prescription_id']))
+
+            _sync_consultation_and_conversation_status(cursor, order_dict['prescription_id'])
             
             conn.commit()
             
@@ -440,30 +565,8 @@ async def test_alipay_payment_success(order_no: str):
                         submitted_at, status, priority
                     ) VALUES (?, ?, ?, datetime('now'), 'pending', 'normal')
                 """, (order_dict['prescription_id'], prescription_info['doctor_id'], prescription_info['consultation_id']))
-            
-            # 🔑 修复：通过consultation_id更新对应的问诊记录状态为已完成
-            cursor.execute("""
-                UPDATE consultations 
-                SET status = 'completed', 
-                    updated_at = datetime('now')
-                WHERE uuid = (
-                    SELECT consultation_id FROM prescriptions WHERE id = ?
-                )
-            """, (order_dict['prescription_id'],))
-            
-            # 更新对话状态为已完成
-            cursor.execute("""
-                UPDATE conversation_states 
-                SET current_stage = 'completed',
-                    has_prescription = 1,
-                    is_active = 0,
-                    updated_at = datetime('now')
-                WHERE user_id = (
-                    SELECT patient_id FROM prescriptions WHERE id = ?
-                ) AND doctor_id = (
-                    SELECT doctor_id FROM prescriptions WHERE id = ?
-                ) AND is_active = 1
-            """, (order_dict['prescription_id'], order_dict['prescription_id']))
+
+            _sync_consultation_and_conversation_status(cursor, order_dict['prescription_id'])
             
             conn.commit()
             
@@ -851,26 +954,7 @@ async def _process_payment_success(prescription_id: int, order_no: str) -> dict:
             message = f"支付成功，处方状态：{review_status or '未知'}"
             action = "status_updated"
         
-        # 🔑 更新对话状态为已完成
-        cursor.execute("""
-            UPDATE consultations 
-            SET status = 'completed', 
-                updated_at = datetime('now')
-            WHERE uuid = (
-                SELECT consultation_id FROM prescriptions WHERE id = ?
-            )
-        """, (prescription_id,))
-        
-        cursor.execute("""
-            UPDATE conversation_states 
-            SET current_stage = 'completed',
-                has_prescription = 1,
-                is_active = 0,
-                updated_at = datetime('now')
-            WHERE user_id = (
-                SELECT patient_id FROM prescriptions WHERE id = ?
-            ) AND is_active = 1
-        """, (prescription_id,))
+        _sync_consultation_and_conversation_status(cursor, prescription_id)
         
         conn.commit()
         

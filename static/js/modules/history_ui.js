@@ -8,6 +8,23 @@ export class HistoryUI {
         this.container = containerEl;
     }
 
+    getSessionStatusMeta(status) {
+        const normalized = (status || '').toLowerCase();
+        if (normalized === 'completed') {
+            return { text: '已完成', icon: '✅', baseClass: 'completed', extraClass: 'status-completed' };
+        }
+        if (normalized === 'pending_payment') {
+            return { text: '待支付', icon: '💳', baseClass: 'active', extraClass: 'status-pending-payment' };
+        }
+        if (normalized === 'pending_review') {
+            return { text: '待审核', icon: '🩺', baseClass: 'active', extraClass: 'status-pending-review' };
+        }
+        if (normalized === 'review_rejected') {
+            return { text: '审核未通过', icon: '⚠️', baseClass: 'active', extraClass: 'status-review-rejected' };
+        }
+        return { text: '进行中', icon: '⏳', baseClass: 'active', extraClass: 'status-in-progress' };
+    }
+
     /**
      * 渲染会话列表
      * @param {Object} sessionsByDoctor - 按医生分组的会话
@@ -54,8 +71,9 @@ export class HistoryUI {
      */
     renderSessionItem(session, dataProcessor) {
         const recentClass = dataProcessor.isRecentSession(session.created_at) ? 'recent' : '';
-        const statusClass = session.status === 'completed' ? 'completed' : 'active';
-        const statusText = session.status === 'completed' ? '已完成' : '进行中';
+        const statusMeta = this.getSessionStatusMeta(session.status || session.session_status);
+        const statusClass = `${statusMeta.baseClass} ${statusMeta.extraClass}`;
+        const statusText = `${statusMeta.icon} ${statusMeta.text}`;
 
         // 🔍 调试日志：检查session_id
         console.log('🔍 renderSessionItem - session数据:', {
@@ -182,6 +200,7 @@ export class HistoryUI {
      * 渲染详情内容
      */
     renderDetailContent(detail, dataProcessor) {
+        const statusMeta = this.getSessionStatusMeta(detail.status || detail.session_status);
         const conversationHistory = (detail.conversation_history || []).map((conv, index) => {
             const cleanResponse = dataProcessor.cleanHTML(conv.ai_response || '');
 
@@ -205,7 +224,7 @@ export class HistoryUI {
                 <h3>📊 基本信息</h3>
                 <div class="detail-grid">
                     <div><strong>开始时间:</strong> ${dataProcessor.formatDate(detail.created_at)}</div>
-                    <div><strong>问诊状态:</strong> ${detail.status === 'completed' ? '✅ 已完成' : '⏳ 进行中'}</div>
+                    <div><strong>问诊状态:</strong> ${statusMeta.icon} ${statusMeta.text}</div>
                 </div>
             </div>
             <div class="detail-section">

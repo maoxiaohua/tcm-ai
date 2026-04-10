@@ -5,24 +5,16 @@
 支持君臣佐使分类的智能处方调整
 """
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-import sqlite3
-import json
 import logging
 import re
-from datetime import datetime
+from app.services import local_sqlite_service as sqlite_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/prescription-structured", tags=["结构化处方编辑"])
-
-def get_db_connection():
-    """获取数据库连接"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
-    conn.row_factory = sqlite3.Row
-    return conn
 
 class HerbItem(BaseModel):
     """单个药材项目"""
@@ -155,38 +147,28 @@ def generate_structured_prescription(structure: Dict[str, Any], categories: List
 async def parse_prescription_for_editing(prescription_id: int):
     """解析处方结构，为编辑准备数据"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT ai_prescription, doctor_prescription, status 
-            FROM prescriptions WHERE id = ?
-        """, (prescription_id,))
-        
-        prescription = cursor.fetchone()
+        prescription = sqlite_service.fetch_prescription_for_structured_edit(prescription_id)
         if not prescription:
             raise HTTPException(status_code=404, detail="处方不存在")
         
         # 🔑 修复：优先使用AI原始处方进行结构化编辑，忽略简单文本调整
         # 因为doctor_prescription可能只是简单文本，无法解析结构
-        current_prescription = prescription['ai_prescription']
+        current_prescription = prescription["ai_prescription"]
         
         # 如果doctor_prescription包含结构化内容，才使用它
-        if prescription['doctor_prescription'] and '【君药】' in prescription['doctor_prescription']:
-            current_prescription = prescription['doctor_prescription']
+        if prescription["doctor_prescription"] and "【君药】" in prescription["doctor_prescription"]:
+            current_prescription = prescription["doctor_prescription"]
         
         # 解析处方结构
         structure = parse_prescription_structure(current_prescription)
-        
-        conn.close()
         
         return {
             "success": True,
             "data": {
                 "prescription_id": prescription_id,
-                "status": prescription['status'],
+                "status": prescription["status"],
                 "structure": structure,
-                "editable": prescription['status'] == 'pending_review'
+                "editable": prescription["status"] == "pending_review",
             }
         }
         
@@ -201,49 +183,26 @@ async def parse_prescription_for_editing(prescription_id: int):
 async def edit_structured_prescription(request: StructuredPrescriptionEdit):
     """结构化编辑处方"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # 获取原始处方
-        cursor.execute("""
-            SELECT ai_prescription, doctor_prescription, status 
-            FROM prescriptions WHERE id = ?
-        """, (request.prescription_id,))
-        
-        prescription = cursor.fetchone()
+        prescription = sqlite_service.fetch_prescription_for_structured_edit(request.prescription_id)
         if not prescription:
             raise HTTPException(status_code=404, detail="处方不存在")
         
-        if prescription['status'] != 'pending_review':
+        if prescription["status"] != "pending_review":
             raise HTTPException(status_code=400, detail="处方不在待审核状态，无法编辑")
         
         # 解析原始结构
-        original_prescription = prescription['doctor_prescription'] or prescription['ai_prescription']
+        original_prescription = prescription["doctor_prescription"] or prescription["ai_prescription"]
         structure = parse_prescription_structure(original_prescription)
         
         # 生成新的处方文本
         new_prescription = generate_structured_prescription(structure, request.categories)
         
-        # 更新数据库
-        cursor.execute("""
-            UPDATE prescriptions 
-            SET doctor_prescription = ?,
-                doctor_notes = ?,
-                reviewed_at = datetime('now')
-            WHERE id = ?
-        """, (new_prescription, request.doctor_notes, request.prescription_id))
-        
-        # 记录编辑历史
-        cursor.execute("""
-            INSERT INTO prescription_review_history (
-                prescription_id, doctor_id, action, modified_prescription, 
-                doctor_notes, reviewed_at
-            ) VALUES (?, ?, ?, ?, ?, datetime('now'))
-        """, (request.prescription_id, request.doctor_id, 'structured_edit', 
-               new_prescription, request.doctor_notes))
-        
-        conn.commit()
-        conn.close()
+        sqlite_service.apply_structured_prescription_edit(
+            prescription_id=request.prescription_id,
+            doctor_id=request.doctor_id,
+            new_prescription=new_prescription,
+            doctor_notes=request.doctor_notes,
+        )
         
         logger.info(f"✅ 结构化处方编辑完成: prescription_id={request.prescription_id}")
         
@@ -268,37 +227,27 @@ async def edit_structured_prescription(request: StructuredPrescriptionEdit):
 async def preview_final_prescription(prescription_id: int):
     """预览最终处方（用于患者端显示）"""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT ai_prescription, doctor_prescription, status, doctor_notes
-            FROM prescriptions WHERE id = ?
-        """, (prescription_id,))
-        
-        prescription = cursor.fetchone()
+        prescription = sqlite_service.fetch_prescription_for_structured_edit(prescription_id)
         if not prescription:
             raise HTTPException(status_code=404, detail="处方不存在")
         
         # 选择要显示的处方版本
-        if prescription['doctor_prescription']:
-            final_prescription = prescription['doctor_prescription']
+        if prescription["doctor_prescription"]:
+            final_prescription = prescription["doctor_prescription"]
             prescription_type = "doctor_modified"
         else:
-            final_prescription = prescription['ai_prescription']
+            final_prescription = prescription["ai_prescription"]
             prescription_type = "ai_original"
-        
-        conn.close()
         
         return {
             "success": True,
             "data": {
                 "prescription_id": prescription_id,
-                "status": prescription['status'],
+                "status": prescription["status"],
                 "prescription_type": prescription_type,
                 "final_prescription": final_prescription,
-                "doctor_notes": prescription['doctor_notes'],
-                "is_modified": bool(prescription['doctor_prescription'])
+                "doctor_notes": prescription["doctor_notes"],
+                "is_modified": bool(prescription["doctor_prescription"]),
             }
         }
         

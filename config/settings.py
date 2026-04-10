@@ -24,6 +24,7 @@ PATHS = {
     "backups_dir": PROJECT_ROOT / "backups",
     "cache_db": PROJECT_ROOT / "data" / "cache.sqlite",
     "user_db": PROJECT_ROOT / "data" / "user_history.sqlite",
+    "tcm_knowledge_graph_db": PROJECT_ROOT / "data" / "tcm_knowledge_graph.sqlite",
     "herb_database": PROJECT_ROOT / "data" / "unified_herb_database.json"
 }
 

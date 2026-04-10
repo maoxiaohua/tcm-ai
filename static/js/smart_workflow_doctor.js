@@ -243,6 +243,29 @@
         });
     }
 
+    function normalizeDoctorKey(doctorKey, doctors = window.doctors || {}) {
+        const raw = String(doctorKey || '').trim();
+        if (!raw) return raw;
+        if (doctors[raw]) return raw;
+
+        const doctorNameMap = {
+            '张仲景': 'zhang_zhongjing',
+            '金大夫': 'jin_daifu',
+            '叶天士': 'ye_tianshi',
+            '李东垣': 'li_dongyuan',
+            '刘渡舟': 'liu_duzhou',
+            '郑钦安': 'zheng_qin_an',
+            '朱丹溪': 'zhu_danxi'
+        };
+
+        if (doctorNameMap[raw] && doctors[doctorNameMap[raw]]) {
+            return doctorNameMap[raw];
+        }
+
+        const doctorCode = Object.keys(doctors).find((key) => doctors[key]?.name === raw);
+        return doctorCode || doctorNameMap[raw] || raw;
+    }
+
     /**
      * 保存当前对话历史
      * 🔑 v4.3 修复：使用统一的 tcm_doctor_history_{userId}_{doctorKey} 格式
@@ -383,15 +406,16 @@
      */
     function setDefaultDoctor(doctorKey, skipHistoryLoad = false) {
         const doctors = window.doctors || {};
-        const doctor = doctors[doctorKey];
+        const normalizedDoctorKey = normalizeDoctorKey(doctorKey, doctors);
+        const doctor = doctors[normalizedDoctorKey];
         if (!doctor) return;
 
-        window.selectedDoctor = doctorKey;
-        updateDoctorCardSelection(doctorKey);
+        window.selectedDoctor = normalizedDoctorKey;
+        updateDoctorCardSelection(normalizedDoctorKey);
         updateDoctorInfoBar(doctor);
 
         if (!skipHistoryLoad && typeof window.loadDoctorHistory === 'function') {
-            window.loadDoctorHistory(doctorKey);
+            window.loadDoctorHistory(normalizedDoctorKey);
         }
     }
 
@@ -404,6 +428,7 @@
      */
     function selectDoctor(doctorKey, doctorData = null) {
         const doctors = window.doctors || {};
+        const normalizedDoctorKey = normalizeDoctorKey(doctorKey, doctors);
         const messagesContainer = document.getElementById('messagesContainer');
         const mobileMessagesContainer = document.getElementById('mobileMessagesContainer');
 
@@ -414,7 +439,7 @@
 
         // 保存当前对话（如果有内容且正在切换）
         const previousDoctor = window.selectedDoctor;
-        if (previousDoctor && previousDoctor !== doctorKey && hasExistingMessages) {
+        if (previousDoctor && previousDoctor !== normalizedDoctorKey && hasExistingMessages) {
             saveCurrentConversation(previousDoctor);
         }
 
@@ -424,10 +449,10 @@
             event.currentTarget.classList.add('selected');
         }
 
-        window.selectedDoctor = doctorKey;
+        window.selectedDoctor = normalizedDoctorKey;
 
         // 获取医生信息
-        const doctor = doctorData || doctors[doctorKey] || {
+        const doctor = doctorData || doctors[normalizedDoctorKey] || {
             name: '医生', school: '中医师', avatar: '👨‍⚕️', specialty: '中医内科'
         };
 
@@ -435,16 +460,29 @@
         updateDoctorInfoBar(doctor);
 
         // 处理医生切换逻辑
-        if (previousDoctor && previousDoctor !== doctorKey) {
-            console.log(`🔄 从${previousDoctor}切换到${doctorKey}`);
+        if (previousDoctor && previousDoctor !== normalizedDoctorKey) {
+            console.log(`🔄 从${previousDoctor}切换到${normalizedDoctorKey}`);
 
-            const isLoggedIn = !!(window.userToken || localStorage.getItem('tcm_auth_token'));
-
-            if (isLoggedIn && window.sessionManager) {
-                switchDoctorViaAPI(doctorKey, previousDoctor, messagesContainer, mobileMessagesContainer);
+            const forceFreshConversation = window.refreshConversationStrategy === 'new_conversation';
+            if (forceFreshConversation) {
+                startFreshConversationForDoctor(normalizedDoctorKey, messagesContainer, mobileMessagesContainer);
             } else {
-                console.log('📦 游客模式，使用本地存储切换医生');
-                handleDoctorSwitchLocally(doctorKey, messagesContainer, mobileMessagesContainer);
+                const isLoggedIn = !!(
+                    (window.authManager && typeof window.authManager.getToken === 'function'
+                        ? window.authManager.getToken()
+                        : null) ||
+                    window.userToken ||
+                    localStorage.getItem('session_token') ||
+                    localStorage.getItem('tcm_auth_token') ||
+                    localStorage.getItem('auth_token')
+                );
+
+                if (isLoggedIn && window.sessionManager) {
+                    switchDoctorViaAPI(normalizedDoctorKey, previousDoctor, messagesContainer, mobileMessagesContainer);
+                } else {
+                    console.log('📦 游客模式，使用本地存储切换医生');
+                    handleDoctorSwitchLocally(normalizedDoctorKey, messagesContainer, mobileMessagesContainer);
+                }
             }
         }
 
@@ -474,6 +512,36 @@
         }
     }
 
+    async function startFreshConversationForDoctor(doctorKey, messagesContainer, mobileMessagesContainer) {
+        clearMessageContainers(messagesContainer, mobileMessagesContainer);
+
+        if (typeof window.generateConversationId === 'function') {
+            window.generateConversationId();
+        } else {
+            window.currentConversationId = generateLocalConversationId();
+        }
+        window.messages = [];
+
+        const doctors = window.doctors || {};
+        const doctor = doctors[doctorKey] || {
+            name: '中医师',
+            school: ''
+        };
+        const welcomeMessage = `您好！我是${doctor.name}${doctor.school ? `，${doctor.school}传人` : ''}。请详细描述您的症状，我将为您进行专业的中医分析。`;
+        const isMobile = window.innerWidth <= 768;
+
+        if (isMobile && typeof window.addMobileMessage === 'function') {
+            await window.addMobileMessage('ai', welcomeMessage);
+            if (typeof window.showMobileChatPage === 'function') {
+                window.showMobileChatPage();
+            }
+        } else if (typeof window.addMessage === 'function') {
+            await window.addMessage('ai', welcomeMessage, false, false, null);
+        } else if (typeof window.addWelcomeMessage === 'function') {
+            window.addWelcomeMessage(doctorKey);
+        }
+    }
+
     /**
      * 保存医生对话历史到本地存储
      */
@@ -484,7 +552,8 @@
             const data = {
                 messages: messages,
                 timestamp: Date.now(),
-                conversation_id: window.currentConversationId
+                conversation_id: window.currentConversationId,
+                conversationId: window.currentConversationId
             };
             localStorage.setItem(storageKey, JSON.stringify(data));
             console.log(`💾 已保存${doctorKey}的${messages.length}条消息到本地`);
@@ -542,7 +611,7 @@
                 const historyData = JSON.parse(storedHistory);
                 if (historyData.messages && historyData.messages.length > 0) {
                     messages = historyData.messages;
-                    conversationId = historyData.conversationId;
+                    conversationId = historyData.conversation_id || historyData.conversationId;
                     console.log(`✅ 加载${doctorKey}医生的${messages.length}条历史记录（版本：${historyData.version || '1.0'}，最后更新：${historyData.lastUpdated || '未知'}）`);
 
                     // 打印历史记录详情
@@ -562,7 +631,7 @@
             const localData = loadDoctorMessagesFromLocal(doctorKey);
             if (localData && localData.messages && localData.messages.length > 0) {
                 messages = localData.messages;
-                conversationId = localData.conversationId;
+                conversationId = localData.conversation_id || localData.conversationId;
                 console.log(`📂 从旧格式恢复${doctorKey}的${messages.length}条消息`);
             }
         }
@@ -647,6 +716,7 @@
     window.updateDoctorSelector = updateDoctorSelector;
     window.setDefaultDoctor = setDefaultDoctor;
     window.selectDoctor = selectDoctor;
+    window.normalizeDoctorKey = normalizeDoctorKey;
     window.getAvatarForDoctor = getAvatarForDoctor;
     window.getDoctorDisplayName = getDoctorDisplayName;
     window.saveDoctorMessagesToLocal = saveDoctorMessagesToLocal;
