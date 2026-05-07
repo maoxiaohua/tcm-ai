@@ -102,6 +102,19 @@ class UserHistorySystem:
                 attempt_count INTEGER DEFAULT 0
             )
         """)
+
+        # 邮箱验证码表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS email_verification (
+                verification_id TEXT PRIMARY KEY,
+                email TEXT NOT NULL,
+                verification_code TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                is_used INTEGER DEFAULT 0,
+                attempt_count INTEGER DEFAULT 0
+            )
+        """)
         
         # 设备绑定记录表 (新增)
         cursor.execute("""
@@ -697,16 +710,125 @@ class UserHistorySystem:
             
             conn.commit()
             logger.info(f"手机号验证成功: {phone}")
-            
+
             return {"success": True, "message": "验证码验证成功"}
-            
+
         except Exception as e:
             logger.error(f"验证码验证失败: {e}")
             conn.rollback()
             return {"success": False, "error": "验证失败"}
         finally:
             conn.close()
-    
+
+    def send_email_verification_code(self, email: str) -> Dict[str, Any]:
+        """发送邮箱验证码"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        try:
+            # 检查发送频率限制（1分钟内只能发送一次）
+            one_minute_ago = (datetime.utcnow() - timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:%S')
+            cursor.execute("""
+                SELECT COUNT(*) FROM email_verification
+                WHERE email=? AND created_at > ?
+            """, (email, one_minute_ago))
+
+            recent_count = cursor.fetchone()[0]
+            if recent_count > 0:
+                return {"success": False, "error": "验证码发送过于频繁，请稍后再试"}
+
+            verification_code = self.generate_verification_code()
+            verification_id = str(uuid.uuid4())
+            expires_at = datetime.now() + timedelta(minutes=5)
+
+            cursor.execute("""
+                INSERT INTO email_verification
+                (verification_id, email, verification_code, expires_at)
+                VALUES (?, ?, ?, ?)
+            """, (verification_id, email, verification_code, expires_at.isoformat()))
+
+            conn.commit()
+
+            from services.email_service import email_service
+            try:
+                sent = email_service.send_verification_email(email, verification_code)
+                if not sent:
+                    logger.error("SMTP未配置，邮件未发送到 %s", email)
+                    return {"success": False, "error": "邮件服务未配置，请联系管理员"}
+            except Exception as send_err:
+                logger.error(f"邮件发送失败: {send_err}")
+                return {"success": False, "error": "邮件发送失败，请检查邮箱地址是否正确"}
+
+            logger.info(f"发送邮箱验证码到 {email}: {verification_code}")
+
+            return {
+                "success": True,
+                "verification_id": verification_id,
+                "expires_in": 300,
+                "message": f"验证码已发送到邮箱 {email[:3]}***{email[email.index('@'):]}"
+            }
+
+        except Exception as e:
+            logger.error(f"发送邮箱验证码失败: {e}")
+            conn.rollback()
+            return {"success": False, "error": "验证码发送失败"}
+        finally:
+            conn.close()
+
+    def verify_email_code(self, email: str, code: str) -> Dict[str, Any]:
+        """验证邮箱验证码"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("""
+                SELECT verification_id, verification_code, expires_at, is_used, attempt_count
+                FROM email_verification
+                WHERE email=? AND is_used=0 AND expires_at > ?
+                ORDER BY created_at DESC LIMIT 1
+            """, (email, datetime.now().isoformat()))
+
+            result = cursor.fetchone()
+            if not result:
+                return {"success": False, "error": "验证码不存在或已过期"}
+
+            verification_id, stored_code, expires_at, is_used, attempt_count = result
+
+            new_attempt_count = attempt_count + 1
+            cursor.execute("""
+                UPDATE email_verification
+                SET attempt_count=? WHERE verification_id=?
+            """, (new_attempt_count, verification_id))
+
+            if new_attempt_count > 3:
+                cursor.execute("""
+                    UPDATE email_verification
+                    SET is_used=1 WHERE verification_id=?
+                """, (verification_id,))
+                conn.commit()
+                return {"success": False, "error": "验证码错误次数过多，请重新获取"}
+
+            if code != stored_code:
+                conn.commit()
+                return {"success": False, "error": f"验证码错误，还可尝试{3-new_attempt_count}次"}
+
+            cursor.execute("""
+                UPDATE email_verification
+                SET is_used=1 WHERE verification_id=?
+            """, (verification_id,))
+
+            conn.commit()
+            logger.info(f"邮箱验证成功: {email}")
+
+            return {"success": True, "message": "验证码验证成功"}
+
+        except Exception as e:
+            logger.error(f"邮箱验证码验证失败: {e}")
+            conn.rollback()
+            return {"success": False, "error": "验证失败"}
+        finally:
+            conn.close()
+
     def bind_phone_to_user(self, device_fingerprint: str, phone: str, nickname: str = "") -> Dict[str, Any]:
         """将手机号绑定到设备用户（升级账户）"""
         conn = sqlite3.connect(self.db_path)

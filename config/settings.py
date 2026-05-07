@@ -140,6 +140,17 @@ SECURITY_CONFIG = {
     "secret_key": _get_env_str("SECRET_KEY", ""),
 }
 
+# 邮件配置
+EMAIL_CONFIG = {
+    "smtp_host": _get_env_str("SMTP_HOST", "smtp.163.com"),
+    "smtp_port": _get_env_int("SMTP_PORT", 587),
+    "smtp_username": _get_env_str("SMTP_USERNAME", ""),
+    "smtp_password": _get_env_str("SMTP_PASSWORD", ""),
+    "from_name": _get_env_str("SMTP_FROM_NAME", "TCM AI 中医智能诊疗"),
+    "use_tls": _get_env_str("SMTP_USE_TLS", "true").lower() in ("true", "1", "yes"),
+    "use_ssl": _get_env_str("SMTP_USE_SSL", "false").lower() in ("true", "1", "yes"),
+}
+
 # 确保必要目录存在
 for path in PATHS.values():
     if isinstance(path, Path) and not path.suffix:  # 是目录而不是文件

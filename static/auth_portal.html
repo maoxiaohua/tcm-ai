@@ -789,31 +789,44 @@
                 <!-- 邮箱注册表单 -->
                 <div id="emailRegister" class="register-form" style="display: none;">
                     <h3 style="margin-bottom: 20px; color: #333; text-align: center;">✉️ 邮箱注册</h3>
-                    
+
                     <div class="form-group">
                         <label class="form-label">邮箱地址 *</label>
-                        <input type="email" class="form-input" id="registerEmail" 
+                        <input type="email" class="form-input" id="registerEmail"
                                placeholder="请输入您的邮箱地址">
                         <div class="error-message" id="registerEmailError"></div>
                     </div>
 
                     <div class="form-group">
+                        <label class="form-label">邮箱验证码 *</label>
+                        <div class="input-group">
+                            <input type="text" class="form-input" id="registerEmailCode"
+                                   placeholder="请输入6位验证码" maxlength="6">
+                            <button class="code-btn" id="sendEmailCodeBtn" onclick="sendEmailVerificationCode()">
+                                <span id="sendEmailCodeText">发送验证码</span>
+                                <span id="emailCodeCountdown" style="display: none;"></span>
+                            </button>
+                        </div>
+                        <div class="error-message" id="registerEmailCodeError"></div>
+                    </div>
+
+                    <div class="form-group">
                         <label class="form-label">设置密码 *</label>
-                        <input type="password" class="form-input" id="registerEmailPassword" 
+                        <input type="password" class="form-input" id="registerEmailPassword"
                                placeholder="6-20位密码，建议包含字母和数字">
                         <div class="error-message" id="registerEmailPasswordError"></div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">确认密码 *</label>
-                        <input type="password" class="form-input" id="registerEmailConfirm" 
+                        <input type="password" class="form-input" id="registerEmailConfirm"
                                placeholder="请再次输入密码确认">
                         <div class="error-message" id="registerEmailConfirmError"></div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">昵称 (可选)</label>
-                        <input type="text" class="form-input" id="registerEmailNickname" 
+                        <input type="text" class="form-input" id="registerEmailNickname"
                                placeholder="设置您的昵称" maxlength="20">
                         <div class="error-message" id="registerEmailNicknameError"></div>
                     </div>
@@ -987,6 +1000,8 @@
         let currentTab = 'login';
         let countdownTimer = null;
         let countdownSeconds = 0;
+        let emailCountdownTimer = null;
+        let emailCountdownSeconds = 0;
         let selectedRole = null;
 
         // 页面初始化
@@ -1700,7 +1715,7 @@
         }
         
         // ========== 邮箱注册功能 ==========
-        
+
         // 验证邮箱格式
         function validateEmail(email) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1712,12 +1727,76 @@
             return password && password.length >= 6 && password.length <= 20;
         }
 
+        // 验证邮箱验证码格式
+        function validateEmailCode() {
+            const code = document.getElementById('registerEmailCode').value.trim();
+            return /^\d{6}$/.test(code);
+        }
+
+        // 发送邮箱验证码
+        async function sendEmailVerificationCode() {
+            const email = document.getElementById('registerEmail').value.trim();
+
+            if (!email) {
+                showFieldError('registerEmail', '请先输入邮箱地址');
+                return;
+            }
+            if (!validateEmail(email)) {
+                showFieldError('registerEmail', '请输入正确的邮箱格式');
+                return;
+            }
+            clearFieldError('registerEmail');
+
+            const sendBtn = document.getElementById('sendEmailCodeBtn');
+            const sendText = document.getElementById('sendEmailCodeText');
+            const countdownEl = document.getElementById('emailCodeCountdown');
+
+            sendBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/auth/send-email-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message || '验证码已发送至邮箱');
+                    // 启动倒计时
+                    emailCountdownSeconds = 60;
+                    emailCountdownTimer = setInterval(() => {
+                        countdownEl.textContent = `${emailCountdownSeconds}s`;
+                        emailCountdownSeconds--;
+
+                        if (emailCountdownSeconds < 0) {
+                            clearInterval(emailCountdownTimer);
+                            sendBtn.disabled = false;
+                            sendText.style.display = 'inline';
+                            countdownEl.style.display = 'none';
+                        }
+                    }, 1000);
+                    sendText.style.display = 'none';
+                    countdownEl.style.display = 'inline';
+                } else {
+                    showFieldError('registerEmailCode', result.error || '发送验证码失败');
+                    sendBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('发送邮箱验证码失败:', error);
+                showFieldError('registerEmailCode', '网络错误，请重试');
+                sendBtn.disabled = false;
+            }
+        }
+
         async function completeEmailRegister() {
             const email = document.getElementById('registerEmail').value.trim();
+            const code = document.getElementById('registerEmailCode').value.trim();
             const password = document.getElementById('registerEmailPassword').value;
             const confirmPassword = document.getElementById('registerEmailConfirm').value;
             const nickname = document.getElementById('registerEmailNickname').value.trim();
-            
+
             // 清空错误信息
             clearAllErrors();
 
@@ -1728,6 +1807,16 @@
             }
             if (!validateEmail(email)) {
                 showFieldError('registerEmail', '请输入正确的邮箱格式');
+                return;
+            }
+
+            // 验证验证码
+            if (!code) {
+                showFieldError('registerEmailCode', '请输入邮箱验证码');
+                return;
+            }
+            if (!validateEmailCode()) {
+                showFieldError('registerEmailCode', '验证码应为6位数字');
                 return;
             }
 
@@ -1757,28 +1846,37 @@
                 const response = await fetch('/api/auth/register/email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        email, 
-                        password, 
-                        nickname: nickname || '新用户' 
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        code,
+                        nickname: nickname || email.split('@')[0]
                     })
                 });
 
                 const result = await response.json();
 
                 if (result.success) {
-                    showSuccess('🎉 注册成功！欢迎加入TCM AI！');
+                    showSuccess('注册成功！欢迎加入TCM AI！');
                     setTimeout(() => {
                         window.location.href = '/login';
                     }, 1500);
                 } else {
-                    showFieldError('registerEmailNickname', result.error || '注册失败');
+                    showFieldError('registerEmailCode', result.error || '注册失败');
                 }
             } catch (error) {
                 console.error('邮箱注册失败:', error);
-                showFieldError('registerEmailNickname', '网络错误，请重试');
+                showFieldError('registerEmailCode', '网络错误，请重试');
             } finally {
                 hideLoading();
+            }
+        }
+
+        // 清空单个字段错误
+        function clearFieldError(fieldId) {
+            const errorElement = document.getElementById(fieldId + 'Error');
+            if (errorElement) {
+                errorElement.textContent = '';
             }
         }
         
@@ -1864,6 +1962,9 @@
         window.addEventListener('beforeunload', function() {
             if (countdownTimer) {
                 clearInterval(countdownTimer);
+            }
+            if (emailCountdownTimer) {
+                clearInterval(emailCountdownTimer);
             }
         });
     </script>

@@ -296,13 +296,13 @@ class UnifiedAccountManager:
         with self._get_db_connection() as conn:
             cursor = conn.cursor()
             
-            # 查找用户
+            # 查找用户（支持用户名、邮箱或手机号登录）
             cursor.execute("""
                 SELECT global_user_id, password_hash, salt, account_status,
                        login_attempts, locked_until
-                FROM unified_users 
-                WHERE username = ?
-            """, (username,))
+                FROM unified_users
+                WHERE username = ? OR email = ? OR phone_number = ?
+            """, (username, username, username))
             
             user_row = cursor.fetchone()
             

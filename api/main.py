@@ -3945,9 +3945,56 @@ async def verify_phone_code_api(request: Request):
         logger.info(f"验证码验证结果: {result}")
         
         return result
-        
+
     except Exception as e:
         logger.error(f"验证码验证API失败: {e}")
+        return {"success": False, "error": "验证码验证失败"}
+
+@app.post("/api/auth/send-email-code")
+async def send_email_code_api(request: Request):
+    """发送邮箱验证码"""
+    if not USER_HISTORY_AVAILABLE:
+        return {"success": False, "error": "用户历史系统不可用"}
+
+    try:
+        data = await request.json()
+        email = data.get('email', '').strip().lower()
+
+        import re
+        email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+        if not email or not re.match(email_regex, email):
+            return {"success": False, "error": "请输入正确的邮箱地址"}
+
+        result = user_history.send_email_verification_code(email)
+        logger.info(f"发送邮箱验证码结果: {result}")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"发送邮箱验证码API失败: {e}")
+        return {"success": False, "error": "发送验证码失败"}
+
+@app.post("/api/auth/verify-email-code")
+async def verify_email_code_api(request: Request):
+    """验证邮箱验证码"""
+    if not USER_HISTORY_AVAILABLE:
+        return {"success": False, "error": "用户历史系统不可用"}
+
+    try:
+        data = await request.json()
+        email = data.get('email', '').strip().lower()
+        code = data.get('code', '').strip()
+
+        if not email or not code:
+            return {"success": False, "error": "邮箱和验证码不能为空"}
+
+        result = user_history.verify_email_code(email, code)
+        logger.info(f"邮箱验证码验证结果: {result}")
+
+        return result
+
+    except Exception as e:
+        logger.error(f"邮箱验证码验证API失败: {e}")
         return {"success": False, "error": "验证码验证失败"}
 
 @app.post("/api/auth/bind-phone")
@@ -4019,54 +4066,96 @@ async def phone_login_api(request: Request):
 
 @app.post("/api/auth/register/email")
 async def register_with_email(request: Request):
-    """邮箱注册"""
+    """邮箱注册（需先验证邮箱验证码）"""
     if not USER_HISTORY_AVAILABLE:
         return {"success": False, "error": "用户历史系统不可用"}
-        
+
     try:
         data = await request.json()
         email = data.get('email', '').strip().lower()
         password = data.get('password', '')
         nickname = data.get('nickname', '').strip()
-        
+        code = data.get('code', '').strip()
+
         # 验证邮箱格式
         import re
         email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
         if not email or not re.match(email_regex, email):
             return {"success": False, "error": "请输入正确的邮箱地址"}
-        
+
         # 验证密码
         if not password or len(password) < 6 or len(password) > 20:
             return {"success": False, "error": "密码长度为6-20位"}
-        
-        import hashlib
 
-        # 简单密码加密（生产环境应使用更安全的加密方式）
+        # 验证邮箱验证码
+        if not code:
+            return {"success": False, "error": "请输入邮箱验证码"}
+
+        verify_result = user_history.verify_email_code(email, code)
+        if not verify_result.get("success"):
+            return {"success": False, "error": verify_result.get("error", "验证码错误")}
+
+        import hashlib
+        import time
+        import random
+
+        display_name = nickname or email.split('@')[0]
+
+        # 先检查统一账户系统中邮箱是否已注册
+        from core.unified_account.account_manager import unified_account_manager, UserType
+
+        # 1. 创建统一账户（登录用的 unified_users 表，这是登录认证的表）
+        username = nickname if nickname else email.split('@')[0]
+        try:
+            unified_account_manager.create_user(
+                username=username,
+                password=password,
+                display_name=display_name,
+                user_type=UserType.PATIENT,
+                email=email,
+            )
+        except ValueError:
+            # 用户名重复，加随机后缀
+            username = f"{username}{random.randint(100, 999)}"
+            unified_account_manager.create_user(
+                username=username,
+                password=password,
+                display_name=display_name,
+                user_type=UserType.PATIENT,
+                email=email,
+            )
+
+        # 2. 写入旧 users 表（向后兼容，供 user_history 等模块使用）
         password_hash = hashlib.sha256(password.encode()).hexdigest()
-        
-        # 生成设备指纹
         request_info = {
             'user_agent': request.headers.get('user-agent', ''),
             'client_ip': request.client.host,
             'accept_language': request.headers.get('accept-language', '')
         }
-        # 简单的设备指纹生成
-        import time
         fingerprint_data = f"{request_info.get('user_agent', '')}|{request_info.get('client_ip', '')}|{request_info.get('accept_language', '')}|{str(int(time.time() / 3600))}"
         device_fingerprint = hashlib.md5(fingerprint_data.encode('utf-8')).hexdigest()[:32]
 
-        created = sqlite_service.register_email_user(
-            email=email,
-            password_hash=password_hash,
-            nickname=nickname,
-            device_fingerprint=device_fingerprint,
-        )
-        if not created:
-            return {"success": False, "error": "该邮箱已被注册"}
-        
-        logger.info(f"邮箱注册成功: {email}")
+        try:
+            sqlite_service.register_email_user(
+                email=email,
+                password_hash=password_hash,
+                nickname=display_name,
+                device_fingerprint=device_fingerprint,
+            )
+        except Exception:
+            logger.warning(f"旧 users 表写入失败（可能设备指纹重复），已跳过: {email}")
+
+        # 标记邮箱已验证
+        with unified_account_manager._get_db_connection() as conn:
+            conn.cursor().execute(
+                "UPDATE unified_users SET email_verified = 1 WHERE email = ?",
+                (email,)
+            )
+            conn.commit()
+
+        logger.info(f"邮箱注册成功: {email} (username: {username})")
         return {"success": True, "message": "注册成功"}
-        
+
     except Exception as e:
         logger.error(f"邮箱注册失败: {e}")
         return {"success": False, "error": "注册失败，请重试"}
