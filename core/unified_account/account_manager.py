@@ -246,9 +246,9 @@ class UnifiedAccountManager:
                 
                 # 分配默认角色
                 cursor.execute("""
-                    INSERT INTO user_roles 
-                    (user_id, role, assigned_by, assigned_at)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO user_roles_new
+                    (user_id, role_name, is_primary, assigned_by, assigned_at)
+                    VALUES (?, ?, 1, ?, ?)
                 """, (
                     user_id, user_type.value.upper(),
                     created_by, datetime.now().isoformat()

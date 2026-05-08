@@ -4183,11 +4183,12 @@ async def register_with_username(request: Request):
         
         import hashlib
         import secrets
-        
-        # 生成加密密码
+
+        # 使用 PBKDF2-SHA256 加密密码（与统一认证系统一致）
         salt = secrets.token_hex(16)
-        password_hash = hashlib.sha256((password + salt).encode()).hexdigest()
-        salted_password_hash = f"{salt}:{password_hash}"
+        password_hash = hashlib.pbkdf2_hmac(
+            'sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000
+        ).hex()
         
         # 生成设备指纹
         request_info = {
@@ -4202,7 +4203,7 @@ async def register_with_username(request: Request):
 
         registration_result = sqlite_service.register_username_user(
             username=username,
-            salted_password_hash=salted_password_hash,
+            salted_password_hash=password_hash,
             salt=salt,
             device_fingerprint=device_fingerprint,
             registration_ip=request.client.host if request.client else 'unknown',

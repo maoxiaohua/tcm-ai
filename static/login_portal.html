@@ -454,29 +454,30 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    showSuccess(`登录成功！角色: ${data.user.role}`);
+                    const userRole = data.user.primary_role || data.user.role || 'patient';
+                    showSuccess(`登录成功！角色: ${userRole}`);
                     updateDebugInfo(`跳转到: ${data.redirect_url}`);
-                    
+
                     // 强制从Cookie获取session_token并保存
                     const sessionToken = getCookie('session_token');
                     updateDebugInfo(`Cookie检查: session_token = ${sessionToken ? sessionToken.substring(0, 20) + '...' : 'null'}`);
                     updateDebugInfo(`响应检查: data.token = ${data.token ? data.token.substring(0, 20) + '...' : 'null'}`);
-                    
+
                     // 优先使用响应中的token，否则使用cookie中的session_token
                     const tokenToSave = data.token || sessionToken;
-                    
+
                     if (tokenToSave) {
-                        if (data.user.role === 'doctor') {
+                        if (userRole === 'doctor') {
                             localStorage.setItem('doctorToken', tokenToSave);
-                        } else if (data.user.role === 'admin' || data.user.role === 'superadmin') {
+                        } else if (userRole === 'admin' || userRole === 'superadmin') {
                             localStorage.setItem('adminToken', tokenToSave);
-                        } else if (data.user.role === 'patient') {
+                        } else if (userRole === 'patient') {
                             localStorage.setItem('patientToken', tokenToSave);
                         }
-                        updateDebugInfo(`✅ 已保存${data.user.role}Token: ${tokenToSave.substring(0, 20)}... (来源: ${data.token ? 'API响应' : 'Cookie'})`);
-                        
+                        updateDebugInfo(`✅ 已保存${userRole}Token: ${tokenToSave.substring(0, 20)}... (来源: ${data.token ? 'API响应' : 'Cookie'})`);
+
                         // 验证保存是否成功
-                        const savedToken = localStorage.getItem(`${data.user.role}Token`);
+                        const savedToken = localStorage.getItem(`${userRole}Token`);
                         updateDebugInfo(`✅ 验证保存: ${savedToken ? savedToken.substring(0, 20) + '...' : 'FAILED'}`);
                     } else {
                         updateDebugInfo('❌ 严重错误: 未获取到任何token！');

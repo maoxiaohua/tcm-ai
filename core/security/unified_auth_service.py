@@ -171,7 +171,9 @@ class UnifiedAuthService:
                     'username': user['username'],
                     'display_name': user['display_name'],
                     'email': user['email'],
-                    'phone': user['phone_number']
+                    'phone': user['phone_number'],
+                    'role': roles[0]['role_name'].lower() if roles else 'patient',
+                    'primary_role': roles[0]['role_name'].lower() if roles else 'patient',
                 },
                 roles=[r['role_name'] for r in roles],
                 profile=profile,

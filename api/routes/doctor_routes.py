@@ -145,10 +145,26 @@ async def register_doctor(request: DoctorRegisterRequest):
         speciality=request.speciality,
         hospital=request.hospital
     )
-    
+
     if not doctor:
         raise HTTPException(status_code=400, detail="注册失败，执业证号可能已存在")
-    
+
+    # 同时创建统一账户，使医生可通过统一登录入口登录
+    from core.unified_account.account_manager import unified_account_manager, UserType
+    try:
+        unified_account_manager.create_user(
+            username=request.license_no,
+            password=request.password,
+            display_name=request.name,
+            user_type=UserType.DOCTOR,
+            email=request.email,
+            phone_number=request.phone,
+        )
+    except ValueError as e:
+        # 用户名/邮箱可能重复，记录但不阻断医生注册
+        import logging
+        logging.getLogger(__name__).warning(f"医生统一账户创建失败（可能已存在）: {e}")
+
     return {
         "success": True,
         "message": "医生注册成功",

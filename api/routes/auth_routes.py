@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import sqlite3
 import hashlib
+import secrets
 import uuid
 from datetime import datetime
 
@@ -197,41 +198,50 @@ def verify_patient_credentials(username: str, password: str) -> Optional[Dict]:
             "device_count": get_patient_device_count(account_info["fixed_id"])
         }
     
-    # 🔑 修复：检查unified_users表中的患者账号
+    # 修复：检查unified_users表中的患者账号（支持用户名/邮箱/手机号 + PBKDF2/SHA256密码）
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("""
-            SELECT uu.global_user_id, uu.username, uu.display_name, uu.password_hash, ur.role_name
+            SELECT uu.global_user_id, uu.username, uu.display_name,
+                   uu.password_hash, uu.salt, ur.role_name
             FROM unified_users uu
             LEFT JOIN user_roles_new ur ON uu.global_user_id = ur.user_id AND ur.is_active = 1
-            WHERE uu.username = ? AND uu.account_status = 'active'
-        """, (username,))
-        
+            WHERE (uu.username = ? OR uu.email = ? OR uu.phone_number = ?)
+              AND uu.account_status = 'active'
+        """, (username, username, username))
+
         row = cursor.fetchone()
         conn.close()
-        
+
         if row:
-            global_user_id, db_username, display_name, password_hash, role_name = row
-            
-            # 简单密码验证（明文对比，如果是哈希则用哈希验证）
+            global_user_id, db_username, display_name, password_hash, salt, role_name = row
+
+            # 密码验证
             password_matches = False
-            if password_hash:
-                if ':' in password_hash:
-                    # 可能是哈希格式，尝试验证
-                    salt_hash = password_hash.split(':')
-                    if len(salt_hash) == 2:
-                        salt, stored_hash = salt_hash
-                        input_hash = hashlib.sha256((password + salt).encode()).hexdigest()
-                        password_matches = (input_hash == stored_hash)
-                else:
-                    # 明文密码对比
-                    password_matches = (password_hash == password)
-            
+            if password_hash and salt:
+                # PBKDF2-SHA256 验证（统一认证格式）
+                expected = hashlib.pbkdf2_hmac(
+                    'sha256', password.encode('utf-8'),
+                    salt.encode('utf-8'), 100000
+                ).hex()
+                password_matches = secrets.compare_digest(expected, password_hash)
+            elif password_hash and ':' in password_hash:
+                # 旧格式：salt:sha256(password+salt)
+                parts = password_hash.split(':')
+                if len(parts) == 2:
+                    old_salt, stored_hash = parts
+                    input_hash = hashlib.sha256((password + old_salt).encode()).hexdigest()
+                    password_matches = (input_hash == stored_hash)
+            elif password_hash:
+                # 旧格式：裸 SHA-256
+                input_hash = hashlib.sha256(password.encode()).hexdigest()
+                password_matches = (input_hash == password_hash)
+
             if password_matches:
                 return {
-                    "id": global_user_id,  # 🔑 返回unified格式的用户ID
+                    "id": global_user_id,
                     "username": db_username,
                     "role": role_name.lower() if role_name else "patient",
                     "name": display_name or db_username,
