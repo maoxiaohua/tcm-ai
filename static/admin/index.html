@@ -379,6 +379,12 @@
             color: #dc2626;
         }
 
+        .status-deleted {
+            background: #f3f4f6;
+            color: #9ca3af;
+            text-decoration: line-through;
+        }
+
         /* 系统监控组件 */
         .monitor-grid {
             display: grid;
@@ -2378,6 +2384,12 @@
                                     <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="viewUser('${user.id}')">查看</button>
                                     <button class="btn btn-primary" style="padding: 4px 8px; font-size: 12px;" onclick="editUser('${user.id}')">编辑</button>
                                     <button class="btn btn-warning" style="padding: 4px 8px; font-size: 12px;" onclick="resetPassword('${user.id}')">重置密码</button>
+                                    ${user.account_status === 'active' || user.account_status === 'locked'
+                                        ? `<button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;" onclick="disableUser('${user.id}')">禁用</button>`
+                                        : `<button class="btn btn-success" style="padding: 4px 8px; font-size: 12px;" onclick="enableUser('${user.id}')">启用</button>`}
+                                    ${user.account_status !== 'deleted'
+                                        ? `<button class="btn btn-delete" style="padding: 4px 8px; font-size: 12px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="deleteUser('${user.id}')">删除</button>`
+                                        : ''}
                                 </td>
                             </tr>
                         `).join('');
@@ -2410,15 +2422,15 @@
                 case 'active': return 'status-active';
                 case 'suspended': return 'status-pending';
                 case 'locked': return 'status-inactive';
-                case 'deleted': return 'status-inactive';
+                case 'deleted': return 'status-deleted';
                 default: return 'status-pending';
             }
         }
-        
+
         function getStatusText(status) {
             switch(status) {
                 case 'active': return '活跃';
-                case 'suspended': return '暂停';
+                case 'suspended': return '已禁用';
                 case 'locked': return '锁定';
                 case 'deleted': return '已删除';
                 default: return '未知';
@@ -2807,6 +2819,54 @@
                 }
             } catch (error) {
                 alert('重置失败: ' + error.message);
+            }
+        }
+
+        async function disableUser(userId) {
+            if (!confirm('确定要禁用该用户吗？禁用后用户将无法登录。')) return;
+            try {
+                const response = await fetch(`/api/admin/users/${userId}/disable`, { method: 'PUT' });
+                const data = await response.json();
+                if (data.success) {
+                    alert('用户已禁用');
+                    loadUsersData();
+                } else {
+                    alert('禁用失败: ' + (data.detail || data.message));
+                }
+            } catch (error) {
+                alert('禁用失败: ' + error.message);
+            }
+        }
+
+        async function enableUser(userId) {
+            if (!confirm('确定要启用该用户吗？')) return;
+            try {
+                const response = await fetch(`/api/admin/users/${userId}/enable`, { method: 'PUT' });
+                const data = await response.json();
+                if (data.success) {
+                    alert('用户已启用');
+                    loadUsersData();
+                } else {
+                    alert('启用失败: ' + (data.detail || data.message));
+                }
+            } catch (error) {
+                alert('启用失败: ' + error.message);
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('确定要删除该用户吗？此操作将软删除用户（状态设为已删除），用户将无法登录，但数据保留。')) return;
+            try {
+                const response = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (data.success) {
+                    alert('用户已删除');
+                    loadUsersData();
+                } else {
+                    alert('删除失败: ' + (data.detail || data.message));
+                }
+            } catch (error) {
+                alert('删除失败: ' + error.message);
             }
         }
 

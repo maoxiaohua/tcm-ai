@@ -141,12 +141,90 @@ async def reset_user_password(
             "success": True,
             "message": "密码重置成功"
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"重置用户密码失败: {e}")
         raise HTTPException(status_code=500, detail=f"重置失败: {e}")
+
+@router.put("/users/{user_id}/disable")
+async def disable_user(
+    user_id: str,
+    admin: bool = Depends(get_current_admin)
+):
+    """禁用用户（设为 suspended）"""
+    try:
+        update_result = sqlite_service.update_admin_user(
+            user_id=user_id,
+            user_data={"account_status": "suspended"},
+            updated_at=datetime.now().isoformat(),
+        )
+        if update_result["status"] == "not_found":
+            raise HTTPException(status_code=404, detail="用户不存在")
+        if update_result["status"] != "updated":
+            raise HTTPException(status_code=500, detail="禁用失败")
+
+        logger.info(f"管理员禁用用户: {user_id}")
+        return {"success": True, "message": "用户已禁用"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"禁用用户失败: {e}")
+        raise HTTPException(status_code=500, detail=f"禁用失败: {e}")
+
+@router.put("/users/{user_id}/enable")
+async def enable_user(
+    user_id: str,
+    admin: bool = Depends(get_current_admin)
+):
+    """启用用户（设为 active）"""
+    try:
+        update_result = sqlite_service.update_admin_user(
+            user_id=user_id,
+            user_data={"account_status": "active"},
+            updated_at=datetime.now().isoformat(),
+        )
+        if update_result["status"] == "not_found":
+            raise HTTPException(status_code=404, detail="用户不存在")
+        if update_result["status"] != "updated":
+            raise HTTPException(status_code=500, detail="启用失败")
+
+        logger.info(f"管理员启用用户: {user_id}")
+        return {"success": True, "message": "用户已启用"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"启用用户失败: {e}")
+        raise HTTPException(status_code=500, detail=f"启用失败: {e}")
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    admin: bool = Depends(get_current_admin)
+):
+    """删除用户（软删除，设为 deleted 状态）"""
+    try:
+        update_result = sqlite_service.update_admin_user(
+            user_id=user_id,
+            user_data={"account_status": "deleted"},
+            updated_at=datetime.now().isoformat(),
+        )
+        if update_result["status"] == "not_found":
+            raise HTTPException(status_code=404, detail="用户不存在")
+        if update_result["status"] != "updated":
+            raise HTTPException(status_code=500, detail="删除失败")
+
+        logger.info(f"管理员删除用户(软删除): {user_id}")
+        return {"success": True, "message": "用户已删除"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除用户失败: {e}")
+        raise HTTPException(status_code=500, detail=f"删除失败: {e}")
 
 @router.get("/system/stats")
 async def get_system_stats(admin: bool = Depends(get_current_admin)):

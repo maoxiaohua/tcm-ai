@@ -2327,6 +2327,9 @@ def update_admin_user(
         for field in allowed_fields:
             value = user_data.get(field)
             if value is not None:
+                # 对于有UNIQUE约束的字段，空字符串转为NULL，避免唯一约束冲突
+                if field in ("email", "phone_number", "username") and isinstance(value, str) and value.strip() == "":
+                    value = None
                 update_fields.append(f"{field} = ?")
                 values.append(value)
 
@@ -2387,7 +2390,8 @@ def admin_update_user_password(
         cursor.execute(
             """
             UPDATE unified_users
-            SET password_hash = ?, salt = ?, password_changed_at = ?
+            SET password_hash = ?, salt = ?, password_changed_at = ?,
+                login_attempts = 0, locked_until = NULL
             WHERE global_user_id = ?
             """,
             (password_hash, salt, changed_at, user_id),
