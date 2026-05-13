@@ -64,11 +64,23 @@ def get_file_size(file_path: str) -> str:
     except:
         return "未知"
 
-def get_table_count(conn: sqlite3.Connection, table_name: str) -> int:
-    """获取表记录数"""
+def _validate_table_name(conn: sqlite3.Connection, table_name: str) -> bool:
+    """验证表名是否存在于数据库中"""
     try:
         cursor = conn.cursor()
-        cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name = ?", (table_name,))
+        return cursor.fetchone() is not None
+    except Exception:
+        return False
+
+
+def get_table_count(conn: sqlite3.Connection, table_name: str) -> int:
+    """获取表记录数"""
+    if not _validate_table_name(conn, table_name):
+        return 0
+    try:
+        cursor = conn.cursor()
+        cursor.execute(f'SELECT COUNT(*) FROM "{table_name}"')
         return cursor.fetchone()[0]
     except:
         return 0
@@ -209,17 +221,21 @@ async def get_table_schema(database: str, table: str):
     try:
         conn = get_database_connection(database)
         cursor = conn.cursor()
-        
+
+        if not _validate_table_name(conn, table):
+            conn.close()
+            return {"success": False, "message": f"表 {table} 不存在"}
+
         # 获取表结构
-        cursor.execute(f"PRAGMA table_info({table})")
+        cursor.execute(f'PRAGMA table_info("{table}")')
         columns = cursor.fetchall()
-        
+
         # 获取外键信息
-        cursor.execute(f"PRAGMA foreign_key_list({table})")
+        cursor.execute(f'PRAGMA foreign_key_list("{table}")')
         foreign_keys = cursor.fetchall()
-        
+
         # 获取索引信息
-        cursor.execute(f"PRAGMA index_list({table})")
+        cursor.execute(f'PRAGMA index_list("{table}")')
         indexes = cursor.fetchall()
         
         conn.close()
@@ -290,7 +306,7 @@ async def analyze_database_issues(database: str):
         
         tables_without_pk = []
         for table in tables:
-            cursor.execute(f"PRAGMA table_info({table})")
+            cursor.execute(f'PRAGMA table_info("{table}")')
             columns = cursor.fetchall()
             has_pk = any(col[5] for col in columns)  # col[5] is pk flag
             if not has_pk:

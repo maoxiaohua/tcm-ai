@@ -13,11 +13,12 @@ Author: TCM-AI Admin Team
 Date: 2025-09-22
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header, Request
 from pydantic import BaseModel
 from typing import Optional
 import hashlib
 import secrets
+import sqlite3
 import logging
 from datetime import datetime
 from app.services import local_sqlite_service as sqlite_service
@@ -52,10 +53,42 @@ def hash_password_pbkdf2(password: str, salt: str = None) -> tuple:
     
     return password_hash, salt
 
-def get_current_admin():
-    """验证管理员权限（简化版）"""
-    # TODO: 实现真正的管理员权限验证
-    return True
+def get_current_admin(authorization: str = Header(None)):
+    """验证管理员权限"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="未提供认证令牌")
+
+    token = authorization.split(" ")[1]
+
+    try:
+        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT us.user_id, uu.username, uu.display_name, ur.role_name
+            FROM unified_sessions us
+            JOIN unified_users uu ON us.user_id = uu.global_user_id
+            JOIN user_roles_new ur ON uu.global_user_id = ur.user_id
+            WHERE us.session_id = ?
+            AND us.expires_at > datetime('now')
+            AND us.session_status = 'active'
+            AND ur.role_name IN ('ADMIN', 'SUPERADMIN')
+            AND ur.is_active = 1
+        """, (token,))
+
+        result = cursor.fetchone()
+        conn.close()
+
+        if not result:
+            raise HTTPException(status_code=403, detail="需要管理员权限")
+
+        return {"user_id": result[0], "username": result[1], "display_name": result[2], "role": result[3]}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"管理员权限验证失败: {e}")
+        raise HTTPException(status_code=500, detail="权限验证服务异常")
 
 @router.get("/users")
 async def get_all_users(admin: bool = Depends(get_current_admin)):

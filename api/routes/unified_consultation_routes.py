@@ -380,7 +380,7 @@ def _normalize_consultation_save_request(raw_request: ConsultationSaveRequest) -
         "zhang_zhongjing",
     )
 
-    conversation_log_raw = _first_non_empty(raw_request.conversation_log, raw_request.conversation_data, {})
+    conversation_log_raw = _first_non_empty(raw_request.conversation_log, raw_request.conversation_data)
     if isinstance(conversation_log_raw, str):
         conversation_log = conversation_log_raw
     else:

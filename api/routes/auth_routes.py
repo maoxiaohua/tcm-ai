@@ -9,7 +9,8 @@ import sqlite3
 import hashlib
 import secrets
 import uuid
-from datetime import datetime
+import logging
+from datetime import datetime, timedelta
 
 from core.doctor_management.doctor_auth import doctor_auth_manager
 from core.security.rbac_system import session_manager, UserRole
@@ -95,54 +96,37 @@ def get_db_connection():
     return conn
 
 def verify_admin_credentials(username: str, password: str) -> Optional[Dict]:
-    """验证管理员凭据"""
+    """验证管理员凭据（优先数据库，数据库无记录时回退到引导账号）"""
     import hashlib
-    
-    # 首先检查硬编码账号
-    admin_accounts = {
-        "admin": "admin123",
-        "superadmin": "super123",
-        "doctor": "doctor123"
-    }
-    
-    if username in admin_accounts and admin_accounts[username] == password:
-        import secrets
-        
-        # 为doctor账户生成token
-        if username == "doctor":
-            token = secrets.token_urlsafe(32)
-            return {
-                "id": f"doctor_{username}",
-                "username": username,
-                "role": "doctor",
-                "name": "测试医生",
-                "token": token
-            }
-        else:
-            return {
-                "id": f"admin_{username}",
-                "username": username,
-                "role": "admin" if username == "admin" else "superadmin",
-                "name": "系统管理员" if username == "admin" else "超级管理员"
-            }
-    
+
+    # 首先检查数据库中是否有管理员账号
+    db_has_admins = False
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM admin_accounts WHERE role IN ('admin', 'superadmin', 'doctor')")
+        db_has_admins = cursor.fetchone()[0] > 0
+        conn.close()
+    except Exception:
+        pass
+
     # 检查数据库中的管理员账号
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute("""
-            SELECT user_id, password_hash, role, is_active 
-            FROM admin_accounts 
+            SELECT user_id, password_hash, role, is_active
+            FROM admin_accounts
             WHERE username = ? AND role IN ('admin', 'superadmin', 'doctor')
         """, (username,))
-        
+
         row = cursor.fetchone()
         conn.close()
-        
+
         if row:
             user_id, password_hash, role, is_active = row
-            
+
             if is_active:
                 input_hash = hashlib.sha256(password.encode()).hexdigest()
                 if input_hash == password_hash:
@@ -166,7 +150,35 @@ def verify_admin_credentials(username: str, password: str) -> Optional[Dict]:
                         }
     except Exception as e:
         print(f"Database auth error: {e}")
-    
+
+    # 数据库无管理员时，回退到引导账号（仅首次运行/恢复模式）
+    if not db_has_admins:
+        bootstrap_accounts = {
+            "admin": "admin123",
+            "superadmin": "super123",
+            "doctor": "doctor123"
+        }
+        if username in bootstrap_accounts and bootstrap_accounts[username] == password:
+            import secrets
+            logger = logging.getLogger(__name__)
+            logger.warning(f"使用引导账号登录: {username}，请尽快创建数据库管理员账号")
+            if username == "doctor":
+                token = secrets.token_urlsafe(32)
+                return {
+                    "id": f"doctor_{username}",
+                    "username": username,
+                    "role": "doctor",
+                    "name": "测试医生",
+                    "token": token
+                }
+            else:
+                return {
+                    "id": f"admin_{username}",
+                    "username": username,
+                    "role": "admin" if username == "admin" else "superadmin",
+                    "name": "系统管理员" if username == "admin" else "超级管理员"
+                }
+
     return None
 
 def verify_patient_credentials(username: str, password: str) -> Optional[Dict]:

@@ -176,17 +176,17 @@ def check_medical_safety(ai_response: str, has_tongue_image: bool, patient_descr
         error_msg = f"检测到编造的体征信息: {', '.join(fabricated_examinations)}"
         return False, error_msg
     
-    # 2. 原有的检查逻辑
-    # 关键检查：只有图片分析真正成功时才允许舌象描述
-    if has_tongue_image and image_analysis_successful:
-        return True, ""
-    
-    # 第一步：检查症状编造
+    # 2. 检查症状编造（无论舌象分析是否成功都必须检查）
     if original_patient_message:
         symptom_fabrication = check_symptom_fabrication(ai_response, original_patient_message)
         if symptom_fabrication:
             return False, f"检测到症状编造: {symptom_fabrication}"
-    
+
+    # 3. 原有的检查逻辑：只有图片分析真正成功时才允许舌象描述
+    if has_tongue_image and image_analysis_successful:
+        return True, ""
+
+    # 4. 检查是否有AI编造的舌象和脉象描述
     # 第二步：检查是否有AI编造的舌象和脉象描述 - 增强检测模式
     dangerous_patterns = [
         # 舌象相关 - 基础模式
@@ -1049,7 +1049,6 @@ def extract_patient_tongue_description(chat_history: list) -> str:
     return " ".join(set(patient_descriptions))  # 去重并合并
 
 import asyncio
-import logging
 import re
 import json
 import tempfile
@@ -3432,6 +3431,159 @@ async def submit_feedback_compat_endpoint(feedback_input: FeedbackCompatInput):
         timestamp=timestamp,
     )
     return await submit_feedback_endpoint(normalized_feedback)
+
+
+# ==================== 病历记录 API ====================
+
+@app.get("/api/medical-records/list")
+async def get_medical_records_list(request: Request):
+    """获取患者病历记录列表"""
+    try:
+        user_id = None
+        auth_header = request.headers.get('authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.replace('Bearer ', '')
+            try:
+                from api.main import get_user_info_by_token
+                auth_user_info = await get_user_info_by_token(token)
+                if auth_user_info and auth_user_info.get('user_id'):
+                    user_id = auth_user_info['user_id']
+            except Exception:
+                pass
+
+        import sqlite3 as _sqlite3
+        conn = _sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = _sqlite3.Row
+        cursor = conn.cursor()
+
+        records = []
+
+        # 获取问诊记录
+        cursor.execute("""
+            SELECT c.uuid as id, c.patient_id, c.selected_doctor_id, c.status,
+                   c.symptoms_analysis, c.tcm_syndrome, c.created_at, c.updated_at
+            FROM consultations c
+            WHERE (? IS NULL OR c.patient_id = ?)
+            ORDER BY c.created_at DESC
+            LIMIT 50
+        """, (user_id, user_id))
+
+        for row in cursor.fetchall():
+            doctor_name = "医生"
+            if row['selected_doctor_id']:
+                cursor.execute("SELECT name FROM doctors WHERE uuid = ? OR id = ?",
+                               (row['selected_doctor_id'], row['selected_doctor_id']))
+                doc = cursor.fetchone()
+                if doc:
+                    doctor_name = doc['name']
+
+            symptoms = ""
+            if row['symptoms_analysis']:
+                try:
+                    symptoms_data = json.loads(row['symptoms_analysis'])
+                    if isinstance(symptoms_data, dict):
+                        symptoms = symptoms_data.get('chief_complaint', '') or ', '.join(
+                            symptoms_data.get('symptoms', []))
+                    elif isinstance(symptoms_data, list):
+                        symptoms = ', '.join(symptoms_data)
+                    else:
+                        symptoms = str(symptoms_data)
+                except Exception:
+                    symptoms = str(row['symptoms_analysis'])
+
+            records.append({
+                "id": row['id'],
+                "doctor_name": doctor_name,
+                "type": "consultation",
+                "created_at": row['created_at'],
+                "status": row['status'] if row['status'] else 'pending',
+                "symptoms": symptoms[:200] if symptoms else "",
+                "diagnosis": row['tcm_syndrome'] or "",
+                "prescription": "",
+                "payment_amount": "",
+            })
+
+        # 获取处方记录
+        cursor.execute("""
+            SELECT p.id, p.patient_id, p.symptoms, p.diagnosis,
+                   p.ai_prescription, p.doctor_prescription, p.status,
+                   p.created_at, p.consultation_id, p.payment_required_amount,
+                   d.name as doctor_name
+            FROM prescriptions p
+            LEFT JOIN doctors d ON p.doctor_id = d.id
+            WHERE (? IS NULL OR p.patient_id = ?)
+            ORDER BY p.created_at DESC
+            LIMIT 50
+        """, (user_id, user_id))
+
+        for row in cursor.fetchall():
+            prescription_text = row['doctor_prescription'] or row['ai_prescription'] or ""
+            records.append({
+                "id": str(row['id']),
+                "doctor_name": row['doctor_name'] or "医生",
+                "type": "prescription",
+                "created_at": row['created_at'],
+                "status": row['status'] if row['status'] else 'pending',
+                "symptoms": (row['symptoms'] or "")[:200],
+                "diagnosis": row['diagnosis'] or "",
+                "prescription": prescription_text[:500],
+                "payment_amount": str(row['payment_required_amount'] or ""),
+            })
+
+        conn.close()
+
+        # 按 created_at 降序排列
+        records.sort(key=lambda r: str(r.get('created_at', '')), reverse=True)
+
+        return {"success": True, "data": records}
+
+    except Exception as e:
+        logger.error(f"获取病历记录失败: {e}")
+        return {"success": False, "message": f"获取病历记录失败: {str(e)}"}
+
+
+@app.post("/api/prescription/reorder/{record_id}")
+async def reorder_prescription(record_id: str, request: Request):
+    """复诊 - 基于已有处方重新下单"""
+    try:
+        import sqlite3 as _sqlite3
+        conn = _sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = _sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT p.id, p.consultation_id, p.ai_prescription, p.doctor_prescription,
+                   p.payment_required_amount, p.patient_id, p.status, p.doctor_id,
+                   d.name as doctor_name
+            FROM prescriptions p
+            LEFT JOIN doctors d ON p.doctor_id = d.id
+            WHERE p.id = ? OR p.consultation_id = ?
+            LIMIT 1
+        """, (record_id, record_id))
+
+        row = cursor.fetchone()
+
+        if not row:
+            conn.close()
+            return {"success": False, "message": "未找到该处方记录"}
+
+        prescription_id = str(row['id'])
+        amount = row['payment_required_amount'] or 88.00
+
+        conn.close()
+
+        return {
+            "success": True,
+            "data": {
+                "prescription_id": prescription_id,
+                "amount": float(amount),
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"处方复诊失败: {e}")
+        return {"success": False, "message": f"处方复诊失败: {str(e)}"}
+
 
 # 医生思维决策树系统API端点 (保持所有原有端点)
 class CaseInput(BaseModel):

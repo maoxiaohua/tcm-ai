@@ -418,31 +418,41 @@ def setup_background_tasks(app: FastAPI):
 # 创建一个函数来保护现有的API路由
 def protect_api_routes(app: FastAPI):
     """为现有的API路由添加权限保护"""
-    
+    from api.routes.doctor_routes import get_current_doctor
+    from api.routes.admin_routes import get_current_admin
+
     # 保护医生相关API
     def add_doctor_protection():
-        original_routes = []
         for route in app.routes:
             if hasattr(route, 'path') and route.path.startswith('/api/doctor'):
-                original_routes.append((route.path, route.methods, route.endpoint))
-        
-        # 重新定义受保护的路由
-        for path, methods, endpoint in original_routes:
-            # 这里可以添加装饰器保护
-            pass
-    
-    # 保护管理相关API  
+                # 检查路由是否已有 Depends 保护
+                has_auth = any(
+                    dep.dependency == get_current_doctor
+                    for dep in getattr(route, 'dependencies', []) or []
+                )
+                if not has_auth and route.endpoint:
+                    # 为未保护的路由添加 doctor 认证依赖
+                    try:
+                        route.dependencies = list(getattr(route, 'dependencies', []) or [])
+                        route.dependencies.append(Depends(get_current_doctor))
+                    except Exception:
+                        pass
+
+    # 保护管理相关API
     def add_admin_protection():
-        original_routes = []
         for route in app.routes:
             if hasattr(route, 'path') and route.path.startswith('/api/admin'):
-                original_routes.append((route.path, route.methods, route.endpoint))
-        
-        # 重新定义受保护的路由
-        for path, methods, endpoint in original_routes:
-            # 这里可以添加装饰器保护
-            pass
-    
+                has_auth = any(
+                    dep.dependency == get_current_admin
+                    for dep in getattr(route, 'dependencies', []) or []
+                )
+                if not has_auth and route.endpoint:
+                    try:
+                        route.dependencies = list(getattr(route, 'dependencies', []) or [])
+                        route.dependencies.append(Depends(get_current_admin))
+                    except Exception:
+                        pass
+
     add_doctor_protection()
     add_admin_protection()
 
