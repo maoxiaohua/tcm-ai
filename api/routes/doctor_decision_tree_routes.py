@@ -1229,6 +1229,73 @@ def create_default_missing_logic_analysis(disease_name: str) -> Dict[str, Any]:
         ]
     }
 
+
+@router.post("/generate_paths_from_thinking")
+async def generate_paths_from_thinking(request: Request):
+    """
+    从医生思维过程生成决策路径
+
+    Args:
+        request: 包含 disease_name 和 thinking_process 的请求体
+
+    Returns:
+        生成的决策路径列表
+    """
+    try:
+        data = await request.json()
+        disease_name = data.get("disease_name", "").strip()
+        thinking_process = data.get("thinking_process", "").strip()
+
+        if not disease_name:
+            return {"success": False, "message": "疾病名称不能为空"}
+
+        keywords = []
+        if "舌" in thinking_process:
+            keywords.append("舌象观察")
+        if "脉" in thinking_process:
+            keywords.append("脉象诊断")
+        if "证" in thinking_process:
+            keywords.append("证候分析")
+        if "方" in thinking_process or "药" in thinking_process:
+            keywords.append("方药选择")
+        if "治" in thinking_process:
+            keywords.append("治则治法")
+
+        paths = [{
+            "id": f"path_{disease_name}_1",
+            "steps": [
+                {"type": "symptom", "content": f"{disease_name}主要症状"},
+                {"type": "condition", "content": "四诊合参", "result": True},
+                {"type": "diagnosis", "content": f"{disease_name}证候分型"},
+                {"type": "treatment", "content": "辨证论治"},
+                {"type": "formula", "content": "随证选方"}
+            ],
+            "keywords": keywords or [disease_name],
+            "match_score": 0
+        }]
+
+        if thinking_process:
+            for i, keyword in enumerate(keywords):
+                paths.append({
+                    "id": f"path_{disease_name}_{i + 2}",
+                    "steps": [
+                        {"type": "symptom", "content": f"{disease_name}相关表现"},
+                        {"type": "condition", "content": keyword, "result": True},
+                        {"type": "diagnosis", "content": f"基于{keyword}的证型判断"},
+                        {"type": "treatment", "content": "对应治法"},
+                        {"type": "formula", "content": "推荐方剂"}
+                    ],
+                    "keywords": [keyword, disease_name],
+                    "match_score": 0
+                })
+
+        return {"success": True, "data": {"paths": paths}}
+
+    except Exception as e:
+        logger.error(f"生成决策路径失败: {e}")
+        return {"success": False, "message": f"生成决策路径失败: {str(e)}"}
+
+
 @router.get("/user_preferences/{user_id}")
 async def get_user_preferences(
     user_id: str,

@@ -1173,7 +1173,7 @@ ${data.analysis_result}`;
         formData.append('audio_file', audioBlob, 'voice.webm');
 
         try {
-            const response = await fetch('/api/speech_to_text', {
+            const response = await fetch('/speech_to_text', {
                 method: 'POST',
                 body: formData,
             });

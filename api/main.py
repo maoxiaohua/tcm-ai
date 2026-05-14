@@ -2829,59 +2829,6 @@ async def check_prescription_endpoint(
             "error": str(e)
         }
 
-@app.post("/api/prescription/add_famous_doctor")
-async def add_famous_doctor_prescription_endpoint(
-    prescription_text: str = Form(...),
-    doctor_name: str = Form(...),
-    source: str = Form("manual_input")
-):
-    """添加名医处方到学习系统"""
-    try:
-        checker = get_prescription_checker()
-        if not checker:
-            return {
-                "success": False,
-                "error": "处方检查系统初始化失败"
-            }
-        
-        success = checker.add_famous_doctor_prescription(
-            prescription_text, doctor_name, source
-        )
-        
-        return {
-            "success": success,
-            "message": "处方添加成功" if success else "处方添加失败"
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-@app.get("/api/prescription/doctor_patterns/{doctor_name}")
-async def get_doctor_patterns_endpoint(doctor_name: str):
-    """获取特定医生的处方规律"""
-    try:
-        system = get_famous_doctor_system()
-        if not system:
-            return {
-                "success": False,
-                "error": "名医学习系统初始化失败"
-            }
-        
-        patterns = system.learn_doctor_prescription_patterns(doctor_name)
-        return {
-            "success": True,
-            "data": patterns
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
 # OCR图片识别API端点
 @app.post("/api/prescription/ocr")
 async def prescription_ocr_endpoint(file: UploadFile = File(...)):
@@ -3057,193 +3004,6 @@ async def prescription_check_image_multimodal(file: UploadFile = File(...)):
                 "error": True,
                 "processed_at": "异常时间"
             }
-        }
-
-@app.post("/api/prescription/check_image")
-async def prescription_check_image_endpoint(
-    file: UploadFile = File(...),
-    patient_info: str = Form(None)
-):
-    """图片处方一站式检查API (OCR + 处方检查) - 传统方案"""
-    try:
-        # 1. OCR识别
-        if not file.content_type or not file.content_type.startswith(('image/', 'application/pdf')):
-            return {
-                "success": False,
-                "error": "不支持的文件类型，请上传图片或PDF文件"
-            }
-        
-        file_data = await file.read()
-        if len(file_data) > 10 * 1024 * 1024:
-            return {
-                "success": False,
-                "error": "文件过大，请上传10MB以内的文件"
-            }
-        
-        # 使用优化的自适应OCR策略
-        try:
-            from adaptive_ocr_strategy import AdaptiveOCRStrategy
-            adaptive_ocr = AdaptiveOCRStrategy()
-            
-            logger.info("使用自适应OCR策略处理图片")
-            
-            if file.content_type == 'application/pdf':
-                # PDF暂时使用原有逻辑
-                ocr = get_ocr_system()
-                ocr_result = ocr.process_pdf(file_data, file.filename)
-            else:
-                # 图片使用优化的自适应策略
-                adaptive_result = adaptive_ocr.auto_detect_and_process(file_data)
-                
-                # 转换为兼容格式
-                ocr_result = {
-                    "success": adaptive_result.is_usable,
-                    "original_text": adaptive_result.text,
-                    "corrected_text": adaptive_result.text,
-                    "combined_text": adaptive_result.text,
-                    "confidence": adaptive_result.final_confidence,
-                    "original_confidence": adaptive_result.original_confidence,
-                    "quality_score": adaptive_result.quality_score,
-                    "content_type": adaptive_result.content_type,
-                    "strategy_used": adaptive_result.strategy_used,
-                    "processing_time": adaptive_result.processing_time,
-                    "adaptive_info": {
-                        "quality_reasons": adaptive_result.quality_reasons,
-                        "is_optimized": True
-                    }
-                }
-                
-                logger.info(f"自适应OCR结果: 类型{adaptive_result.content_type}, 策略{adaptive_result.strategy_used}, 置信度{adaptive_result.original_confidence:.3f}->{adaptive_result.final_confidence:.3f}")
-        
-        except ImportError:
-            logger.warning("自适应OCR策略不可用，使用原始OCR")
-            # 降级到原始OCR
-            ocr = get_ocr_system()
-            if file.content_type == 'application/pdf':
-                ocr_result = ocr.process_pdf(file_data, file.filename)
-            else:
-                ocr_result = ocr.process_image(file_data, file.filename)
-        
-        if not ocr_result["success"]:
-            return {
-                "success": False,
-                "step": "OCR识别",
-                "error": ocr_result.get("error", "OCR识别失败"),
-                "ocr_result": ocr_result
-            }
-        
-        # 2. 处方安全检查
-        prescription_text = ocr_result.get("corrected_text", ocr_result.get("combined_text", ""))
-        if not prescription_text.strip():
-            return {
-                "success": False,
-                "step": "文本提取",
-                "error": "无法从图片中提取到处方文本",
-                "ocr_result": ocr_result
-            }
-        
-        # 解析患者信息
-        patient_data = {}
-        if patient_info:
-            try:
-                patient_data = json.loads(patient_info)
-            except:
-                patient_data = {}
-        
-        # 使用集成版处方解析器（修复版）
-        try:
-            analysis_result = parse_prescription_text(prescription_text)
-            
-            # 使用智能处方响应器处理解析失败情况
-            if not analysis_result["success"]:
-                try:
-                    from intelligent_prescription_responder import IntelligentPrescriptionResponder
-                    intelligent_responder = IntelligentPrescriptionResponder()
-                    
-                    logger.info(f"原始解析失败，启用智能文档类型识别和响应...")
-                    
-                    # 使用智能响应器生成合适的响应
-                    intelligent_response = intelligent_responder.generate_appropriate_response(
-                        prescription_text, 
-                        analysis_result
-                    )
-                    
-                    logger.info(f"智能分类结果: {intelligent_response.get('document_type', '未知')} (置信度: {intelligent_response.get('classification_confidence', 0):.3f})")
-                    
-                    # 将OCR结果也添加到智能响应中
-                    intelligent_response["ocr_result"] = ocr_result
-                    
-                    return intelligent_response
-                
-                except ImportError:
-                    logger.warning("智能处方响应器不可用，使用原始逻辑")
-                    # 降级到原始的低置信度处理
-                    if ocr_result.get("confidence", 0) < 0.1 and ocr_result.get("corrected_text"):
-                        return {
-                            "success": False,
-                            "step": "基础OCR处理", 
-                            "error": f"OCR置信度较低({ocr_result.get('confidence', 0):.3f})，但已识别到内容",
-                            "suggestion": "基于优化后的系统，低置信度内容可能仍有价值，建议查看识别结果",
-                            "partial_content": ocr_result.get("corrected_text", "")[:200] + "...",
-                            "ocr_result": ocr_result
-                        }
-                
-                # 如果智能响应器也不可用，返回原始错误信息
-                return {
-                    "success": False,
-                    "step": "处方解析",
-                    "error": analysis_result.get("error", "无法识别足够的中药信息进行分析"),
-                    "ocr_result": ocr_result,
-                    "analysis_details": analysis_result
-                }
-            
-            # 转换为标准格式
-            check_result = {
-                "success": True,
-                "analysis_type": "中医智能处方分析（修复版）",
-                "prescription": {
-                    "herbs": analysis_result["herbs"],
-                    "total_count": analysis_result["total_herbs"],
-                    "document_type": analysis_result.get("document_type", "unknown")
-                },
-                "validation": analysis_result.get("validation", {}),
-                "parsing_notes": analysis_result.get("parsing_notes", []),
-                "special_note": analysis_result.get("special_note", ""),
-                "analysis_confidence": analysis_result.get("validation", {}).get("confidence_summary", {}).get("average", 0.8),
-                "safety_check": {"is_safe": True, "warnings": []}
-            }
-            
-        except (ImportError, Exception) as e:
-            # 回退到原有系统
-            logger.warning(f"集成处方解析器失败，回退到原有系统: {e}")
-            checker = get_prescription_checker()
-            if not checker:
-                return {
-                    "success": False,
-                    "step": "处方检查",
-                    "error": "处方检查系统初始化失败",
-                    "ocr_result": ocr_result
-                }
-            check_result = checker.check_prescription(prescription_text, patient_data)
-        
-        return {
-            "success": True,
-            "ocr_result": ocr_result,
-            "prescription_check": check_result,
-            "processing_summary": {
-                "ocr_confidence": ocr_result.get("confidence", 0.0),
-                "prescription_found": check_result.get("success", False),
-                "safety_passed": check_result.get("safety_check", {}).get("is_safe", False),
-                "total_herbs": len(check_result.get("prescription", {}).get("herbs", [])) if check_result.get("prescription") else 0
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"图片处方检查失败: {e}")
-        return {
-            "success": False,
-            "step": "系统处理",
-            "error": f"处理失败: {str(e)}"
         }
 
 @app.get("/api/prescription/ocr_stats")
@@ -4038,18 +3798,59 @@ async def user_history_page():
         logger.error(f"加载历史记录页面失败: {e}")
         return HTMLResponse("<h1>页面加载失败</h1>", status_code=500)
 
-@app.get("/api/user/stats")
-async def get_user_stats_api():
-    """获取用户系统统计信息（管理用）"""
-    if not USER_HISTORY_AVAILABLE:
-        return {"success": False, "error": "用户历史系统不可用"}
-    
+
+@app.get("/api/user/sessions/export")
+async def export_user_sessions_api(request: Request):
+    """导出用户会话历史记录"""
     try:
-        stats = user_history.get_system_stats()
-        return {"success": True, **stats}
+        user_id = None
+        auth_header = request.headers.get("authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.replace("Bearer ", "")
+            try:
+                auth_user_info = await get_user_info_by_token(token)
+                if auth_user_info and auth_user_info.get("user_id"):
+                    user_id = auth_user_info["user_id"]
+            except Exception:
+                pass
+
+        import sqlite3 as _sqlite3
+        conn = _sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn.row_factory = _sqlite3.Row
+        cursor = conn.cursor()
+
+        if user_id:
+            cursor.execute("""
+                SELECT c.uuid, c.patient_id, c.selected_doctor_id, c.status,
+                       c.symptoms_analysis, c.tcm_syndrome, c.created_at, c.updated_at
+                FROM consultations c
+                WHERE c.patient_id = ?
+                ORDER BY c.created_at DESC
+            """, (user_id,))
+        else:
+            cursor.execute("""
+                SELECT c.uuid, c.patient_id, c.selected_doctor_id, c.status,
+                       c.symptoms_analysis, c.tcm_syndrome, c.created_at, c.updated_at
+                FROM consultations c
+                ORDER BY c.created_at DESC
+                LIMIT 100
+            """)
+
+        sessions = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+
+        import json as _json
+        from fastapi.responses import Response
+        json_content = _json.dumps(sessions, ensure_ascii=False, default=str)
+        return Response(
+            content=json_content,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="sessions_export.json"'}
+        )
     except Exception as e:
-        logger.error(f"获取系统统计失败: {e}")
+        logger.error(f"导出用户会话失败: {e}")
         return {"success": False, "error": str(e)}
+
 
 # ========== 手机验证相关API (第二阶段新增) ==========
 
@@ -4854,6 +4655,46 @@ async def admin_get_prescriptions(page: int = 1, per_page: int = 20):
             "prescriptions": [],
             "pagination": {"page": page, "per_page": per_page, "total": 0, "pages": 0}
         }
+
+@app.get("/api/admin/prescriptions/stats")
+async def admin_get_prescriptions_stats():
+    """获取处方统计数据"""
+    try:
+        import sqlite3 as _sqlite3
+        conn = _sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT COUNT(*) FROM prescriptions")
+        total = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM prescriptions WHERE status = 'pending'")
+        pending = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM prescriptions WHERE status = 'approved'")
+        approved = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM prescriptions WHERE status = 'completed'")
+        completed = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COALESCE(SUM(prescription_fee), 0) FROM prescriptions")
+        total_fees = cursor.fetchone()[0]
+
+        conn.close()
+
+        return {
+            "success": True,
+            "stats": {
+                "total_prescriptions": total,
+                "pending_prescriptions": pending,
+                "approved_prescriptions": approved,
+                "completed_prescriptions": completed,
+                "total_fees": float(total_fees),
+                "avg_fee": float(total_fees) / total if total > 0 else 0,
+            }
+        }
+    except Exception as e:
+        logger.error(f"获取处方统计失败: {e}")
+        return {"success": False, "message": f"获取处方统计失败: {e}"}
 
 @app.get("/api/admin/prescription/{prescription_id}")
 async def admin_get_prescription(prescription_id: int):
