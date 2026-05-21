@@ -23,7 +23,7 @@ class LLMIntegrationProcessor:
         self.config = config_manager.get_ai_config()
         
         # LLM配置参数
-        self.default_model = self.config.get('default_model', 'qwen-max')
+        self.default_model = self.config.get('main_model', 'qwen3.5-omni-plus-2026-03-15')
         self.default_temperature = self.config.get('temperature', 0.7)
         self.max_tokens = self.config.get('max_tokens', 2000)
         self.timeout = self.config.get('timeout', 60)

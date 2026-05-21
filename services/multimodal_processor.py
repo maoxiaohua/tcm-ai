@@ -20,6 +20,7 @@ from dashscope.api_entities.dashscope_response import DashScopeAPIResponse
 import sys
 sys.path.append('/opt/tcm-ai')
 from core.prescription.tcm_formula_analyzer import analyze_formula_with_ai
+from config.settings import AI_CONFIG
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -38,7 +39,7 @@ class MultiModalPrescriptionProcessor:
     """
     
     def __init__(self):
-        self.model = 'qwen-vl-max'  # 使用最强版本
+        self.model = AI_CONFIG.get("multimodal_model", "qwen3.5-omni-plus-2026-03-15")
         self.timeout = 150  # API调用超时时间 (多模态LLM需要更长时间，设置比nginx更长)
         
         # 专业的系统提示词模板

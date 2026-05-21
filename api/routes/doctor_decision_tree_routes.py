@@ -1645,14 +1645,13 @@ async def _extract_clinical_info_with_ai(
     try:
         # 调用AI生成
         response = await asyncio.to_thread(
-            dashscope.Generation.call,
-            model=AI_CONFIG.get('decision_tree_model', 'qwen-max'),
-            prompt=prompt,
-            result_format='message'
+            dashscope.MultiModalConversation.call,
+            model=AI_CONFIG.get('decision_tree_model', 'qwen3.5-omni-plus-2026-03-15'),
+            messages=[{"role": "user", "content": [{"text": prompt}]}]
         )
-        
+
         if response.status_code == 200:
-            content = response.output.choices[0]['message']['content']
+            content = response.output.choices[0].message.content[0]["text"]
             
             # 解析JSON响应
             ai_result = _parse_prescription_json(content)

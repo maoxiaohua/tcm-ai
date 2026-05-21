@@ -15,7 +15,7 @@ class LLMServiceWrapper:
     
     def __init__(self, ai_config: Dict[str, Any]):
         self.config = ai_config
-        self.default_model = ai_config.get('default_model', 'qwen-max')
+        self.default_model = ai_config.get('main_model', 'qwen3.5-omni-plus-2026-03-15')
         
     def generate_response(self, prompt: str, model: str = None, 
                          temperature: float = 0.7, max_tokens: int = 2000, 
@@ -101,7 +101,7 @@ class MultimodalServiceWrapper:
     
     def __init__(self, ai_config: Dict[str, Any]):
         self.config = ai_config
-        self.multimodal_model = ai_config.get('multimodal_model', 'qwen-vl-max')
+        self.multimodal_model = ai_config.get('multimodal_model', 'qwen3.5-omni-plus-2026-03-15')
         self.timeout = ai_config.get('multimodal_timeout', 80)
     
     def analyze_image(self, image_path: str, prompt: str, 

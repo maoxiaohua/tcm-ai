@@ -1134,6 +1134,7 @@ try:
     import dashscope
     from dashscope import Generation, MultiModalConversation
     from http import HTTPStatus
+    from config.settings import AI_CONFIG
 except ImportError as e:
     print(f"Required libraries missing: {e}. Please run 'pip install dashscope'")
     sys.exit(1)
@@ -1161,7 +1162,7 @@ else:
     dashscope.api_key = DASHSCOPE_API_KEY
     logger.info("DashScope API Key is set.")
 
-MAIN_LLM_MODEL = "qwen-turbo"
+MAIN_LLM_MODEL = AI_CONFIG["main_model"]
 RAG_EMBEDDING_MODEL = "text-embedding-v4"
 RAG_EMBEDDING_DIM = 1024
 CONVERSATION_LOG_DIR = "./conversation_logs"
@@ -1507,13 +1508,20 @@ async def embed_query(texts: list[str]) -> list[list[float]]:
 
 async def bailian_llm_complete(model: str, messages: List[Dict[str, str]], timeout: float = 40.0) -> str:
     try:
-        # 为AI调用添加超时保护
+        # qwen3.6-plus 是多模态模型，需要转换为 MultiModalConversation 的消息格式
+        mm_messages = []
+        for msg in messages:
+            mm_messages.append({
+                "role": msg["role"],
+                "content": [{"text": msg["content"]}]
+            })
+
         response = await asyncio.wait_for(
-            asyncio.to_thread(Generation.call, model=model, messages=messages, result_format='message'),
+            asyncio.to_thread(MultiModalConversation.call, model=model, messages=mm_messages),
             timeout=timeout
         )
         if response.status_code == HTTPStatus.OK and response.output and response.output.choices:
-            return response.output.choices[0]['message']['content']
+            return response.output.choices[0].message.content[0]["text"]
         else:
             error_msg = f"LLM Error: {getattr(response, 'message', 'Unknown')}"
             logger.error(error_msg)
@@ -1694,7 +1702,7 @@ def extract_features_from_image(image_bytes: bytes, image_type: str) -> str:
             
             # 使用MultiModalConversation.call而不是Generation.call
             response = dashscope.MultiModalConversation.call(
-                model="qwen-vl-plus",
+                model=AI_CONFIG.get("multimodal_model", "qwen3.5-omni-plus-2026-03-15"),
                 messages=messages,
                 timeout=30
             )

@@ -1799,7 +1799,7 @@
             if (success && aiStatus.ai_enabled) {
                 // AI可用或降级模式
                 if (!statusIndicator.innerHTML.includes('混合模式')) {
-                    statusIndicator.innerHTML = `✅ AI已就绪 (${aiStatus.model || 'qwen-max'})`;
+                    statusIndicator.innerHTML = `✅ AI已就绪 (${aiStatus.model || 'qwen3.5-omni-plus-2026-03-15'})`;
                     statusIndicator.style.color = '#059669';
                 }
                 console.log('✅ AI已启用');

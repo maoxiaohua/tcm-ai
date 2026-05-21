@@ -186,15 +186,15 @@ class AIDecisionTreeGenerator:
 只返回JSON，不要其他内容。"""
 
         try:
-            response = Generation.call(
-                model='qwen-max',
+            from dashscope import MultiModalConversation
+            response = MultiModalConversation.call(
+                model=AI_CONFIG.get('decision_tree_model', 'qwen3.5-omni-plus-2026-03-15'),
                 api_key=self.api_key,
-                prompt=prompt,
-                result_format='message'
+                messages=[{"role": "user", "content": [{"text": prompt}]}]
             )
 
             if response.status_code == 200:
-                content = response.output.choices[0].message.content
+                content = response.output.choices[0].message.content[0]["text"]
                 # 提取JSON
                 json_match = re.search(r'\{.*\}', content, re.DOTALL)
                 if json_match:

@@ -125,7 +125,7 @@ class ImageAnalysisProcessor:
         """调用多模态分析服务"""
         try:
             # 使用配置中的多模态设置
-            model = self.config.get('multimodal_model', 'qwen-vl-max')
+            model = self.config.get('multimodal_model', 'qwen3.5-omni-plus-2026-03-15')
             timeout = self.config.get('multimodal_timeout', 80)
             
             response = self.multimodal_service.analyze_image(

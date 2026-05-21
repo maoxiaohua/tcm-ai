@@ -1224,7 +1224,7 @@ else:
     dashscope.api_key = DASHSCOPE_API_KEY
     logger.info("DashScope API Key is set.")
 
-MAIN_LLM_MODEL = "qwen-turbo"
+MAIN_LLM_MODEL = AI_CONFIG["main_model"]
 RAG_EMBEDDING_MODEL = "text-embedding-v4"
 RAG_EMBEDDING_DIM = 1024
 CONVERSATION_LOG_DIR = "./conversation_logs"
@@ -1585,13 +1585,20 @@ async def embed_query(texts: list[str]) -> list[list[float]]:
 
 async def bailian_llm_complete(model: str, messages: List[Dict[str, str]], timeout: float = 40.0) -> str:
     try:
-        # 为AI调用添加超时保护
+        # qwen3.6-plus 是多模态模型，需要转换为 MultiModalConversation 的消息格式
+        mm_messages = []
+        for msg in messages:
+            mm_messages.append({
+                "role": msg["role"],
+                "content": [{"text": msg["content"]}]
+            })
+
         response = await asyncio.wait_for(
-            asyncio.to_thread(Generation.call, model=model, messages=messages, result_format='message'),
+            asyncio.to_thread(MultiModalConversation.call, model=model, messages=mm_messages),
             timeout=timeout
         )
         if response.status_code == HTTPStatus.OK and response.output and response.output.choices:
-            return response.output.choices[0]['message']['content']
+            return response.output.choices[0].message.content[0]["text"]
         else:
             error_msg = f"LLM Error: {getattr(response, 'message', 'Unknown')}"
             logger.error(error_msg)
@@ -1772,7 +1779,7 @@ def extract_features_from_image(image_bytes: bytes, image_type: str) -> str:
             
             # 使用MultiModalConversation.call而不是Generation.call
             # 使用统一的多模态模型配置
-            model_name = AI_CONFIG.get("multimodal_model", "qwen-vl-max")
+            model_name = AI_CONFIG.get("multimodal_model", "qwen3.5-omni-plus-2026-03-15")
             model_timeout = AI_CONFIG.get("multimodal_timeout", 80)
             
             response = dashscope.MultiModalConversation.call(
@@ -4830,8 +4837,8 @@ def get_default_system_settings():
         "ai": {
             "dashscope_api_key": "[已配置环境变量，请勿修改]",
             "dashscope_endpoint": "https://dashscope.aliyuncs.com/api/v1/",
-            "default_text_model": "qwen-max",
-            "multimodal_model": "qwen-vl-max",
+            "default_text_model": "qwen3.5-omni-plus-2026-03-15",
+            "multimodal_model": "qwen3.5-omni-plus-2026-03-15",
             "model_temperature": 0.7,
             "max_tokens": 2000,
             "daily_cost_limit": 500,
@@ -4911,8 +4918,8 @@ def validate_system_settings(settings):
         validated['ai'] = {
             'dashscope_api_key': str(ai.get('dashscope_api_key', ''))[:200],
             'dashscope_endpoint': str(ai.get('dashscope_endpoint', 'https://dashscope.aliyuncs.com/api/v1/'))[:300],
-            'default_text_model': ai.get('default_text_model', 'qwen-max') if ai.get('default_text_model') in ['qwen-max', 'qwen-plus', 'qwen-turbo'] else 'qwen-max',
-            'multimodal_model': ai.get('multimodal_model', 'qwen-vl-max') if ai.get('multimodal_model') in ['qwen-vl-max', 'qwen-vl-plus'] else 'qwen-vl-max',
+            'default_text_model': ai.get('default_text_model', 'qwen3.5-omni-plus-2026-03-15') if ai.get('default_text_model') in ['qwen3.5-omni-plus-2026-03-15', 'qwen-max', 'qwen-plus', 'qwen-turbo'] else 'qwen3.5-omni-plus-2026-03-15',
+            'multimodal_model': ai.get('multimodal_model', 'qwen3.5-omni-plus-2026-03-15') if ai.get('multimodal_model') in ['qwen3.5-omni-plus-2026-03-15', 'qwen-vl-max', 'qwen-vl-plus'] else 'qwen3.5-omni-plus-2026-03-15',
             'model_temperature': max(0.0, min(1.0, float(ai.get('model_temperature', 0.7)))),
             'max_tokens': max(100, min(8000, int(ai.get('max_tokens', 2000)))),
             'daily_cost_limit': max(1, min(10000, int(ai.get('daily_cost_limit', 500)))),

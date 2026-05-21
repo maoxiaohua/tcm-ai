@@ -6,11 +6,12 @@
 """
 
 import dashscope
-from dashscope import Generation
+from dashscope import MultiModalConversation
 import logging
 import json
 import re
 from typing import Dict, List, Optional
+from config.settings import AI_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class AIPrescriptionAnalyzer:
     """AI处方分析器 - 使用真实的AI模型"""
 
     def __init__(self):
-        self.model = "qwen-max"
+        self.model = AI_CONFIG.get("main_model", "qwen3.5-omni-plus-2026-03-15")
 
     def analyze_prescription_comprehensive(self, prescription_content: str, diagnosis: str = "", symptoms: str = "") -> Dict:
         """
@@ -112,16 +113,16 @@ class AIPrescriptionAnalyzer:
 }}
 """
 
-            response = Generation.call(
+            response = MultiModalConversation.call(
                 model=self.model,
-                prompt=prompt,
+                messages=[{"role": "user", "content": [{"text": prompt}]}],
                 max_tokens=2000,
                 temperature=0.3,
                 top_p=0.8
             )
 
             if response.status_code == 200:
-                result_text = response.output.text.strip()
+                result_text = response.output.choices[0].message.content[0]["text"].strip()
 
                 # 提取JSON内容
                 json_match = re.search(r'\{[\s\S]*\}', result_text)
@@ -177,16 +178,16 @@ class AIPrescriptionAnalyzer:
 }}
 """
 
-            response = Generation.call(
+            response = MultiModalConversation.call(
                 model=self.model,
-                prompt=prompt,
+                messages=[{"role": "user", "content": [{"text": prompt}]}],
                 max_tokens=1500,
                 temperature=0.2,
                 top_p=0.7
             )
 
             if response.status_code == 200:
-                result_text = response.output.text.strip()
+                result_text = response.output.choices[0].message.content[0]["text"].strip()
                 json_match = re.search(r'\{[\s\S]*\}', result_text)
                 if json_match:
                     result = json.loads(json_match.group())
@@ -252,16 +253,16 @@ class AIPrescriptionAnalyzer:
 }}
 """
 
-            response = Generation.call(
+            response = MultiModalConversation.call(
                 model=self.model,
-                prompt=prompt,
+                messages=[{"role": "user", "content": [{"text": prompt}]}],
                 max_tokens=2000,
                 temperature=0.3,
                 top_p=0.8
             )
 
             if response.status_code == 200:
-                result_text = response.output.text.strip()
+                result_text = response.output.choices[0].message.content[0]["text"].strip()
                 json_match = re.search(r'\{[\s\S]*\}', result_text)
                 if json_match:
                     result = json.loads(json_match.group())
@@ -332,16 +333,16 @@ class AIPrescriptionAnalyzer:
 }}
 """
 
-            response = Generation.call(
+            response = MultiModalConversation.call(
                 model=self.model,
-                prompt=prompt,
+                messages=[{"role": "user", "content": [{"text": prompt}]}],
                 max_tokens=1500,
                 temperature=0.4,
                 top_p=0.8
             )
 
             if response.status_code == 200:
-                result_text = response.output.text.strip()
+                result_text = response.output.choices[0].message.content[0]["text"].strip()
                 json_match = re.search(r'\{[\s\S]*\}', result_text)
                 if json_match:
                     result = json.loads(json_match.group())

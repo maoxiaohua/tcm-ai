@@ -72,7 +72,7 @@ class FamousDoctorLearningSystem:
         if DASHSCOPE_AVAILABLE:
             try:
                 dashscope.api_key = AI_CONFIG.get('dashscope_api_key', '')
-                self.ai_model = AI_CONFIG.get('decision_tree_model', 'qwen-max')
+                self.ai_model = AI_CONFIG.get('decision_tree_model', 'qwen3.5-omni-plus-2026-03-15')
                 self.ai_enabled = bool(dashscope.api_key)
                 if self.ai_enabled:
                     print(f"✅ AI功能已启用，模型: {self.ai_model}")
@@ -2111,14 +2111,13 @@ class FamousDoctorLearningSystem:
         
         try:
             response = await asyncio.to_thread(
-                dashscope.Generation.call,
+                dashscope.MultiModalConversation.call,
                 model=self.ai_model,
-                prompt=prompt,
-                result_format='message'
+                messages=[{"role": "user", "content": [{"text": prompt}]}]
             )
-            
+
             if response.status_code == 200:
-                content = response.output.choices[0]['message']['content']
+                content = response.output.choices[0].message.content[0]["text"]
                 print(f"🔍 AI原始响应内容: {content}")
                 
                 # 解析JSON响应 - 增强容错版

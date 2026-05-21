@@ -4,7 +4,7 @@ AI通用思维导图生成器
 支持多行业的智能思维导图生成
 
 功能特点:
-1. 基于qwen-max的AI智能分析
+1. 基于qwen3.5-omni-plus-2026-03-15的AI智能分析
 2. 支持医疗、技术、商业等多个领域
 3. 自动识别层级结构和节点关系
 4. 生成标准化的树状数据结构
@@ -176,18 +176,18 @@ class AIMindMapGenerator:
     def _call_qwen_api(self, prompt: str) -> str:
         """调用千问API"""
         try:
-            response = Generation.call(
-                model='qwen-max',
+            from dashscope import MultiModalConversation
+            response = MultiModalConversation.call(
+                model=AI_CONFIG.get('main_model', 'qwen3.5-omni-plus-2026-03-15'),
                 messages=[
-                    {'role': 'system', 'content': '你是一个专业的思维导图生成助手，擅长将复杂主题结构化为清晰的层级关系。'},
-                    {'role': 'user', 'content': prompt}
+                    {'role': 'system', 'content': [{'text': '你是一个专业的思维导图生成助手，擅长将复杂主题结构化为清晰的层级关系。'}]},
+                    {'role': 'user', 'content': [{'text': prompt}]}
                 ],
-                result_format='message',
                 temperature=0.7
             )
 
             if response.status_code == 200:
-                content = response.output.choices[0].message.content
+                content = response.output.choices[0].message.content[0]["text"]
                 logger.info(f"✅ AI响应成功，长度: {len(content)}")
                 return content
             else:

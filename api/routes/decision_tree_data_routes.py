@@ -112,16 +112,15 @@ async def generate_from_natural_language(request: GenerateFromTextRequest):
 
         # 调用AI生成
         try:
-            response = dashscope.Generation.call(
-                model='qwen-max',
-                messages=[{"role": "user", "content": prompt}],
-                result_format='message'
+            response = dashscope.MultiModalConversation.call(
+                model=AI_CONFIG.get('decision_tree_model', 'qwen3.5-omni-plus-2026-03-15'),
+                messages=[{"role": "user", "content": [{"text": prompt}]}]
             )
 
             if response.status_code != 200 or not response.output:
                 raise HTTPException(status_code=500, detail="AI生成失败")
 
-            generated_text = response.output.choices[0].message.content
+            generated_text = response.output.choices[0].message.content[0]["text"]
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"AI调用失败: {str(e)}")

@@ -75,8 +75,8 @@ _knowledge_db_path = _get_env_str(
     str(PROJECT_ROOT / "knowledge_db"),
     "KNOWLEDGE_BASE_PATH",
 )
-_main_model = _get_env_str("MAIN_MODEL", "qwen-turbo", "CHAT_MODEL")
-_model_timeout = _get_env_int("MODEL_TIMEOUT", 40, "TIMEOUT")
+_main_model = _get_env_str("MAIN_MODEL", "qwen3.5-omni-plus-2026-03-15", "CHAT_MODEL")
+_model_timeout = _get_env_int("MODEL_TIMEOUT", 90, "TIMEOUT")
 _synthesis_timeout = _get_env_int("SYNTHESIS_TIMEOUT", 45)
 _multimodal_timeout = _get_env_int("MULTIMODAL_TIMEOUT", 80)
 
@@ -120,10 +120,10 @@ AI_CONFIG = {
     "timeout": _model_timeout,  # 兼容旧代码读取 AI_CONFIG["timeout"]
     "synthesis_timeout": _synthesis_timeout,
     # 多模态模型配置
-    "multimodal_model": _get_env_str("MULTIMODAL_MODEL", "qwen-vl-max"),
+    "multimodal_model": _get_env_str("MULTIMODAL_MODEL", "qwen3.5-omni-plus-2026-03-15"),
     "multimodal_timeout": _multimodal_timeout,
     # 决策树生成专用模型
-    "decision_tree_model": _get_env_str("DECISION_TREE_MODEL", "qwen-max"),
+    "decision_tree_model": _get_env_str("DECISION_TREE_MODEL", "qwen3.5-omni-plus-2026-03-15"),
     # OCR服务配置（兼容旧变量名）
     "baidu_ocr_api_key": _get_env_str("BAIDU_OCR_API_KEY", "", "BAIDU_API_KEY"),
     "baidu_ocr_secret_key": _get_env_str("BAIDU_OCR_SECRET_KEY", "", "BAIDU_SECRET_KEY"),

@@ -104,7 +104,7 @@ class UnifiedConsultationService:
             self.analyzer = ConversationAnalyzer()
             
             # AI配置
-            self.ai_model = AI_CONFIG.get("main_model", "qwen-turbo")
+            self.ai_model = AI_CONFIG.get("main_model", "qwen3.5-omni-plus-2026-03-15")
             self.ai_timeout = float(AI_CONFIG.get("model_timeout", AI_CONFIG.get("timeout", 40.0)))
             
             # 医疗安全提示词（备用）
@@ -276,22 +276,29 @@ class UnifiedConsultationService:
         try:
             import dashscope
             from http import HTTPStatus
-            
+
+            # qwen3.6-plus 是多模态模型，需要转换为 MultiModalConversation 的消息格式
+            mm_messages = []
+            for msg in messages:
+                mm_messages.append({
+                    "role": msg["role"],
+                    "content": [{"text": msg["content"]}]
+                })
+
             response = await asyncio.wait_for(
                 asyncio.to_thread(
-                    dashscope.Generation.call,
+                    dashscope.MultiModalConversation.call,
                     model=self.ai_model,
-                    messages=messages,
-                    result_format='message'
+                    messages=mm_messages
                 ),
                 timeout=self.ai_timeout
             )
-            
+
             if response.status_code == HTTPStatus.OK and response.output and response.output.choices:
-                return response.output.choices[0]['message']['content']
+                return response.output.choices[0].message.content[0]["text"]
             else:
                 raise Exception(f"AI调用失败: {getattr(response, 'message', 'Unknown')}")
-                
+
         except asyncio.TimeoutError:
             raise Exception(f"AI调用超时 ({self.ai_timeout}秒)")
         except Exception as e:
