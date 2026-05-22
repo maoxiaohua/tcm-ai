@@ -274,54 +274,169 @@ class PrescriptionRenderer {
     }
 
     /**
-     * 渲染完整处方（付费用户）
+     * 渲染完整处方（付费用户）- 医院处方笺版式
      */
     renderFullPrescription(content) {
         const parsedPrescription = this.parsePrescriptionContent(content);
-        
-        console.log('🔍 renderFullPrescription 解析结果:', {
-            herbsCount: parsedPrescription.herbs.length,
-            herbs: parsedPrescription.herbs.map(h => `${h.name} ${h.dosage}g`)
-        });
-        
-        // 如果成功解析到药材，生成结构化的药材列表
-        let herbsListHtml = '';
-        if (parsedPrescription.herbs.length > 0) {
-            herbsListHtml = `
-                <div class="prescription-herbs-list" style="margin: 20px 0; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
-                    <h4 style="color: #2d3748; margin-bottom: 15px; font-size: 16px;">📋 方剂组成 (共${parsedPrescription.herbs.length}味药材)</h4>
-                    <div class="herbs-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
-                        ${parsedPrescription.herbs.map(herb => `
-                            <div class="herb-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px;">
-                                <span class="herb-name" style="color: #2d3748; font-weight: 500;">${herb.name}</span>
-                                <span class="herb-dosage" style="color: #059669; font-weight: bold;">${herb.dosage}g</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
+        const diagnosisInfo = this.extractDiagnosisInfo(content);
+        const decoctionMethod = this.extractDecoctionMethod(content);
+        const precautions = this.extractPrecautions(content);
+        const formulaName = parsedPrescription.summary || '个性化方剂';
+        const doctorName = this.getDoctorName();
+        const now = new Date();
+        const dateStr = now.getFullYear() + '-' +
+            String(now.getMonth() + 1).padStart(2, '0') + '-' +
+            String(now.getDate()).padStart(2, '0');
+        const rxNo = this.prescriptionId
+            ? 'No. ' + String(this.prescriptionId).slice(-12).padStart(12, '0')
+            : 'No. ' + dateStr.replace(/-/g, '') + '-' + String(now.getTime() % 100000).padStart(5, '0');
+
+        // 患者信息（从localStorage获取）
+        let patientName = '', patientGender = '', patientAge = '';
+        try {
+            const userStr = localStorage.getItem('currentUser');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                patientName = user.name || user.username || user.display_name || '';
+                patientGender = user.gender || user.sex || '';
+                patientAge = user.age || '';
+            }
+        } catch(e) {}
+
+        // 构建患者信息行
+        let patientInfoHtml = '';
+        if (patientName || patientGender || patientAge) {
+            const items = [];
+            if (patientName) items.push('<span class="info-item"><span class="info-label">姓名：</span><span class="info-value">' + this.escapeHtml(patientName) + '</span></span>');
+            if (patientGender) items.push('<span class="info-item"><span class="info-label">性别：</span><span class="info-value">' + this.escapeHtml(patientGender) + '</span></span>');
+            if (patientAge) items.push('<span class="info-item"><span class="info-label">年龄：</span><span class="info-value">' + this.escapeHtml(String(patientAge)) + '</span></span>');
+            patientInfoHtml = '<div class="prescription-patient-info">' + items.join('') + '</div>';
         }
-        
-        return `
-            <div class="prescription-full">
-                <div class="prescription-header">
-                    <span class="prescription-badge">✅ 完整处方</span>
-                    <span class="paid-status">已解锁查看</span>
-                </div>
-                <div class="prescription-content">
-                    ${herbsListHtml}
-                    ${this.formatPrescriptionContent(parsedPrescription)}
-                </div>
-                <div class="prescription-actions">
-                    <button class="action-btn decoction-btn" onclick="showDecorationInfo('${this.prescriptionId}')">
-                        🍵 联系代煎服务
-                    </button>
-                    <button class="action-btn download-btn" onclick="downloadPrescription('${this.prescriptionId}')">
-                        📄 下载处方
-                    </button>
-                </div>
-            </div>
-        `;
+
+        // 构建辨证诊断行
+        let diagnosisHtml = '';
+        const dxLines = [];
+        if (diagnosisInfo.syndrome) dxLines.push('<span class="dx-label">辨证：</span><span class="dx-value">' + this.escapeHtml(diagnosisInfo.syndrome) + '</span>');
+        if (diagnosisInfo.pathogenesis) dxLines.push('<span class="dx-label">病机：</span><span class="dx-value">' + this.escapeHtml(diagnosisInfo.pathogenesis) + '</span>');
+        if (diagnosisInfo.treatment) dxLines.push('<span class="dx-label">治则：</span><span class="dx-value">' + this.escapeHtml(diagnosisInfo.treatment) + '</span>');
+        if (dxLines.length > 0) {
+            diagnosisHtml = '<div class="prescription-diagnosis-row">' +
+                dxLines.map(l => '<div class="dx-line">' + l + '</div>').join('') +
+                '</div>';
+        }
+
+        // 构建药材表格
+        let herbTableHtml = '';
+        if (parsedPrescription.herbs.length > 0) {
+            const rows = parsedPrescription.herbs.map(h => {
+                let roleHtml = '';
+                let roleClass = '';
+                // 从原始行中检测君/臣/佐/使标记
+                if (h.line && h.line.includes('君')) { roleHtml = '君'; roleClass = 'role-monarch'; }
+                else if (h.line && h.line.includes('臣')) { roleHtml = '臣'; roleClass = 'role-minister'; }
+                else if (h.line && h.line.includes('佐')) { roleHtml = '佐'; roleClass = 'role-assistant'; }
+                else if (h.line && h.line.includes('使')) { roleHtml = '使'; roleClass = 'role-guide'; }
+
+                return '<tr>' +
+                    '<td class="herb-name">' + this.escapeHtml(h.name) + '</td>' +
+                    '<td class="herb-dosage">' + h.dosage + '</td>' +
+                    '<td class="herb-unit">' + (h.unit || 'g') + '</td>' +
+                    '<td class="herb-role' + (roleClass ? ' ' + roleClass : '') + '">' + roleHtml + '</td>' +
+                    '</tr>';
+            }).join('');
+
+            herbTableHtml = ''
+                + '<table class="herb-table">'
+                + '<thead><tr>'
+                + '<th>药 材</th><th>剂 量</th><th>单位</th><th>配伍</th>'
+                + '</tr></thead>'
+                + '<tbody>' + rows + '</tbody>'
+                + '</table>'
+                + '<div class="herb-total-row">共 ' + parsedPrescription.herbs.length + ' 味药材</div>';
+        }
+
+        // 构建煎服方法
+        let instructionsHtml = '';
+        const instrParts = [];
+        if (decoctionMethod) instrParts.push('<span class="instr-text">' + this.escapeHtml(decoctionMethod) + '</span>');
+        if (precautions) instrParts.push('<div class="instr-section"><span class="instr-label">注意事项：</span><span class="instr-text">' + this.escapeHtml(precautions) + '</span></div>');
+        if (instrParts.length > 0) {
+            instructionsHtml = '<div class="prescription-instructions">' +
+                '<div class="instr-section"><span class="instr-label">用法用量：</span>' + (decoctionMethod ? '<span class="instr-text">' + this.escapeHtml(decoctionMethod) + '</span>' : '<span class="instr-text">每日1剂，水煎服，分早晚两次温服。</span>') + '</div>' +
+                (precautions ? '<div class="instr-section"><span class="instr-label">注意事项：</span><span class="instr-text">' + this.escapeHtml(precautions) + '</span></div>' : '') +
+                '</div>';
+        } else {
+            instructionsHtml = '<div class="prescription-instructions">' +
+                '<div class="instr-section"><span class="instr-label">用法用量：</span><span class="instr-text">每日1剂，水煎服，分早晚两次温服。</span></div>' +
+                '<div class="instr-section"><span class="instr-label">注意事项：</span><span class="instr-text">服药期间忌生冷、辛辣、油腻食物。孕妇及过敏体质慎用。</span></div>' +
+                '</div>';
+        }
+
+        return ''
+            + '<div class="hospital-prescription">'
+
+            // 诊所头部
+            + '<div class="prescription-clinic-header">'
+            + '<div class="prescription-clinic-name">TCM-AI 中医智能诊所</div>'
+            + '<div class="prescription-clinic-subtitle">智能问诊 · 名医智慧 · 专业处方</div>'
+            + '</div>'
+
+            // 处方笺标题
+            + '<div class="prescription-title-divider">处 方 笺</div>'
+
+            // 处方编号
+            + '<div class="prescription-no">' + rxNo + '</div>'
+
+            // 患者信息
+            + (patientInfoHtml || '<div class="prescription-patient-info"><span class="info-item"><span class="info-label">姓名：</span><span class="info-value">________</span></span><span class="info-item"><span class="info-label">性别：</span><span class="info-value">__</span></span><span class="info-item"><span class="info-label">年龄：</span><span class="info-value">__</span></span></div>')
+
+            // 辨证诊断
+            + (diagnosisHtml || '')
+
+            // ℞ 处方主体
+            + '<div class="prescription-rx-section">'
+            + '<div class="prescription-rx-symbol">℞</div>'
+            + '<div class="prescription-formula-name">方剂：' + this.escapeHtml(formulaName) + '</div>'
+            + (herbTableHtml || '<div style="padding:16px;color:#6b7280;">处方药材解析中...</div>')
+            + '</div>'
+
+            // 煎服方法和注意事项
+            + instructionsHtml
+
+            // 底部签章
+            + '<div class="prescription-footer">'
+            + '<div class="footer-left">'
+            + '<div>开具日期：' + dateStr + '</div>'
+            + '<div>审核医师：<span class="doctor-name">' + this.escapeHtml(doctorName) + '</span></div>'
+            + '</div>'
+            + '<div class="footer-right">'
+            + '<div class="doctor-seal">处方签章</div>'
+            + '<div style="margin-top:4px;">' + this.escapeHtml(doctorName) + ' 印</div>'
+            + '</div>'
+            + '</div>'
+
+            // 免责声明
+            + '<div class="prescription-disclaimer">'
+            + '<span class="disclaimer-icon">⚠</span> 本处方为AI辅助生成，仅供参考，建议在执业中医师指导下使用。如症状持续或加重，请及时面诊就医。'
+            + '</div>'
+
+            + '</div>'
+
+            // 操作按钮
+            + '<div class="prescription-actions" style="margin-top:12px;">'
+            + '<button class="action-btn decoction-btn" onclick="showDecorationInfo(\'' + (this.prescriptionId || '') + '\')">🍵 代煎服务</button>'
+            + '<button class="action-btn download-btn" onclick="downloadPrescription(\'' + (this.prescriptionId || '') + '\')">📄 下载处方</button>'
+            + '</div>';
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     /**

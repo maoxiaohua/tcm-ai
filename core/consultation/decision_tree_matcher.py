@@ -154,7 +154,8 @@ class DecisionTreeMatcher:
             response = MultiModalConversation.call(
                 model=AI_CONFIG.get('decision_tree_model', 'qwen3.5-omni-plus-2026-03-15'),
                 api_key=self.api_key,
-                messages=[{"role": "user", "content": [{"text": prompt}]}]
+                messages=[{"role": "user", "content": [{"text": prompt}]}],
+                enable_thinking=False
             )
 
             if response.status_code == 200:

@@ -289,7 +289,8 @@ class UnifiedConsultationService:
                 asyncio.to_thread(
                     dashscope.MultiModalConversation.call,
                     model=self.ai_model,
-                    messages=mm_messages
+                    messages=mm_messages,
+                    enable_thinking=False
                 ),
                 timeout=self.ai_timeout
             )

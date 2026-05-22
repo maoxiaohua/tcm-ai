@@ -569,6 +569,330 @@
     margin: 0;
 }
 
+/* ========================================
+   医院处方排版 v3.0 - 仿中医处方笺样式
+   ======================================== */
+
+.hospital-prescription {
+    background: #fffef9;
+    border: 2px solid #3d5a3c;
+    border-radius: 0;
+    margin: 20px 0;
+    font-family: "Noto Serif SC", "Source Han Serif SC", "SimSun", "STSong", "KaiTi", "楷体", serif;
+    color: #2c2c2c;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    overflow: hidden;
+    position: relative;
+}
+
+/* 处方笺水印底纹 */
+.hospital-prescription::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+        repeating-linear-gradient(0deg, transparent, transparent 39px, #e8e4d8 39px, #e8e4d8 40px);
+    pointer-events: none;
+    opacity: 0.3;
+    z-index: 0;
+}
+
+.hospital-prescription > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* 处方头部 - 机构名称 */
+.prescription-clinic-header {
+    text-align: center;
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid #3d5a3c;
+}
+
+.prescription-clinic-name {
+    font-size: 22px;
+    font-weight: bold;
+    color: #2c2c2c;
+    letter-spacing: 4px;
+    margin: 0 0 6px;
+}
+
+.prescription-clinic-subtitle {
+    font-size: 13px;
+    color: #5a5a5a;
+    letter-spacing: 2px;
+    margin: 0;
+}
+
+.prescription-title-divider {
+    text-align: center;
+    padding: 8px 0;
+    font-size: 20px;
+    font-weight: bold;
+    color: #3d5a3c;
+    letter-spacing: 8px;
+    border-bottom: 1px solid #3d5a3c;
+}
+
+/* 处方编号 */
+.prescription-no {
+    text-align: right;
+    padding: 8px 24px;
+    font-size: 12px;
+    color: #6b7280;
+    border-bottom: 1px dashed #c5c0ad;
+}
+
+/* 患者信息区 */
+.prescription-patient-info {
+    display: flex;
+    gap: 24px;
+    padding: 14px 24px;
+    border-bottom: 1px dashed #c5c0ad;
+    font-size: 14px;
+    flex-wrap: wrap;
+}
+
+.prescription-patient-info .info-item {
+    display: flex;
+    gap: 4px;
+}
+
+.prescription-patient-info .info-label {
+    color: #5a5a5a;
+    white-space: nowrap;
+}
+
+.prescription-patient-info .info-value {
+    color: #2c2c2c;
+    font-weight: bold;
+    min-width: 60px;
+    border-bottom: 1px solid #2c2c2c;
+    padding: 0 4px;
+    text-align: center;
+}
+
+/* 诊断与治则区 */
+.prescription-diagnosis-row {
+    padding: 12px 24px;
+    border-bottom: 1px dashed #c5c0ad;
+    font-size: 14px;
+}
+
+.prescription-diagnosis-row .dx-line {
+    margin-bottom: 6px;
+    line-height: 1.6;
+}
+
+.prescription-diagnosis-row .dx-line:last-child {
+    margin-bottom: 0;
+}
+
+.prescription-diagnosis-row .dx-label {
+    color: #5a5a5a;
+    font-weight: bold;
+}
+
+.prescription-diagnosis-row .dx-value {
+    color: #2c2c2c;
+}
+
+/* ℞ 处方主体 */
+.prescription-rx-section {
+    padding: 16px 24px;
+    border-bottom: 1px dashed #c5c0ad;
+}
+
+.prescription-rx-symbol {
+    font-size: 28px;
+    color: #3d5a3c;
+    font-weight: bold;
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+}
+
+.prescription-formula-name {
+    font-size: 15px;
+    font-weight: bold;
+    color: #2c2c2c;
+    margin-bottom: 16px;
+    padding-left: 8px;
+    border-left: 3px solid #3d5a3c;
+}
+
+/* 药材表格 */
+.herb-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.herb-table thead th {
+    background: #3d5a3c;
+    color: #fffef9;
+    padding: 8px 12px;
+    font-weight: normal;
+    letter-spacing: 2px;
+    font-size: 13px;
+}
+
+.herb-table thead th:first-child { text-align: left; padding-left: 16px; }
+.herb-table thead th:nth-child(2) { text-align: center; width: 80px; }
+.herb-table thead th:nth-child(3) { text-align: center; width: 60px; }
+.herb-table thead th:nth-child(4) { text-align: center; width: 80px; }
+
+.herb-table tbody td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #e8e4d8;
+    vertical-align: middle;
+}
+
+.herb-table tbody tr:nth-child(even) {
+    background: #fafaf5;
+}
+
+.herb-table tbody tr:last-child td {
+    border-bottom: 1px solid #3d5a3c;
+}
+
+.herb-table .herb-name {
+    font-weight: bold;
+    color: #2c2c2c;
+    padding-left: 16px;
+}
+
+.herb-table .herb-dosage {
+    text-align: center;
+    color: #3d5a3c;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.herb-table .herb-unit {
+    text-align: center;
+    color: #5a5a5a;
+    font-size: 13px;
+}
+
+.herb-table .herb-role {
+    text-align: center;
+    font-size: 12px;
+    color: #5a5a5a;
+}
+
+.herb-table .herb-role.role-monarch { color: #b91c1c; font-weight: bold; }
+.herb-table .herb-role.role-minister { color: #c2410c; }
+.herb-table .herb-role.role-assistant { color: #b45309; }
+.herb-table .herb-role.role-guide { color: #4f772d; }
+
+/* 药材总计行 */
+.herb-total-row {
+    text-align: right;
+    padding: 6px 24px 0;
+    font-size: 13px;
+    color: #5a5a5a;
+    letter-spacing: 1px;
+}
+
+/* 煎服与注意事项区 */
+.prescription-instructions {
+    padding: 14px 24px;
+    border-bottom: 1px dashed #c5c0ad;
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.prescription-instructions .instr-section {
+    margin-bottom: 10px;
+}
+
+.prescription-instructions .instr-section:last-child {
+    margin-bottom: 0;
+}
+
+.prescription-instructions .instr-label {
+    font-weight: bold;
+    color: #3d5a3c;
+    display: inline;
+}
+
+.prescription-instructions .instr-text {
+    color: #2c2c2c;
+    display: inline;
+}
+
+/* 处方底部 - 医生签章区 */
+.prescription-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 20px 24px;
+    font-size: 13px;
+    color: #5a5a5a;
+}
+
+.prescription-footer .footer-left {
+    line-height: 1.8;
+}
+
+.prescription-footer .footer-right {
+    text-align: right;
+    line-height: 1.8;
+}
+
+.prescription-footer .doctor-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: #2c2c2c;
+    letter-spacing: 2px;
+}
+
+.prescription-footer .doctor-seal {
+    display: inline-block;
+    width: 52px;
+    height: 52px;
+    border: 2px solid #b91c1c;
+    border-radius: 50%;
+    color: #b91c1c;
+    font-size: 11px;
+    font-weight: bold;
+    text-align: center;
+    line-height: 52px;
+    letter-spacing: 1px;
+    margin-top: 4px;
+}
+
+/* 免责声明 */
+.prescription-disclaimer {
+    text-align: center;
+    padding: 10px 24px 16px;
+    font-size: 11px;
+    color: #9ca3af;
+    letter-spacing: 1px;
+}
+
+.prescription-disclaimer .disclaimer-icon {
+    color: #f59e0b;
+}
+
+/* 付费水印 */
+.prescription-paid-stamp {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-25deg);
+    border: 3px solid rgba(16, 185, 129, 0.25);
+    color: rgba(16, 185, 129, 0.25);
+    font-size: 48px;
+    font-weight: bold;
+    padding: 8px 24px;
+    border-radius: 8px;
+    pointer-events: none;
+    letter-spacing: 6px;
+    z-index: 0;
+}
+
 /* 移动端适配 */
 @media (max-width: 768px) {
     .herbs-grid {
@@ -639,5 +963,48 @@
 
     .analysis-content {
         padding: 12px;
+    }
+
+    /* 医院处方移动端 */
+    .hospital-prescription {
+        margin: 12px 0;
+    }
+
+    .prescription-clinic-name {
+        font-size: 18px;
+        letter-spacing: 2px;
+    }
+
+    .prescription-patient-info {
+        flex-direction: column;
+        gap: 8px;
+        font-size: 13px;
+    }
+
+    .herb-table {
+        font-size: 12px;
+    }
+
+    .herb-table thead th:nth-child(4),
+    .herb-table tbody td:nth-child(4) {
+        display: none;
+    }
+
+    .prescription-footer {
+        flex-direction: column;
+        gap: 16px;
+        align-items: flex-start;
+    }
+
+    .prescription-footer .footer-right {
+        text-align: left;
+    }
+
+    .prescription-rx-symbol {
+        font-size: 24px;
+    }
+
+    .prescription-formula-name {
+        font-size: 14px;
     }
 }

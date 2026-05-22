@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>处方确认 - AI中医智能问诊</title>
+    <link rel="stylesheet" href="/static/css/prescription_styles.css?v=20260522001">
     <style>
         * {
             margin: 0;
@@ -518,6 +519,7 @@
         </div>
     </div>
 
+    <script src="/static/js/prescription_renderer.js?v=20260522001"></script>
     <script>
         // 全局变量
         let currentPrescription = null;
@@ -569,8 +571,13 @@
             // 更新状态徽章
             updateStatusBadge(prescription.status);
 
-            // 显示AI处方
-            document.getElementById('aiPrescription').textContent = prescription.ai_prescription;
+            // 显示AI处方（使用医院处方笺版式渲染）
+            const aiRxDiv = document.getElementById('aiPrescription');
+            if (window.prescriptionRenderer && prescription.ai_prescription) {
+                aiRxDiv.innerHTML = window.prescriptionRenderer.renderFullPrescription(prescription.ai_prescription);
+            } else {
+                aiRxDiv.textContent = prescription.ai_prescription;
+            }
 
             // 如果有医生审查信息，显示医生信息和处方
             if (prescription.doctor_name) {
@@ -618,7 +625,12 @@
                 // 显示医生处方（如果有调整）
                 if (prescription.doctor_prescription && prescription.doctor_prescription.trim()) {
                     document.getElementById('doctorPrescriptionSection').style.display = 'block';
-                    document.getElementById('doctorPrescription').textContent = prescription.doctor_prescription;
+                    const drRxDiv = document.getElementById('doctorPrescription');
+                    if (window.prescriptionRenderer) {
+                        drRxDiv.innerHTML = window.prescriptionRenderer.renderFullPrescription(prescription.doctor_prescription);
+                    } else {
+                        drRxDiv.textContent = prescription.doctor_prescription;
+                    }
                 }
 
                 // 显示医生备注

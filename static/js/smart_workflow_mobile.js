@@ -295,6 +295,16 @@
 
         container.appendChild(messageDiv);
 
+        // 自动朗读AI回复（与PC端对齐）
+        if (sender === 'ai') {
+            const autoSpeakCheckbox = document.getElementById('autoSpeak');
+            if (autoSpeakCheckbox && autoSpeakCheckbox.checked) {
+                if (typeof window.speakText === 'function') {
+                    window.speakText(content);
+                }
+            }
+        }
+
         // 为移动端保存原始内容用于支付后解锁
         if (sender === 'ai' && prescriptionId && content && window.prescriptionContentRenderer) {
             const messageTextEl = messageDiv.querySelector('.message-text');
@@ -354,6 +364,17 @@
                 alert('请先选择一位医师');
             }
             return;
+        }
+
+        // 状态管理集成：分析用户消息并更新状态
+        if (window.conversationStateManager) {
+            const analysis = window.conversationStateManager.analyzeMessage(message, false);
+            if (analysis.suggestedNextState) {
+                window.conversationStateManager.setState(
+                    analysis.suggestedNextState,
+                    `用户消息分析: ${analysis.isEndingMessage ? '结束意图' : '继续问诊'}`
+                );
+            }
         }
 
         // 添加用户消息
@@ -440,6 +461,26 @@
             console.log('移动端回复内容长度:', aiReply.length);
 
             if (aiReply) {
+                // 医疗安全检查（与PC端对齐）
+                if (typeof window.checkMedicalSafety === 'function') {
+                    const aiWarnings = window.checkMedicalSafety(aiReply);
+                    if (aiWarnings.length > 0) {
+                        if (typeof window.showMedicalWarnings === 'function') {
+                            window.showMedicalWarnings(aiWarnings);
+                        }
+                        aiWarnings.forEach(warning => {
+                            if (typeof window.logSecurityEvent === 'function') {
+                                window.logSecurityEvent(`ai_${warning.type}`, aiReply, warning);
+                            }
+                        });
+                    }
+                }
+
+                // 检查症状编造
+                if (typeof window.detectSymptomFabrication === 'function') {
+                    window.detectSymptomFabrication(message, aiReply);
+                }
+
                 const containsActualPrescription = window.containsPrescription ?
                     window.containsPrescription(aiReply) : false;
                 const isTemporaryAdvice = window.prescriptionContentRenderer ?
@@ -451,6 +492,17 @@
                 const isPaid = normalizedResponse.isPaid;
 
                 const needsPayment = containsActualPrescription && !isTemporaryAdvice && !isPaid;
+
+                // 状态管理集成：分析AI消息并更新状态
+                if (window.conversationStateManager) {
+                    const analysis = window.conversationStateManager.analyzeMessage(aiReply, true);
+                    if (analysis.suggestedNextState) {
+                        window.conversationStateManager.setState(
+                            analysis.suggestedNextState,
+                            `AI回复分析: ${analysis.containsPrescription ? '包含处方' : '普通回复'}`
+                        );
+                    }
+                }
 
                 console.log('移动端即将添加AI消息:', {
                     aiReply: aiReply.substring(0, 100) + '...',
@@ -1261,6 +1313,88 @@
     }
 
     /**
+     * 切换问诊指导显示（HTML中close按钮调用）
+     */
+    function toggleGuidance() {
+        const guidancePanel = document.getElementById('guidanceTips');
+        if (guidancePanel && guidancePanel.style.display !== 'none') {
+            hideGuidance();
+        } else {
+            showGuidance();
+        }
+    }
+
+    /**
+     * 移动端打开侧边栏（对话列表）
+     * PC端侧边栏在移动端通过全屏面板展示
+     */
+    function openMobileSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        if (!sidebar) {
+            // 如果找不到侧边栏，显示历史记录导航
+            if (window.showMobileNavigation) {
+                window.showMobileNavigation();
+            }
+            return;
+        }
+
+        // 创建移动端侧边栏覆盖层
+        const overlay = document.createElement('div');
+        overlay.className = 'mobile-sidebar-overlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;';
+        overlay.onclick = function() { overlay.remove(); };
+
+        const panel = document.createElement('div');
+        panel.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 85%;
+            max-width: 320px;
+            background: white;
+            z-index: 10001;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+            animation: slideInLeft 0.3s ease;
+        `;
+
+        // 复制侧边栏内容到移动端面板
+        const sidebarClone = sidebar.cloneNode(true);
+        sidebarClone.style.display = 'block';
+        sidebarClone.style.width = '100%';
+        sidebarClone.style.maxWidth = '100%';
+        sidebarClone.style.position = 'static';
+        sidebarClone.style.height = 'auto';
+        sidebarClone.style.overflow = 'visible';
+
+        panel.innerHTML = `
+            <style>
+                @keyframes slideInLeft {
+                    from { transform: translateX(-100%); }
+                    to { transform: translateX(0); }
+                }
+            </style>
+            <div style="padding:12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e5e7eb;background:#f8fafc;">
+                <span style="font-weight:600;color:#374151;">对话与工具</span>
+                <button onclick="this.closest('.mobile-sidebar-overlay').remove();" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280;">×</button>
+            </div>
+        `;
+
+        panel.appendChild(sidebarClone);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+
+        // 滑动关闭（从左边缘右滑）
+        let touchStartX = 0;
+        panel.addEventListener('touchstart', function(e) { touchStartX = e.touches[0].clientX; });
+        panel.addEventListener('touchmove', function(e) {
+            const deltaX = e.touches[0].clientX - touchStartX;
+            if (deltaX > 50) { overlay.remove(); }
+        });
+    }
+
+    /**
      * 创建问诊指导面板
      */
     function createGuidancePanel() {
@@ -1471,6 +1605,8 @@
     // 问诊指导与图片上传
     window.showGuidance = showGuidance;
     window.hideGuidance = hideGuidance;
+    window.toggleGuidance = toggleGuidance;
+    window.openMobileSidebar = openMobileSidebar;
     window.showMobileImageOptions = showMobileImageOptions;
     window.selectMobileImage = selectMobileImage;
 

@@ -1904,6 +1904,25 @@
     </div>
 
     <script>
+        // ========== 自动为所有 /api/admin/ 请求添加认证 header ==========
+        (function() {
+            const originalFetch = window.fetch;
+            window.fetch = function(url, options = {}) {
+                if (typeof url === 'string' && (url.startsWith('/api/admin/') || url.startsWith('/api/auth/'))) {
+                    const token = localStorage.getItem('session_token') ||
+                                  localStorage.getItem('adminToken') ||
+                                  localStorage.getItem('auth_token');
+                    if (token) {
+                        options.headers = {
+                            ...(options.headers || {}),
+                            'Authorization': 'Bearer ' + token
+                        };
+                    }
+                }
+                return originalFetch.call(window, url, options);
+            };
+        })();
+
         // 页面初始化
         document.addEventListener('DOMContentLoaded', function() {
             checkAdminAuth();

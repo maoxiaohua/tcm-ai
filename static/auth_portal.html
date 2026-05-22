@@ -1004,15 +1004,29 @@
         let emailCountdownSeconds = 0;
         let selectedRole = null;
 
-        // 页面初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            // 检查URL参数，自动切换到对应标签
+        // 页面初始化（处理 bfcache 恢复的情况，移动端尤其重要）
+        function initPage() {
+            // 重置当前 tab 状态：优先从 URL 参数恢复，否则回到默认 login
             const urlParams = new URLSearchParams(window.location.search);
             const tab = urlParams.get('tab');
             if (tab && ['login', 'register', 'roles', 'guest'].includes(tab)) {
                 switchTab(tab);
+            } else {
+                // 确保 UI 与 currentTab 一致
+                currentTab = 'login';
+                document.querySelectorAll('.tab-item').forEach((item, index) => {
+                    item.classList.toggle('active', index === 0);
+                });
+                document.querySelectorAll('.form-panel').forEach(panel => {
+                    panel.classList.toggle('active', panel.id === 'loginPanel');
+                });
             }
 
+            // 检查现有登录状态
+            checkLoginStatus();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
             // 绑定键盘事件
             document.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
@@ -1029,8 +1043,14 @@
             document.getElementById('loginUsername').addEventListener('input', clearMessages);
             document.getElementById('loginPassword').addEventListener('input', clearMessages);
 
-            // 检查现有登录状态
-            checkLoginStatus();
+            initPage();
+        });
+
+        // 移动端从 bfcache 恢复时 DOMContentLoaded 不触发，需要 pageshow 来重新初始化
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                initPage();
+            }
         });
 
         // 标签切换
