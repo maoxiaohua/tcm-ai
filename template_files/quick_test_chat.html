@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>快速测试问诊</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .form-group { margin: 15px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea, select { width: 100%; padding: 8px; font-size: 14px; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 20px; padding: 15px; background: #f8f9fa; border-left: 3px solid #007bff; white-space: pre-wrap; }
+        .error { border-left-color: red; color: red; }
+        .success { border-left-color: green; }
+    </style>
+</head>
+<body>
+    <h1>快速测试问诊功能</h1>
+    <p>这个页面用于测试问诊是否能正确保存到数据库</p>
+
+    <div class="form-group">
+        <label>用户ID:</label>
+        <input type="text" id="userId" value="maoxiaohua" placeholder="输入您的用户ID">
+    </div>
+
+    <div class="form-group">
+        <label>选择医生:</label>
+        <select id="doctor">
+            <option value="zhang_zhongjing">张仲景</option>
+            <option value="jin_daifu">金大夫</option>
+            <option value="ye_tianshi">叶天士</option>
+            <option value="li_dongyuan">李东垣</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>症状描述:</label>
+        <textarea id="message" rows="4" placeholder="描述您的症状...">头痛、失眠、食欲不振</textarea>
+    </div>
+
+    <button onclick="sendTestMessage()">发送测试消息</button>
+    <button onclick="checkHistory()" style="background: #28a745;">查看历史记录</button>
+
+    <div id="result" class="result" style="display:none;"></div>
+
+    <script>
+        let conversationId = 'test_conv_' + Date.now();
+
+        async function sendTestMessage() {
+            const userId = document.getElementById('userId').value;
+            const doctor = document.getElementById('doctor').value;
+            const message = document.getElementById('message').value;
+            const resultDiv = document.getElementById('result');
+
+            if (!userId || !message) {
+                alert('请填写用户ID和症状描述');
+                return;
+            }
+
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = '发送中...';
+
+            try {
+                const response = await fetch('/api/consultation/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: conversationId,
+                        selected_doctor: doctor,
+                        patient_id: userId,
+                        conversation_history: []
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `✅ 发送成功!\n\n医生回复:\n${data.data.reply}\n\n对话ID: ${conversationId}\n处理时间: ${data.data.processing_time}秒`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `❌ 发送失败: ${data.message}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ 请求失败: ${error.message}\n\n请检查:\n1. 服务是否正常运行\n2. 网络连接是否正常\n3. 浏览器Console是否有错误`;
+            }
+        }
+
+        async function checkHistory() {
+            const userId = document.getElementById('userId').value;
+            const resultDiv = document.getElementById('result');
+
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.innerHTML = '查询中...';
+
+            try {
+                const response = await fetch(`/api/consultation/patient/history?user_id=${userId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const history = data.data.consultation_history;
+                    if (history.length === 0) {
+                        resultDiv.className = 'result';
+                        resultDiv.innerHTML = `用户 ${userId} 暂无历史记录\n\n如果刚刚发送了消息但没有记录，说明前端发送有问题`;
+                    } else {
+                        resultDiv.className = 'result success';
+                        let html = `✅ 找到 ${history.length} 条历史记录:\n\n`;
+                        history.forEach((item, i) => {
+                            html += `\n${i+1}. ${item.doctor_name} - ${item.created_at}`;
+                            html += `\n   对话ID: ${item.consultation_id}`;
+                            html += `\n   消息数: ${item.total_messages}`;
+                            html += `\n   状态: ${item.consultation_status}\n`;
+                        });
+                        resultDiv.innerHTML = html;
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `❌ 查询失败: ${data.message}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `❌ 请求失败: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

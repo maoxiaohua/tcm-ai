@@ -1,0 +1,190 @@
+{
+    "metadata": {
+        "project": "TCM-AI",
+        "generated_at": "2025-10-29",
+        "total_routes": 28,
+        "total_endpoints": 168,
+        "description": "TCM-AI API\u63a5\u53e3\u5b8c\u6574\u6e05\u5355"
+    },
+    "statistics": {
+        "by_category": {
+            "\u8ba4\u8bc1\u4e0e\u7528\u6237\u7ba1\u7406": {
+                "modules": 4,
+                "endpoints": 23,
+                "routes": [
+                    "unified_auth_routes",
+                    "auth_routes",
+                    "unified_login_routes",
+                    "admin_routes"
+                ]
+            },
+            "\u95ee\u8bca\u4e0e\u5bf9\u8bdd\u7ba1\u7406": {
+                "modules": 3,
+                "endpoints": 20,
+                "routes": [
+                    "unified_consultation_routes",
+                    "conversation_sync_routes",
+                    "user_sessions_routes"
+                ]
+            },
+            "\u5904\u65b9\u7ba1\u7406": {
+                "modules": 4,
+                "endpoints": 25,
+                "routes": [
+                    "prescription_routes",
+                    "prescription_ai_routes",
+                    "prescription_review_routes",
+                    "prescription_structured_edit_routes"
+                ]
+            },
+            "\u533b\u751f\u76f8\u5173\u63a5\u53e3": {
+                "modules": 4,
+                "endpoints": 38,
+                "routes": [
+                    "doctor_routes",
+                    "doctor_decision_tree_routes",
+                    "doctor_matching_routes",
+                    "decision_tree_usage_routes"
+                ]
+            },
+            "\u75c7\u72b6\u5206\u6790": {
+                "modules": 1,
+                "endpoints": 5,
+                "routes": [
+                    "symptom_analysis_routes"
+                ]
+            },
+            "\u652f\u4ed8\u4e0e\u4ee3\u714e": {
+                "modules": 2,
+                "endpoints": 15,
+                "routes": [
+                    "payment_routes",
+                    "decoction_routes"
+                ]
+            },
+            "\u8bc4\u4ef7\u4e0e\u53cd\u9988": {
+                "modules": 1,
+                "endpoints": 8,
+                "routes": [
+                    "review_routes"
+                ]
+            },
+            "\u6570\u636e\u540c\u6b65\u4e0e\u5907\u4efd": {
+                "modules": 2,
+                "endpoints": 12,
+                "routes": [
+                    "user_data_sync_routes",
+                    "data_migration_routes"
+                ]
+            },
+            "\u7cfb\u7edf\u7ba1\u7406": {
+                "modules": 5,
+                "endpoints": 22,
+                "routes": [
+                    "admin_routes",
+                    "security_routes",
+                    "session_routes",
+                    "database_management_routes",
+                    "websocket_sync_routes"
+                ]
+            }
+        },
+        "by_method": {
+            "GET": 78,
+            "POST": 61,
+            "PUT": 18,
+            "DELETE": 11,
+            "PATCH": 0
+        }
+    },
+    "critical_endpoints": {
+        "authentication": [
+            {
+                "endpoint": "/api/v2/auth/login",
+                "method": "POST",
+                "required_auth": false,
+                "importance": "critical"
+            },
+            {
+                "endpoint": "/api/auth/login",
+                "method": "POST",
+                "required_auth": false,
+                "importance": "critical"
+            }
+        ],
+        "consultation": [
+            {
+                "endpoint": "/api/consultation/chat",
+                "method": "POST",
+                "required_auth": false,
+                "importance": "critical"
+            },
+            {
+                "endpoint": "/api/consultation/service-status",
+                "method": "GET",
+                "required_auth": false,
+                "importance": "high"
+            }
+        ],
+        "prescription": [
+            {
+                "endpoint": "/api/prescription/create",
+                "method": "POST",
+                "required_auth": false,
+                "importance": "critical"
+            },
+            {
+                "endpoint": "/api/doctor/prescription/{prescription_id}/review",
+                "method": "PUT",
+                "required_auth": true,
+                "importance": "critical"
+            }
+        ],
+        "doctor": [
+            {
+                "endpoint": "/api/doctor/list",
+                "method": "GET",
+                "required_auth": false,
+                "importance": "high"
+            },
+            {
+                "endpoint": "/api/doctor/pending-prescriptions",
+                "method": "GET",
+                "required_auth": true,
+                "importance": "high"
+            }
+        ]
+    },
+    "authentication_patterns": {
+        "header_auth": {
+            "pattern": "Authorization: Bearer <session_id>",
+            "endpoints_using": 45
+        },
+        "cookie_auth": {
+            "pattern": "session_token=<token>",
+            "endpoints_using": 12
+        },
+        "query_param": {
+            "pattern": "?token=<session_id>",
+            "endpoints_using": 8
+        }
+    },
+    "response_patterns": {
+        "standard_success": {
+            "success": true,
+            "message": "string",
+            "data": "any"
+        },
+        "standard_error": {
+            "success": false,
+            "message": "string",
+            "error": "string"
+        }
+    },
+    "consistency_checks": {
+        "duplicate_routes": [],
+        "conflicting_paths": [],
+        "missing_health_check": false,
+        "response_format_compliance": "95%"
+    }
+}

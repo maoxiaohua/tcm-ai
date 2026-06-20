@@ -1,0 +1,203 @@
+INFO:faiss.loader:Loading faiss with AVX2 support.
+INFO:faiss.loader:Successfully loaded faiss with AVX2 support.
+INFO:core.cache_system.intelligent_cache_system:缓存数据库初始化完成
+INFO:core.cache_system.intelligent_cache_system:智能缓存系统初始化完成
+INFO:services.user_history_system:数据库表结构初始化完成（包含手机验证支持）
+INFO:services.user_history_system:用户历史系统初始化完成
+INFO:__main__:Attempted to load environment variables from .env file.
+INFO:__main__:DashScope API Key is set.
+INFO:services.personalized_learning:Learning database initialized successfully
+INFO:__main__:Enhanced retrieval, persona and learning systems initialized successfully
+INFO:database.postgresql_knowledge_interface:PostgreSQL医生专用知识库接口初始化成功
+INFO:database.postgresql_knowledge_interface:混合知识库系统初始化: PostgreSQL=可用, FAISS=可用
+INFO:__main__:PostgreSQL hybrid knowledge system initialized successfully
+INFO:core.doctor_system.doctor_thinking_patterns:数据库文件不存在，创建新数据库
+INFO:core.doctor_system.doctor_mind_integration:增强个性化治疗生成器初始化完成
+INFO:__main__:Doctor mind decision tree system initialized successfully
+INFO:api.security_integration:Setting up security system...
+INFO:api.security_integration:Security system setup completed
+INFO:__main__:Security system activated
+INFO:__main__:使用阿里云qwen大模型，Agent系统已移除
+INFO:     Started server process [2341335]
+INFO:     Waiting for application startup.
+INFO:__main__:Application startup: Initializing online-only resources...
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:core.security.rbac_system:Created session for user anonymous with role anonymous
+INFO:api.routes.doctor_decision_tree_routes:请求智能生成决策树: 腰痛
+INFO:core.security.rbac_system:Created session for user anonymous with role anonymous
+INFO:api.routes.doctor_decision_tree_routes:请求智能生成决策树: 腰痛
+INFO:core.security.rbac_system:Created session for user anonymous with role anonymous
+INFO:api.routes.doctor_decision_tree_routes:请求智能生成决策树: 腰痛
+INFO:core.security.rbac_system:Created session for user anonymous with role anonymous
+INFO:api.routes.doctor_decision_tree_routes:请求智能生成决策树: 腰痛
+INFO:core.security.rbac_system:Created session for user anonymous with role anonymous
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:__main__:Application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2341335]
+✅ AI功能已启用，模型: qwen-max
+✅ 学习数据库设置完成
+警告: 模糊药材提取器不可用
+Zhang Zhongjing decision system not available: No module named 'zhang_zhongjing_decision_system'
+📡 API路由调试:
+  - 疾病名称: 腰痛
+  - 思维过程长度: 322
+  - use_ai设为None，将自动判断
+  - 调用doctor_learning_system.generate_decision_paths...
+🔍 AI决策判断调试:
+  - use_ai参数: True
+  - self.ai_enabled: True
+  - thinking_process长度: 322
+  - 最终使用AI: True
+🔍 AI生成条件检查:
+  - use_ai: True (类型: <class 'bool'>)
+  - self.ai_enabled: True (类型: <class 'bool'>)
+  - thinking_process.strip(): '患者，男，45岁，腰痛3个月。
+    
+    我的诊疗分析：
+    1. 主症：腰部冷痛，遇寒加重，喜温喜按
+    2. 兼症：畏寒肢冷，夜尿频多，精神疲倦
+    3. 舌象：舌质淡胖，苔白润
+    4. 脉象：脉沉细无力
+    
+    我的证型判断：肾阳虚证
+    我的治法：温补肾阳，强腰止痛
+    我的处方：右归丸加减
+    - 熟地黄20g（君药，补肾填精）
+    - 肉桂6g（臣药，温肾助阳）
+    - 附子10g（佐药，回阳救逆）
+    - 山药15g（补脾肾）
+    - 杜仲15g（强腰膝）
+    - 当归12g（补血活血）
+    
+    希望AI助手帮我验证这个诊疗思路的完整性和合理性。' (长度: 322)
+  - bool(thinking_process.strip()): True
+  - 综合条件: 患者，男，45岁，腰痛3个月。
+    
+    我的诊疗分析：
+    1. 主症：腰部冷痛，遇寒加重，喜温喜按
+    2. 兼症：畏寒肢冷，夜尿频多，精神疲倦
+    3. 舌象：舌质淡胖，苔白润
+    4. 脉象：脉沉细无力
+    
+    我的证型判断：肾阳虚证
+    我的治法：温补肾阳，强腰止痛
+    我的处方：右归丸加减
+    - 熟地黄20g（君药，补肾填精）
+    - 肉桂6g（臣药，温肾助阳）
+    - 附子10g（佐药，回阳救逆）
+    - 山药15g（补脾肾）
+    - 杜仲15g（强腰膝）
+    - 当归12g（补血活血）
+    
+    希望AI助手帮我验证这个诊疗思路的完整性和合理性。
+🤖 使用AI智能生成: 腰痛
+❌ 决策路径生成失败: name 'medical_syndrome' is not defined
+📡 API路由返回结果:
+  - source: template_fallback
+  - ai_generated: True
+  - user_thinking_used: True
+📡 API路由调试:
+  - 疾病名称: 腰痛
+  - 思维过程长度: 322
+  - use_ai设为None，将自动判断
+  - 调用doctor_learning_system.generate_decision_paths...
+🔍 AI决策判断调试:
+  - use_ai参数: True
+  - self.ai_enabled: True
+  - thinking_process长度: 322
+  - 最终使用AI: True
+🔍 AI生成条件检查:
+  - use_ai: True (类型: <class 'bool'>)
+  - self.ai_enabled: True (类型: <class 'bool'>)
+  - thinking_process.strip(): '患者，男，45岁，腰痛3个月。
+    
+    我的诊疗分析：
+    1. 主症：腰部冷痛，遇寒加重，喜温喜按
+    2. 兼症：畏寒肢冷，夜尿频多，精神疲倦
+    3. 舌象：舌质淡胖，苔白润
+    4. 脉象：脉沉细无力
+    
+    我的证型判断：肾阳虚证
+    我的治法：温补肾阳，强腰止痛
+    我的处方：右归丸加减
+    - 熟地黄20g（君药，补肾填精）
+    - 肉桂6g（臣药，温肾助阳）
+    - 附子10g（佐药，回阳救逆）
+    - 山药15g（补脾肾）
+    - 杜仲15g（强腰膝）
+    - 当归12g（补血活血）
+    
+    希望AI助手帮我验证这个诊疗思路的完整性和合理性。' (长度: 322)
+  - bool(thinking_process.strip()): True
+  - 综合条件: 患者，男，45岁，腰痛3个月。
+    
+    我的诊疗分析：
+    1. 主症：腰部冷痛，遇寒加重，喜温喜按
+    2. 兼症：畏寒肢冷，夜尿频多，精神疲倦
+    3. 舌象：舌质淡胖，苔白润
+    4. 脉象：脉沉细无力
+    
+    我的证型判断：肾阳虚证
+    我的治法：温补肾阳，强腰止痛
+    我的处方：右归丸加减
+    - 熟地黄20g（君药，补肾填精）
+    - 肉桂6g（臣药，温肾助阳）
+    - 附子10g（佐药，回阳救逆）
+    - 山药15g（补脾肾）
+    - 杜仲15g（强腰膝）
+    - 当归12g（补血活血）
+    
+    希望AI助手帮我验证这个诊疗思路的完整性和合理性。
+🤖 使用AI智能生成: 腰痛
+❌ 决策路径生成失败: name 'medical_syndrome' is not defined
+📡 API路由返回结果:
+  - source: template_fallback
+  - ai_generated: True
+  - user_thinking_used: True
+📡 API路由调试:
+  - 疾病名称: 腰痛
+  - 思维过程长度: 39
+  - use_ai设为None，将自动判断
+  - 调用doctor_learning_system.generate_decision_paths...
+🔍 AI决策判断调试:
+  - use_ai参数: True
+  - self.ai_enabled: True
+  - thinking_process长度: 39
+  - 最终使用AI: True
+🔍 AI生成条件检查:
+  - use_ai: True (类型: <class 'bool'>)
+  - self.ai_enabled: True (类型: <class 'bool'>)
+  - thinking_process.strip(): '患者腰痛，肾阳虚证。右归丸加减：熟地黄20g，肉桂6g，附子10g。温补肾阳。' (长度: 39)
+  - bool(thinking_process.strip()): True
+  - 综合条件: 患者腰痛，肾阳虚证。右归丸加减：熟地黄20g，肉桂6g，附子10g。温补肾阳。
+🤖 使用AI智能生成: 腰痛
+❌ 决策路径生成失败: name 'medical_syndrome' is not defined
+📡 API路由返回结果:
+  - source: template_fallback
+  - ai_generated: True
+  - user_thinking_used: True
+📡 API路由调试:
+  - 疾病名称: 腰痛
+  - 思维过程长度: 39
+  - use_ai设为None，将自动判断
+  - 调用doctor_learning_system.generate_decision_paths...
+🔍 AI决策判断调试:
+  - use_ai参数: True
+  - self.ai_enabled: True
+  - thinking_process长度: 39
+  - 最终使用AI: True
+🔍 AI生成条件检查:
+  - use_ai: True (类型: <class 'bool'>)
+  - self.ai_enabled: True (类型: <class 'bool'>)
+  - thinking_process.strip(): '患者腰痛，肾阳虚证。右归丸加减：熟地黄20g，肉桂6g，附子10g。温补肾阳。' (长度: 39)
+  - bool(thinking_process.strip()): True
+  - 综合条件: 患者腰痛，肾阳虚证。右归丸加减：熟地黄20g，肉桂6g，附子10g。温补肾阳。
+🤖 使用AI智能生成: 腰痛
+❌ 决策路径生成失败: name 'medical_syndrome' is not defined
+📡 API路由返回结果:
+  - source: template_fallback
+  - ai_generated: True
+  - user_thinking_used: True

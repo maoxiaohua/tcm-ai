@@ -1,0 +1,4 @@
+ERROR:core.symptom_database.symptom_relation_service:数据库初始化失败: [Errno 2] No such file or directory: 'database/migrations/003_create_symptom_database.sql'
+INFO:core.conversation.conversation_state_manager:对话状态数据库初始化完成
+INFO:faiss.loader:Loading faiss with AVX2 support.
+INFO:faiss.loader:Successfully loaded faiss with AVX2 support.

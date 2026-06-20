@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>处方状态完整测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1 { color: #667eea; margin-bottom: 10px; }
+        .section {
+            margin: 25px 0;
+            padding: 20px;
+            border: 2px solid #e1e8f0;
+            border-radius: 8px;
+            background: #f8f9ff;
+        }
+        .test-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .test-btn:hover { background: #5568d3; }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: #ffffff;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { border-left-color: #10b981; background: #ecfdf5; }
+        .error { border-left-color: #ef4444; background: #fef2f2; }
+        .info { border-left-color: #3b82f6; background: #eff6ff; }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            margin: 5px;
+            font-size: 13px;
+        }
+        .badge-approved { background: #d1fae5; color: #059669; }
+        .badge-pending { background: #fef3c7; color: #d97706; }
+        .badge-rejected { background: #fee2e2; color: #dc2626; }
+        input[type="number"] { padding: 8px; width: 150px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 处方状态完整测试工具</h1>
+        <p style="color: #666;">测试用户: maoxiaohua (usr_20250920_5741e17a78e8) | 处方ID: 146</p>
+
+        <!-- 测试1: 数据库状态 -->
+        <div class="section">
+            <h3>📊 测试1: 数据库状态</h3>
+            <p>处方ID: <input type="number" id="prescriptionId" value="146"></p>
+            <button class="test-btn" onclick="testDatabaseStatus()">检查数据库状态</button>
+            <div id="dbResult" class="result" style="display:none;"></div>
+        </div>
+
+        <!-- 测试2: API响应 -->
+        <div class="section">
+            <h3>🌐 测试2: API响应</h3>
+            <button class="test-btn" onclick="testAPIResponse()">测试 /api/prescription-review/status</button>
+            <button class="test-btn" onclick="testConsultationDetail()">测试 /api/consultation/detail</button>
+            <button class="test-btn" onclick="testPatientHistory()">测试 /api/consultation/patient/history</button>
+            <div id="apiResult" class="result" style="display:none;"></div>
+        </div>
+
+        <!-- 测试3: LocalStorage状态 -->
+        <div class="section">
+            <h3>💾 测试3: LocalStorage状态</h3>
+            <button class="test-btn" onclick="checkLocalStorage()">检查localStorage</button>
+            <button class="test-btn" onclick="clearLocalStorage()" style="background: #ef4444;">清除错误状态</button>
+            <div id="storageResult" class="result" style="display:none;"></div>
+        </div>
+
+        <!-- 测试4: 前端状态判断逻辑 -->
+        <div class="section">
+            <h3>🎯 测试4: 状态判断模拟</h3>
+            <p>模拟前端如何判断处方状态</p>
+            <button class="test-btn" onclick="simulateStatusLogic()">模拟状态判断</button>
+            <div id="logicResult" class="result" style="display:none;"></div>
+        </div>
+
+        <!-- 测试5: 完整流程验证 -->
+        <div class="section">
+            <h3>✅ 测试5: 端到端验证</h3>
+            <button class="test-btn" onclick="runFullTest()">运行完整测试</button>
+            <div id="fullTestResult" class="result" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const userId = 'usr_20250920_5741e17a78e8';
+        const consultationId = '88ff-e1d7-4714-9420-ccc1';
+
+        async function testDatabaseStatus() {
+            const prescriptionId = document.getElementById('prescriptionId').value;
+            const resultDiv = document.getElementById('dbResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在查询数据库...';
+
+            try {
+                const response = await fetch(`/api/prescription-review/status/${prescriptionId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const status = data.data;
+                    let result = `✅ 数据库状态查询成功\n\n`;
+                    result += `处方ID: ${status.prescription_id}\n`;
+                    result += `状态 (status): ${status.status}\n`;
+                    result += `审核状态描述: ${status.status_description}\n`;
+                    result += `支付状态 (payment_status): ${status.payment_status}\n`;
+                    result += `是否已审核 (is_reviewed): ${status.is_reviewed}\n`;
+                    result += `是否有修改 (is_modified): ${status.is_modified}\n`;
+                    result += `审核时间: ${status.reviewed_at || '未审核'}\n`;
+                    result += `提交时间: ${status.submitted_at || '未提交'}\n\n`;
+
+                    // 判断状态
+                    if (status.status === 'doctor_approved' && status.is_reviewed === true) {
+                        result += `\n✅ 状态正确: 医生已审核通过\n`;
+                        result += `应显示: "医生审核完成，可以配药"\n`;
+                        resultDiv.className = 'result success';
+                    } else if (status.status === 'pending_review') {
+                        result += `\n⏳ 状态: 等待医生审核\n`;
+                        resultDiv.className = 'result';
+                    } else {
+                        result += `\n⚠️ 状态异常: ${status.status}\n`;
+                        resultDiv.className = 'result error';
+                    }
+
+                    result += `\n处方内容长度: ${status.final_prescription ? status.final_prescription.length : 0} 字符`;
+                    resultDiv.textContent = result;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ 查询失败: ${data.message}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 请求失败: ${error.message}`;
+            }
+        }
+
+        async function testAPIResponse() {
+            const prescriptionId = document.getElementById('prescriptionId').value;
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在测试API...';
+
+            try {
+                const response = await fetch(`/api/prescription-review/status/${prescriptionId}`);
+                const data = await response.json();
+
+                let result = `API: /api/prescription-review/status/${prescriptionId}\n\n`;
+                result += `响应状态码: ${response.status}\n`;
+                result += `success: ${data.success}\n\n`;
+
+                if (data.success) {
+                    result += `返回数据结构:\n`;
+                    result += JSON.stringify(data.data, null, 2);
+                    resultDiv.className = 'result success';
+                } else {
+                    result += `错误: ${data.message}`;
+                    resultDiv.className = 'result error';
+                }
+
+                resultDiv.textContent = result;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ API请求失败: ${error.message}`;
+            }
+        }
+
+        async function testConsultationDetail() {
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在查询问诊详情...';
+
+            try {
+                const response = await fetch(`/api/consultation/detail/${consultationId}`);
+                const data = await response.json();
+
+                let result = `API: /api/consultation/detail/${consultationId}\n\n`;
+                result += `success: ${data.success}\n\n`;
+
+                if (data.success && data.data.prescription_info) {
+                    const prescInfo = data.data.prescription_info;
+                    result += `处方信息:\n`;
+                    result += `- prescription_id: ${prescInfo.prescription_id}\n`;
+                    result += `- status: ${prescInfo.status}\n`;
+                    result += `- review_status: ${prescInfo.review_status}\n`;
+                    result += `- payment_status: ${prescInfo.payment_status}\n`;
+                    result += `- is_visible: ${prescInfo.is_visible}\n`;
+                    result += `- display_text 长度: ${prescInfo.display_text ? prescInfo.display_text.length : 0}\n\n`;
+
+                    if (prescInfo.status === 'doctor_approved' && prescInfo.review_status === 'approved') {
+                        result += `✅ 问诊详情API返回正确状态\n`;
+                        resultDiv.className = 'result success';
+                    } else {
+                        result += `⚠️ 状态可能有误\n`;
+                        resultDiv.className = 'result';
+                    }
+                } else {
+                    result += `❌ 没有处方信息`;
+                    resultDiv.className = 'result error';
+                }
+
+                resultDiv.textContent = result;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 请求失败: ${error.message}`;
+            }
+        }
+
+        async function testPatientHistory() {
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在查询患者历史...';
+
+            try {
+                const response = await fetch(`/api/consultation/patient/history?user_id=${userId}`);
+                const data = await response.json();
+
+                let result = `API: /api/consultation/patient/history\n\n`;
+                result += `success: ${data.success}\n`;
+                result += `总记录数: ${data.data.total_count}\n\n`;
+
+                const targetConsultation = data.data.consultation_history.find(c => c.consultation_id === consultationId);
+                if (targetConsultation) {
+                    result += `找到目标问诊:\n`;
+                    result += `- consultation_id: ${targetConsultation.consultation_id}\n`;
+                    result += `- has_prescription: ${targetConsultation.has_prescription}\n`;
+
+                    if (targetConsultation.prescription_info) {
+                        const prescInfo = targetConsultation.prescription_info;
+                        result += `\n处方信息:\n`;
+                        result += `- prescription_id: ${prescInfo.prescription_id}\n`;
+                        result += `- status: ${prescInfo.status}\n`;
+                        result += `- review_status: ${prescInfo.review_status}\n`;
+                        result += `- display_text: "${prescInfo.display_text.substring(0, 50)}..."\n\n`;
+
+                        if (prescInfo.status === 'doctor_approved' && prescInfo.review_status === 'approved') {
+                            result += `✅ 历史记录API返回正确状态\n`;
+                            resultDiv.className = 'result success';
+                        } else {
+                            result += `⚠️ 状态有误: status=${prescInfo.status}, review_status=${prescInfo.review_status}\n`;
+                            resultDiv.className = 'result error';
+                        }
+                    }
+                } else {
+                    result += `❌ 未找到目标问诊`;
+                    resultDiv.className = 'result error';
+                }
+
+                resultDiv.textContent = result;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 请求失败: ${error.message}`;
+            }
+        }
+
+        function checkLocalStorage() {
+            const resultDiv = document.getElementById('storageResult');
+            resultDiv.style.display = 'block';
+
+            const storageKey = `prescription_status_${userId}`;
+            const storedData = localStorage.getItem(storageKey);
+
+            let result = `🔍 检查 localStorage:\n`;
+            result += `Key: ${storageKey}\n\n`;
+
+            if (storedData) {
+                try {
+                    const data = JSON.parse(storedData);
+                    result += `存储的数据:\n`;
+                    result += JSON.stringify(data, null, 2);
+
+                    const prescriptionId = document.getElementById('prescriptionId').value;
+                    if (data[prescriptionId]) {
+                        result += `\n\n处方 ${prescriptionId} 的状态: ${data[prescriptionId].status}\n`;
+                        if (data[prescriptionId].status === 'pending_review') {
+                            result += `\n⚠️ localStorage存储了错误的 pending_review 状态！`;
+                            result += `\n这会导致前端显示错误。`;
+                            resultDiv.className = 'result error';
+                        } else if (data[prescriptionId].status === 'approved') {
+                            result += `\n✅ localStorage状态正确`;
+                            resultDiv.className = 'result success';
+                        }
+                    } else {
+                        result += `\n\n⚠️ localStorage中没有处方 ${prescriptionId} 的状态`;
+                        resultDiv.className = 'result';
+                    }
+                } catch (e) {
+                    result += `\n❌ 解析失败: ${e.message}`;
+                    resultDiv.className = 'result error';
+                }
+            } else {
+                result += `localStorage为空`;
+                resultDiv.className = 'result';
+            }
+
+            resultDiv.textContent = result;
+        }
+
+        function clearLocalStorage() {
+            const storageKey = `prescription_status_${userId}`;
+            const prescriptionId = document.getElementById('prescriptionId').value;
+
+            try {
+                const storedData = localStorage.getItem(storageKey);
+                if (storedData) {
+                    const data = JSON.parse(storedData);
+                    if (data[prescriptionId]) {
+                        delete data[prescriptionId];
+                        localStorage.setItem(storageKey, JSON.stringify(data));
+
+                        const resultDiv = document.getElementById('storageResult');
+                        resultDiv.style.display = 'block';
+                        resultDiv.className = 'result success';
+                        resultDiv.textContent = `✅ 已清除处方 ${prescriptionId} 的localStorage状态\n\n请刷新患者前端页面查看效果`;
+                    } else {
+                        alert('localStorage中没有该处方的状态');
+                    }
+                } else {
+                    alert('localStorage为空');
+                }
+            } catch (e) {
+                alert('清除失败: ' + e.message);
+            }
+        }
+
+        async function simulateStatusLogic() {
+            const resultDiv = document.getElementById('logicResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在模拟前端逻辑...';
+
+            try {
+                const prescriptionId = document.getElementById('prescriptionId').value;
+                const response = await fetch(`/api/prescription-review/status/${prescriptionId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const statusData = result.data;
+                    let output = `模拟前端状态判断:\n\n`;
+                    output += `从API获取的数据:\n`;
+                    output += `- status: "${statusData.status}"\n`;
+                    output += `- is_reviewed: ${statusData.is_reviewed}\n`;
+                    output += `- payment_status: "${statusData.payment_status}"\n\n`;
+
+                    output += `前端判断逻辑:\n`;
+                    output += `-`.repeat(50) + `\n`;
+
+                    if (statusData.is_reviewed === true && statusData.status === 'doctor_approved') {
+                        output += `✅ 条件匹配: is_reviewed === true && status === 'doctor_approved'\n`;
+                        output += `\n应该显示:\n`;
+                        output += `  标题: "医生审核通过"\n`;
+                        output += `  图标: ✅\n`;
+                        output += `  内容: 完整处方详情\n`;
+                        output += `  提示: "医生审核已完成，您可以凭此处方配药"\n`;
+                        resultDiv.className = 'result success';
+                    } else if (statusData.status === 'pending_review') {
+                        output += `⏳ 条件匹配: status === 'pending_review'\n`;
+                        output += `\n应该显示:\n`;
+                        output += `  标题: "处方正在医生审核中"\n`;
+                        output += `  图标: ⏳\n`;
+                        output += `  提示: "请耐心等待医生审核"\n`;
+                        resultDiv.className = 'result';
+                    } else {
+                        output += `⚠️ 未匹配任何条件\n`;
+                        output += `当前状态: ${statusData.status}\n`;
+                        output += `is_reviewed: ${statusData.is_reviewed}\n`;
+                        resultDiv.className = 'result error';
+                    }
+
+                    resultDiv.textContent = output;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ 获取状态失败: ${result.message}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 模拟失败: ${error.message}`;
+            }
+        }
+
+        async function runFullTest() {
+            const resultDiv = document.getElementById('fullTestResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在运行完整测试...';
+
+            let report = `🔍 完整测试报告\n`;
+            report += `=`.repeat(60) + `\n\n`;
+
+            try {
+                const prescriptionId = document.getElementById('prescriptionId').value;
+
+                // 测试1: 数据库状态
+                report += `[1/4] 测试数据库状态...\n`;
+                const apiResponse = await fetch(`/api/prescription-review/status/${prescriptionId}`);
+                const apiData = await apiResponse.json();
+
+                if (apiData.success && apiData.data.status === 'doctor_approved' && apiData.data.is_reviewed === true) {
+                    report += `  ✅ 数据库状态正确\n`;
+                } else {
+                    report += `  ❌ 数据库状态错误: ${apiData.data.status}\n`;
+                    resultDiv.className = 'result error';
+                }
+
+                // 测试2: 问诊详情API
+                report += `\n[2/4] 测试问诊详情API...\n`;
+                const detailResponse = await fetch(`/api/consultation/detail/${consultationId}`);
+                const detailData = await detailResponse.json();
+
+                if (detailData.success && detailData.data.prescription_info && detailData.data.prescription_info.status === 'doctor_approved') {
+                    report += `  ✅ 问诊详情API返回正确\n`;
+                } else {
+                    report += `  ❌ 问诊详情API返回错误\n`;
+                    resultDiv.className = 'result error';
+                }
+
+                // 测试3: 历史记录API
+                report += `\n[3/4] 测试历史记录API...\n`;
+                const historyResponse = await fetch(`/api/consultation/patient/history?user_id=${userId}`);
+                const historyData = await historyResponse.json();
+
+                const targetConsultation = historyData.data.consultation_history.find(c => c.consultation_id === consultationId);
+                if (targetConsultation && targetConsultation.prescription_info && targetConsultation.prescription_info.status === 'doctor_approved') {
+                    report += `  ✅ 历史记录API返回正确\n`;
+                } else {
+                    report += `  ❌ 历史记录API返回错误或未找到\n`;
+                    resultDiv.className = 'result error';
+                }
+
+                // 测试4: LocalStorage检查
+                report += `\n[4/4] 检查localStorage...\n`;
+                const storageKey = `prescription_status_${userId}`;
+                const storedData = localStorage.getItem(storageKey);
+                if (storedData) {
+                    const data = JSON.parse(storedData);
+                    if (data[prescriptionId]) {
+                        if (data[prescriptionId].status === 'pending_review') {
+                            report += `  ⚠️ localStorage存储了错误的 pending_review 状态\n`;
+                            report += `  建议: 清除localStorage缓存\n`;
+                            resultDiv.className = 'result error';
+                        } else if (data[prescriptionId].status === 'approved') {
+                            report += `  ✅ localStorage状态正确\n`;
+                        }
+                    } else {
+                        report += `  ℹ️ localStorage中没有该处方状态\n`;
+                    }
+                } else {
+                    report += `  ℹ️ localStorage为空\n`;
+                }
+
+                report += `\n` + `=`.repeat(60) + `\n`;
+                report += `\n总结:\n`;
+                if (resultDiv.className === 'result error') {
+                    report += `❌ 测试发现问题，请查看上面的错误详情\n`;
+                } else {
+                    report += `✅ 所有测试通过！\n`;
+                    resultDiv.className = 'result success';
+                }
+
+                report += `\n建议操作:\n`;
+                report += `1. 如果localStorage有错误状态，点击"清除错误状态"按钮\n`;
+                report += `2. 刷新患者前端页面\n`;
+                report += `3. 查看处方状态是否正确显示\n`;
+
+            } catch (error) {
+                report += `\n❌ 测试过程出错: ${error.message}\n`;
+                resultDiv.className = 'result error';
+            }
+
+            resultDiv.textContent = report;
+        }
+
+        // 页面加载时自动运行完整测试
+        window.addEventListener('load', function() {
+            console.log('页面已加载，可以开始测试');
+        });
+    </script>
+</body>
+</html>

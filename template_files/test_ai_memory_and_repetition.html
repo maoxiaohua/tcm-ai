@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI记忆力和重复问询测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        
+        .test-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .test-title {
+            color: #2d5aa0;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .conversation-simulator {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .user-message {
+            background: #e0f2fe;
+            border-left: 4px solid #0ea5e9;
+        }
+        
+        .ai-message {
+            background: #f0fdf4;
+            border-left: 4px solid #22c55e;
+        }
+        
+        .expected-message {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .test-button {
+            background: linear-gradient(135deg, #2d5aa0, #4a7bc8);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        
+        .test-result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        
+        .test-pass {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .test-fail {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .analysis {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-title">🧠 AI记忆力和重复问询测试</div>
+        <p><strong>测试目标:</strong> 验证AI是否能记住对话历史，避免重复问询已经回答过的问题。</p>
+        
+        <div class="test-controls">
+            <button class="test-button" onclick="runMemoryTest()">运行记忆力测试</button>
+            <button class="test-button" onclick="runRepetitionTest()">运行重复问询测试</button>
+            <button class="test-button" onclick="runFullScenarioTest()">完整场景测试</button>
+            <button class="test-button" onclick="clearResults()">清空结果</button>
+        </div>
+    </div>
+    
+    <div id="testResults"></div>
+
+    <script>
+        // 模拟对话历史构建器
+        class ConversationBuilder {
+            constructor() {
+                this.history = [];
+                this.conversationId = 'test_' + Date.now();
+            }
+            
+            addUserMessage(content) {
+                this.history.push({
+                    role: 'user',
+                    content: content
+                });
+                return this;
+            }
+            
+            addAIMessage(content) {
+                this.history.push({
+                    role: 'assistant', 
+                    content: content
+                });
+                return this;
+            }
+            
+            getHistory() {
+                return [...this.history];
+            }
+            
+            clear() {
+                this.history = [];
+                return this;
+            }
+        }
+        
+        // 测试用例
+        const testScenarios = [
+            {
+                id: 'basic_memory',
+                title: '基础记忆测试',
+                description: '测试AI是否能记住患者已经提供的基本信息',
+                setup: () => {
+                    return new ConversationBuilder()
+                        .addAIMessage('您好！我是朱丹溪，请详细描述您的症状。')
+                        .addUserMessage('女孩子8岁，肚脐周围疼，隐痛。喝完水就会疼，疼5分钟以内会自行缓解。有便秘，大便干硬。偶尔便血，是痔疮。舌苔薄白，淡红。')
+                        .addAIMessage('根据您的描述，这是典型的阴虚肠燥证。我为您开具处方...')
+                        .addUserMessage('疼痛是和喝水有关，喝完过几秒就会疼持续4-5分钟。便血鲜红，量有时候多有时候少，频率不高。有食欲不佳，长期便秘史。舌苔薄白淡红。');
+                },
+                expectedBehavior: '应该基于已有信息进行深入分析，不应该再问年龄、症状、便血情况、舌象等已知信息',
+                prohibitedQuestions: [
+                    '年龄',
+                    '疼痛部位',
+                    '疼痛性质', 
+                    '便血颜色',
+                    '舌苔颜色',
+                    '大便干硬情况'
+                ]
+            },
+            
+            {
+                id: 'repetition_detection',
+                title: '重复问询检测',
+                description: '专门测试AI是否会重复问已经回答过的问题',
+                setup: () => {
+                    return new ConversationBuilder()
+                        .addAIMessage('请描述您的症状')
+                        .addUserMessage('头痛，位置在太阳穴，胀痛，持续3天了。伴有恶心。睡眠不好，食欲正常。舌苔薄白，舌质淡红。没有发热。')
+                        .addAIMessage('根据您的症状，考虑肝阳上亢。请问头痛的具体位置在哪里？疼痛性质如何？是否伴有恶心？')
+                        .addUserMessage('我刚才已经说了，头痛在太阳穴，是胀痛，有恶心。');
+                },
+                expectedBehavior: 'AI应该意识到自己重复问询了，道歉并基于已有信息继续分析',
+                prohibitedQuestions: [
+                    '头痛位置',
+                    '疼痛性质',
+                    '是否恶心',
+                    '舌象颜色'
+                ]
+            },
+            
+            {
+                id: 'complete_info_analysis',
+                title: '信息完整性分析',
+                description: '测试当信息足够时，AI是否能直接给出诊断而不是继续问诊',
+                setup: () => {
+                    return new ConversationBuilder()
+                        .addAIMessage('请描述您的症状')
+                        .addUserMessage('失眠多梦，入睡困难，容易醒，醒后难以再睡。心烦意乱，健忘。舌质红，苔薄黄，脉细数。已经持续2个月，工作压力大。平时容易上火，口干。大小便正常。');
+                },
+                expectedBehavior: '信息已经足够完整（主症+伴症+舌脉+病程+诱因），应该给出明确诊断和处方',
+                expectedActions: [
+                    '明确诊断',
+                    '给出处方',
+                    '不再追问基本信息'
+                ]
+            }
+        ];
+        
+        // 测试执行器
+        class AIMemoryTester {
+            constructor() {
+                this.results = [];
+            }
+            
+            async runTest(scenario) {
+                console.log(`🧪 运行测试: ${scenario.title}`);
+                
+                const result = {
+                    id: scenario.id,
+                    title: scenario.title,
+                    description: scenario.description,
+                    passed: false,
+                    aiResponse: '',
+                    analysis: {},
+                    errors: []
+                };
+                
+                try {
+                    // 设置对话历史
+                    const conversationBuilder = scenario.setup();
+                    const conversationHistory = conversationBuilder.getHistory();
+                    const lastUserMessage = conversationHistory[conversationHistory.length - 1].content;
+                    
+                    // 调用AI API
+                    const response = await this.callAI(lastUserMessage, conversationHistory, 'zhu_danxi');
+                    result.aiResponse = response;
+                    
+                    // 分析AI回复
+                    result.analysis = this.analyzeAIResponse(response, scenario);
+                    result.passed = result.analysis.passed;
+                    result.errors = result.analysis.errors;
+                    
+                } catch (error) {
+                    result.errors.push(`测试执行失败: ${error.message}`);
+                    result.passed = false;
+                }
+                
+                return result;
+            }
+            
+            async callAI(message, conversationHistory, doctor) {
+                try {
+                    const response = await fetch('/api/consultation/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            conversation_id: 'memory_test_' + Date.now(),
+                            selected_doctor: doctor,
+                            conversation_history: conversationHistory
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success && data.data && data.data.reply) {
+                        return data.data.reply;
+                    } else if (data.reply) {
+                        return data.reply;
+                    } else {
+                        throw new Error('AI响应格式错误');
+                    }
+                    
+                } catch (error) {
+                    throw new Error(`AI调用失败: ${error.message}`);
+                }
+            }
+            
+            analyzeAIResponse(response, scenario) {
+                const analysis = {
+                    passed: true,
+                    errors: [],
+                    detectedIssues: [],
+                    positivePoints: []
+                };
+                
+                const responseLower = response.toLowerCase();
+                
+                // 检查是否重复问询禁止的问题
+                if (scenario.prohibitedQuestions) {
+                    scenario.prohibitedQuestions.forEach(question => {
+                        if (this.containsQuestion(responseLower, question)) {
+                            analysis.passed = false;
+                            analysis.errors.push(`检测到重复问询: ${question}`);
+                            analysis.detectedIssues.push(`重复询问${question}相关问题`);
+                        }
+                    });
+                }
+                
+                // 检查是否包含预期行为
+                if (scenario.expectedActions) {
+                    scenario.expectedActions.forEach(action => {
+                        if (this.containsExpectedAction(response, action)) {
+                            analysis.positivePoints.push(`包含预期行为: ${action}`);
+                        } else {
+                            analysis.errors.push(`缺少预期行为: ${action}`);
+                            analysis.passed = false;
+                        }
+                    });
+                }
+                
+                // 特殊检查：是否又问了同样的后续问题
+                if (scenario.id === 'basic_memory') {
+                    const commonQuestions = [
+                        '是否有其他部位的不适',
+                        '便血的颜色、量及频率',
+                        '是否有腹胀、食欲不佳',
+                        '是否有长期便秘史',
+                        '请描述舌苔变化'
+                    ];
+                    
+                    let questionCount = 0;
+                    commonQuestions.forEach(q => {
+                        if (responseLower.includes(q.toLowerCase())) {
+                            questionCount++;
+                        }
+                    });
+                    
+                    if (questionCount >= 3) {
+                        analysis.passed = false;
+                        analysis.errors.push('检测到大量重复问题，AI没有利用已有信息');
+                        analysis.detectedIssues.push('重复问诊模式');
+                    }
+                }
+                
+                return analysis;
+            }
+            
+            containsQuestion(response, questionTopic) {
+                const questionPatterns = {
+                    '年龄': ['多大', '年龄', '几岁'],
+                    '疼痛部位': ['哪里疼', '疼痛位置', '疼在哪'],
+                    '疼痛性质': ['怎么疼', '疼痛性质', '什么样的疼'],
+                    '便血颜色': ['便血.*颜色', '血.*什么颜色'],
+                    '舌苔颜色': ['舌苔.*颜色', '舌苔.*什么样'],
+                    '大便干硬情况': ['大便.*怎么样', '便秘.*情况']
+                };
+                
+                const patterns = questionPatterns[questionTopic] || [questionTopic];
+                return patterns.some(pattern => {
+                    const regex = new RegExp(pattern, 'i');
+                    return regex.test(response);
+                });
+            }
+            
+            containsExpectedAction(response, action) {
+                const actionPatterns = {
+                    '明确诊断': ['证', '辨证', '诊断', '证候'],
+                    '给出处方': ['处方', '方剂', '药', '君药', '臣药'],
+                    '不再追问基本信息': true // 通过其他检查来验证
+                };
+                
+                const pattern = actionPatterns[action];
+                if (pattern === true) return true; // 通过其他方式验证
+                
+                return Array.isArray(pattern) ? 
+                    pattern.some(p => response.includes(p)) : 
+                    response.includes(pattern);
+            }
+        }
+        
+        // 测试结果显示
+        function displayTestResult(result) {
+            const container = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'test-container';
+            
+            resultDiv.innerHTML = `
+                <div class="test-title">
+                    ${result.passed ? '✅' : '❌'} ${result.title}
+                </div>
+                <p>${result.description}</p>
+                
+                <div class="test-result ${result.passed ? 'test-pass' : 'test-fail'}">
+                    <strong>测试结果:</strong> ${result.passed ? '通过' : '失败'}
+                    ${result.errors.length > 0 ? `<br><strong>问题:</strong> ${result.errors.join(', ')}` : ''}
+                </div>
+                
+                ${result.analysis.positivePoints && result.analysis.positivePoints.length > 0 ? `
+                    <div style="background: #dcfce7; padding: 10px; border-radius: 6px; margin: 10px 0;">
+                        <strong>✅ 正面表现:</strong> ${result.analysis.positivePoints.join(', ')}
+                    </div>
+                ` : ''}
+                
+                ${result.analysis.detectedIssues && result.analysis.detectedIssues.length > 0 ? `
+                    <div style="background: #fee2e2; padding: 10px; border-radius: 6px; margin: 10px 0;">
+                        <strong>❌ 检测到的问题:</strong> ${result.analysis.detectedIssues.join(', ')}
+                    </div>
+                ` : ''}
+                
+                <details>
+                    <summary style="cursor: pointer; color: #6b7280; margin-top: 10px;">查看AI回复</summary>
+                    <div class="analysis">${result.aiResponse}</div>
+                </details>
+            `;
+            
+            container.appendChild(resultDiv);
+        }
+        
+        // 测试执行函数
+        const tester = new AIMemoryTester();
+        
+        async function runMemoryTest() {
+            clearResults();
+            const scenario = testScenarios.find(s => s.id === 'basic_memory');
+            const result = await tester.runTest(scenario);
+            displayTestResult(result);
+        }
+        
+        async function runRepetitionTest() {
+            clearResults();
+            const scenario = testScenarios.find(s => s.id === 'repetition_detection');
+            const result = await tester.runTest(scenario);
+            displayTestResult(result);
+        }
+        
+        async function runFullScenarioTest() {
+            clearResults();
+            
+            for (const scenario of testScenarios) {
+                const result = await tester.runTest(scenario);
+                displayTestResult(result);
+                
+                // 在测试间添加短暂延迟，避免API频率限制
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+        }
+        
+        // 页面加载完成提示
+        window.addEventListener('load', function() {
+            console.log('✅ AI记忆力测试页面加载完成');
+            console.log('🧠 准备测试AI的记忆能力和重复问询检测');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>处方确认 - AI中医智能问诊</title>
+    <link rel="stylesheet" href="/static/css/prescription_styles.css?v=20260522001">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            color: #4f46e5;
+            margin-bottom: 10px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .status-pending { background: #fef3c7; color: #d97706; }
+        .status-approved { background: #dcfce7; color: #166534; }
+        .status-rejected { background: #fee2e2; color: #dc2626; }
+        .status-paid { background: #dbeafe; color: #2563eb; }
+
+        .prescription-info {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4f46e5;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .info-value {
+            color: #6b7280;
+        }
+
+        .prescription-content {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+
+        .doctor-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #f0f9ff;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .doctor-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #4f46e5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 1.2rem;
+        }
+
+        .doctor-details h4 {
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+
+        .doctor-details p {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .action-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .payment-section {
+            display: none;
+            margin-top: 20px;
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .payment-method {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .payment-option {
+            flex: 1;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .payment-option:hover,
+        .payment-option.selected {
+            border-color: #4f46e5;
+            background: #f0f9ff;
+        }
+
+        .payment-logo {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 10px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: white;
+        }
+
+        .alipay-logo { background: #1677ff; }
+        .wechat-logo { background: #07c160; }
+
+        .decoction-option {
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .shipping-form {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            flex: 1;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .cost-summary {
+            background: #f0f9ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .cost-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .cost-total {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #4f46e5;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .error {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .success {
+            background: #dcfce7;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .form-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <h1>🏥 处方确认</h1>
+                <div id="statusBadge" class="status-badge status-pending">处方审查中</div>
+            </div>
+
+            <div id="loadingDiv" class="loading">
+                加载处方信息中...
+            </div>
+
+            <div id="prescriptionCard" style="display: none;">
+                <!-- 处方基本信息 -->
+                <div class="prescription-info">
+                    <div class="info-row">
+                        <span class="info-label">创建时间</span>
+                        <span class="info-value" id="createdTime">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">处方状态</span>
+                        <span class="info-value" id="prescriptionStatus">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">症状描述</span>
+                        <span class="info-value" id="symptomsText">-</span>
+                    </div>
+                </div>
+
+                <!-- 医生信息 -->
+                <div id="doctorInfo" class="doctor-info" style="display: none;">
+                    <div class="doctor-avatar" id="doctorAvatar">医</div>
+                    <div class="doctor-details">
+                        <h4 id="doctorName">审查医生</h4>
+                        <p id="doctorSpeciality">专业科室</p>
+                        <p id="reviewTime">审查时间</p>
+                    </div>
+                </div>
+
+                <!-- 处方内容 -->
+                <div>
+                    <h3 style="margin-bottom: 15px; color: #1f2937;">AI智能处方</h3>
+                    <div id="aiPrescription" class="prescription-content">
+                        处方内容加载中...
+                    </div>
+                </div>
+
+                <!-- 医生调整的处方（如果有） -->
+                <div id="doctorPrescriptionSection" style="display: none;">
+                    <h3 style="margin: 20px 0 15px 0; color: #1f2937;">医生审查后的处方</h3>
+                    <div id="doctorPrescription" class="prescription-content">
+                        医生处方内容...
+                    </div>
+                </div>
+
+                <!-- 医生备注 -->
+                <div id="doctorNotesSection" style="display: none;">
+                    <h4 style="margin: 20px 0 10px 0; color: #1f2937;">医生审查意见</h4>
+                    <div id="doctorNotes" style="background: #f9fafb; padding: 15px; border-radius: 8px; font-style: italic;">
+                        医生备注...
+                    </div>
+                </div>
+
+                <!-- 操作区域 -->
+                <div class="action-section">
+                    <!-- 等待医生审查状态 -->
+                    <div id="waitingSection" class="action-buttons">
+                        <p style="text-align: center; color: #6b7280; margin-bottom: 20px;">
+                            处方正在等待医生审查，请耐心等待...
+                        </p>
+                        <button class="btn btn-secondary" onclick="refreshStatus()">刷新状态</button>
+                    </div>
+
+                    <!-- 患者确认区域 -->
+                    <div id="confirmSection" style="display: none;">
+                        <h3 style="margin-bottom: 20px; text-align: center; color: #1f2937;">
+                            医生已审查完成，请确认是否接受此处方
+                        </h3>
+                        <div class="action-buttons">
+                            <button class="btn btn-success" onclick="confirmPrescription()">
+                                ✅ 接受处方
+                            </button>
+                            <button class="btn btn-danger" onclick="rejectPrescription()">
+                                ❌ 拒绝处方
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 支付区域 -->
+                    <div id="paymentSection" class="payment-section">
+                        <h3 style="margin-bottom: 20px; text-align: center;">选择支付方式</h3>
+                        
+                        <!-- 代煎选项 -->
+                        <div class="decoction-option">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="decoctionCheckbox" onchange="toggleDecoction()">
+                                <label for="decoctionCheckbox">
+                                    <strong>需要代煎服务</strong> (+30元代煎费)
+                                    <br><small>专业代煎，1-2天内煎制完成并邮寄到家</small>
+                                </label>
+                            </div>
+                            
+                            <!-- 收货信息表单 -->
+                            <div id="shippingForm" class="shipping-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">收货人姓名</label>
+                                        <input type="text" id="shippingName" class="form-input" placeholder="请输入收货人姓名">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">联系电话</label>
+                                        <input type="tel" id="shippingPhone" class="form-input" placeholder="请输入手机号码">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">收货地址</label>
+                                    <input type="text" id="shippingAddress" class="form-input" placeholder="请输入详细收货地址">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 费用明细 -->
+                        <div class="cost-summary">
+                            <div class="cost-row">
+                                <span>基础诊疗费</span>
+                                <span>¥88.00</span>
+                            </div>
+                            <div class="cost-row">
+                                <span>药材费用</span>
+                                <span>¥120.00</span>
+                            </div>
+                            <div id="decoctionCost" class="cost-row" style="display: none;">
+                                <span>代煎服务费</span>
+                                <span>¥30.00</span>
+                            </div>
+                            <div class="cost-row cost-total">
+                                <span>总计金额</span>
+                                <span id="totalAmount">¥208.00</span>
+                            </div>
+                        </div>
+
+                        <!-- 支付方式选择 -->
+                        <div class="payment-method">
+                            <div class="payment-option" onclick="selectPaymentMethod('alipay')">
+                                <div class="payment-logo alipay-logo">支</div>
+                                <div>支付宝</div>
+                            </div>
+                            <div class="payment-option" onclick="selectPaymentMethod('wechat')">
+                                <div class="payment-logo wechat-logo">微</div>
+                                <div>微信支付</div>
+                            </div>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button class="btn btn-primary" onclick="proceedToPayment()" disabled id="payButton">
+                                立即支付
+                            </button>
+                            <button class="btn btn-secondary" onclick="cancelPayment()">
+                                取消
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 已完成状态 -->
+                    <div id="completedSection" style="display: none;">
+                        <div class="success">
+                            ✅ 处方处理已完成！感谢您使用AI中医智能问诊系统。
+                        </div>
+                        <div class="action-buttons">
+                            <button class="btn btn-primary" onclick="window.location.href='/'">
+                                返回首页
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/prescription_renderer.js?v=20260522001"></script>
+    <script>
+        // 全局变量
+        let currentPrescription = null;
+        let selectedPaymentMethod = null;
+        let currentPrescriptionId = null;
+
+        // 页面加载时获取处方ID并加载数据
+        document.addEventListener('DOMContentLoaded', function() {
+            // 从URL获取处方ID
+            const urlParams = new URLSearchParams(window.location.search);
+            currentPrescriptionId = urlParams.get('prescription_id');
+            
+            if (currentPrescriptionId) {
+                loadPrescriptionData(currentPrescriptionId);
+            } else {
+                showError('缺少处方ID参数');
+            }
+        });
+
+        // 加载处方数据
+        async function loadPrescriptionData(prescription_id) {
+            try {
+                const response = await fetch(`/api/prescription/${prescription_id}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentPrescription = data.prescription;
+                    displayPrescriptionData(currentPrescription);
+                } else {
+                    showError('加载处方数据失败');
+                }
+            } catch (error) {
+                showError('网络错误，请稍后重试');
+            }
+        }
+
+        // 显示处方数据
+        function displayPrescriptionData(prescription) {
+            // 隐藏加载提示
+            document.getElementById('loadingDiv').style.display = 'none';
+            document.getElementById('prescriptionCard').style.display = 'block';
+
+            // 更新基本信息
+            document.getElementById('createdTime').textContent = 
+                new Date(prescription.created_at).toLocaleString('zh-CN');
+            document.getElementById('prescriptionStatus').textContent = getStatusText(prescription.status);
+            document.getElementById('symptomsText').textContent = prescription.symptoms || '无具体症状描述';
+
+            // 更新状态徽章
+            updateStatusBadge(prescription.status);
+
+            // 显示AI处方（使用医院处方笺版式渲染）
+            const aiRxDiv = document.getElementById('aiPrescription');
+            if (window.prescriptionRenderer && prescription.ai_prescription) {
+                aiRxDiv.innerHTML = window.prescriptionRenderer.renderFullPrescription(prescription.ai_prescription);
+            } else {
+                aiRxDiv.textContent = prescription.ai_prescription;
+            }
+
+            // 如果有医生审查信息，显示医生信息和处方
+            if (prescription.doctor_name) {
+                displayDoctorInfo(prescription);
+            }
+
+            // 根据状态显示相应的操作区域
+            updateActionSection(prescription.status);
+        }
+
+        // 更新状态徽章
+        function updateStatusBadge(status) {
+            const badge = document.getElementById('statusBadge');
+            badge.textContent = getStatusText(status);
+            badge.className = `status-badge status-${status}`;
+        }
+
+        // 获取状态文本
+        function getStatusText(status) {
+            const statusMap = {
+                'pending': '等待医生审查',
+                'doctor_reviewing': '医生审查中',
+                'approved': '医生已批准',
+                'rejected': '医生已拒绝',
+                'patient_confirmed': '患者已确认',
+                'paid': '已支付',
+                'completed': '已完成'
+            };
+            return statusMap[status] || status;
+        }
+
+        // 显示医生信息
+        function displayDoctorInfo(prescription) {
+            if (prescription.doctor_name) {
+                document.getElementById('doctorInfo').style.display = 'flex';
+                document.getElementById('doctorName').textContent = prescription.doctor_name;
+                document.getElementById('doctorSpeciality').textContent = prescription.doctor_speciality || '中医科';
+                document.getElementById('doctorAvatar').textContent = prescription.doctor_name.charAt(0);
+                
+                if (prescription.reviewed_at) {
+                    document.getElementById('reviewTime').textContent = 
+                        '审查时间：' + new Date(prescription.reviewed_at).toLocaleString('zh-CN');
+                }
+
+                // 显示医生处方（如果有调整）
+                if (prescription.doctor_prescription && prescription.doctor_prescription.trim()) {
+                    document.getElementById('doctorPrescriptionSection').style.display = 'block';
+                    const drRxDiv = document.getElementById('doctorPrescription');
+                    if (window.prescriptionRenderer) {
+                        drRxDiv.innerHTML = window.prescriptionRenderer.renderFullPrescription(prescription.doctor_prescription);
+                    } else {
+                        drRxDiv.textContent = prescription.doctor_prescription;
+                    }
+                }
+
+                // 显示医生备注
+                if (prescription.doctor_notes && prescription.doctor_notes.trim()) {
+                    document.getElementById('doctorNotesSection').style.display = 'block';
+                    document.getElementById('doctorNotes').textContent = prescription.doctor_notes;
+                }
+            }
+        }
+
+        // 根据状态更新操作区域
+        function updateActionSection(status) {
+            // 隐藏所有操作区域
+            document.getElementById('waitingSection').style.display = 'none';
+            document.getElementById('confirmSection').style.display = 'none';
+            document.getElementById('paymentSection').style.display = 'none';
+            document.getElementById('completedSection').style.display = 'none';
+
+            switch (status) {
+                case 'pending':
+                case 'doctor_reviewing':
+                    document.getElementById('waitingSection').style.display = 'block';
+                    break;
+                case 'approved':
+                    document.getElementById('confirmSection').style.display = 'block';
+                    break;
+                case 'patient_confirmed':
+                    document.getElementById('paymentSection').style.display = 'block';
+                    break;
+                case 'rejected':
+                    showError('很抱歉，医生拒绝了此处方。建议重新咨询或联系客服。');
+                    break;
+                case 'paid':
+                case 'completed':
+                    document.getElementById('completedSection').style.display = 'block';
+                    break;
+            }
+        }
+
+        // 刷新状态
+        async function refreshStatus() {
+            if (currentPrescriptionId) {
+                await loadPrescriptionData(currentPrescriptionId);
+            }
+        }
+
+        // 确认处方
+        async function confirmPrescription() {
+            try {
+                const response = await fetch(`/api/prescription/${currentPrescriptionId}/patient-confirm`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        confirm: true
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('处方确认成功！');
+                    setTimeout(() => {
+                        refreshStatus();
+                    }, 1000);
+                } else {
+                    showError(data.detail || '确认失败');
+                }
+            } catch (error) {
+                showError('网络错误，请稍后重试');
+            }
+        }
+
+        // 拒绝处方
+        async function rejectPrescription() {
+            if (confirm('确定要拒绝此处方吗？拒绝后将无法恢复。')) {
+                try {
+                    const response = await fetch(`/api/prescription/${currentPrescriptionId}/patient-confirm`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            confirm: false
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showSuccess('已拒绝此处方');
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 2000);
+                    } else {
+                        showError(data.detail || '操作失败');
+                    }
+                } catch (error) {
+                    showError('网络错误，请稍后重试');
+                }
+            }
+        }
+
+        // 切换代煎选项
+        function toggleDecoction() {
+            const checkbox = document.getElementById('decoctionCheckbox');
+            const shippingForm = document.getElementById('shippingForm');
+            const decoctionCost = document.getElementById('decoctionCost');
+            const totalAmount = document.getElementById('totalAmount');
+
+            if (checkbox.checked) {
+                shippingForm.style.display = 'block';
+                decoctionCost.style.display = 'flex';
+                totalAmount.textContent = '¥238.00';
+            } else {
+                shippingForm.style.display = 'none';
+                decoctionCost.style.display = 'none';
+                totalAmount.textContent = '¥208.00';
+            }
+        }
+
+        // 选择支付方式
+        function selectPaymentMethod(method) {
+            selectedPaymentMethod = method;
+            
+            // 更新UI
+            document.querySelectorAll('.payment-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            event.currentTarget.classList.add('selected');
+            
+            // 启用支付按钮
+            document.getElementById('payButton').disabled = false;
+        }
+
+        // 进行支付
+        async function proceedToPayment() {
+            if (!selectedPaymentMethod) {
+                showError('请选择支付方式');
+                return;
+            }
+
+            const decoctionRequired = document.getElementById('decoctionCheckbox').checked;
+            
+            // 如果需要代煎，验证收货信息
+            if (decoctionRequired) {
+                const name = document.getElementById('shippingName').value.trim();
+                const phone = document.getElementById('shippingPhone').value.trim();
+                const address = document.getElementById('shippingAddress').value.trim();
+                
+                if (!name || !phone || !address) {
+                    showError('请填写完整的收货信息');
+                    return;
+                }
+            }
+
+            try {
+                const paymentData = {
+                    prescription_id: currentPrescriptionId,
+                    payment_method: selectedPaymentMethod,
+                    decoction_required: decoctionRequired
+                };
+
+                // 如果需要代煎，添加收货信息
+                if (decoctionRequired) {
+                    paymentData.shipping_name = document.getElementById('shippingName').value.trim();
+                    paymentData.shipping_phone = document.getElementById('shippingPhone').value.trim();
+                    paymentData.shipping_address = document.getElementById('shippingAddress').value.trim();
+                }
+
+                const response = await fetch('/api/payment/create-order', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(paymentData)
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 跳转到支付页面
+                    if (selectedPaymentMethod === 'alipay') {
+                        window.open(data.payment_data.payment_url, '_blank');
+                    } else if (selectedPaymentMethod === 'wechat') {
+                        // 显示微信支付二维码
+                        showWechatPayQR(data.payment_data.code_url, data.order_no);
+                    }
+                } else {
+                    showError(data.detail || '创建支付订单失败');
+                }
+            } catch (error) {
+                showError('网络错误，请稍后重试');
+            }
+        }
+
+        // 显示微信支付二维码
+        function showWechatPayQR(codeUrl, orderNo) {
+            // 这里可以集成二维码生成库
+            alert(`微信支付二维码：${codeUrl}\n订单号：${orderNo}\n请使用微信扫码支付`);
+        }
+
+        // 取消支付
+        function cancelPayment() {
+            document.getElementById('paymentSection').style.display = 'none';
+            document.getElementById('confirmSection').style.display = 'block';
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            
+            const container = document.querySelector('.container');
+            container.insertBefore(errorDiv, container.firstChild);
+            
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        // 显示成功信息
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            
+            const container = document.querySelector('.container');
+            container.insertBefore(successDiv, container.firstChild);
+            
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

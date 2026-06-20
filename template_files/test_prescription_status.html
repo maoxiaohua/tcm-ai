@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试处方状态显示</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 3px solid #667eea;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 5px;
+        }
+        .status-pending { background: #fef3c7; color: #d97706; }
+        .status-approved { background: #d1fae5; color: #059669; }
+        .status-rejected { background: #fee2e2; color: #dc2626; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 处方状态显示测试</h1>
+        <p>测试前端如何显示不同的处方审核状态</p>
+
+        <div class="test-section">
+            <h3>测试: 获取处方135的状态</h3>
+            <p>用户ID: <input type="text" id="userId" value="usr_20250920_5741e17a78e8" style="padding: 5px; width: 300px;"></p>
+            <button onclick="testGetPrescriptionStatus()">获取处方状态</button>
+            <button onclick="checkHistoryAPI()" style="background: #10b981;">检查历史记录API</button>
+            <div id="statusResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>状态显示逻辑测试</h3>
+            <div id="statusDisplay">
+                <h4>不同状态的显示效果：</h4>
+                <div>
+                    <span class="status-badge status-pending">pending_review: 等待审核</span>
+                </div>
+                <div>
+                    <span class="status-badge status-approved">approved: 已审核通过</span>
+                </div>
+                <div>
+                    <span class="status-badge status-rejected">rejected: 审核拒绝</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>实际显示效果测试</h3>
+            <div id="realDisplay"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testGetPrescriptionStatus() {
+            const userId = document.getElementById('userId').value;
+            const resultDiv = document.getElementById('statusResult');
+
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '正在获取数据...';
+
+            try {
+                // 直接查询处方状态API
+                const response = await fetch(`/api/prescription-review/status/135`);
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.innerHTML = `✅ 处方状态获取成功！\n\n`;
+                    resultDiv.innerHTML += `处方ID: 135\n`;
+                    resultDiv.innerHTML += `状态 (status): ${data.data.status}\n`;
+                    resultDiv.innerHTML += `支付状态 (payment_status): ${data.data.payment_status}\n`;
+                    resultDiv.innerHTML += `是否已审核 (is_reviewed): ${data.data.is_reviewed}\n`;
+                    resultDiv.innerHTML += `是否已修改 (is_modified): ${data.data.is_modified}\n`;
+                    resultDiv.innerHTML += `状态描述: ${data.data.status_description}\n\n`;
+                    resultDiv.innerHTML += `审核时间: ${data.data.reviewed_at || '未审核'}\n`;
+                    resultDiv.innerHTML += `提交时间: ${data.data.submitted_at || '未提交'}\n\n`;
+                    resultDiv.innerHTML += `完整数据:\n${JSON.stringify(data.data, null, 2)}`;
+
+                    // 模拟前端显示逻辑
+                    displayPrescriptionStatus(data.data);
+                } else {
+                    resultDiv.innerHTML = `❌ 获取失败: ${data.message}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `❌ 请求失败: ${error.message}`;
+            }
+        }
+
+        async function checkHistoryAPI() {
+            const userId = document.getElementById('userId').value;
+            const resultDiv = document.getElementById('statusResult');
+
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '正在查询历史记录...';
+
+            try {
+                const response = await fetch(`/api/consultation/patient/history?user_id=${userId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const consultations = data.data.consultation_history;
+                    const withPrescription = consultations.filter(c => c.has_prescription);
+
+                    resultDiv.innerHTML = `✅ 历史记录获取成功！\n\n`;
+                    resultDiv.innerHTML += `总问诊数: ${consultations.length}\n`;
+                    resultDiv.innerHTML += `有处方的问诊: ${withPrescription.length}\n\n`;
+
+                    withPrescription.forEach((consultation, i) => {
+                        const prescInfo = consultation.prescription_info;
+                        resultDiv.innerHTML += `\n--- 问诊 ${i + 1} ---\n`;
+                        resultDiv.innerHTML += `问诊ID: ${consultation.consultation_id}\n`;
+                        resultDiv.innerHTML += `处方ID: ${prescInfo.prescription_id}\n`;
+                        resultDiv.innerHTML += `处方状态: ${prescInfo.status}\n`;
+                        resultDiv.innerHTML += `审核状态: ${prescInfo.review_status}\n`;
+                        resultDiv.innerHTML += `支付状态: ${prescInfo.payment_status}\n`;
+                        resultDiv.innerHTML += `显示文本: ${prescInfo.display_text}\n`;
+                        resultDiv.innerHTML += `所需操作: ${prescInfo.action_required}\n`;
+                    });
+                } else {
+                    resultDiv.innerHTML = `❌ 查询失败: ${data.message}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `❌ 请求失败: ${error.message}`;
+            }
+        }
+
+        function displayPrescriptionStatus(statusData) {
+            const displayDiv = document.getElementById('realDisplay');
+
+            let html = '<h4>前端显示效果：</h4>';
+
+            // 模拟前端的状态判断逻辑
+            if (statusData.status === 'pending_review') {
+                html += '<div class="status-badge status-pending">⏳ 处方正在医生审核中，请耐心等待...</div>';
+            } else if (statusData.status === 'doctor_approved' && statusData.payment_status === 'pending') {
+                html += '<div class="status-badge status-approved">✅ 处方审核通过，需要支付后查看完整内容</div>';
+                html += '<div style="margin-top: 10px;">';
+                html += '<button onclick="alert(\'跳转到支付页面\')" style="background: #10b981;">立即支付查看处方</button>';
+                html += '</div>';
+            } else if (statusData.status === 'doctor_approved' && statusData.payment_status === 'completed') {
+                html += '<div class="status-badge status-approved">✅ 处方已支付，可以查看完整内容</div>';
+            } else {
+                html += `<div class="status-badge">状态: ${statusData.status} / 支付: ${statusData.payment_status}</div>`;
+            }
+
+            displayDiv.innerHTML = html;
+        }
+
+        // 页面加载时的说明
+        window.onload = function() {
+            console.log('处方状态测试页面已加载');
+        };
+    </script>
+</body>
+</html>

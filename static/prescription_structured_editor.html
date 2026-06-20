@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>结构化处方编辑器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .editor-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .prescription-info {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .editor-content {
+            padding: 30px;
+        }
+
+        .category-section {
+            margin-bottom: 30px;
+            border: 2px solid #e1e8ed;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .category-header {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            padding: 15px 20px;
+            border-bottom: 1px solid #dee2e6;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .category-header.jun { background: linear-gradient(135deg, #fff5f5, #fed7d7); color: #c53030; }
+        .category-header.chen { background: linear-gradient(135deg, #fffaf0, #feebc8); color: #dd6b20; }
+        .category-header.zuo { background: linear-gradient(135deg, #f0fff4, #c6f6d5); color: #38a169; }
+        .category-header.shi { background: linear-gradient(135deg, #ebf8ff, #bee3f8); color: #3182ce; }
+
+        .category-title {
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+
+        .category-icon {
+            margin-right: 10px;
+            font-size: 20px;
+        }
+
+        .category-description {
+            font-size: 12px;
+            margin-left: 30px;
+            opacity: 0.8;
+        }
+
+        .toggle-icon {
+            font-size: 16px;
+            transition: transform 0.3s;
+        }
+
+        .category-content {
+            padding: 20px;
+            display: none;
+        }
+
+        .category-content.active {
+            display: block;
+        }
+
+        .herb-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .herb-item.new {
+            background: #e8f5e8;
+            border-color: #4caf50;
+        }
+
+        .herb-item.modified {
+            background: #fff3cd;
+            border-color: #ffc107;
+        }
+
+        .herb-item.deleted {
+            background: #f8d7da;
+            border-color: #dc3545;
+            opacity: 0.7;
+        }
+
+        .herb-form {
+            display: grid;
+            grid-template-columns: 2fr 1fr 3fr auto;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-input {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-primary { background: #007bff; color: white; }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .add-herb-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border: 2px dashed #28a745;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+
+        .add-herb-btn:hover {
+            background: linear-gradient(135deg, #20c997, #28a745);
+            transform: translateY(-1px);
+        }
+
+        .bottom-actions {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .notes-section {
+            margin-bottom: 20px;
+        }
+
+        .notes-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .save-btn {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .save-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,123,255,0.3);
+        }
+
+        .preview-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .preview-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #495057;
+        }
+
+        .preview-content {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #6c757d;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            .herb-form {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .bottom-actions {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <div class="header">
+            <h1>🏥 结构化处方编辑器</h1>
+            <div class="prescription-info" id="prescriptionInfo">
+                处方ID: <span id="prescription_id">--</span> | 状态: <span id="prescriptionStatus">--</span>
+            </div>
+        </div>
+
+        <div class="editor-content" id="editorContent">
+            <div class="loading">
+                <div style="font-size: 2rem; margin-bottom: 15px;">⏳</div>
+                <p>正在加载处方结构...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const categories = {
+            jun: { name: '君药', icon: '👑', description: '主治疾病，药力雄厚，用量较大' },
+            chen: { name: '臣药', icon: '🛡️', description: '辅助君药，增强疗效' },
+            zuo: { name: '佐药', icon: '⚔️', description: '佐助治疗，调和药性' },
+            shi: { name: '使药', icon: '🎯', description: '引经使药，调和诸药' }
+        };
+
+        let currentPrescriptionId = null;
+        let prescriptionStructure = null;
+
+        // 从URL参数获取处方ID
+        function getPrescriptionIdFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('prescription_id');
+        }
+
+        // 初始化编辑器
+        async function initEditor() {
+            const prescriptionId = getPrescriptionIdFromUrl();
+            if (!prescription_id) {
+                showError('缺少处方ID参数');
+                return;
+            }
+
+            currentPrescriptionId = prescription_id;
+            document.getElementById('prescription_id').textContent = prescription_id;
+
+            try {
+                await loadPrescriptionStructure(prescription_id);
+                renderEditor();
+            } catch (error) {
+                showError('加载处方失败: ' + error.message);
+            }
+        }
+
+        // 加载处方结构
+        async function loadPrescriptionStructure(prescription_id) {
+            const response = await fetch(`/api/prescription-structured/parse/${prescription_id}`);
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.message);
+            }
+
+            prescriptionStructure = data.data;
+            document.getElementById('prescriptionStatus').textContent = prescriptionStructure.status;
+
+            if (!prescriptionStructure.editable) {
+                showError('此处方不在待审核状态，无法编辑');
+                return;
+            }
+        }
+
+        // 渲染编辑器界面
+        function renderEditor() {
+            const editorContent = document.getElementById('editorContent');
+            
+            let html = '';
+            
+            // 渲染各药材分类
+            for (const [categoryKey, categoryInfo] of Object.entries(categories)) {
+                const herbs = prescriptionStructure.structure.categories[categoryKey] || [];
+                
+                html += `
+                    <div class="category-section">
+                        <div class="category-header ${categoryKey}" onclick="toggleCategory('${categoryKey}')">
+                            <div>
+                                <div class="category-title">
+                                    <span class="category-icon">${categoryInfo.icon}</span>
+                                    ${categoryInfo.name}
+                                    <span class="category-description">${categoryInfo.description}</span>
+                                </div>
+                            </div>
+                            <span class="toggle-icon" id="toggle-${categoryKey}">▼</span>
+                        </div>
+                        <div class="category-content active" id="content-${categoryKey}">
+                            <div id="herbs-${categoryKey}">
+                                ${renderHerbs(categoryKey, herbs)}
+                            </div>
+                            <button class="add-herb-btn" onclick="addNewHerb('${categoryKey}')">
+                                ➕ 添加${categoryInfo.name}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 添加备注和操作区域
+            html += `
+                <div class="notes-section">
+                    <label class="form-label">调整说明</label>
+                    <textarea class="notes-textarea" id="doctorNotes" placeholder="请输入处方调整的说明..."></textarea>
+                </div>
+
+                <div class="preview-section">
+                    <div class="preview-title">📋 调整后处方预览</div>
+                    <div class="preview-content" id="prescriptionPreview">点击"预览处方"查看调整后的完整处方</div>
+                </div>
+            `;
+
+            editorContent.innerHTML = html;
+
+            // 添加底部操作按钮
+            const bottomActions = document.createElement('div');
+            bottomActions.className = 'bottom-actions';
+            bottomActions.innerHTML = `
+                <button class="btn btn-secondary" onclick="previewPrescription()">📖 预览处方</button>
+                <div>
+                    <button class="btn btn-warning" onclick="resetChanges()" style="margin-right: 10px;">🔄 重置修改</button>
+                    <button class="save-btn" onclick="savePrescription()">💾 保存调整</button>
+                </div>
+            `;
+            
+            document.querySelector('.editor-container').appendChild(bottomActions);
+        }
+
+        // 渲染药材列表
+        function renderHerbs(category, herbs) {
+            return herbs.map((herb, index) => `
+                <div class="herb-item ${herb.action || 'keep'}" id="herb-${category}-${index}">
+                    <div class="herb-form">
+                        <div class="form-group">
+                            <label class="form-label">药材名称</label>
+                            <input type="text" class="form-input" value="${herb.name}" 
+                                   onchange="updateHerb('${category}', ${index}, 'name', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">用量</label>
+                            <input type="text" class="form-input" value="${herb.dosage}" 
+                                   onchange="updateHerb('${category}', ${index}, 'dosage', this.value)">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">功效说明</label>
+                            <input type="text" class="form-input" value="${herb.effect}" 
+                                   onchange="updateHerb('${category}', ${index}, 'effect', this.value)">
+                        </div>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-warning" onclick="markAsModified('${category}', ${index})">修改</button>
+                            <button class="btn btn-sm btn-danger" onclick="markAsDeleted('${category}', ${index})">删除</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 切换分类展开/收起
+        function toggleCategory(category) {
+            const content = document.getElementById(`content-${category}`);
+            const icon = document.getElementById(`toggle-${category}`);
+            
+            if (content.classList.contains('active')) {
+                content.classList.remove('active');
+                icon.textContent = '▶';
+            } else {
+                content.classList.add('active');
+                icon.textContent = '▼';
+            }
+        }
+
+        // 更新药材信息
+        function updateHerb(category, index, field, value) {
+            prescriptionStructure.structure.categories[category][index][field] = value;
+            if (prescriptionStructure.structure.categories[category][index].action === 'keep') {
+                prescriptionStructure.structure.categories[category][index].action = 'modify';
+                markAsModified(category, index);
+            }
+        }
+
+        // 标记为修改
+        function markAsModified(category, index) {
+            prescriptionStructure.structure.categories[category][index].action = 'modify';
+            const herbItem = document.getElementById(`herb-${category}-${index}`);
+            herbItem.className = 'herb-item modified';
+        }
+
+        // 标记为删除
+        function markAsDeleted(category, index) {
+            prescriptionStructure.structure.categories[category][index].action = 'delete';
+            const herbItem = document.getElementById(`herb-${category}-${index}`);
+            herbItem.className = 'herb-item deleted';
+        }
+
+        // 添加新药材
+        function addNewHerb(category) {
+            const newHerb = {
+                name: '',
+                dosage: '',
+                effect: '',
+                action: 'add'
+            };
+            
+            prescriptionStructure.structure.categories[category].push(newHerb);
+            
+            // 重新渲染该分类
+            const herbsContainer = document.getElementById(`herbs-${category}`);
+            herbsContainer.innerHTML = renderHerbs(category, prescriptionStructure.structure.categories[category]);
+        }
+
+        // 预览处方
+        function previewPrescription() {
+            const previewContent = document.getElementById('prescriptionPreview');
+            previewContent.textContent = '正在生成预览...';
+
+            // 构建预览数据
+            const categories = [];
+            for (const [categoryKey, herbs] of Object.entries(prescriptionStructure.structure.categories)) {
+                categories.push({
+                    category: categoryKey,
+                    herbs: herbs.filter(herb => herb.action !== 'delete')
+                });
+            }
+
+            // 简单的预览生成
+            let preview = '【处方预览】\n\n';
+            
+            const categoryNames = {
+                jun: '【君药】',
+                chen: '【臣药】',
+                zuo: '【佐药】',
+                shi: '【使药】'
+            };
+
+            categories.forEach(cat => {
+                if (cat.herbs.length > 0) {
+                    preview += `${categoryNames[cat.category]}\n`;
+                    cat.herbs.forEach(herb => {
+                        if (herb.name && herb.dosage) {
+                            preview += `- ${herb.name} ${herb.dosage}`;
+                            if (herb.effect) {
+                                preview += ` (${herb.effect})`;
+                            }
+                            if (herb.action === 'add') {
+                                preview += ' [新增]';
+                            } else if (herb.action === 'modify') {
+                                preview += ' [已调整]';
+                            }
+                            preview += '\n';
+                        }
+                    });
+                    preview += '\n';
+                }
+            });
+
+            previewContent.textContent = preview;
+        }
+
+        // 保存处方
+        async function savePrescription() {
+            const doctorNotes = document.getElementById('doctorNotes').value;
+            
+            // 构建保存数据
+            const categories = [];
+            for (const [categoryKey, herbs] of Object.entries(prescriptionStructure.structure.categories)) {
+                categories.push({
+                    category: categoryKey,
+                    herbs: herbs
+                });
+            }
+
+            const saveData = {
+                prescription_id: parseInt(currentPrescriptionId),
+                doctor_id: getCurrentDoctorId(),
+                categories: categories,
+                doctor_notes: doctorNotes,
+                preserve_analysis: true,
+                preserve_instructions: true
+            };
+
+            try {
+                const response = await fetch('/api/prescription-structured/edit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('doctorToken')}`
+                    },
+                    body: JSON.stringify(saveData)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ 处方调整保存成功！\n\n' + result.message);
+                    // 返回医生工作台
+                    window.close();
+                } else {
+                    alert('❌ 保存失败：' + result.message);
+                }
+            } catch (error) {
+                alert('❌ 网络错误：' + error.message);
+            }
+        }
+
+        // 重置修改
+        function resetChanges() {
+            if (confirm('确认要重置所有修改吗？')) {
+                location.reload();
+            }
+        }
+
+        // 获取当前医生ID
+        function getCurrentDoctorId() {
+            const doctorInfo = localStorage.getItem('doctorInfo');
+            if (doctorInfo) {
+                try {
+                    const doctor = JSON.parse(doctorInfo);
+                    return doctor.id || doctor.doctor_id || '1';
+                } catch (e) {
+                    return '1';
+                }
+            }
+            return '1';
+        }
+
+        // 显示错误
+        function showError(message) {
+            const editorContent = document.getElementById('editorContent');
+            editorContent.innerHTML = `<div class="error">❌ ${message}</div>`;
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', initEditor);
+    </script>
+</body>
+</html>

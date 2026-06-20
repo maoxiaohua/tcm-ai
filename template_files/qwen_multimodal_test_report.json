@@ -1,0 +1,82 @@
+{
+  "test_summary": {
+    "total_tests": 9,
+    "successful_tests": 8,
+    "failed_tests": 1,
+    "warning_tests": 0,
+    "success_rate": 88.89
+  },
+  "critical_issues": [
+    "API连接失败: <400> InternalError.Algo.InvalidParameter: The image length and width do not meet the model restrictions. [height:1 or width:1 must be larger than 10]"
+  ],
+  "detailed_results": {
+    "api_config": {
+      "dashscope_key": {
+        "status": "SUCCESS",
+        "masked_key": "sk-5be0d...64c607af",
+        "length": 35
+      },
+      "timeout": {
+        "status": "SUCCESS",
+        "value": 40
+      }
+    },
+    "multimodal_processor": {
+      "dashscope_import": {
+        "status": "SUCCESS",
+        "version": "unknown"
+      },
+      "api_method": {
+        "status": "SUCCESS"
+      }
+    },
+    "tongue_analysis": {
+      "function_import": {
+        "status": "SUCCESS"
+      },
+      "function_call": {
+        "status": "SUCCESS",
+        "result_length": 104,
+        "contains_error": true
+      }
+    },
+    "prescription_analysis": {
+      "processor_init": {
+        "status": "SUCCESS",
+        "model": "qwen-vl-max",
+        "timeout": 80
+      }
+    },
+    "integration_status": {
+      "api_connectivity": {
+        "status": "FAILED",
+        "error": "Status: 400, Message: <400> InternalError.Algo.InvalidParameter: The image length and width do not meet the model restrictions. [height:1 or width:1 must be larger than 10]"
+      },
+      "implementation_comparison": {
+        "status": "SUCCESS",
+        "differences": [
+          "模型版本不同: 处方(qwen-vl-max) vs 舌象(qwen-vl-plus)",
+          "超时设置不同: 处方(80s) vs 舌象(30s)"
+        ],
+        "prescription_model": "qwen-vl-max",
+        "tongue_model": "qwen-vl-plus",
+        "prescription_timeout": 80,
+        "tongue_timeout": 30
+      }
+    },
+    "errors": [
+      "API连接失败: <400> InternalError.Algo.InvalidParameter: The image length and width do not meet the model restrictions. [height:1 or width:1 must be larger than 10]"
+    ]
+  },
+  "diagnosis_and_recommendations": {
+    "overall_status": "needs_attention",
+    "primary_issues": [
+      "API连接失败",
+      "处方和舌象分析实现不一致"
+    ],
+    "recommendations": [
+      "检查网络连接和API密钥有效性",
+      "统一多模态模型配置，使用相同的模型版本和参数"
+    ]
+  }
+}

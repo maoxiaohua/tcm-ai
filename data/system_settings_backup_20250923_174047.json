@@ -1,0 +1,21 @@
+{
+  "basic": {
+    "system_name": "TCM-AI 中医智能诊断系统",
+    "system_version": "v2.6.0",
+    "server_port": 8000,
+    "domain_name": "mxh0510.cn",
+    "database_path": "/opt/tcm-ai/data/user_history.sqlite",
+    "backup_retention": 30,
+    "log_level": "INFO",
+    "log_retention": 90,
+    "session_timeout": 60,
+    "upload_limit": 10,
+    "api_timeout": 30,
+    "max_connections": 100
+  },
+  "_metadata": {
+    "last_updated": "2025-09-23T17:38:09.477886",
+    "version": "v2.6.0",
+    "backup_file": "/opt/tcm-ai/data/system_settings_backup_20250923_173809.json"
+  }
+}

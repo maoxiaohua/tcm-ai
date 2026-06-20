@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>问诊历史 - TCM AI中医助手</title>
+    <link rel="stylesheet" href="/static/css/user_history.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 头部信息 -->
+        <div class="header">
+            <h1>📋 我的问诊历史</h1>
+            <p class="subtitle">您的个人中医健康档案</p>
+            
+            <div class="user-info" id="userInfo">
+                <div class="user-avatar" id="userAvatar">用</div>
+                <div class="user-details">
+                    <div class="user-name" id="userName">加载中...</div>
+                    <div class="user-type" id="userType">设备用户</div>
+                </div>
+                <button class="upgrade-btn" id="upgradeBtn" onclick="upgradeAccount()">
+                    📱 绑定手机
+                </button>
+            </div>
+        </div>
+        
+        <!-- 统计信息 -->
+        <div class="stats-section">
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalSessions">-</div>
+                    <div class="stat-label">问诊次数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="doctorCount">-</div>
+                    <div class="stat-label">咨询医生</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="usageDays">-</div>
+                    <div class="stat-label">使用天数</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 历史记录 -->
+        <div class="history-section">
+            <h2 class="section-title">问诊记录</h2>
+            
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filterSessions('all')">全部</button>
+                <button class="filter-tab" onclick="filterSessions('jin_daifu')">金大夫</button>
+                <button class="filter-tab" onclick="filterSessions('zhang_zhongjing')">张仲景</button>
+                <button class="filter-tab" onclick="filterSessions('recent')">最近7天</button>
+            </div>
+            
+            <div id="historyContent">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>正在加载您的问诊历史...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 操作按钮 -->
+        <div class="actions-bar">
+            <button class="btn-secondary" onclick="exportHistory()">📄 导出档案</button>
+            <button class="btn-secondary" onclick="clearHistory()">🗑️ 清空历史</button>
+            <button class="btn-primary" onclick="startNewConsultation()">💬 开始新问诊</button>
+        </div>
+    </div>
+
+    <!-- 设备管理模态框 -->
+    <div id="deviceModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📱 我的设备</h2>
+                <span class="close" onclick="closeDeviceModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="device-list" id="deviceList">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>正在加载设备列表...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeDeviceModal()">关闭</button>
+                <button class="btn-primary" onclick="refreshDevices()">刷新</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/static/js/user_history_main.js"></script>
+</body>
+</html>

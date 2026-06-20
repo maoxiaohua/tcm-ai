@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>移动端调试信息可见性测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .test-item {
+            background: #f5f5f5;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .test-result {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .debug-info {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>移动端调试信息可见性测试</h1>
+        
+        <div class="test-item">
+            <h3>测试1: 环境检测</h3>
+            <p>当前环境信息:</p>
+            <ul>
+                <li>主机名: <span id="hostname"></span></li>
+                <li>端口: <span id="port"></span></li>
+                <li>屏幕宽度: <span id="screenWidth"></span>px</li>
+                <li>用户代理: <span id="userAgent"></span></li>
+            </ul>
+            <div class="test-result" id="envResult"></div>
+        </div>
+        
+        <div class="test-item">
+            <h3>测试2: 调试信息默认可见性</h3>
+            <p>检查页面加载时调试信息是否默认显示</p>
+            <button onclick="checkDefaultVisibility()">检查默认状态</button>
+            <div class="test-result" id="defaultResult"></div>
+        </div>
+        
+        <div class="test-item">
+            <h3>测试3: 调试模式触发</h3>
+            <p>测试是否需要特殊操作才能显示调试信息</p>
+            <button onclick="simulateDebugTrigger()">模拟调试触发</button>
+            <div class="test-result" id="debugResult"></div>
+        </div>
+        
+        <div class="test-item">
+            <h3>测试4: URL参数控制</h3>
+            <p>测试URL参数对调试信息的控制</p>
+            <button onclick="testUrlParams()">测试参数控制</button>
+            <div class="test-result" id="urlResult"></div>
+        </div>
+        
+        <div class="test-item">
+            <h3>预期结果</h3>
+            <ul>
+                <li>✅ 生产环境(8000端口)：调试信息应该默认隐藏</li>
+                <li>✅ 开发环境(localhost/7789/3000端口)：可以显示调试信息</li>
+                <li>✅ URL参数?debug=1：可以强制显示调试信息</li>
+                <li>✅ 普通用户：看不到任何调试信息</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- 模拟的调试信息div -->
+    <div id="testDebugInfo" class="debug-info">
+        <span style="color: #4fc3f7;">TCM v1.2.4</span> | 
+        <a href="#" style="color: #81c784; text-decoration: none;">网络诊断</a> | 
+        <a href="#" style="color: #ffb74d; text-decoration: none;">刷新</a> |
+        <span style="color: #f48fb1; cursor: pointer;">×</span>
+    </div>
+    
+    <script>
+        // 环境信息检测
+        function updateEnvironmentInfo() {
+            document.getElementById('hostname').textContent = window.location.hostname;
+            document.getElementById('port').textContent = window.location.port || '80';
+            document.getElementById('screenWidth').textContent = window.innerWidth;
+            document.getElementById('userAgent').textContent = navigator.userAgent.substring(0, 50) + '...';
+            
+            // 检查是否为调试环境
+            const isDebugEnv = isDebugMode();
+            const envResult = document.getElementById('envResult');
+            if (isDebugEnv) {
+                envResult.innerHTML = '<span class="info">当前环境：开发/调试环境</span>';
+            } else {
+                envResult.innerHTML = '<span class="pass">当前环境：生产环境</span>';
+            }
+        }
+        
+        // 调试模式检测函数 (从实际页面复制)
+        function isDebugMode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const hasDebugParam = urlParams.has('debug');
+            const isDevPort = window.location.port === '7789' || window.location.port === '3000';
+            
+            return isLocalhost || hasDebugParam || isDevPort;
+        }
+        
+        // 检查默认可见性
+        function checkDefaultVisibility() {
+            const debugDiv = document.getElementById('testDebugInfo');
+            const isVisible = window.getComputedStyle(debugDiv).display !== 'none';
+            const shouldBeVisible = window.innerWidth <= 768; // 旧逻辑
+            
+            const result = document.getElementById('defaultResult');
+            
+            if (!isVisible) {
+                result.innerHTML = '<span class="pass">✅ 调试信息默认隐藏 - 正确</span>';
+            } else {
+                result.innerHTML = '<span class="fail">❌ 调试信息默认显示 - 需要修复</span>';
+            }
+        }
+        
+        // 模拟调试触发
+        function simulateDebugTrigger() {
+            const result = document.getElementById('debugResult');
+            
+            if (isDebugMode()) {
+                result.innerHTML = '<span class="info">🔧 开发环境：允许显示调试信息</span>';
+            } else {
+                result.innerHTML = '<span class="pass">✅ 生产环境：需要特殊操作才能显示调试信息</span>';
+            }
+        }
+        
+        // 测试URL参数
+        function testUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasDebugParam = urlParams.has('debug');
+            const result = document.getElementById('urlResult');
+            
+            if (hasDebugParam) {
+                result.innerHTML = '<span class="info">🔧 检测到debug参数：调试模式激活</span>';
+            } else {
+                result.innerHTML = '<span class="pass">✅ 无debug参数：普通用户模式</span>';
+            }
+        }
+        
+        // 页面加载时执行
+        window.onload = function() {
+            updateEnvironmentInfo();
+            checkDefaultVisibility();
+        };
+    </script>
+</body>
+</html>

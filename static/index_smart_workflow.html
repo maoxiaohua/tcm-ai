@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智汇中医 - AI智能问诊工作流</title>
+
+    <!-- Open Graph / 微信分享优化 -->
+    <meta property="og:title" content="🏥 AI 中医智能问诊助手 - 专业版">
+    <meta property="og:description" content="基于AI的中医智能诊断系统，支持症状问诊、证候分析、方剂推荐。集成5大中医流派，提供个性化中医治疗建议。适用于临床辅助诊断。">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://mxh0510.cn/static/tcm_share_card_enhanced.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AI中医智能问诊助手 - 专业医疗诊断工具">
+    <meta property="og:url" content="https://mxh0510.cn/">
+    <meta property="og:site_name" content="TCM AI 中医智能诊断系统">
+
+    <!-- 微信分享专用标签 -->
+    <meta name="description" content="AI中医智能问诊助手，专业的中医诊断辅助工具，支持症状分析、证候判断、方剂推荐">
+    <meta name="keywords" content="中医,AI诊断,智能问诊,中药方剂,证候分析,传统中医,人工智能">
+    <meta name="author" content="TCM AI Team">
+
+    <!-- 微信小程序分享卡片优化 -->
+    <meta property="wx:card" content="summary_large_image">
+    <meta property="wx:title" content="🏥 AI 中医智能问诊助手">
+    <meta property="wx:description" content="专业AI中医诊断辅助工具，集成5大流派，提供个性化治疗建议">
+    <meta property="wx:image" content="https://mxh0510.cn/static/tcm_share_card_enhanced.png">
+
+    <!-- 微信安全验证 -->
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+
+    <!-- 微信验证文件标识 -->
+    <meta name="wechat-enable" content="true">
+    <meta name="applicable-device" content="mobile">
+
+    <!-- Twitter Card 标签 -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="🏥 AI 中医智能问诊助手">
+    <meta name="twitter:description" content="基于AI的中医智能诊断系统，专业医疗辅助工具">
+    <meta name="twitter:image" content="https://mxh0510.cn/static/tcm_share_card_enhanced.png">
+
+    <!-- 版本标识: v2.0.0 模块化重构版 -->
+    <!-- 🚀 性能优化：直接使用本地Markdown解析器，不等待CDN（-5秒加载时间） -->
+    <script>
+        // 直接使用简化版Markdown解析器，避免CDN超时等待
+        window.marked = {
+            parse: function(markdown) {
+                if (!markdown) return '';
+
+                return markdown
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **粗体**
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')              // *斜体*
+                    .replace(/`(.*?)`/g, '<code>$1</code>')           // `代码`
+                    .replace(/\n\n/g, '</p><p>')                       // 段落
+                    .replace(/\n/g, '<br>')                           // 换行
+                    .replace(/^/, '<p>')                              // 开始段落
+                    .replace(/$/, '</p>');                            // 结束段落
+            }
+        };
+        console.log('✅ Markdown解析器已就绪');
+    </script>
+
+    <!-- 🔑 v4.3 新增：登录/注册/退出函数 -->
+    <script>
+        // 显示登录模态框/跳转登录页
+        function showLoginModal() {
+            // 跳转到统一登录页面
+            window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+        }
+
+        // 打开注册页面
+        function openRegisterPage() {
+            window.location.href = '/register?redirect=' + encodeURIComponent(window.location.pathname);
+        }
+
+        // 退出登录
+        function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                // 使用authManager清除登录状态
+                if (window.authManager && typeof window.authManager.clearLoginState === 'function') {
+                    window.authManager.clearLoginState();
+                }
+
+                // 清除所有登录相关数据
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('userData');
+                localStorage.removeItem('tcm_auth_token');
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('userToken');
+                localStorage.removeItem('currentUserId');
+
+                // 刷新页面
+                window.location.reload();
+            }
+        }
+
+        // 暴露到全局
+        window.showLoginModal = showLoginModal;
+        window.openRegisterPage = openRegisterPage;
+        window.logout = logout;
+    </script>
+
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+
+    <!-- 🚀 性能优化：使用系统字体，移除Google Fonts加载 -->
+    <style>
+        /* 使用系统字体栈，更快加载且更原生 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                         "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue",
+                         Helvetica, Arial, sans-serif !important;
+        }
+    </style>
+
+    <!-- 外部CSS文件 - 按功能模块化 -->
+    <link rel="stylesheet" href="/static/css/smart_workflow_base.css?v=20250118001">
+    <link rel="stylesheet" href="/static/css/smart_workflow_doctor.css?v=20250118001">
+    <link rel="stylesheet" href="/static/css/smart_workflow_chat.css?v=20251204001">
+    <link rel="stylesheet" href="/static/css/smart_workflow_prescription.css?v=20250118001">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 移动端页面容器 -->
+        <div class="mobile-page-container" id="mobilePageContainer">
+            <!-- 医生选择页面 -->
+            <div class="mobile-doctor-page">
+                <div class="mobile-doctor-header">
+                    <div class="mobile-header-content">
+                        <h1>AI 中医智能问诊</h1>
+                        <p>传统中医 × 人工智能</p>
+                    </div>
+                    <div class="mobile-header-actions">
+                        <button class="mobile-action-btn" onclick="showMobileNavigation()" title="页面导航">
+                            🔗 导航
+                        </button>
+                        <button class="mobile-action-btn" onclick="openRegisterPage()" title="注册账户">
+                            👤 注册
+                        </button>
+                        <button class="mobile-action-btn" onclick="openHistoryPage()" title="查看历史">
+                            📋 历史
+                        </button>
+                    </div>
+                </div>
+                <div class="mobile-doctors-container">
+                    <h2 class="mobile-doctors-title">👨‍⚕️ 中医师团队</h2>
+                    <div class="mobile-doctors-grid" id="mobileDoctorsGrid">
+                        <!-- 医生卡片将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 聊天页面 -->
+            <div class="mobile-chat-page">
+                <div class="mobile-chat-header">
+                    <button class="mobile-back-btn" onclick="showMobileDoctorPage()">←</button>
+                    <div class="mobile-current-doctor">
+                        <div class="avatar" id="mobileDoctorAvatar">🤖</div>
+                        <div class="info">
+                            <h2 id="mobileDoctorName">医师姓名</h2>
+                            <p id="mobileDoctorDesc">医师描述</p>
+                        </div>
+                    </div>
+                    <div class="mobile-chat-actions">
+                        <button class="mobile-action-btn-small" onclick="openRegisterPage()" title="注册">
+                            👤
+                        </button>
+                        <button class="mobile-action-btn-small" onclick="openMobileSidebar()" title="对话列表">
+                            📋
+                        </button>
+                        <button class="mobile-action-btn-small" onclick="window.location.href='/static/prescription_checker_v2.html'" title="处方安全检测">
+                            🔍
+                        </button>
+                        <button class="mobile-action-btn-small" onclick="createNewConversation()" title="新对话">
+                            ✨
+                        </button>
+                    </div>
+                </div>
+                <div class="mobile-messages-container" id="mobileMessagesContainer">
+                    <!-- 消息将通过JavaScript动态生成 -->
+                </div>
+                <div class="mobile-input-container">
+                    <div class="mobile-input-helper">
+                        <button onclick="showGuidance()" class="mobile-guidance-trigger">💡 问诊指导</button>
+                        <button onclick="showMobileImageOptions()" class="mobile-upload-trigger" id="mobileUploadTrigger">
+                            📷 <span id="mobileUploadText">上传舌苔和面象照片</span>
+                        </button>
+                        <span class="mobile-helper-text">不知道怎么描述症状？</span>
+                    </div>
+                    <!-- 移动端多图片上传 -->
+                    <input type="file" id="mobileTongueUpload" accept="image/*" style="display: none;" onchange="handleMobileTongueUpload(event)">
+                    <input type="file" id="mobileFaceUpload" accept="image/*" style="display: none;" onchange="handleMobileFaceUpload(event)">
+
+                    <!-- 移动端图片选择弹窗已移动到body底部 -->
+                    <div class="mobile-input-wrapper">
+                        <textarea
+                            id="mobileMessageInput"
+                            placeholder="请描述您的症状或问题..."
+                            rows="1"
+                            onkeydown="handleMobileKeyPress(event)"
+                            oninput="adjustMobileTextareaHeight()"
+                            onfocus="ensureMobileInputVisible()"
+                            onblur="handleMobileInputBlur()"
+                            style="resize: none; outline: none;"
+                        ></textarea>
+                        <button class="mobile-send-btn" id="mobileSendBtn" onclick="sendMobileMessage()">→</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 桌面端：顶部导航栏 -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-title">
+                    <h1>AI 中医智能问诊</h1>
+                    <p class="header-subtitle">传统中医 × 人工智能 - 专业版</p>
+                </div>
+                <div class="header-actions">
+                    <!-- 自动同步状态指示器 (自动显示，无需手动操作) -->
+                    <!-- 未登录状态 -->
+                    <div id="authButtons" style="display: flex; gap: 12px;">
+                        <button class="auth-btn" onclick="showLoginModal()" title="用户登录">
+                            🔐 登录
+                        </button>
+                        <button class="history-btn" onclick="openRegisterPage()" title="注册账户">
+                            👤 注册
+                        </button>
+                    </div>
+
+                    <!-- 已登录状态 -->
+                    <div id="userInfo" class="user-info" style="display: none;">
+                        <div class="user-avatar" id="userAvatar">👤</div>
+                        <span class="user-name" id="userName">游客</span>
+                        <button class="logout-btn" onclick="logout()">退出</button>
+                    </div>
+
+                    <button class="history-btn" onclick="window.location.href='/static/prescription_checker_v2.html'" title="处方安全检测" id="prescriptionCheckerBtn">
+                        💊 处方检测
+                    </button>
+                    <button class="history-btn" onclick="openHistoryPage()" title="查看问诊历史" id="historyBtn">
+                        📋 历史记录
+                    </button>
+                    <button class="new-chat-btn" onclick="createNewConversation()">
+                        ✨ 新对话
+                    </button>
+                </div>
+            </div>
+        </header>
+
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+
+            <div class="content-wrapper">
+                <!-- 左侧栏 -->
+                <aside class="sidebar">
+                <!-- 医生选择区域 -->
+                <div class="doctor-section">
+                    <h3 class="section-title">👨‍⚕️ 选择医师</h3>
+                    <div class="doctors-grid" id="doctorsGrid">
+                        <!-- 医生卡片将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+
+                <!-- 工具区域 -->
+                <div class="tools-section">
+                    <!-- 多图片上传 - 舌诊 + 面诊 -->
+                    <div class="tool-group">
+                        <h4 class="tool-title">📸 图像诊断</h4>
+
+                        <!-- 舌诊图片上传 -->
+                        <div class="upload-section">
+                            <h5 class="upload-subtitle">👅 舌诊图片</h5>
+                            <div class="upload-area" id="tongueUploadArea" onclick="triggerTongueUpload()">
+                                <div class="upload-icon">📷</div>
+                                <div class="upload-text">点击上传舌诊照片</div>
+                            </div>
+                            <input type="file" id="tongueImageUpload" accept="image/*" style="display: none;" onchange="handleTongueImageUpload(event)">
+                        </div>
+
+                        <!-- 面诊图片上传 -->
+                        <div class="upload-section">
+                            <h5 class="upload-subtitle">😊 面诊图片</h5>
+                            <div class="upload-area" id="faceUploadArea" onclick="triggerFaceUpload()">
+                                <div class="upload-icon">📷</div>
+                                <div class="upload-text">点击上传面诊照片</div>
+                            </div>
+                            <input type="file" id="faceImageUpload" accept="image/*" style="display: none;" onchange="handleFaceImageUpload(event)">
+                        </div>
+
+                        <!-- 上传状态 -->
+                        <div class="upload-status" id="uploadStatus" style="display: none;">
+                            <div class="status-item" id="tongueStatus">👅 舌诊: <span>未上传</span></div>
+                            <div class="status-item" id="faceStatus">😊 面诊: <span>未上传</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 语音功能 -->
+                    <div class="tool-group">
+                        <h4 class="tool-title">🎤 语音功能</h4>
+                        <div class="voice-controls">
+                            <button class="voice-btn" id="voiceBtn" onclick="toggleVoiceRecording()">
+                                开始语音输入
+                            </button>
+                            <label class="auto-speak">
+                                <input type="checkbox" id="autoSpeak">
+                                <span>自动朗读回复</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 右侧对话区域 -->
+            <main class="chat-area">
+                <!-- 当前医生信息条 -->
+                <div class="current-doctor-bar" id="currentDoctorBar">
+                    <div class="current-doctor-avatar" id="currentDoctorAvatar">🤖</div>
+                    <div class="current-doctor-info">
+                        <h2 id="currentDoctorName">请选择医师</h2>
+                        <p class="current-doctor-desc" id="currentDoctorDesc">当前医师：张仲景</p>
+                    </div>
+                </div>
+
+                <!-- 对话状态指示器 -->
+                <div id="conversationStateIndicator" class="conversation-state-indicator">
+                    <div class="state-indicator">
+                        <span class="state-icon">🔄</span>
+                        <span class="state-label">初始问诊</span>
+                    </div>
+                </div>
+
+                <!-- 对话消息区域 -->
+                <div class="messages-container" id="messagesContainer">
+                    <!-- 默认医生已选中，不需要选择提示 -->
+                </div>
+
+                <!-- 加载动画 -->
+                <div class="loading" id="loading">
+                    <div class="loading-spinner"></div>
+                    <div>AI正在思考中...</div>
+                </div>
+
+                <!-- 输入区域 -->
+                <div class="input-area">
+                    <div class="input-helper">
+                        <button onclick="showGuidance()" class="guidance-trigger">💡 问诊指导</button>
+                        <span class="helper-text">不知道怎么描述症状？点击查看问诊指导</span>
+                    </div>
+                    <div class="input-wrapper">
+                        <textarea
+                            class="message-input"
+                            id="messageInput"
+                            placeholder="请描述您的症状或问题..."
+                            rows="1"
+                            onkeydown="handleKeyPress(event)"
+                            oninput="adjustTextareaHeight()"
+                        ></textarea>
+                        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                            →
+                        </button>
+                    </div>
+                </div>
+            </main>
+            </div> <!-- end content-wrapper -->
+        </div>
+    </div>
+
+    <!-- 开发调试信息（仅开发模式显示） -->
+    <div id="mobileVersionInfo" style="display: none; position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 20px; font-size: 11px; z-index: 1000; border: 1px solid rgba(255,255,255,0.2);">
+        <span style="color: #4fc3f7;">TCM v2.0</span> |
+        <a href="/static/wechat_debug.html" style="color: #81c784; text-decoration: none;">网络诊断</a> |
+        <a href="javascript:location.reload(true)" style="color: #ffb74d; text-decoration: none;">刷新</a> |
+        <span style="color: #f48fb1; cursor: pointer;" onclick="this.parentElement.style.display='none'">×</span>
+    </div>
+
+    <!-- 问诊指导提示 -->
+    <div class="guidance-tips" id="guidanceTips" style="display: none;">
+        <div class="tips-header">
+            <h4>💡 问诊指导</h4>
+            <button onclick="toggleGuidance()" class="close-btn">×</button>
+        </div>
+        <div class="tips-content">
+            <div class="tip-section">
+                <h5>🔍 主要症状描述</h5>
+                <ul>
+                    <li>主要不适感觉（疼痛、发热、咳嗽等）</li>
+                    <li>症状持续时间（几天、几周、几个月）</li>
+                    <li>症状程度（轻微、中等、严重）</li>
+                    <li>发作规律（持续性、间歇性、特定时间）</li>
+                </ul>
+            </div>
+
+            <div class="tip-section">
+                <h5>🩺 伴随症状</h5>
+                <ul>
+                    <li>睡眠情况（入睡困难、易醒、多梦）</li>
+                    <li>食欲状况（食欲不振、消化不良）</li>
+                    <li>大小便情况（便秘、腹泻、尿频等）</li>
+                    <li>情绪状态（焦虑、抑郁、烦躁）</li>
+                </ul>
+            </div>
+
+            <div class="tip-section">
+                <h5>👅 舌象脉象（如果方便）</h5>
+                <ul>
+                    <li>舌头颜色（淡红、红、暗红）</li>
+                    <li>舌苔情况（薄白、厚黄、无苔等）</li>
+                    <li>脉搏感觉（快慢、强弱、规律性）</li>
+                    <li>可上传舌象照片以便更准确诊断</li>
+                </ul>
+            </div>
+
+            <div class="tip-section">
+                <h5>📋 其他重要信息</h5>
+                <ul>
+                    <li>既往病史（慢性病、手术史）</li>
+                    <li>过敏史（药物、食物过敏）</li>
+                    <li>目前用药情况</li>
+                    <li>生活习惯（作息、饮食、运动）</li>
+                </ul>
+            </div>
+
+            <div class="tip-footer">
+                <p>💬 <strong>提示</strong>：提供越详细的信息，医生越能给出准确的诊断和治疗建议</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 移动端图片选择弹窗 - 移至body底部确保最高层级 -->
+    <div class="mobile-image-modal mobile-modal-hidden" id="mobileImageModal">
+        <div class="mobile-image-modal-content">
+            <div class="modal-header">
+                <h3>选择拍照类型</h3>
+                <button onclick="closeMobileImageModal()" class="modal-close">×</button>
+            </div>
+            <div class="modal-options">
+                <button onclick="triggerMobileTongueUpload()" class="image-option-btn">
+                    <div class="option-icon">👅</div>
+                    <div class="option-text">
+                        <strong>舌诊拍照</strong>
+                        <span>拍摄舌头照片</span>
+                    </div>
+                </button>
+                <button onclick="triggerMobileFaceUpload()" class="image-option-btn">
+                    <div class="option-icon">😊</div>
+                    <div class="option-text">
+                        <strong>面诊拍照</strong>
+                        <span>拍摄面部照片</span>
+                    </div>
+                </button>
+            </div>
+            <div class="upload-status-mobile" id="mobileUploadStatus">
+                <div class="mobile-status-item" id="mobileTongueStatus">👅 舌诊: <span>未上传</span></div>
+                <div class="mobile-status-item" id="mobileFaceStatus">😊 面诊: <span>未上传</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录模态框 -->
+    <div id="loginModal" class="login-modal">
+        <div class="login-modal-content">
+            <div class="login-header">
+                <h3>用户登录</h3>
+            </div>
+            <div class="login-form">
+                <div class="form-group">
+                    <label class="form-label">用户名/手机号</label>
+                    <input type="text" id="loginUsername" class="form-input" placeholder="请输入用户名或手机号">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" id="loginPassword" class="form-input" placeholder="请输入密码">
+                </div>
+                <div class="error-message" id="loginError">
+                    登录失败，请检查用户名和密码
+                </div>
+                <div class="login-buttons">
+                    <button class="login-btn secondary" onclick="hideLoginModal()">取消</button>
+                    <button class="login-btn primary" onclick="performLogin()">登录</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 处方渲染器样式 -->
+    <link rel="stylesheet" href="/static/css/prescription_styles.css">
+
+    <!-- 智能工作流JavaScript模块 -->
+    <script src="/static/js/auth_manager.js?v=20251120001"></script>
+    <script src="/static/js/simple_prescription_manager.js?v=20260405001"></script>
+    <!-- v4.2 新增：全局常量定义（必须最先加载） -->
+    <script src="/static/js/constants.js?v=20251128001"></script>
+
+    <!-- v4.0 新增：轻量级会话管理器 -->
+    <script src="/static/js/session_manager.js?v=20260406001"></script>
+    <script src="/static/js/auth_validator.js?v=20251201001"></script>
+    <script src="/static/js/conversation_manager.js?v=20251203002"></script>
+    <script src="/static/js/conversation_state_manager.js?v=20260406001"></script>
+    <script src="/static/js/auto_sync_manager.js?v=20251120001"></script>
+
+    <!-- 核心模块（必须第一个加载） -->
+    <script src="/static/js/smart_workflow_core.js?v=20260406001"></script>
+
+    <!-- 功能模块 -->
+    <script src="/static/js/smart_workflow_utils.js?v=20260406001"></script>
+    <script src="/static/js/smart_workflow_doctor.js?v=20260406001"></script>
+    <script src="/static/js/smart_workflow_mobile.js?v=20260406001"></script>
+    <script src="/static/js/smart_workflow_history.js?v=20251203001"></script>
+    <script src="/static/js/smart_workflow_records.js?v=20251120003"></script>
+    <script src="/static/js/smart_workflow_chat.js?v=20260406001"></script>
+    <script src="/static/js/smart_workflow_prescription.js?v=20260406001"></script>
+
+    <!-- 初始化模块（必须最后加载） -->
+    <script src="/static/js/smart_workflow_init.js?v=20260403001"></script>
+
+    <!-- 🚀 性能优化：恢复未完成处方功能使用defer异步加载 -->
+    <script src="/static/js/restore_pending_prescription.js?v=20260403001" defer></script>
+</body>
+</html>

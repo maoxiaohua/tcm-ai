@@ -1,0 +1,1992 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCM AI 中医智能诊疗系统 - 登录注册</title>
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    
+    <!-- 统一认证管理器 -->
+    <script src="/static/js/auth_manager.js?v=20251011001"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        /* 主容器 */
+        .auth-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* 头部 */
+        .header {
+            text-align: center;
+            padding: 40px 30px 20px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+        }
+
+        .logo {
+            font-size: 56px;
+            margin-bottom: 16px;
+            display: block;
+            animation: pulse 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.05); }
+        }
+
+        .title {
+            font-size: 28px;
+            color: #1f2937;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        /* 标签导航 */
+        .tab-nav {
+            display: flex;
+            background: rgba(243, 244, 246, 0.8);
+            margin: 20px 30px 0;
+            border-radius: 12px;
+            padding: 4px;
+            position: relative;
+        }
+
+        .tab-item {
+            flex: 1;
+            text-align: center;
+            padding: 12px 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            color: #6b7280;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        .tab-item.active {
+            color: #667eea;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-item:hover:not(.active) {
+            color: #374151;
+        }
+
+        /* 表单区域 */
+        .form-container {
+            padding: 30px;
+        }
+
+        .form-panel {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .form-panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 16px;
+            background: #f9fafb;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .form-input:focus {
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-input.error {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .form-input.success {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        /* 输入组合 */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .input-group .form-input {
+            flex: 1;
+        }
+
+        .code-btn {
+            padding: 14px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            min-width: 100px;
+        }
+
+        .code-btn:hover:not(:disabled) {
+            background: #5a67d8;
+            transform: translateY(-1px);
+        }
+
+        .code-btn:disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 按钮 */
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            margin-bottom: 12px;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            margin-bottom: 8px;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(102, 126, 234, 0.15);
+            border-color: rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-guest {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .btn-guest:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+        }
+
+        /* 消息提示 */
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .error-message {
+            background: #fef2f2;
+            color: #dc2626;
+            border-left: 4px solid #ef4444;
+        }
+
+        .success-message {
+            background: #f0fdf4;
+            color: #059669;
+            border-left: 4px solid #10b981;
+        }
+
+        .warning-message {
+            background: #fefce8;
+            color: #ca8a04;
+            border-left: 4px solid #eab308;
+        }
+
+        /* 附加选项 */
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6b7280;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #667eea;
+        }
+
+        .link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .link:hover {
+            color: #5a67d8;
+            text-decoration: underline;
+        }
+
+        /* 分割线 */
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 24px 0;
+            font-size: 14px;
+            color: #9ca3af;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e5e7eb;
+        }
+
+        .divider span {
+            padding: 0 16px;
+        }
+
+        /* 注册选项样式 */
+        .register-options {
+            margin-bottom: 25px;
+        }
+        
+        .option-card {
+            border: 2px solid #e1e8f0;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            background: #fff;
+        }
+        
+        .option-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .option-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.15);
+        }
+        
+        .option-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .option-icon {
+            font-size: 22px;
+            margin-right: 12px;
+        }
+        
+        .option-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+        
+        .option-description {
+            color: #666;
+            font-size: 13px;
+            line-height: 1.4;
+            margin-left: 34px;
+        }
+        
+        .option-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: #4caf50;
+            color: white;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+        
+        .register-form {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        /* 错误消息样式 */
+        .error-message {
+            color: #ef4444;
+            font-size: 12px;
+            margin-top: 4px;
+            min-height: 16px;
+            display: block;
+        }
+
+        /* 角色选择卡片 */
+        .roles-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .role-card {
+            background: rgba(248, 250, 252, 0.8);
+            border: 2px solid rgba(203, 213, 225, 0.5);
+            border-radius: 12px;
+            padding: 20px 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .role-card:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .role-card.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+        .role-card.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #10b981;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 特性列表 */
+        .features-list {
+            background: rgba(16, 185, 129, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .features-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .feature-item::before {
+            content: '✓';
+            color: #10b981;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        /* 加载状态 */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #6b7280;
+            font-size: 16px;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 640px) {
+            body {
+                padding: 10px;
+            }
+            
+            .auth-container {
+                max-width: 100%;
+                border-radius: 16px;
+            }
+            
+            .header {
+                padding: 30px 20px 15px;
+            }
+            
+            .title {
+                font-size: 24px;
+            }
+            
+            .form-container {
+                padding: 20px;
+            }
+            
+            .tab-nav {
+                margin: 15px 20px 0;
+            }
+            
+            .tab-item {
+                font-size: 14px;
+                padding: 10px 6px;
+            }
+            
+            .input-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .code-btn {
+                margin-top: 8px;
+                min-width: auto;
+            }
+
+            .roles-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .role-card {
+                padding: 15px 12px;
+            }
+
+            .role-icon {
+                font-size: 36px !important;
+                margin-bottom: 8px !important;
+            }
+
+            .role-name {
+                font-size: 16px !important;
+            }
+
+            .role-desc {
+                font-size: 12px !important;
+            }
+        }
+
+        /* 深色模式支持 */
+        @media (prefers-color-scheme: dark) {
+            .auth-container {
+                background: rgba(31, 41, 55, 0.95);
+                border-color: rgba(255, 255, 255, 0.1);
+            }
+            
+            .title {
+                color: #f9fafb;
+            }
+            
+            .subtitle {
+                color: #d1d5db;
+            }
+            
+            .form-input {
+                background: rgba(55, 65, 81, 0.5);
+                border-color: rgba(75, 85, 99, 0.6);
+                color: #f9fafb;
+            }
+            
+            .form-input:focus {
+                background: rgba(55, 65, 81, 0.8);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 调试面板 -->
+    <div id="debugPanel" style="position: fixed; top: 10px; right: 10px; background: #000; color: #fff; padding: 10px; font-size: 12px; max-width: 400px; z-index: 9999; border-radius: 5px; max-height: 300px; overflow-y: auto; display: none;">
+        <div style="font-weight: bold; margin-bottom: 5px;">🔍 登录调试信息</div>
+        <div id="debugLog"></div>
+        <button onclick="document.getElementById('debugPanel').style.display='none'" style="background: #f00; color: #fff; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; float: right;">关闭</button>
+    </div>
+
+    <div class="auth-container">
+        <!-- 头部 -->
+        <div class="header">
+            <span class="logo">🏥</span>
+            <h1 class="title">TCM AI 中医智能诊疗系统</h1>
+            <p class="subtitle">传统中医智慧 × 现代AI技术</p>
+        </div>
+
+        <!-- 标签导航 -->
+        <div class="tab-nav">
+            <div class="tab-item active" onclick="switchTab('login')">账户登录</div>
+            <div class="tab-item" onclick="switchTab('register')">用户注册</div>
+            <div class="tab-item" onclick="switchTab('roles')">角色选择</div>
+            <div class="tab-item" onclick="switchTab('guest')">访客体验</div>
+        </div>
+
+        <!-- 表单容器 -->
+        <div class="form-container">
+            <!-- 消息提示区域 -->
+            <div class="error-message message" id="errorMessage"></div>
+            <div class="success-message message" id="successMessage"></div>
+            <div class="warning-message message" id="warningMessage"></div>
+
+            <!-- 登录面板 -->
+            <div class="form-panel active" id="loginPanel">
+                <div class="form-group">
+                    <label class="form-label">用户名 / 手机号</label>
+                    <input type="text" class="form-input" id="loginUsername" 
+                           placeholder="请输入用户名或手机号" autocomplete="username">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-input" id="loginPassword" 
+                           placeholder="请输入密码" autocomplete="current-password">
+                </div>
+
+                <div class="form-options">
+                    <label class="checkbox-group">
+                        <input type="checkbox" id="rememberLogin">
+                        <span>记住登录</span>
+                    </label>
+                    <a href="#" class="link" onclick="showForgotPassword()">忘记密码？</a>
+                </div>
+
+                <button class="btn btn-primary" onclick="handleLogin()" id="loginBtn">
+                    🔐 立即登录
+                </button>
+
+                <div class="divider">
+                    <span>还没有账户？</span>
+                </div>
+
+                <button class="btn btn-secondary" onclick="switchTab('register')">
+                    📝 立即注册
+                </button>
+            </div>
+
+            <!-- 注册面板 -->
+            <div class="form-panel" id="registerPanel">
+                <div class="features-list">
+                    <div class="features-title">
+                        ✨ 注册后您将获得
+                    </div>
+                    <div class="feature-item">个人健康档案云端同步</div>
+                    <div class="feature-item">多设备问诊记录共享</div>
+                    <div class="feature-item">专属AI诊疗偏好学习</div>
+                    <div class="feature-item">优先客服技术支持</div>
+                </div>
+
+                <!-- 注册选项选择 -->
+                <div class="register-options" id="registerOptions">
+                    <div class="option-card" onclick="selectRegisterOption('phone')" id="phoneOption">
+                        <div class="option-header">
+                            <span class="option-icon">📱</span>
+                            <span class="option-title">手机注册</span>
+                            <span class="option-badge">推荐</span>
+                        </div>
+                        <div class="option-description">
+                            快速安全验证，支持短信找回密码和双重验证保护
+                        </div>
+                    </div>
+                    
+                    <div class="option-card" onclick="selectRegisterOption('email')" id="emailOption">
+                        <div class="option-header">
+                            <span class="option-icon">✉️</span>
+                            <span class="option-title">邮箱注册</span>
+                        </div>
+                        <div class="option-description">
+                            使用邮箱地址注册，安全可靠，支持找回密码和账户验证
+                        </div>
+                    </div>
+                    
+                    <div class="option-card" onclick="selectRegisterOption('username')" id="usernameOption">
+                        <div class="option-header">
+                            <span class="option-icon">🔑</span>
+                            <span class="option-title">用户名注册</span>
+                        </div>
+                        <div class="option-description">
+                            使用用户名和密码注册，简单快捷，适合不想绑定手机或邮箱的用户
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 手机注册表单 -->
+                <div id="phoneRegister" class="register-form" style="display: none;">
+                    <h3 style="margin-bottom: 20px; color: #333; text-align: center;">📱 手机注册</h3>
+                    
+                    <div class="form-group">
+                        <label class="form-label">手机号码 *</label>
+                        <input type="tel" class="form-input" id="registerPhone" 
+                               placeholder="请输入11位手机号" maxlength="11">
+                        <div class="error-message" id="registerPhoneError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">短信验证码 *</label>
+                        <div class="input-group">
+                            <input type="text" class="form-input" id="registerCode" 
+                                   placeholder="请输入6位验证码" maxlength="6">
+                            <button class="code-btn" id="sendCodeBtn" onclick="sendVerificationCode()">
+                                <span id="sendCodeText">发送验证码</span>
+                                <span id="codeCountdown" style="display: none;"></span>
+                            </button>
+                        </div>
+                        <div class="error-message" id="registerCodeError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">昵称 (可选)</label>
+                        <input type="text" class="form-input" id="registerNickname" 
+                               placeholder="设置您的昵称" maxlength="20">
+                        <div class="error-message" id="registerNicknameError"></div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="completePhoneRegister()" id="registerBtn">
+                        🎉 完成注册
+                    </button>
+
+                    <button class="btn btn-secondary" onclick="backToRegisterOptions()" style="width: 100%; margin-top: 10px;">
+                        返回选择
+                    </button>
+                </div>
+
+                <!-- 邮箱注册表单 -->
+                <div id="emailRegister" class="register-form" style="display: none;">
+                    <h3 style="margin-bottom: 20px; color: #333; text-align: center;">✉️ 邮箱注册</h3>
+
+                    <div class="form-group">
+                        <label class="form-label">邮箱地址 *</label>
+                        <input type="email" class="form-input" id="registerEmail"
+                               placeholder="请输入您的邮箱地址">
+                        <div class="error-message" id="registerEmailError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">邮箱验证码 *</label>
+                        <div class="input-group">
+                            <input type="text" class="form-input" id="registerEmailCode"
+                                   placeholder="请输入6位验证码" maxlength="6">
+                            <button class="code-btn" id="sendEmailCodeBtn" onclick="sendEmailVerificationCode()">
+                                <span id="sendEmailCodeText">发送验证码</span>
+                                <span id="emailCodeCountdown" style="display: none;"></span>
+                            </button>
+                        </div>
+                        <div class="error-message" id="registerEmailCodeError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">设置密码 *</label>
+                        <input type="password" class="form-input" id="registerEmailPassword"
+                               placeholder="6-20位密码，建议包含字母和数字">
+                        <div class="error-message" id="registerEmailPasswordError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">确认密码 *</label>
+                        <input type="password" class="form-input" id="registerEmailConfirm"
+                               placeholder="请再次输入密码确认">
+                        <div class="error-message" id="registerEmailConfirmError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">昵称 (可选)</label>
+                        <input type="text" class="form-input" id="registerEmailNickname"
+                               placeholder="设置您的昵称" maxlength="20">
+                        <div class="error-message" id="registerEmailNicknameError"></div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="completeEmailRegister()">
+                        ✉️ 完成注册
+                    </button>
+
+                    <button class="btn btn-secondary" onclick="backToRegisterOptions()" style="width: 100%; margin-top: 10px;">
+                        返回选择
+                    </button>
+                </div>
+
+                <!-- 用户名注册表单 -->
+                <div id="usernameRegister" class="register-form" style="display: none;">
+                    <h3 style="margin-bottom: 20px; color: #333; text-align: center;">🔑 用户名注册</h3>
+                    
+                    <div class="form-group">
+                        <label class="form-label">用户名 *</label>
+                        <input type="text" class="form-input" id="registerUsername" 
+                               placeholder="4-20位，支持中英文、数字、下划线" maxlength="20">
+                        <div class="error-message" id="registerUsernameError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">设置密码 *</label>
+                        <input type="password" class="form-input" id="registerUsernamePassword" 
+                               placeholder="6-20位密码，建议包含字母和数字">
+                        <div class="error-message" id="registerUsernamePasswordError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">确认密码 *</label>
+                        <input type="password" class="form-input" id="registerUsernameConfirm" 
+                               placeholder="请再次输入密码确认">
+                        <div class="error-message" id="registerUsernameConfirmError"></div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="completeUsernameRegister()">
+                        🔑 完成注册
+                    </button>
+
+                    <button class="btn btn-secondary" onclick="backToRegisterOptions()" style="width: 100%; margin-top: 10px;">
+                        返回选择
+                    </button>
+                </div>
+
+                <div class="divider" style="margin-top: 20px;">
+                    <span>已有账户？</span>
+                </div>
+
+                <button class="btn btn-secondary" onclick="switchTab('login')">
+                    🔐 立即登录
+                </button>
+            </div>
+
+            <!-- 角色选择面板 -->
+            <div class="form-panel" id="rolesPanel">
+                <div class="roles-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <div class="role-card" onclick="selectRole('patient')" id="role-patient">
+                        <div class="role-icon" style="font-size: 48px; margin-bottom: 12px;">👤</div>
+                        <div class="role-name" style="font-weight: 600; color: #374151; margin-bottom: 8px;">患者用户</div>
+                        <div class="role-desc" style="font-size: 13px; color: #6b7280; line-height: 1.4;">
+                            享受个性化问诊和历史记录服务
+                        </div>
+                    </div>
+
+                    <div class="role-card" onclick="selectRole('doctor')" id="role-doctor">
+                        <div class="role-icon" style="font-size: 48px; margin-bottom: 12px;">👨‍⚕️</div>
+                        <div class="role-name" style="font-weight: 600; color: #374151; margin-bottom: 8px;">医生用户</div>
+                        <div class="role-desc" style="font-size: 13px; color: #6b7280; line-height: 1.4;">
+                            医生工作台，管理处方审核和患者咨询
+                        </div>
+                    </div>
+
+                    <div class="role-card" onclick="selectRole('admin')" id="role-admin">
+                        <div class="role-icon" style="font-size: 48px; margin-bottom: 12px;">🛠️</div>
+                        <div class="role-name" style="font-weight: 600; color: #374151; margin-bottom: 8px;">系统管理</div>
+                        <div class="role-desc" style="font-size: 13px; color: #6b7280; line-height: 1.4;">
+                            系统管理员，监控和管理整个诊疗平台
+                        </div>
+                    </div>
+
+                    <div class="role-card" onclick="selectRole('guest')" id="role-guest">
+                        <div class="role-icon" style="font-size: 48px; margin-bottom: 12px;">🌿</div>
+                        <div class="role-name" style="font-weight: 600; color: #374151; margin-bottom: 8px;">访客体验</div>
+                        <div class="role-desc" style="font-size: 13px; color: #6b7280; line-height: 1.4;">
+                            直接体验中医问诊服务，无需注册账号
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 角色登录表单 -->
+                <div id="roleLoginForm" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label" id="roleUsernameLabel">用户名</label>
+                        <input type="text" class="form-input" id="roleUsername" 
+                               placeholder="请输入用户名" autocomplete="username">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">密码</label>
+                        <input type="password" class="form-input" id="rolePassword" 
+                               placeholder="请输入密码" autocomplete="current-password">
+                    </div>
+
+                    <button class="btn btn-primary" onclick="handleRoleLogin()" id="roleLoginBtn">
+                        🔐 登录
+                    </button>
+
+                    <button class="btn btn-secondary" onclick="resetRoleSelection()">
+                        🔄 重新选择角色
+                    </button>
+                </div>
+
+                <div class="warning-message" id="roleHint" style="display: block;">
+                    <strong>💡 选择提示：</strong> 请根据您的身份选择对应的角色类型，系统将为您提供相应的功能界面。
+                </div>
+            </div>
+
+            <!-- 访客体验面板 -->
+            <div class="form-panel" id="guestPanel">
+                <div class="features-list">
+                    <div class="features-title">
+                        🚀 访客模式特性
+                    </div>
+                    <div class="feature-item">立即开始AI中医问诊体验</div>
+                    <div class="feature-item">完整的五大名医流派选择</div>
+                    <div class="feature-item">本地设备数据存储保护</div>
+                    <div class="feature-item">随时升级为正式账户</div>
+                </div>
+
+                <div class="warning-message" style="display: block;">
+                    <strong>💡 温馨提示：</strong> 访客模式数据仅保存在当前设备，建议体验后注册账户以享受完整功能。
+                </div>
+
+                <button class="btn btn-guest" onclick="startGuestMode()">
+                    🌿 开始免费体验
+                </button>
+
+                <div class="divider">
+                    <span>获得完整功能</span>
+                </div>
+
+                <button class="btn btn-secondary" onclick="switchTab('register')">
+                    📱 手机号注册
+                </button>
+            </div>
+
+            <!-- 加载状态 -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div class="loading-text">处理中，请稍候...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 调试函数
+        function addDebugLog(message) {
+            const debugLog = document.getElementById('debugLog');
+            const debugPanel = document.getElementById('debugPanel');
+            const timestamp = new Date().toLocaleTimeString();
+            debugLog.innerHTML += `<div style="margin-bottom: 3px; border-bottom: 1px solid #333; padding-bottom: 2px;">[${timestamp}] ${message}</div>`;
+            debugPanel.style.display = 'block';
+            debugLog.scrollTop = debugLog.scrollHeight;
+            console.log(`[调试] ${message}`);
+        }
+
+        // 全局变量
+        let currentTab = 'login';
+        let countdownTimer = null;
+        let countdownSeconds = 0;
+        let emailCountdownTimer = null;
+        let emailCountdownSeconds = 0;
+        let selectedRole = null;
+
+        // 页面初始化（处理 bfcache 恢复的情况，移动端尤其重要）
+        function initPage() {
+            // 重置当前 tab 状态：优先从 URL 参数恢复，否则回到默认 login
+            const urlParams = new URLSearchParams(window.location.search);
+            const tab = urlParams.get('tab');
+            if (tab && ['login', 'register', 'roles', 'guest'].includes(tab)) {
+                switchTab(tab);
+            } else {
+                // 确保 UI 与 currentTab 一致
+                currentTab = 'login';
+                document.querySelectorAll('.tab-item').forEach((item, index) => {
+                    item.classList.toggle('active', index === 0);
+                });
+                document.querySelectorAll('.form-panel').forEach(panel => {
+                    panel.classList.toggle('active', panel.id === 'loginPanel');
+                });
+            }
+
+            // 检查现有登录状态
+            checkLoginStatus();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 绑定键盘事件
+            document.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (currentTab === 'login') handleLogin();
+                    else if (currentTab === 'register') handleRegister();
+                    else if (currentTab === 'roles') handleRoleLogin();
+                    else if (currentTab === 'guest') startGuestMode();
+                }
+            });
+
+            // 绑定输入验证
+            document.getElementById('registerPhone').addEventListener('input', validatePhone);
+            document.getElementById('registerCode').addEventListener('input', validateCode);
+            document.getElementById('loginUsername').addEventListener('input', clearMessages);
+            document.getElementById('loginPassword').addEventListener('input', clearMessages);
+
+            initPage();
+        });
+
+        // 移动端从 bfcache 恢复时 DOMContentLoaded 不触发，需要 pageshow 来重新初始化
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                initPage();
+            }
+        });
+
+        // 标签切换
+        function switchTab(tab) {
+            if (tab === currentTab) return;
+            
+            currentTab = tab;
+            clearMessages();
+
+            // 更新标签状态
+            document.querySelectorAll('.tab-item').forEach((item, index) => {
+                item.classList.remove('active');
+                if ((index === 0 && tab === 'login') || 
+                    (index === 1 && tab === 'register') || 
+                    (index === 2 && tab === 'roles') ||
+                    (index === 3 && tab === 'guest')) {
+                    item.classList.add('active');
+                }
+            });
+
+            // 更新面板显示
+            document.querySelectorAll('.form-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            document.getElementById(tab + 'Panel').classList.add('active');
+
+            // 更新URL（不刷新页面）
+            const newUrl = new URL(window.location);
+            newUrl.searchParams.set('tab', tab);
+            window.history.replaceState({}, '', newUrl);
+
+            // 自动聚焦第一个输入框
+            setTimeout(() => {
+                const activePanel = document.getElementById(tab + 'Panel');
+                const firstInput = activePanel.querySelector('.form-input');
+                if (firstInput) firstInput.focus();
+            }, 100);
+        }
+
+        // 登录处理
+        async function handleLogin() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            const remember = document.getElementById('rememberLogin').checked;
+
+            if (!username || !password) {
+                showError('请输入用户名和密码');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/v2/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, remember_me: remember })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    console.log('🎉 登录API调用成功，完整响应数据:', data);
+                    addDebugLog('✅ 登录API成功，redirect_url: ' + data.redirect_url);
+                    showSuccess('登录成功！正在跳转...');
+                    
+                    // 使用统一认证管理器保存登录状态
+                    if (data.user && data.session && data.session.session_id) {
+                        // 使用authManager统一保存(带安全检查)
+                        if (typeof window.authManager !== 'undefined' && window.authManager) {
+                            try {
+                                window.authManager.saveLoginState(data.user, data.session.session_id, remember);
+                                console.log('✅ authManager保存登录状态成功');
+                            } catch (error) {
+                                console.warn('⚠️ authManager调用失败,使用降级方案:', error.message);
+                                // 降级方案:手动保存token
+                                localStorage.setItem('session_token', data.session.session_id);
+                                localStorage.setItem('currentUser', JSON.stringify(data.user));
+                                document.cookie = `session_token=${data.session.session_id}; path=/; max-age=86400; samesite=strict`;
+                                if (data.user.primary_role) {
+                                    localStorage.setItem(`${data.user.primary_role}Token`, data.session.session_id);
+                                }
+                            }
+                        } else {
+                            // authManager不可用,直接使用降级方案
+                            console.warn('⚠️ authManager不可用,使用降级方案保存登录状态');
+                            localStorage.setItem('session_token', data.session.session_id);
+                            localStorage.setItem('currentUser', JSON.stringify(data.user));
+                            document.cookie = `session_token=${data.session.session_id}; path=/; max-age=86400; samesite=strict`;
+                            if (data.user.primary_role) {
+                                localStorage.setItem(`${data.user.primary_role}Token`, data.session.session_id);
+                            }
+                        }
+
+                        // 如果是患者,设置固定用户ID到对话状态管理器(如果存在)
+                        if (data.user.primary_role === 'patient') {
+                            if (typeof window.conversationStateManager !== 'undefined' && window.conversationStateManager) {
+                                try {
+                                    window.conversationStateManager.setCurrentUserId(data.user.id, data.user);
+                                    console.log('✅ conversationStateManager设置用户ID成功:', data.user.id);
+                                } catch (error) {
+                                    console.warn('⚠️ conversationStateManager调用失败,忽略:', error.message);
+                                }
+                            } else {
+                                console.log('ℹ️ conversationStateManager不可用,跳过(登录页面不需要)');
+                            }
+                        }
+
+                        console.log('✅ 用户登录成功,已保存固定ID:', data.user.id);
+                    }
+
+                    console.log('🔄 准备跳转，redirect_url:', data.redirect_url);
+                    console.log('🔄 用户角色:', data.user.primary_role);
+                    console.log('🔄 最终跳转URL:', data.redirect_url || getDefaultRedirectUrl(data.user.primary_role));
+                    
+                    setTimeout(() => {
+                        const targetUrl = data.redirect_url || getDefaultRedirectUrl(data.user.primary_role);
+                        addDebugLog('🚀 开始跳转到: ' + targetUrl);
+                        console.log('🚀 正在跳转到:', targetUrl);
+                        console.log('🔍 当前window.location.href:', window.location.href);
+                        try {
+                            addDebugLog('📍 执行 window.location.href = ' + targetUrl);
+                            window.location.href = targetUrl;
+                            console.log('✅ 跳转命令已执行');
+                            addDebugLog('✅ 跳转命令已执行，等待页面加载...');
+                        } catch (error) {
+                            console.error('❌ 跳转失败:', error);
+                            addDebugLog('❌ 跳转失败: ' + error.message);
+                            // 备用跳转方法
+                            window.location.replace(targetUrl);
+                        }
+                    }, 1000);
+                } else {
+                    showError(data.detail || data.message || '登录失败');
+                    highlightError('loginUsername');
+                    highlightError('loginPassword');
+                }
+            } catch (error) {
+                console.error('登录错误:', error);
+                showError('网络错误，请稍后重试');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 注册处理
+        async function handleRegister() {
+            const phone = document.getElementById('registerPhone').value.trim();
+            const code = document.getElementById('registerCode').value.trim();
+            const nickname = document.getElementById('registerNickname').value.trim();
+
+            if (!validatePhone() || !validateCode()) {
+                return;
+            }
+
+            if (!phone || !code) {
+                showError('请填写手机号和验证码');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                // 1. 验证验证码
+                const verifyResponse = await fetch('/api/auth/verify-phone-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, code })
+                });
+
+                const verifyResult = await verifyResponse.json();
+                if (!verifyResult.success) {
+                    showError(verifyResult.error || '验证码错误');
+                    highlightError('registerCode');
+                    return;
+                }
+
+                // 2. 完成注册
+                const registerResponse = await fetch('/api/auth/bind-phone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, nickname: nickname || '新用户' })
+                });
+
+                const registerResult = await registerResponse.json();
+
+                if (registerResult.success) {
+                    showSuccess('🎉 注册成功！欢迎加入TCM AI！');
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 1500);
+                } else {
+                    showError(registerResult.error || '注册失败，请重试');
+                }
+            } catch (error) {
+                console.error('注册错误:', error);
+                showError('网络错误，请稍后重试');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 发送验证码
+        async function sendVerificationCode() {
+            const phone = document.getElementById('registerPhone').value.trim();
+
+            if (!validatePhone()) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/send-verification-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess('验证码已发送，请查收短信');
+                    startCountdown(60);
+                } else {
+                    showError(result.error || '发送验证码失败');
+                    highlightError('registerPhone');
+                }
+            } catch (error) {
+                console.error('发送验证码错误:', error);
+                showError('网络错误，请稍后重试');
+            }
+        }
+
+        // 角色选择
+        function selectRole(role) {
+            selectedRole = role;
+            
+            // 清除所有选中状态
+            document.querySelectorAll('.role-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // 选中当前角色
+            document.getElementById(`role-${role}`).classList.add('selected');
+            
+            if (role === 'guest') {
+                // 访客直接启动
+                setTimeout(() => startGuestMode(), 300);
+            } else {
+                // 显示登录表单
+                document.getElementById('roleLoginForm').style.display = 'block';
+                document.getElementById('roleHint').style.display = 'none';
+                
+                // 自动填充测试账号和更新标签
+                const testAccounts = {
+                    'doctor': { user: 'doctor', pass: 'doctor123', label: '医生用户名' },
+                    'admin': { user: 'admin', pass: 'admin123', label: '管理员账号' },
+                    'patient': { user: 'patient', pass: 'patient123', label: '患者手机号' }
+                };
+                
+                if (testAccounts[role]) {
+                    document.getElementById('roleUsername').value = testAccounts[role].user;
+                    document.getElementById('rolePassword').value = testAccounts[role].pass;
+                    document.getElementById('roleUsernameLabel').textContent = testAccounts[role].label;
+                    document.getElementById('roleLoginBtn').textContent = `🔐 登录${getRoleDisplayName(role)}`;
+                }
+                
+                // 聚焦用户名输入框
+                setTimeout(() => document.getElementById('roleUsername').focus(), 100);
+            }
+        }
+
+        // 重置角色选择
+        function resetRoleSelection() {
+            selectedRole = null;
+            document.querySelectorAll('.role-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.getElementById('roleLoginForm').style.display = 'none';
+            document.getElementById('roleHint').style.display = 'block';
+            
+            // 清空输入框
+            document.getElementById('roleUsername').value = '';
+            document.getElementById('rolePassword').value = '';
+            clearMessages();
+        }
+
+        // 角色登录处理
+        async function handleRoleLogin() {
+            if (!selectedRole || selectedRole === 'guest') {
+                showError('请先选择登录角色');
+                return;
+            }
+
+            const username = document.getElementById('roleUsername').value.trim();
+            const password = document.getElementById('rolePassword').value.trim();
+
+            if (!username || !password) {
+                showError('请输入用户名和密码');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/v2/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    console.log('🎉 角色登录API调用成功，完整响应数据:', data);
+                    
+                    // 验证角色匹配
+                    if (data.user.primary_role !== selectedRole && 
+                        !(selectedRole === 'admin' && data.user.primary_role === 'superadmin')) {
+                        console.log('❌ 角色不匹配，用户角色:', data.user.primary_role, '选择角色:', selectedRole);
+                        showError(`账户角色不匹配，请选择正确的${getRoleDisplayName(data.user.primary_role)}角色`);
+                        return;
+                    }
+
+                    console.log('✅ 角色验证通过，继续登录流程');
+                    showSuccess(`${getRoleDisplayName(selectedRole)}登录成功！正在跳转...`);
+                    
+                    // 保存token (统一认证系统)
+                    if (data.session && data.session.session_id) {
+                        localStorage.setItem('session_token', data.session.session_id);
+                        // 设置cookie用于权限验证
+                        document.cookie = `session_token=${data.session.session_id}; path=/; max-age=86400; samesite=strict`;
+                        addDebugLog('🍪 设置cookie: session_token=' + data.session.session_id.substring(0, 10) + '...');
+                        // 向后兼容
+                        const role = data.user.primary_role;
+                        localStorage.setItem(`${role}Token`, data.session.session_id);
+                        addDebugLog('💾 设置localStorage: ' + role + 'Token = ' + data.session.session_id.substring(0, 10) + '...');
+                    }
+                    
+                    // 保存用户信息
+                    if (data.user) {
+                        localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    }
+
+                    console.log('🔄 角色登录准备跳转，redirect_url:', data.redirect_url);
+                    console.log('🔄 用户角色:', data.user.primary_role);
+                    console.log('🔄 最终跳转URL:', data.redirect_url || getRoleDefaultUrl(data.user.primary_role));
+                    
+                    setTimeout(() => {
+                        const targetUrl = data.redirect_url || getRoleDefaultUrl(data.user.primary_role);
+                        console.log('🚀 角色登录正在跳转到:', targetUrl);
+                        console.log('🔍 当前window.location.href:', window.location.href);
+                        try {
+                            window.location.href = targetUrl;
+                            console.log('✅ 角色登录跳转命令已执行');
+                        } catch (error) {
+                            console.error('❌ 角色登录跳转失败:', error);
+                            // 备用跳转方法
+                            window.location.replace(targetUrl);
+                        }
+                    }, 1000);
+                } else {
+                    showError(data.detail || data.message || '登录失败');
+                    highlightError('roleUsername');
+                    highlightError('rolePassword');
+                }
+            } catch (error) {
+                console.error('角色登录错误:', error);
+                showError('网络错误，请稍后重试');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 获取角色显示名称
+        function getRoleDisplayName(role) {
+            const roleNames = {
+                'doctor': '医生',
+                'admin': '管理员',
+                'superadmin': '超级管理员',
+                'patient': '患者',
+                'guest': '访客'
+            };
+            return roleNames[role] || role;
+        }
+
+        // 获取角色默认跳转URL
+        function getRoleDefaultUrl(role) {
+            const urls = {
+                'doctor': '/doctor',
+                'admin': '/admin',
+                'superadmin': '/admin',
+                'patient': '/smart',
+                'guest': '/smart'
+            };
+            return urls[role] || '/smart';
+        }
+
+        // 访客模式
+        function startGuestMode() {
+            showSuccess('正在启动访客体验模式...');
+            setTimeout(() => {
+                window.location.href = '/smart?mode=guest';
+            }, 800);
+        }
+
+        // 忘记密码
+        function showForgotPassword() {
+            const phone = prompt('请输入您的注册手机号码：');
+            if (phone && /^1[3-9]\d{9}$/.test(phone)) {
+                showWarning('密码重置链接将发送到您的手机，请查收短信');
+                // 这里可以调用重置密码API
+            } else if (phone) {
+                showError('请输入正确的手机号格式');
+            }
+        }
+
+        // 验证函数
+        function validatePhone() {
+            const phone = document.getElementById('registerPhone').value.trim();
+            const phoneRegex = /^1[3-9]\d{9}$/;
+            const phoneInput = document.getElementById('registerPhone');
+
+            if (!phone) {
+                showError('请输入手机号');
+                highlightError('registerPhone');
+                return false;
+            } else if (!phoneRegex.test(phone)) {
+                showError('请输入正确的11位手机号');
+                highlightError('registerPhone');
+                return false;
+            } else {
+                clearHighlight('registerPhone');
+                return true;
+            }
+        }
+
+        function validateCode() {
+            const code = document.getElementById('registerCode').value.trim();
+            const codeRegex = /^\d{6}$/;
+
+            if (!code) {
+                showError('请输入验证码');
+                highlightError('registerCode');
+                return false;
+            } else if (!codeRegex.test(code)) {
+                showError('请输入6位数字验证码');
+                highlightError('registerCode');
+                return false;
+            } else {
+                clearHighlight('registerCode');
+                return true;
+            }
+        }
+
+        // 倒计时
+        function startCountdown(seconds) {
+            countdownSeconds = seconds;
+            const sendBtn = document.getElementById('sendCodeBtn');
+            const sendText = document.getElementById('sendCodeText');
+            const countdown = document.getElementById('codeCountdown');
+
+            sendBtn.disabled = true;
+            sendText.style.display = 'none';
+            countdown.style.display = 'inline';
+
+            countdownTimer = setInterval(() => {
+                countdown.textContent = `${countdownSeconds}s`;
+                countdownSeconds--;
+
+                if (countdownSeconds < 0) {
+                    clearInterval(countdownTimer);
+                    sendBtn.disabled = false;
+                    sendText.style.display = 'inline';
+                    countdown.style.display = 'none';
+                }
+            }, 1000);
+        }
+
+        // 检查登录状态
+        function checkLoginStatus() {
+            const rememberedUser = localStorage.getItem('rememberedUser');
+            if (rememberedUser) {
+                document.getElementById('loginUsername').value = rememberedUser;
+                document.getElementById('rememberLogin').checked = true;
+            }
+        }
+
+        // 获取默认跳转URL
+        function getDefaultRedirectUrl(role) {
+            const redirectMap = {
+                'doctor': '/doctor',
+                'admin': '/admin',
+                'superadmin': '/admin',
+                'patient': '/smart',
+                'guest': '/smart'
+            };
+            return redirectMap[role] || '/smart';
+        }
+
+        // 消息显示函数
+        function showError(message) {
+            hideAllMessages();
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            hideAllMessages();
+            const successEl = document.getElementById('successMessage');
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+        }
+
+        function showWarning(message) {
+            hideAllMessages();
+            const warningEl = document.getElementById('warningMessage');
+            warningEl.textContent = message;
+            warningEl.style.display = 'block';
+        }
+
+        function hideAllMessages() {
+            document.querySelectorAll('.message').forEach(msg => {
+                msg.style.display = 'none';
+            });
+        }
+
+        function clearMessages() {
+            hideAllMessages();
+            document.querySelectorAll('.form-input').forEach(input => {
+                clearHighlight(input.id);
+            });
+        }
+
+        // 高亮错误输入
+        function highlightError(inputId) {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.classList.add('error');
+                input.classList.remove('success');
+            }
+        }
+
+        function clearHighlight(inputId) {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.classList.remove('error');
+                if (input.value.trim()) {
+                    input.classList.add('success');
+                } else {
+                    input.classList.remove('success');
+                }
+            }
+        }
+
+        // 加载状态
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.querySelectorAll('.form-panel').forEach(panel => {
+                panel.style.display = 'none';
+            });
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById(currentTab + 'Panel').style.display = 'block';
+        }
+
+        // ========== 注册选项功能 ==========
+        
+        // 选择注册方式
+        function selectRegisterOption(option) {
+            // 隐藏注册选项
+            document.getElementById('registerOptions').style.display = 'none';
+            
+            // 隐藏所有注册表单
+            document.getElementById('phoneRegister').style.display = 'none';
+            document.getElementById('emailRegister').style.display = 'none';
+            document.getElementById('usernameRegister').style.display = 'none';
+            
+            // 显示对应的注册表单
+            document.getElementById(option + 'Register').style.display = 'block';
+        }
+        
+        // 返回注册选项
+        function backToRegisterOptions() {
+            // 显示注册选项
+            document.getElementById('registerOptions').style.display = 'block';
+            
+            // 隐藏所有注册表单
+            document.getElementById('phoneRegister').style.display = 'none';
+            document.getElementById('emailRegister').style.display = 'none';
+            document.getElementById('usernameRegister').style.display = 'none';
+            
+            // 清空表单错误信息
+            clearAllErrors();
+        }
+        
+        // 清空所有错误信息
+        function clearAllErrors() {
+            const errors = document.querySelectorAll('.error-message');
+            errors.forEach(error => error.textContent = '');
+        }
+        
+        // 显示字段错误
+        function showFieldError(fieldId, message) {
+            const errorElement = document.getElementById(fieldId + 'Error');
+            if (errorElement) {
+                errorElement.textContent = message;
+            }
+        }
+        
+        // ========== 手机注册功能 ==========
+        
+        async function completePhoneRegister() {
+            const phone = document.getElementById('registerPhone').value.trim();
+            const code = document.getElementById('registerCode').value.trim();
+            const nickname = document.getElementById('registerNickname').value.trim();
+            
+            // 清空错误信息
+            clearAllErrors();
+
+            // 验证手机号
+            if (!phone) {
+                showFieldError('registerPhone', '请输入手机号');
+                return;
+            }
+            if (!/^1[3-9]\d{9}$/.test(phone)) {
+                showFieldError('registerPhone', '请输入正确的11位手机号');
+                return;
+            }
+            
+            // 验证验证码
+            if (!code) {
+                showFieldError('registerCode', '请输入验证码');
+                return;
+            }
+            if (!/^\d{6}$/.test(code)) {
+                showFieldError('registerCode', '验证码应为6位数字');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                // 1. 验证验证码
+                const verifyResponse = await fetch('/api/auth/verify-phone-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, code })
+                });
+
+                const verifyResult = await verifyResponse.json();
+                if (!verifyResult.success) {
+                    showFieldError('registerCode', verifyResult.error || '验证码错误');
+                    return;
+                }
+
+                // 2. 完成注册
+                const registerResponse = await fetch('/api/auth/bind-phone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, nickname: nickname || '新用户' })
+                });
+
+                const registerResult = await registerResponse.json();
+
+                if (registerResult.success) {
+                    showSuccess('🎉 注册成功！欢迎加入TCM AI！');
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 1500);
+                } else {
+                    showFieldError('registerNickname', registerResult.error || '注册失败，请重试');
+                }
+            } catch (error) {
+                console.error('注册错误:', error);
+                showFieldError('registerNickname', '网络错误，请重试');
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        // ========== 邮箱注册功能 ==========
+
+        // 验证邮箱格式
+        function validateEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        // 验证密码强度
+        function validatePassword(password) {
+            return password && password.length >= 6 && password.length <= 20;
+        }
+
+        // 验证邮箱验证码格式
+        function validateEmailCode() {
+            const code = document.getElementById('registerEmailCode').value.trim();
+            return /^\d{6}$/.test(code);
+        }
+
+        // 发送邮箱验证码
+        async function sendEmailVerificationCode() {
+            const email = document.getElementById('registerEmail').value.trim();
+
+            if (!email) {
+                showFieldError('registerEmail', '请先输入邮箱地址');
+                return;
+            }
+            if (!validateEmail(email)) {
+                showFieldError('registerEmail', '请输入正确的邮箱格式');
+                return;
+            }
+            clearFieldError('registerEmail');
+
+            const sendBtn = document.getElementById('sendEmailCodeBtn');
+            const sendText = document.getElementById('sendEmailCodeText');
+            const countdownEl = document.getElementById('emailCodeCountdown');
+
+            sendBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/auth/send-email-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message || '验证码已发送至邮箱');
+                    // 启动倒计时
+                    emailCountdownSeconds = 60;
+                    emailCountdownTimer = setInterval(() => {
+                        countdownEl.textContent = `${emailCountdownSeconds}s`;
+                        emailCountdownSeconds--;
+
+                        if (emailCountdownSeconds < 0) {
+                            clearInterval(emailCountdownTimer);
+                            sendBtn.disabled = false;
+                            sendText.style.display = 'inline';
+                            countdownEl.style.display = 'none';
+                        }
+                    }, 1000);
+                    sendText.style.display = 'none';
+                    countdownEl.style.display = 'inline';
+                } else {
+                    showFieldError('registerEmailCode', result.error || '发送验证码失败');
+                    sendBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('发送邮箱验证码失败:', error);
+                showFieldError('registerEmailCode', '网络错误，请重试');
+                sendBtn.disabled = false;
+            }
+        }
+
+        async function completeEmailRegister() {
+            const email = document.getElementById('registerEmail').value.trim();
+            const code = document.getElementById('registerEmailCode').value.trim();
+            const password = document.getElementById('registerEmailPassword').value;
+            const confirmPassword = document.getElementById('registerEmailConfirm').value;
+            const nickname = document.getElementById('registerEmailNickname').value.trim();
+
+            // 清空错误信息
+            clearAllErrors();
+
+            // 验证邮箱
+            if (!email) {
+                showFieldError('registerEmail', '请输入邮箱地址');
+                return;
+            }
+            if (!validateEmail(email)) {
+                showFieldError('registerEmail', '请输入正确的邮箱格式');
+                return;
+            }
+
+            // 验证验证码
+            if (!code) {
+                showFieldError('registerEmailCode', '请输入邮箱验证码');
+                return;
+            }
+            if (!validateEmailCode()) {
+                showFieldError('registerEmailCode', '验证码应为6位数字');
+                return;
+            }
+
+            // 验证密码
+            if (!password) {
+                showFieldError('registerEmailPassword', '请输入密码');
+                return;
+            }
+            if (!validatePassword(password)) {
+                showFieldError('registerEmailPassword', '密码长度应为6-20位');
+                return;
+            }
+
+            // 验证确认密码
+            if (!confirmPassword) {
+                showFieldError('registerEmailConfirm', '请确认密码');
+                return;
+            }
+            if (password !== confirmPassword) {
+                showFieldError('registerEmailConfirm', '两次输入的密码不一致');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/auth/register/email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        code,
+                        nickname: nickname || email.split('@')[0]
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess('注册成功！欢迎加入TCM AI！');
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 1500);
+                } else {
+                    showFieldError('registerEmailCode', result.error || '注册失败');
+                }
+            } catch (error) {
+                console.error('邮箱注册失败:', error);
+                showFieldError('registerEmailCode', '网络错误，请重试');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 清空单个字段错误
+        function clearFieldError(fieldId) {
+            const errorElement = document.getElementById(fieldId + 'Error');
+            if (errorElement) {
+                errorElement.textContent = '';
+            }
+        }
+        
+        // ========== 用户名注册功能 ==========
+        
+        // 验证用户名格式
+        function validateUsername(username) {
+            // 支持中文、英文、数字和下划线，4-20位
+            const usernameRegex = /^[\w\u4e00-\u9fa5]{4,20}$/;
+            return usernameRegex.test(username);
+        }
+
+        async function completeUsernameRegister() {
+            const username = document.getElementById('registerUsername').value.trim();
+            const password = document.getElementById('registerUsernamePassword').value;
+            const confirmPassword = document.getElementById('registerUsernameConfirm').value;
+            
+            // 清空错误信息
+            clearAllErrors();
+
+            // 验证用户名
+            if (!username) {
+                showFieldError('registerUsername', '请输入用户名');
+                return;
+            }
+            if (!validateUsername(username)) {
+                showFieldError('registerUsername', '用户名应为4-20位，支持中英文、数字、下划线');
+                return;
+            }
+
+            // 验证密码
+            if (!password) {
+                showFieldError('registerUsernamePassword', '请输入密码');
+                return;
+            }
+            if (!validatePassword(password)) {
+                showFieldError('registerUsernamePassword', '密码长度应为6-20位');
+                return;
+            }
+
+            // 验证确认密码
+            if (!confirmPassword) {
+                showFieldError('registerUsernameConfirm', '请确认密码');
+                return;
+            }
+            if (password !== confirmPassword) {
+                showFieldError('registerUsernameConfirm', '两次输入的密码不一致');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/v2/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        username, 
+                        password,
+                        display_name: username 
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess('🎉 注册成功！欢迎加入TCM AI！');
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 1500);
+                } else {
+                    showFieldError('registerUsernameConfirm', result.error || '注册失败');
+                }
+            } catch (error) {
+                console.error('用户名注册失败:', error);
+                showFieldError('registerUsernameConfirm', '网络错误，请重试');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // 页面离开前清理
+        window.addEventListener('beforeunload', function() {
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+            }
+            if (emailCountdownTimer) {
+                clearInterval(emailCountdownTimer);
+            }
+        });
+    </script>
+</body>
+</html>

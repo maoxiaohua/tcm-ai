@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中医AI智能问诊系统 - 医生思维录入</title>
+    <link rel="stylesheet" href="/static/doctor_thinking_style.css">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🏥 中医AI智能问诊系统</h1>
+            <h2>医生思维模式录入界面</h2>
+            <p class="subtitle">让AI学习您的中医诊疗思维，为更多患者提供精准治疗</p>
+        </header>
+
+        <div class="progress-bar">
+            <div class="step active" data-step="1">
+                <span class="step-number">1</span>
+                <span class="step-label">医生信息</span>
+            </div>
+            <div class="step" data-step="2">
+                <span class="step-number">2</span>
+                <span class="step-label">专科信息</span>
+            </div>
+            <div class="step" data-step="3">
+                <span class="step-number">3</span>
+                <span class="step-label">思维步骤</span>
+            </div>
+            <div class="step" data-step="4">
+                <span class="step-number">4</span>
+                <span class="step-label">预览确认</span>
+            </div>
+        </div>
+
+        <!-- 步骤1: 医生基本信息 -->
+        <div class="form-section active" id="step1">
+            <div class="section-header">
+                <h3>👨‍⚕️ 医生基本信息</h3>
+                <p>请填写您的基本信息，这将帮助系统识别您的专业背景</p>
+            </div>
+            
+            <form class="doctor-form">
+                <div class="form-group">
+                    <label for="doctorName">医生姓名 *</label>
+                    <input type="text" id="doctorName" name="doctorName" required 
+                           placeholder="请输入您的姓名，如：张医生">
+                </div>
+                
+                <div class="form-group">
+                    <label for="doctorId">医生ID *</label>
+                    <input type="text" id="doctorId" name="doctorId" required 
+                           placeholder="请输入唯一标识，如：zhang_doctor_001">
+                    <small>建议格式：姓名拼音_doctor_编号</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="specialtyArea">专业领域 *</label>
+                    <select id="specialtyArea" name="specialtyArea" required>
+                        <option value="">请选择专业领域</option>
+                        <option value="心血管内科">心血管内科</option>
+                        <option value="呼吸内科">呼吸内科</option>
+                        <option value="消化内科">消化内科</option>
+                        <option value="神经内科">神经内科</option>
+                        <option value="内分泌科">内分泌科</option>
+                        <option value="肾内科">肾内科</option>
+                        <option value="妇科">妇科</option>
+                        <option value="儿科">儿科</option>
+                        <option value="外科">外科</option>
+                        <option value="骨科">骨科</option>
+                        <option value="皮肤科">皮肤科</option>
+                        <option value="五官科">五官科</option>
+                        <option value="全科">全科</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="experience">从业经验</label>
+                    <select id="experience" name="experience">
+                        <option value="">请选择从业年数</option>
+                        <option value="1-5年">1-5年</option>
+                        <option value="6-10年">6-10年</option>
+                        <option value="11-20年">11-20年</option>
+                        <option value="20年以上">20年以上</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+
+        <!-- 步骤2: 专科疾病信息 -->
+        <div class="form-section" id="step2">
+            <div class="section-header">
+                <h3>🎯 专科疾病信息</h3>
+                <p>请选择您最擅长的疾病类型，系统将学习您针对该疾病的诊疗思维</p>
+            </div>
+            
+            <form class="disease-form">
+                <div class="form-group">
+                    <label for="diseaseCategory">擅长疾病类型 *</label>
+                    <select id="diseaseCategory" name="diseaseCategory" required>
+                        <option value="">请选择疾病类型</option>
+                        <option value="高血压病">高血压病</option>
+                        <option value="糖尿病">糖尿病</option>
+                        <option value="冠心病">冠心病</option>
+                        <option value="失眠症">失眠症</option>
+                        <option value="抑郁症">抑郁症</option>
+                        <option value="胃病">胃病</option>
+                        <option value="咳嗽">咳嗽</option>
+                        <option value="哮喘">哮喘</option>
+                        <option value="头痛">头痛</option>
+                        <option value="腰痛">腰痛</option>
+                        <option value="月经不调">月经不调</option>
+                        <option value="不孕不育">不孕不育</option>
+                        <option value="小儿感冒">小儿感冒</option>
+                        <option value="湿疹">湿疹</option>
+                        <option value="便秘">便秘</option>
+                        <option value="腹泻">腹泻</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="otherDiseaseGroup" style="display: none;">
+                    <label for="otherDisease">其他疾病类型</label>
+                    <input type="text" id="otherDisease" name="otherDisease" 
+                           placeholder="请输入具体的疾病类型">
+                </div>
+                
+                <div class="form-group">
+                    <label for="patternAccuracy">诊疗准确率</label>
+                    <select id="patternAccuracy" name="patternAccuracy">
+                        <option value="0.8">80% - 较好</option>
+                        <option value="0.85">85% - 良好</option>
+                        <option value="0.9" selected>90% - 优秀</option>
+                        <option value="0.95">95% - 卓越</option>
+                    </select>
+                    <small>基于您的临床经验，预估对该疾病的诊疗成功率</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="diseaseDescription">疾病特点描述</label>
+                    <textarea id="diseaseDescription" name="diseaseDescription" rows="3" 
+                              placeholder="请简要描述该疾病的特点、常见症状或您的诊疗优势..."></textarea>
+                </div>
+            </form>
+        </div>
+
+        <!-- 步骤3: 诊疗思维步骤 -->
+        <div class="form-section" id="step3">
+            <div class="section-header">
+                <h3>🧠 诊疗思维步骤</h3>
+                <p>请按照您的实际诊疗流程，逐步录入您的思维过程</p>
+            </div>
+            
+            <div class="thinking-steps-container">
+                <div class="step-controls">
+                    <button type="button" class="btn btn-primary" onclick="addThinkingStep()">
+                        ➕ 添加思维步骤
+                    </button>
+                    <div class="step-templates">
+                        <label>快速模板：</label>
+                        <button type="button" class="btn btn-template" onclick="addTemplateStep('symptom')">症状评估</button>
+                        <button type="button" class="btn btn-template" onclick="addTemplateStep('syndrome')">证候分析</button>
+                        <button type="button" class="btn btn-template" onclick="addTemplateStep('formula')">方剂选择</button>
+                        <button type="button" class="btn btn-template" onclick="addTemplateStep('dosage')">剂量调整</button>
+                    </div>
+                </div>
+                
+                <div id="thinkingStepsList">
+                    <!-- 思维步骤将动态添加到这里 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 步骤4: 预览确认 -->
+        <div class="form-section" id="step4">
+            <div class="section-header">
+                <h3>👁️ 预览确认</h3>
+                <p>请仔细查看您输入的思维模式，确认无误后提交到系统</p>
+            </div>
+            
+            <div class="preview-container">
+                <div class="preview-section">
+                    <h4>医生信息</h4>
+                    <div id="doctorInfoPreview"></div>
+                </div>
+                
+                <div class="preview-section">
+                    <h4>专科信息</h4>
+                    <div id="diseaseInfoPreview"></div>
+                </div>
+                
+                <div class="preview-section">
+                    <h4>思维步骤</h4>
+                    <div id="thinkingStepsPreview"></div>
+                </div>
+            </div>
+            
+            <div class="submit-section">
+                <div class="submit-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="downloadData()">
+                        💾 下载备份
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="submitThinkingPattern()">
+                        🚀 提交到系统
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 导航按钮 -->
+        <div class="navigation">
+            <button type="button" class="btn btn-secondary" id="prevBtn" onclick="prevStep()" style="display: none;">
+                ⬅️ 上一步
+            </button>
+            <button type="button" class="btn btn-primary" id="nextBtn" onclick="nextStep()">
+                下一步 ➡️
+            </button>
+        </div>
+
+        <!-- 消息提示 -->
+        <div id="messageBox" class="message-box" style="display: none;">
+            <div class="message-content">
+                <span class="message-text"></span>
+                <button class="message-close" onclick="hideMessage()">✕</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/doctor_thinking_script.js"></script>
+</body>
+</html>

@@ -1,0 +1,206 @@
+/**
+ * 智汇中医 - 智能问诊工作流 - 处方与模态框样式
+ * 包含: 处方确认、评价反馈、模态框
+ */
+
+/* ========== 反馈按钮 ========== */
+.feedback-controls {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.feedback-label {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+.rating-buttons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.rating-btn {
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s;
+}
+
+.rating-btn:hover {
+    border-color: #667eea;
+    background: #f8faff;
+}
+
+/* ========== 评价弹窗样式 ========== */
+.rating-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.rating-modal.show {
+    display: flex;
+}
+
+.rating-modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80%;
+    overflow-y: auto;
+}
+
+.rating-header {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.rating-header h3 {
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.rating-section {
+    margin-bottom: 20px;
+}
+
+.rating-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.star-rating {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.star {
+    font-size: 24px;
+    cursor: pointer;
+    color: #d1d5db;
+    transition: color 0.2s;
+}
+
+.star.active,
+.star:hover {
+    color: #fbbf24;
+}
+
+.rating-textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    resize: vertical;
+    font-family: inherit;
+}
+
+.rating-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.rating-btn.primary {
+    background: #667eea;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.rating-btn.primary:hover {
+    background: #5a67d8;
+}
+
+.rating-btn.secondary {
+    background: #f3f4f6;
+    color: #374151;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.rating-btn.secondary:hover {
+    background: #e5e7eb;
+}
+
+/* ========== 确认处方模态框 ========== */
+.confirmation-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.confirmation-modal .modal-content {
+    background: white;
+    padding: 24px;
+    border-radius: 12px;
+    max-width: 400px;
+    margin: 20px;
+    text-align: center;
+}
+
+.confirmation-modal h3 {
+    margin-bottom: 16px;
+    color: #374151;
+}
+
+.confirmation-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.confirmation-buttons button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.confirm-btn {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+}
+
+.continue-btn {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}

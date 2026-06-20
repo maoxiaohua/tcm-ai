@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCM AI 二维码展示 | QR Code Gallery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #2C5282, #4A90E2);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .qr-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .qr-card {
+            background: #f8f9ff;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .qr-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+            border-color: #4A90E2;
+        }
+
+        .qr-card h3 {
+            color: #2C5282;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        .qr-card img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .qr-card .description {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+
+        .qr-card .url {
+            background: #e2e8f0;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.8em;
+            color: #4A90E2;
+            word-break: break-all;
+            margin-bottom: 15px;
+        }
+
+        .download-btn {
+            background: linear-gradient(45deg, #4A90E2, #2C5282);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .download-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(74, 144, 226, 0.4);
+        }
+
+        .feature-section {
+            background: #f0f4f8;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+        }
+
+        .feature-section h2 {
+            color: #2C5282;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            text-align: center;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .feature-item {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .feature-item h4 {
+            color: #4A90E2;
+            margin-bottom: 10px;
+        }
+
+        .usage-guide {
+            background: #fff5f5;
+            border: 2px solid #fed7d7;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+        }
+
+        .usage-guide h3 {
+            color: #c53030;
+            margin-bottom: 15px;
+        }
+
+        .usage-guide ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .usage-guide li {
+            padding: 8px 0;
+            border-bottom: 1px solid #fed7d7;
+        }
+
+        .usage-guide li:last-child {
+            border-bottom: none;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            background: #f8f9ff;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .content {
+                padding: 20px 15px;
+            }
+            
+            .qr-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #48bb78;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 TCM AI 二维码展示</h1>
+            <p><span class="status-indicator"></span>永久二维码 | 即扫即用 | 全平台支持</p>
+        </div>
+
+        <div class="content">
+            <div class="qr-grid">
+                <div class="qr-card">
+                    <h3>🏠 主页访问</h3>
+                    <img src="../qr_codes/主页访问.png" alt="主页访问二维码">
+                    <div class="description">扫描进入TCM AI主页，开始您的智能中医问诊之旅</div>
+                    <div class="url">https://mxh0510.cn</div>
+                    <a href="/static/qr_codes/主页访问_5cm清晰版.png" download class="download-btn">💾 下载二维码</a>
+                </div>
+
+                <div class="qr-card">
+                    <h3>📝 用户注册</h3>
+                    <img src="../qr_codes/用户注册.png" alt="用户注册二维码">
+                    <div class="description">新用户注册，绑定手机号，享受个性化中医服务</div>
+                    <div class="url">https://mxh0510.cn/register</div>
+                    <a href="/static/qr_codes/用户注册_5cm清晰版.png" download class="download-btn">💾 下载二维码</a>
+                </div>
+
+                <div class="qr-card">
+                    <h3>👨‍⚕️ 医生端</h3>
+                    <img src="../qr_codes/医生端.png" alt="医生端二维码">
+                    <div class="description">中医师专用入口，录入诊疗经验，参与AI系统优化</div>
+                    <div class="url">https://mxh0510.cn/doctor/portal</div>
+                    <a href="/static/qr_codes/医生端_5cm清晰版.png" download class="download-btn">💾 下载二维码</a>
+                </div>
+
+                <div class="qr-card">
+                    <h3>📚 历史记录</h3>
+                    <img src="../qr_codes/历史记录.png" alt="历史记录二维码">
+                    <div class="description">查看完整问诊记录，跟踪健康状况变化</div>
+                    <div class="url">https://mxh0510.cn/history</div>
+                    <a href="/static/qr_codes/历史记录_5cm清晰版.png" download class="download-btn">💾 下载二维码</a>
+                </div>
+            </div>
+
+            <div class="qr-card" style="margin-bottom: 30px;">
+                <h3>🎭 综合展示卡片</h3>
+                <img src="../qr_codes/综合展示卡片.png" alt="综合二维码卡片" style="max-width: 80%;">
+                <div class="description">包含所有功能的完整二维码卡片，适合打印宣传使用</div>
+                <a href="/static/qr_codes/主页访问_5cm清晰版.png" download class="download-btn">💾 下载完整卡片</a>
+            </div>
+
+            <div class="qr-card">
+                <h3>📱 微信分享版</h3>
+                <img src="../qr_codes/微信分享专用.png" alt="微信分享二维码" style="max-width: 50%;">
+                <div class="description">专为微信转发优化的小尺寸二维码，扫描直达主页</div>
+                <a href="/static/qr_codes/微信分享专用_5cm清晰版.png" download class="download-btn">💾 下载微信版</a>
+            </div>
+
+            <div class="feature-section">
+                <h2>✨ 系统特色功能</h2>
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <h4>🤖 五大中医流派</h4>
+                        <p>集成张仲景、叶天士、李东垣、朱丹溪、刘渡舟等名医智慧</p>
+                    </div>
+                    <div class="feature-item">
+                        <h4>⚡ 智能快速诊断</h4>
+                        <p>常见症状<1秒响应，复杂病症<15秒给出专业建议</p>
+                    </div>
+                    <div class="feature-item">
+                        <h4>🛡️ 医疗安全保障</h4>
+                        <p>20+种检测算法，100%防止AI编造医疗信息</p>
+                    </div>
+                    <div class="feature-item">
+                        <h4>📱 全平台支持</h4>
+                        <p>PC端、移动端、微信端完美适配，随时随地问诊</p>
+                    </div>
+                    <div class="feature-item">
+                        <h4>💰 费用低廉</h4>
+                        <p>月费99元无限问诊，比传统门诊节省70%费用</p>
+                    </div>
+                    <div class="feature-item">
+                        <h4>🕰️ 24小时服务</h4>
+                        <p>全天候在线服务，深夜突发症状也能及时咨询</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="usage-guide">
+                <h3>📋 使用指南</h3>
+                <ul>
+                    <li><strong>💡 扫码方式</strong>：使用微信、支付宝、浏览器扫一扫功能</li>
+                    <li><strong>📱 推荐设备</strong>：手机访问体验最佳，支持触屏和语音输入</li>
+                    <li><strong>🌐 网络要求</strong>：需要稳定网络连接，建议WiFi或4G环境</li>
+                    <li><strong>🔒 隐私保护</strong>：所有对话记录本地加密存储，严格保护隐私</li>
+                    <li><strong>⚠️ 医疗声明</strong>：系统提供参考建议，重症请及时就医</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>🏥 TCM AI 中医智能诊断系统</p>
+            <p>传承千年中医智慧 | 拥抱人工智能未来</p>
+            <p style="margin-top: 10px; font-size: 0.9em; color: #999;">
+                更新时间: 2025-08-05 | 官方域名: https://mxh0510.cn (主页已修正)
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // 页面加载完成后的动画效果
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.qr-card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(30px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 200);
+            });
+        });
+
+        // 复制URL功能
+        document.querySelectorAll('.url').forEach(urlElement => {
+            urlElement.style.cursor = 'pointer';
+            urlElement.title = '点击复制链接';
+            urlElement.addEventListener('click', function() {
+                navigator.clipboard.writeText(this.textContent).then(() => {
+                    const originalText = this.textContent;
+                    this.textContent = '✅ 已复制到剪贴板';
+                    this.style.background = '#c6f6d5';
+                    setTimeout(() => {
+                        this.textContent = originalText;
+                        this.style.background = '#e2e8f0';
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

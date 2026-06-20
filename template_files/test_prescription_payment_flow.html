@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>处方支付流程测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        
+        .test-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .test-title {
+            color: #2d5aa0;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .test-case {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f8fafc;
+        }
+        
+        .test-case.pass {
+            border-color: #10b981;
+            background: #ecfdf5;
+        }
+        
+        .test-case.fail {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+        
+        .case-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .case-description {
+            color: #6b7280;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .test-result {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        
+        .result-pass {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .result-fail {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .result-details {
+            margin-top: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            background: #f3f4f6;
+            padding: 8px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        
+        .test-button {
+            background: linear-gradient(135deg, #2d5aa0, #4a7bc8);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(45, 90, 160, 0.3);
+        }
+        
+        .summary {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        
+        .summary.pass {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .summary.fail {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-title">🧪 处方支付流程回归测试</div>
+        <p><strong>测试目标:</strong> 验证处方检测和支付功能的完整性，确保没有功能回归。</p>
+        
+        <div class="test-controls">
+            <button class="test-button" onclick="runAllTests()">运行所有测试</button>
+            <button class="test-button" onclick="runCriticalTests()">关键功能测试</button>
+            <button class="test-button" onclick="clearResults()">清空结果</button>
+        </div>
+    </div>
+    
+    <div id="testResults"></div>
+    
+    <div id="testSummary"></div>
+
+    <script src="/static/js/prescription_renderer.js"></script>
+    <script>
+        // 模拟全局环境
+        window.selectedDoctor = 'zhang_zhongjing';
+        
+        // 测试用例数据
+        const testCases = [
+            {
+                id: 'complete_prescription',
+                title: '完整处方检测',
+                description: '应该检测到完整处方并触发支付流程',
+                content: `## 处方建议
+
+### 【君药】
+党参 15g - 大补元气，健脾养胃
+白术 12g - 健脾燥湿，益气止汗
+
+### 【臣药】
+茯苓 15g - 健脾渗湿，宁心安神
+山药 20g - 补脾养胃，生津益肺
+
+### 【佐药】
+陈皮 10g - 理气健脾，燥湿化痰
+半夏 10g - 燥湿化痰，降逆止呕
+
+### 【使药】
+甘草 6g - 调和诸药，益气和中
+
+### 煎服方法
+每日1剂，水煎服，分2次温服`,
+                expected: {
+                    containsPrescription: true,
+                    isTemporaryAdvice: false,
+                    needsPayment: true
+                }
+            },
+            
+            {
+                id: 'temporary_advice',
+                title: '临时建议识别',
+                description: '应该识别临时建议，不触发支付',
+                content: `## 初步处方建议（待确认）
+
+根据您的症状，初步考虑可用：
+- 党参 15g
+- 白术 12g
+- 茯苓 15g
+
+请补充舌象信息后，我将为您确认最终处方。`,
+                expected: {
+                    containsPrescription: false, // 临时建议不算完整处方
+                    isTemporaryAdvice: true,
+                    needsPayment: false
+                }
+            },
+            
+            {
+                id: 'diagnostic_analysis',
+                title: '纯诊断分析',
+                description: '应该识别为普通诊断，不触发支付',
+                content: `## 中医分析
+
+根据您的症状，初步辨证为脾胃虚弱证。
+
+**症状分析**：
+- 疲劳乏力 - 提示脾气虚弱
+- 食欲不振 - 脾胃功能减退
+- 腹胀 - 气机不畅
+
+**建议**：
+1. 保持规律作息
+2. 饮食宜清淡
+3. 适当运动
+
+如需开具处方，请提供更详细的舌象和脉象信息。`,
+                expected: {
+                    containsPrescription: false,
+                    isTemporaryAdvice: false,
+                    needsPayment: false
+                }
+            },
+            
+            {
+                id: 'mixed_content',
+                title: '混合内容测试',
+                description: '包含诊断分析和临时建议的混合内容',
+                content: `## 辨证分析
+您的症状属于脾胃虚弱证，病机为脾气不足，运化失职。
+
+## 治疗原则
+健脾益气，和胃化湿
+
+## 暂拟处方建议
+党参 15g、白术 12g、茯苓 15g、甘草 6g
+
+**请注意**：此为初步方案，请上传舌象照片后确认最终处方。`,
+                expected: {
+                    containsPrescription: false, // 含有"暂拟"关键词，属于临时建议
+                    isTemporaryAdvice: true,
+                    needsPayment: false
+                }
+            },
+            
+            {
+                id: 'prescription_with_modification',
+                title: '完整处方含加减',
+                description: '完整的处方，应该触发支付',
+                content: `## 方剂组成
+
+**基础方药**：
+党参 15g、白术 12g、茯苓 15g、陈皮 10g、半夏 10g、甘草 6g
+
+**随证加减**：
+- 若腹胀明显，加枳壳 10g
+- 若便溏严重，加山药 20g
+- 若食欲不振，加神曲 12g
+
+**煎服方法**：
+水煎服，每日一剂，分早晚两次温服
+
+**注意事项**：
+服药期间忌生冷、油腻食物`,
+                expected: {
+                    containsPrescription: true,
+                    isTemporaryAdvice: false,
+                    needsPayment: true
+                }
+            },
+            
+            {
+                id: 'incomplete_prescription',
+                title: '不完整处方',
+                description: '缺少剂量的不完整处方，不应触发支付',
+                content: `## 药物建议
+
+考虑使用以下中药：
+- 党参 - 补气健脾
+- 白术 - 燥湿利水  
+- 茯苓 - 健脾安神
+
+具体用量请咨询专业中医师确定。`,
+                expected: {
+                    containsPrescription: false,
+                    isTemporaryAdvice: false,
+                    needsPayment: false
+                }
+            }
+        ];
+        
+        let testResults = [];
+        
+        function runTest(testCase) {
+            console.log(`\n🧪 运行测试: ${testCase.title}`);
+            
+            const result = {
+                id: testCase.id,
+                title: testCase.title,
+                description: testCase.description,
+                passed: true,
+                details: {},
+                errors: []
+            };
+            
+            try {
+                // 测试处方检测
+                if (window.prescriptionRenderer) {
+                    const containsPrescription = window.prescriptionRenderer.containsPrescription(testCase.content);
+                    const isTemporaryAdvice = window.prescriptionRenderer.isTemporaryAdvice(testCase.content);
+                    
+                    result.details.containsPrescription = containsPrescription;
+                    result.details.isTemporaryAdvice = isTemporaryAdvice;
+                    result.details.needsPayment = containsPrescription && !isTemporaryAdvice;
+                    
+                    // 验证期望结果
+                    if (containsPrescription !== testCase.expected.containsPrescription) {
+                        result.passed = false;
+                        result.errors.push(`处方检测错误: 期望 ${testCase.expected.containsPrescription}, 实际 ${containsPrescription}`);
+                    }
+                    
+                    if (isTemporaryAdvice !== testCase.expected.isTemporaryAdvice) {
+                        result.passed = false;
+                        result.errors.push(`临时建议检测错误: 期望 ${testCase.expected.isTemporaryAdvice}, 实际 ${isTemporaryAdvice}`);
+                    }
+                    
+                    const needsPayment = containsPrescription && !isTemporaryAdvice;
+                    if (needsPayment !== testCase.expected.needsPayment) {
+                        result.passed = false;
+                        result.errors.push(`支付触发错误: 期望 ${testCase.expected.needsPayment}, 实际 ${needsPayment}`);
+                    }
+                    
+                } else {
+                    result.passed = false;
+                    result.errors.push('处方渲染器未加载');
+                }
+                
+            } catch (error) {
+                result.passed = false;
+                result.errors.push(`测试执行异常: ${error.message}`);
+            }
+            
+            return result;
+        }
+        
+        function displayTestResult(result) {
+            const container = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-case ${result.passed ? 'pass' : 'fail'}`;
+            
+            resultDiv.innerHTML = `
+                <div class="case-title">
+                    ${result.passed ? '✅' : '❌'} ${result.title}
+                </div>
+                <div class="case-description">${result.description}</div>
+                <div class="test-result ${result.passed ? 'result-pass' : 'result-fail'}">
+                    <strong>结果:</strong> ${result.passed ? '通过' : '失败'}
+                    ${result.errors.length > 0 ? `<br><strong>错误:</strong> ${result.errors.join(', ')}` : ''}
+                </div>
+                <div class="result-details">检测结果:
+containsPrescription: ${result.details.containsPrescription}
+isTemporaryAdvice: ${result.details.isTemporaryAdvice}
+needsPayment: ${result.details.needsPayment}</div>
+            `;
+            
+            container.appendChild(resultDiv);
+        }
+        
+        function displaySummary(results) {
+            const container = document.getElementById('testSummary');
+            const passed = results.filter(r => r.passed).length;
+            const total = results.length;
+            const passRate = ((passed / total) * 100).toFixed(1);
+            
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = `summary ${passed === total ? 'pass' : 'fail'}`;
+            
+            summaryDiv.innerHTML = `
+                <div class="test-title">测试汇总</div>
+                <p><strong>通过率:</strong> ${passed}/${total} (${passRate}%)</p>
+                <p><strong>状态:</strong> ${passed === total ? '✅ 全部通过 - 功能正常' : '❌ 存在失败 - 需要修复'}</p>
+                ${passed !== total ? `<p><strong>建议:</strong> 检查失败的测试用例，确保处方检测和支付逻辑正确工作。</p>` : ''}
+            `;
+            
+            container.innerHTML = '';
+            container.appendChild(summaryDiv);
+        }
+        
+        function runAllTests() {
+            clearResults();
+            testResults = [];
+            
+            testCases.forEach(testCase => {
+                const result = runTest(testCase);
+                testResults.push(result);
+                displayTestResult(result);
+            });
+            
+            displaySummary(testResults);
+        }
+        
+        function runCriticalTests() {
+            clearResults();
+            testResults = [];
+            
+            const criticalCases = testCases.filter(tc => 
+                tc.id === 'complete_prescription' || 
+                tc.id === 'temporary_advice'
+            );
+            
+            criticalCases.forEach(testCase => {
+                const result = runTest(testCase);
+                testResults.push(result);
+                displayTestResult(result);
+            });
+            
+            displaySummary(testResults);
+        }
+        
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('testSummary').innerHTML = '';
+            testResults = [];
+        }
+        
+        // 页面加载完成后显示状态
+        window.addEventListener('load', function() {
+            console.log('✅ 测试页面加载完成');
+            console.log('📋 处方渲染器状态:', window.prescriptionRenderer ? '已加载' : '未加载');
+            
+            // 自动运行关键测试
+            setTimeout(() => {
+                console.log('🚀 自动运行关键功能测试...');
+                runCriticalTests();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

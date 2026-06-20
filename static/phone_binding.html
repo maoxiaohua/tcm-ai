@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手机号绑定 - TCM AI中医助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 400px;
+            width: 100%;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .header .subtitle {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .form-section {
+            padding: 30px;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        
+        .step {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            position: relative;
+        }
+        
+        .step.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .step.completed {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            right: -25px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 2px;
+            background: #e0e0e0;
+        }
+        
+        .step.completed:not(:last-child)::after {
+            background: #4caf50;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-input.error {
+            border-color: #f44336;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .input-group .form-input {
+            flex: 1;
+        }
+        
+        .btn {
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            text-align: center;
+            display: inline-block;
+            text-decoration: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 24px;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #666;
+            padding: 10px 20px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .btn-send-code {
+            background: #667eea;
+            color: white;
+            padding: 12px 16px;
+            white-space: nowrap;
+        }
+        
+        .btn-send-code:hover:not(:disabled) {
+            background: #5a6fd8;
+        }
+        
+        .btn-send-code:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .error-message {
+            color: #f44336;
+            font-size: 14px;
+            margin-top: 8px;
+            display: none;
+        }
+        
+        .success-message {
+            color: #4caf50;
+            font-size: 14px;
+            margin-top: 8px;
+            display: none;
+        }
+        
+        .step-content {
+            display: none;
+        }
+        
+        .step-content.active {
+            display: block;
+        }
+        
+        .benefits {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .benefits h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .benefit-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .benefit-item::before {
+            content: '✓';
+            color: #4caf50;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .countdown {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .actions {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+            justify-content: space-between;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+                min-height: 100vh;
+            }
+            
+            .header {
+                padding: 20px;
+            }
+            
+            .form-section {
+                padding: 20px;
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="pageTitle">📱 绑定手机号</h1>
+            <p class="subtitle" id="pageSubtitle">升级您的账户，享受更多功能</p>
+        </div>
+        
+        <div class="form-section">
+            <!-- 步骤指示器 -->
+            <div class="step-indicator">
+                <div class="step active" data-step="1">1</div>
+                <div class="step" data-step="2">2</div>
+                <div class="step" data-step="3">3</div>
+            </div>
+            
+            <!-- 第一步：输入手机号 -->
+            <div class="step-content active" id="step1">
+                <div class="benefits">
+                    <h3>绑定手机号的好处：</h3>
+                    <div class="benefit-item">多设备同步历史记录</div>
+                    <div class="benefit-item">数据安全保障</div>
+                    <div class="benefit-item">支持数据导出备份</div>
+                    <div class="benefit-item">获得优先体验权</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="phoneInput">手机号码</label>
+                    <input type="tel" class="form-input" id="phoneInput" placeholder="请输入11位手机号" maxlength="11">
+                    <div class="error-message" id="phoneError"></div>
+                </div>
+                
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="goBack()">返回</button>
+                    <button class="btn btn-primary" onclick="sendCode()">发送验证码</button>
+                </div>
+            </div>
+            
+            <!-- 第二步：输入验证码 -->
+            <div class="step-content" id="step2">
+                <div class="form-group">
+                    <label class="form-label" for="codeInput">验证码</label>
+                    <div class="input-group">
+                        <input type="text" class="form-input" id="codeInput" placeholder="请输入6位验证码" maxlength="6">
+                        <button class="btn btn-send-code" id="resendBtn" onclick="resendCode()">
+                            <span id="resendText">重新发送</span>
+                            <span class="countdown" id="countdown"></span>
+                        </button>
+                    </div>
+                    <div class="error-message" id="codeError"></div>
+                    <div class="success-message" id="codeSuccess"></div>
+                </div>
+                
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="goToStep(1)">上一步</button>
+                    <button class="btn btn-primary" onclick="verifyCode()">验证</button>
+                </div>
+            </div>
+            
+            <!-- 第三步：设置昵称 -->
+            <div class="step-content" id="step3">
+                <div class="form-group">
+                    <label class="form-label" for="nicknameInput">设置昵称（可选）</label>
+                    <input type="text" class="form-input" id="nicknameInput" placeholder="请输入您的昵称" maxlength="20">
+                    <div class="error-message" id="nicknameError"></div>
+                </div>
+                
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="goToStep(2)">上一步</button>
+                    <button class="btn btn-primary" onclick="bindPhone()">完成绑定</button>
+                </div>
+            </div>
+            
+            <!-- 加载状态 -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在处理中...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentStep = 1;
+        let phoneNumber = '';
+        let countdownTimer = null;
+        let countdownSeconds = 0;
+        let isLoginMode = false;
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查是否是登录模式
+            const urlParams = new URLSearchParams(window.location.search);
+            const loginPhone = urlParams.get('login');
+            
+            if (loginPhone) {
+                isLoginMode = true;
+                document.getElementById('pageTitle').textContent = '📱 手机号登录';
+                document.getElementById('pageSubtitle').textContent = '验证手机号，登录您的账户';
+                document.getElementById('phoneInput').value = loginPhone;
+                phoneNumber = loginPhone;
+            }
+            
+            // 监听输入框的实时验证
+            document.getElementById('phoneInput').addEventListener('input', validatePhone);
+            document.getElementById('codeInput').addEventListener('input', validateCode);
+            
+            // 自动聚焦第一个输入框
+            document.getElementById('phoneInput').focus();
+        });
+        
+        // 步骤控制
+        function goToStep(step) {
+            // 隐藏当前步骤
+            document.querySelectorAll('.step-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // 更新步骤指示器
+            document.querySelectorAll('.step').forEach((stepEl, index) => {
+                stepEl.classList.remove('active', 'completed');
+                if (index + 1 < step) {
+                    stepEl.classList.add('completed');
+                } else if (index + 1 === step) {
+                    stepEl.classList.add('active');
+                }
+            });
+            
+            // 显示目标步骤
+            document.getElementById(`step${step}`).classList.add('active');
+            currentStep = step;
+            
+            // 聚焦相应输入框
+            setTimeout(() => {
+                if (step === 1) {
+                    document.getElementById('phoneInput').focus();
+                } else if (step === 2) {
+                    document.getElementById('codeInput').focus();
+                } else if (step === 3) {
+                    document.getElementById('nicknameInput').focus();
+                }
+            }, 100);
+        }
+        
+        // 手机号验证
+        function validatePhone() {
+            const phone = document.getElementById('phoneInput').value.trim();
+            const phoneRegex = /^1[3-9]\d{9}$/;
+            
+            if (phone && !phoneRegex.test(phone)) {
+                showError('phoneError', '请输入正确的11位手机号');
+                return false;
+            } else {
+                hideError('phoneError');
+                return true;
+            }
+        }
+        
+        // 验证码验证
+        function validateCode() {
+            const code = document.getElementById('codeInput').value.trim();
+            
+            if (code && (code.length !== 6 || !/^\d{6}$/.test(code))) {
+                showError('codeError', '请输入6位数字验证码');
+                return false;
+            } else {
+                hideError('codeError');
+                return true;
+            }
+        }
+        
+        // 发送验证码
+        async function sendCode() {
+            const phone = document.getElementById('phoneInput').value.trim();
+            
+            if (!phone) {
+                showError('phoneError', '请输入手机号');
+                return;
+            }
+            
+            if (!validatePhone()) {
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                const response = await fetch('/api/auth/send-verification-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ phone: phone })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    phoneNumber = phone;
+                    showSuccess('codeSuccess', result.message);
+                    goToStep(2);
+                    startCountdown(60);
+                } else {
+                    showError('phoneError', result.error || '发送验证码失败');
+                }
+            } catch (error) {
+                console.error('发送验证码失败:', error);
+                showError('phoneError', '网络错误，请重试');
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        // 重新发送验证码
+        async function resendCode() {
+            if (countdownSeconds > 0) {
+                return;
+            }
+            
+            await sendCodeToPhone(phoneNumber);
+            startCountdown(60);
+        }
+        
+        // 发送验证码到指定手机号
+        async function sendCodeToPhone(phone) {
+            try {
+                const response = await fetch('/api/auth/send-verification-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ phone: phone })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('codeSuccess', '验证码已重新发送');
+                } else {
+                    showError('codeError', result.error || '重新发送失败');
+                }
+            } catch (error) {
+                console.error('重新发送验证码失败:', error);
+                showError('codeError', '网络错误，请重试');
+            }
+        }
+        
+        // 验证验证码
+        async function verifyCode() {
+            const code = document.getElementById('codeInput').value.trim();
+            
+            if (!code) {
+                showError('codeError', '请输入验证码');
+                return;
+            }
+            
+            if (!validateCode()) {
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                const response = await fetch('/api/auth/verify-phone-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        phone: phoneNumber,
+                        code: code 
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('codeSuccess', '验证码验证成功');
+                    setTimeout(() => goToStep(3), 1000);
+                } else {
+                    showError('codeError', result.error || '验证码错误');
+                }
+            } catch (error) {
+                console.error('验证码验证失败:', error);
+                showError('codeError', '网络错误，请重试');
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        // 绑定手机号
+        async function bindPhone() {
+            const nickname = document.getElementById('nicknameInput').value.trim();
+            
+            showLoading();
+            
+            try {
+                let response, result;
+                
+                if (isLoginMode) {
+                    // 登录模式，使用手机号登录
+                    response = await fetch('/api/auth/phone-login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            phone: phoneNumber
+                        })
+                    });
+                } else {
+                    // 绑定模式，绑定手机号到设备用户
+                    response = await fetch('/api/auth/bind-phone', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            phone: phoneNumber,
+                            nickname: nickname
+                        })
+                    });
+                }
+                
+                result = await response.json();
+                
+                if (result.success) {
+                    if (isLoginMode) {
+                        alert('🎉 登录成功！\n欢迎回来，您的历史记录已同步到当前设备。');
+                    } else {
+                        alert('🎉 手机号绑定成功！\n您的账户已升级，现在可以在多设备间同步历史记录。');
+                    }
+                    window.location.href = '/history';
+                } else {
+                    showError('nicknameError', result.error || (isLoginMode ? '登录失败' : '绑定失败'));
+                }
+            } catch (error) {
+                console.error(isLoginMode ? '手机号登录失败:' : '手机号绑定失败:', error);
+                showError('nicknameError', '网络错误，请重试');
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        // 倒计时
+        function startCountdown(seconds) {
+            countdownSeconds = seconds;
+            const resendBtn = document.getElementById('resendBtn');
+            const resendText = document.getElementById('resendText');
+            const countdown = document.getElementById('countdown');
+            
+            resendBtn.disabled = true;
+            resendText.style.display = 'none';
+            countdown.style.display = 'inline';
+            
+            countdownTimer = setInterval(() => {
+                countdown.textContent = `${countdownSeconds}s`;
+                countdownSeconds--;
+                
+                if (countdownSeconds < 0) {
+                    clearInterval(countdownTimer);
+                    resendBtn.disabled = false;
+                    resendText.style.display = 'inline';
+                    countdown.style.display = 'none';
+                }
+            }, 1000);
+        }
+        
+        // 显示/隐藏加载状态
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.querySelectorAll('.step-content').forEach(content => {
+                content.style.display = 'none';
+            });
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById(`step${currentStep}`).style.display = 'block';
+        }
+        
+        // 显示/隐藏错误信息
+        function showError(elementId, message) {
+            const errorEl = document.getElementById(elementId);
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            
+            // 输入框添加错误样式
+            const inputId = elementId.replace('Error', 'Input');
+            const inputEl = document.getElementById(inputId);
+            if (inputEl) {
+                inputEl.classList.add('error');
+            }
+        }
+        
+        function hideError(elementId) {
+            const errorEl = document.getElementById(elementId);
+            errorEl.style.display = 'none';
+            
+            // 移除输入框错误样式
+            const inputId = elementId.replace('Error', 'Input');
+            const inputEl = document.getElementById(inputId);
+            if (inputEl) {
+                inputEl.classList.remove('error');
+            }
+        }
+        
+        // 显示成功信息
+        function showSuccess(elementId, message) {
+            const successEl = document.getElementById(elementId);
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+            
+            setTimeout(() => {
+                successEl.style.display = 'none';
+            }, 3000);
+        }
+        
+        // 返回历史记录页面
+        function goBack() {
+            window.history.back();
+        }
+        
+        // 页面离开前清理倒计时
+        window.addEventListener('beforeunload', function() {
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+            }
+        });
+    </script>
+</body>
+</html>

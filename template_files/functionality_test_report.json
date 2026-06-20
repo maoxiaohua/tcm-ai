@@ -1,0 +1,154 @@
+{
+  "test_summary": {
+    "total_tests": 24,
+    "successful_tests": 22,
+    "failed_tests": 2,
+    "warning_tests": 1,
+    "success_rate": 91.67
+  },
+  "critical_issues": [
+    "缓存系统测试失败: 'IntelligentCacheSystem' object has no attribute 'store_response'"
+  ],
+  "detailed_results": {
+    "core_modules": {
+      "config.settings": {
+        "status": "SUCCESS",
+        "description": "配置系统"
+      },
+      "database.postgresql_knowledge_interface": {
+        "status": "SUCCESS",
+        "description": "PostgreSQL接口"
+      },
+      "core.cache_system.intelligent_cache_system": {
+        "status": "SUCCESS",
+        "description": "智能缓存系统"
+      },
+      "core.doctor_system.tcm_doctor_personas": {
+        "status": "SUCCESS",
+        "description": "中医医生人格系统"
+      },
+      "services.medical_diagnosis_controller": {
+        "status": "SUCCESS",
+        "description": "诊断流程控制器"
+      },
+      "services.user_history_system": {
+        "status": "SUCCESS",
+        "description": "用户历史系统"
+      },
+      "core.prescription.prescription_checker": {
+        "status": "SUCCESS",
+        "description": "处方检查系统"
+      },
+      "core.knowledge_retrieval.enhanced_retrieval": {
+        "status": "SUCCESS",
+        "description": "知识检索增强"
+      }
+    },
+    "database_systems": {
+      "postgresql": {
+        "status": "SUCCESS",
+        "connection": "ACTIVE"
+      },
+      "vector_search": {
+        "status": "DEGRADED",
+        "error": "object of type 'coroutine' has no len()",
+        "fallback": "FULLTEXT_SEARCH"
+      },
+      "sqlite_cache.sqlite": {
+        "status": "SUCCESS",
+        "file_exists": true,
+        "size_kb": 48
+      },
+      "sqlite_user_history.sqlite": {
+        "status": "SUCCESS",
+        "file_exists": true,
+        "size_kb": 84
+      },
+      "sqlite_learning_db.sqlite": {
+        "status": "SUCCESS",
+        "file_exists": true,
+        "size_kb": 32
+      }
+    },
+    "medical_safety": {
+      "prescription_safety": {
+        "status": "SUCCESS",
+        "correctly_refused": true,
+        "reason": "信息不足以进行准确的中医辨证，请详细描述症状、食欲、睡眠、二便等情况"
+      },
+      "complete_info_prescription": {
+        "status": "SUCCESS",
+        "correctly_allowed": true,
+        "reason": "中医辨证信息充分，可以开具处方"
+      }
+    },
+    "user_interaction": {},
+    "diagnostic_flow": {
+      "medical_diagnosis_controller.py": {
+        "status": "SUCCESS",
+        "file_exists": true,
+        "size_kb": 24
+      },
+      "tcm_doctor_personas.py": {
+        "status": "SUCCESS",
+        "file_exists": true,
+        "size_kb": 20
+      },
+      "zhang_zhongjing_decision_system.py": {
+        "status": "SUCCESS",
+        "file_exists": true,
+        "size_kb": 33
+      },
+      "persona_system": {
+        "status": "FAILED",
+        "error": "cannot import name 'get_doctor_persona' from 'core.doctor_system.tcm_doctor_personas' (/opt/tcm-ai/core/doctor_system/tcm_doctor_personas.py)"
+      }
+    },
+    "knowledge_retrieval": {
+      "faiss_index": {
+        "status": "SUCCESS",
+        "all_files_present": true
+      },
+      "knowledge_docs": {
+        "status": "SUCCESS",
+        "doc_count": 59,
+        "path_exists": true
+      }
+    },
+    "prescription_system": {
+      "prescription_checker.py": {
+        "status": "SUCCESS",
+        "file_exists": true,
+        "size_kb": 45
+      },
+      "tcm_formula_analyzer.py": {
+        "status": "SUCCESS",
+        "file_exists": true,
+        "size_kb": 278
+      },
+      "unified_herb_database.json": {
+        "status": "SUCCESS",
+        "file_exists": true,
+        "size_kb": 105
+      }
+    },
+    "cache_system": {
+      "system": {
+        "status": "FAILED",
+        "error": "'IntelligentCacheSystem' object has no attribute 'store_response'"
+      }
+    },
+    "errors": [
+      "缓存系统测试失败: 'IntelligentCacheSystem' object has no attribute 'store_response'"
+    ]
+  },
+  "timestamp": "2025-08-19T14:30:55.094754",
+  "recommendations": [
+    {
+      "category": "Database",
+      "priority": "High",
+      "issue": "PostgreSQL向量搜索功能缺失",
+      "recommendation": "安装pgvector扩展以启用向量搜索功能：CREATE EXTENSION vector;"
+    }
+  ]
+}

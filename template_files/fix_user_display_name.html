@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>修复用户显示名称</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>🔧 用户显示名称修复工具</h1>
+
+    <div class="section">
+        <h2>问题说明</h2>
+        <p>如果历史记录页面显示的用户名不正确（比如显示"金大夫"而不是您的真实用户名），可能是localStorage中的用户数据损坏了。</p>
+        <p>此工具可以检查和修复用户数据。</p>
+    </div>
+
+    <div class="section">
+        <h2>步骤1: 检查当前用户数据</h2>
+        <button onclick="checkUserData()">检查用户数据</button>
+        <pre id="userDataDisplay"></pre>
+    </div>
+
+    <div class="section">
+        <h2>步骤2: 修复用户数据</h2>
+        <p>如果发现数据不正确，点击下面按钮修复：</p>
+        <button onclick="fixUserData()">修复用户数据</button>
+        <button onclick="clearUserData()" style="background: #ef4444;">清除并重新登录</button>
+        <pre id="fixResult"></pre>
+    </div>
+
+    <script src="/static/js/auth_manager.js"></script>
+    <script>
+        function checkUserData() {
+            const display = document.getElementById('userDataDisplay');
+
+            const authUser = window.authManager?.getCurrentUser();
+            const localUser = localStorage.getItem('currentUser');
+            const userData = localStorage.getItem('userData');
+
+            let report = '=== 用户数据检查报告 ===\n\n';
+
+            report += '1. authManager.getCurrentUser():\n';
+            report += JSON.stringify(authUser, null, 2) + '\n\n';
+
+            report += '2. localStorage.currentUser:\n';
+            report += (localUser || '(无数据)') + '\n\n';
+
+            report += '3. localStorage.userData:\n';
+            report += (userData || '(无数据)') + '\n\n';
+
+            // 分析问题
+            if (authUser) {
+                report += '=== 字段分析 ===\n';
+                report += `username: ${authUser.username || '(无)'}\n`;
+                report += `display_name: ${authUser.display_name || '(无)'}\n`;
+                report += `name: ${authUser.name || '(无)'}\n`;
+                report += `phone: ${authUser.phone || '(无)'}\n\n`;
+
+                if (authUser.name && authUser.name.includes('大夫')) {
+                    report += '⚠️ 警告: name字段包含医生名称，这是不正确的！\n';
+                    report += '✅ 建议: 点击"修复用户数据"按钮\n';
+                } else if (!authUser.username && !authUser.display_name) {
+                    report += '⚠️ 警告: 缺少username和display_name字段\n';
+                } else {
+                    report += '✅ 数据看起来正常\n';
+                }
+            } else {
+                report += '❌ 未找到用户数据，可能未登录\n';
+            }
+
+            display.textContent = report;
+        }
+
+        function fixUserData() {
+            const result = document.getElementById('fixResult');
+
+            try {
+                const authUser = window.authManager?.getCurrentUser();
+
+                if (!authUser) {
+                    result.innerHTML = '<span class="error">❌ 未找到用户数据，无法修复</span>';
+                    return;
+                }
+
+                let fixed = false;
+
+                // 修复1: 如果name字段是医生名称，清除它
+                if (authUser.name && (authUser.name.includes('大夫') || authUser.name.includes('医生'))) {
+                    console.log('🔧 清除错误的name字段:', authUser.name);
+                    delete authUser.name;
+                    fixed = true;
+                }
+
+                // 修复2: 确保有正确的显示名称
+                if (!authUser.username && !authUser.display_name && authUser.phone) {
+                    authUser.display_name = authUser.phone;
+                    fixed = true;
+                }
+
+                if (fixed) {
+                    // 保存修复后的数据
+                    localStorage.setItem('currentUser', JSON.stringify(authUser));
+
+                    result.innerHTML = `
+                        <span class="success">✅ 用户数据已修复！</span><br><br>
+                        修复后的数据:<br>
+                        <pre>${JSON.stringify(authUser, null, 2)}</pre>
+                        <br>
+                        请刷新历史记录页面查看效果。
+                    `;
+                } else {
+                    result.innerHTML = '<span class="warning">⚠️ 数据看起来正常，无需修复</span>';
+                }
+
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ 修复失败: ${error.message}</span>`;
+            }
+        }
+
+        function clearUserData() {
+            if (!confirm('确定要清除用户数据吗？清除后需要重新登录。')) {
+                return;
+            }
+
+            const result = document.getElementById('fixResult');
+
+            try {
+                // 清除所有用户相关数据
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('userData');
+                localStorage.removeItem('session_token');
+                localStorage.removeItem('auth_token');
+
+                result.innerHTML = `
+                    <span class="success">✅ 用户数据已清除</span><br><br>
+                    请<a href="/login" style="color: #667eea; text-decoration: underline;">点击这里重新登录</a>
+                `;
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ 清除失败: ${error.message}</span>`;
+            }
+        }
+
+        // 页面加载时自动检查
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(checkUserData, 500);
+        });
+    </script>
+</body>
+</html>

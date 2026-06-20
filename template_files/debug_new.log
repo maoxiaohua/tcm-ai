@@ -1,0 +1,84 @@
+✅ AI功能已启用，模型: qwen-max
+✅ 学习数据库设置完成
+警告: 模糊药材提取器不可用
+Zhang Zhongjing decision system not available: No module named 'zhang_zhongjing_decision_system'
+📡 API路由调试:
+  - 疾病名称: 肾阳虚型腰痛
+  - 思维过程长度: 160
+  - use_ai设为None，将自动判断
+  - 调用doctor_learning_system.generate_decision_paths...
+🔍 AI决策判断调试:
+  - use_ai参数: True
+  - self.ai_enabled: True
+  - thinking_process长度: 160
+  - 最终使用AI: True
+🔍 AI生成条件检查:
+  - use_ai: True (类型: <class 'bool'>)
+  - self.ai_enabled: True (类型: <class 'bool'>)
+  - thinking_process.strip(): '腰痛绵绵，遇劳则甚，卧则减轻，伴有膝软乏力，畏寒肢冷，小便清长，夜尿频数，舌淡苔白，脉沉细无力。辨证要点：腰为肾之府，肾阳不足，命门
+  火衰，筋骨失养。证属：肾阳虚证。治法：温补肾阳，强腰健膝。方药：右归丸加减。药用：熟地黄、山药、山茱萸、枸杞子、鹿角胶、菟丝子、杜仲、当
+  归、肉桂、附子，腰痛甚者加续断、桑寄生。' (长度: 160)
+  - bool(thinking_process.strip()): True
+  - 综合条件: 腰痛绵绵，遇劳则甚，卧则减轻，伴有膝软乏力，畏寒肢冷，小便清长，夜尿频数，舌淡苔白，脉沉细无力。辨证要点：腰为肾之府，肾阳不足，命门
+  火衰，筋骨失养。证属：肾阳虚证。治法：温补肾阳，强腰健膝。方药：右归丸加减。药用：熟地黄、山药、山茱萸、枸杞子、鹿角胶、菟丝子、杜仲、当
+  归、肉桂、附子，腰痛甚者加续断、桑寄生。
+🤖 使用AI智能生成: 肾阳虚型腰痛
+📡 API路由调试:
+  - 疾病名称: 肾阳虚型腰痛
+  - 思维过程长度: 160
+  - use_ai设为None，将自动判断
+  - 调用doctor_learning_system.generate_decision_paths...
+🔍 AI决策判断调试:
+  - use_ai参数: True
+  - self.ai_enabled: True
+  - thinking_process长度: 160
+  - 最终使用AI: True
+🔍 AI生成条件检查:
+  - use_ai: True (类型: <class 'bool'>)
+  - self.ai_enabled: True (类型: <class 'bool'>)
+  - thinking_process.strip(): '腰痛绵绵，遇劳则甚，卧则减轻，伴有膝软乏力，畏寒肢冷，小便清长，夜尿频数，舌淡苔白，脉沉细无力。辨证要点：腰为肾之府，肾阳不足，命门
+  火衰，筋骨失养。证属：肾阳虚证。治法：温补肾阳，强腰健膝。方药：右归丸加减。药用：熟地黄、山药、山茱萸、枸杞子、鹿角胶、菟丝子、杜仲、当
+  归、肉桂、附子，腰痛甚者加续断、桑寄生。' (长度: 160)
+  - bool(thinking_process.strip()): True
+  - 综合条件: 腰痛绵绵，遇劳则甚，卧则减轻，伴有膝软乏力，畏寒肢冷，小便清长，夜尿频数，舌淡苔白，脉沉细无力。辨证要点：腰为肾之府，肾阳不足，命门
+  火衰，筋骨失养。证属：肾阳虚证。治法：温补肾阳，强腰健膝。方药：右归丸加减。药用：熟地黄、山药、山茱萸、枸杞子、鹿角胶、菟丝子、杜仲、当
+  归、肉桂、附子，腰痛甚者加续断、桑寄生。
+🤖 使用AI智能生成: 肾阳虚型腰痛
+⚠️ 尝试从markdown格式中提取JSON
+✅ 从markdown提取成功，生成 3 条决策路径
+📚 记录AI学习数据: 肾阳虚型腰痛, 路径数量: 3
+📡 API路由返回结果:
+  - source: ai
+  - ai_generated: True
+  - user_thinking_used: True
+⚠️ 尝试从markdown格式中提取JSON
+✅ 从markdown提取成功，生成 3 条决策路径
+📚 记录AI学习数据: 肾阳虚型腰痛, 路径数量: 3
+📡 API路由返回结果:
+  - source: ai
+  - ai_generated: True
+  - user_thinking_used: True
+📡 API路由调试:
+  - 疾病名称: 腰痛
+  - 思维过程长度: 162
+  - use_ai设为None，将自动判断
+  - 调用doctor_learning_system.generate_decision_paths...
+🔍 AI决策判断调试:
+  - use_ai参数: True
+  - self.ai_enabled: True
+  - thinking_process长度: 162
+  - 最终使用AI: True
+🔍 AI生成条件检查:
+  - use_ai: True (类型: <class 'bool'>)
+  - self.ai_enabled: True (类型: <class 'bool'>)
+  - thinking_process.strip(): '患者腰痛，辨证为肾阳虚证。肾阳虚则温煦无力，腰府失养而痛。治法：温补肾阳，强腰止痛。方药：右归丸加减。熟地黄20g补肾填精，山药15g健脾补肾，山茱萸12g补肝肾，枸杞子15g滋补肝肾，鹿角胶10g（烊化）温补肾阳，菟丝子15g补肾固精，杜仲15g补肾强腰，当归12g补血活血，肉桂6g温肾助阳，附子10g（先煎）回阳救逆。' (长度: 162)
+  - bool(thinking_process.strip()): True
+  - 综合条件: 患者腰痛，辨证为肾阳虚证。肾阳虚则温煦无力，腰府失养而痛。治法：温补肾阳，强腰止痛。方药：右归丸加减。熟地黄20g补肾填精，山药15g健脾补肾，山茱萸12g补肝肾，枸杞子15g滋补肝肾，鹿角胶10g（烊化）温补肾阳，菟丝子15g补肾固精，杜仲15g补肾强腰，当归12g补血活血，肉桂6g温肾助阳，附子10g（先煎）回阳救逆。
+🤖 使用AI智能生成: 腰痛
+⚠️ 尝试从markdown格式中提取JSON
+✅ 从markdown提取成功，生成 3 条决策路径
+📚 记录AI学习数据: 腰痛, 路径数量: 3
+📡 API路由返回结果:
+  - source: ai
+  - ai_generated: True
+  - user_thinking_used: True

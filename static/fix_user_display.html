@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修复用户显示名称</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-top: 0;
+        }
+        .section {
+            margin: 25px 0;
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f9fafb;
+        }
+        button {
+            padding: 12px 24px;
+            margin: 8px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+        button.danger {
+            background: #ef4444;
+        }
+        button.danger:hover {
+            background: #dc2626;
+        }
+        pre {
+            background: #1f2937;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .status {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .success { background: #d1fae5; color: #065f46; border-left: 4px solid #10b981; }
+        .error { background: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; }
+        .warning { background: #fef3c7; color: #92400e; border-left: 4px solid #f59e0b; }
+        .info { background: #dbeafe; color: #1e40af; border-left: 4px solid #3b82f6; }
+        .highlight {
+            background: #fef3c7;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 用户显示名称修复工具</h1>
+
+        <div class="section">
+            <h2>❓ 问题说明</h2>
+            <p>如果您登录的是患者账号 <span class="highlight">maoxiaohua</span>，但历史记录页面显示的是 <span class="highlight">金大夫</span>，这是因为浏览器localStorage中存储了错误的用户数据。</p>
+            <p>此工具可以自动检测并修复这个问题。</p>
+        </div>
+
+        <div class="section">
+            <h2>🔍 步骤1: 检查当前状态</h2>
+            <button onclick="checkStatus()">🔍 检查用户数据</button>
+            <div id="statusResult"></div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 步骤2: 修复问题</h2>
+            <button onclick="fixUserData()">✅ 自动修复</button>
+            <button onclick="clearAndRelogin()" class="danger">🗑️ 清除数据并重新登录</button>
+            <div id="fixResult"></div>
+        </div>
+
+        <div class="section">
+            <h2>📋 当前用户数据</h2>
+            <pre id="userData">点击"检查用户数据"按钮查看...</pre>
+        </div>
+    </div>
+
+    <script src="/static/js/auth_manager.js"></script>
+    <script>
+        function checkStatus() {
+            const statusResult = document.getElementById('statusResult');
+            const userDataEl = document.getElementById('userData');
+
+            const currentUserStr = localStorage.getItem('currentUser');
+
+            if (!currentUserStr) {
+                statusResult.innerHTML = '<div class="status error">❌ 未找到用户数据，请先登录！<br><a href="/login">点击这里登录</a></div>';
+                userDataEl.textContent = '(无用户数据)';
+                return;
+            }
+
+            try {
+                const user = JSON.parse(currentUserStr);
+
+                // 显示完整数据
+                userDataEl.textContent = JSON.stringify(user, null, 2);
+
+                // 检查问题
+                let problems = [];
+
+                if (user.name && (user.name.includes('大夫') || user.name.includes('医生'))) {
+                    problems.push(`name字段值错误: "${user.name}" (应该是患者姓名，而不是医生名称)`);
+                }
+
+                if (!user.username && !user.display_name) {
+                    problems.push('缺少username和display_name字段');
+                }
+
+                // 显示结果
+                let html = '';
+                html += '<div class="status info">📋 用户数据检查结果:</div>';
+                html += '<ul style="margin: 10px 0;">';
+                html += `<li>username: <strong>${user.username || '(无)'}</strong></li>`;
+                html += `<li>display_name: <strong>${user.display_name || '(无)'}</strong></li>`;
+                html += `<li>name: <strong>${user.name || '(无)'}</strong></li>`;
+                html += `<li>phone_number: <strong>${user.phone_number || '(无)'}</strong></li>`;
+                html += '</ul>';
+
+                if (problems.length > 0) {
+                    html += '<div class="status warning">⚠️ 发现以下问题:<ul style="margin: 10px 0;">';
+                    problems.forEach(p => html += `<li>${p}</li>`);
+                    html += '</ul></div>';
+                    html += '<div class="status info">💡 点击"自动修复"按钮解决问题</div>';
+                } else {
+                    html += '<div class="status success">✅ 用户数据看起来正常</div>';
+                }
+
+                statusResult.innerHTML = html;
+
+            } catch (error) {
+                statusResult.innerHTML = `<div class="status error">❌ 数据解析失败: ${error.message}</div>`;
+            }
+        }
+
+        function fixUserData() {
+            const fixResult = document.getElementById('fixResult');
+
+            const currentUserStr = localStorage.getItem('currentUser');
+            if (!currentUserStr) {
+                fixResult.innerHTML = '<div class="status error">❌ 未找到用户数据</div>';
+                return;
+            }
+
+            try {
+                const user = JSON.parse(currentUserStr);
+                let fixed = false;
+                const changes = [];
+
+                // 修复1: 删除错误的name字段
+                if (user.name && (user.name.includes('大夫') || user.name.includes('医生') || user.name.includes('仲景') || user.name.includes('天士'))) {
+                    changes.push(`删除错误的name字段: "${user.name}"`);
+                    delete user.name;
+                    fixed = true;
+                }
+
+                // 修复2: 设置display_name
+                if (!user.display_name) {
+                    if (user.username) {
+                        user.display_name = user.username;
+                        changes.push(`设置display_name = "${user.username}"`);
+                        fixed = true;
+                    } else if (user.phone_number) {
+                        user.display_name = user.phone_number;
+                        changes.push(`设置display_name = "${user.phone_number}"`);
+                        fixed = true;
+                    }
+                }
+
+                if (fixed) {
+                    // 保存修复后的数据
+                    localStorage.setItem('currentUser', JSON.stringify(user));
+
+                    let html = '<div class="status success">✅ 修复完成！</div>';
+                    html += '<div class="status info">修复内容:<ul style="margin: 10px 0;">';
+                    changes.forEach(c => html += `<li>${c}</li>`);
+                    html += '</ul></div>';
+                    html += '<pre>' + JSON.stringify(user, null, 2) + '</pre>';
+                    html += '<div class="status warning">⚠️ 请点击下面按钮刷新页面:</div>';
+                    html += '<button onclick="location.reload(true)" style="font-size: 16px;">🔄 刷新页面</button>';
+
+                    fixResult.innerHTML = html;
+
+                    // 自动刷新检查状态
+                    setTimeout(checkStatus, 500);
+                } else {
+                    fixResult.innerHTML = '<div class="status success">✅ 数据已经正确，无需修复</div>';
+                }
+
+            } catch (error) {
+                fixResult.innerHTML = `<div class="status error">❌ 修复失败: ${error.message}</div>`;
+            }
+        }
+
+        function clearAndRelogin() {
+            if (!confirm('确定要清除所有用户数据吗？清除后需要重新登录。')) {
+                return;
+            }
+
+            const fixResult = document.getElementById('fixResult');
+
+            try {
+                // 清除所有相关数据
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('userData');
+                localStorage.removeItem('session_token');
+                localStorage.removeItem('auth_token');
+
+                // 清除cookie
+                document.cookie = 'session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
+                fixResult.innerHTML = `
+                    <div class="status success">✅ 数据已清除</div>
+                    <div class="status info">正在跳转到登录页面...</div>
+                `;
+
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1500);
+
+            } catch (error) {
+                fixResult.innerHTML = `<div class="status error">❌ 清除失败: ${error.message}</div>`;
+            }
+        }
+
+        // 页面加载时自动检查
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(checkStatus, 300);
+        });
+    </script>
+</body>
+</html>

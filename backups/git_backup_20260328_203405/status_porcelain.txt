@@ -1,0 +1,5 @@
+M  data/famous_doctors.sqlite
+MM data/user_history.sqlite
+M  template_files/consistency_check_report.json
+M  template_files/parameter_fix_suggestions.md
+?? backups/

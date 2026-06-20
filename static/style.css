@@ -1,0 +1,1612 @@
+/* Modern TCM AI Consultation Interface - Updated 2025-08-01 */
+
+:root {
+    /* 主色调 - 传统中医风格 */
+    --primary-color: #2c3e50;
+    --primary-light: #34495e;
+    --secondary-color: #e74c3c;
+    --accent-color: #f39c12;
+    --success-color: #27ae60;
+    --warning-color: #f1c40f;
+    
+    /* 背景色系 */
+    --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --bg-light: #f8f9fa;
+    --bg-white: #ffffff;
+    --bg-card: #ffffff;
+    
+    /* 文字色系 */
+    --text-primary: #2c3e50;
+    --text-secondary: #7f8c8d;
+    --text-light: #ffffff;
+    --text-muted: #95a5a6;
+    
+    /* 边框和阴影 */
+    --border-color: #e9ecef;
+    --border-radius: 12px;
+    --shadow-light: 0 2px 10px rgba(0, 0, 0, 0.08);
+    --shadow-medium: 0 4px 20px rgba(0, 0, 0, 0.12);
+    --shadow-heavy: 0 8px 30px rgba(0, 0, 0, 0.15);
+    
+    /* 消息气泡 */
+    --user-message-bg: var(--primary-color);
+    --ai-message-bg: var(--bg-white);
+    
+    /* 字体 */
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    height: 100%;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+}
+
+body {
+    font-family: var(--font-family);
+    background: var(--bg-gradient);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100vh;
+    overflow-x: hidden;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+}
+
+.page-wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-areas: 
+        "header"
+        "main"
+        "footer";
+    grid-template-rows: auto 1fr auto;
+    width: 100%;
+    height: 100vh;
+    padding: 8px;
+    gap: 8px;
+    box-sizing: border-box;
+}
+
+/* 头部样式 - 压缩高度，突出主题 */
+.header {
+    grid-area: header;
+    background: var(--bg-white);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-light);
+    overflow: hidden;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+}
+
+.header-title h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 2px;
+}
+
+.header-subtitle {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+#newChatButton {
+    background: var(--secondary-color);
+    color: var(--text-light);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.8rem;
+}
+
+#newChatButton:hover {
+    background: #c0392b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+}
+
+/* 工具栏样式 - 极简紧凑 */
+.toolbar {
+    background: var(--bg-white);
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 12px;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 12px;
+    align-items: start;
+}
+
+.toolbar-section {
+    background: var(--bg-light);
+    border-radius: 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.section-icon {
+    font-size: 0.9rem;
+}
+
+.section-title {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 0.7rem;
+}
+
+/* 医生选择区域 - 紧凑型 */
+.doctor-selection select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    background: var(--bg-white);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 6px;
+}
+
+.doctor-selection select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.1);
+}
+
+/* 医生简介区域 - 极简显示 */
+.doctor-introduction {
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px 8px;
+}
+
+.doctor-info h4 {
+    color: var(--primary-color);
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.doctor-specialty {
+    color: var(--accent-color);
+    font-size: 0.65rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.doctor-desc {
+    font-size: 0.6rem;
+    line-height: 1.3;
+    color: var(--text-secondary);
+}
+
+/* 语音控制区域 - 紧凑布局 */
+.voice-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.voice-btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.65rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.voice-btn.primary {
+    background: var(--success-color);
+    color: var(--text-light);
+}
+
+.voice-btn.primary:hover:not(:disabled) {
+    background: #229954;
+    transform: translateY(-1px);
+}
+
+.voice-btn.secondary {
+    background: var(--text-muted);
+    color: var(--text-light);
+}
+
+.voice-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.auto-speak {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px 0;
+}
+
+.auto-speak input[type="checkbox"] {
+    margin: 0;
+    accent-color: var(--primary-color);
+    transform: scale(0.8);
+}
+
+/* 图像上传区域 - 极简设计 */
+.image-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.upload-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.upload-group input[type="file"] {
+    display: none;
+}
+
+.upload-btn {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 6px;
+    border: 1px solid var(--accent-color);
+    border-radius: 4px;
+    background: var(--accent-color);
+    color: var(--text-light);
+    cursor: pointer;
+    font-size: 0.6rem;
+    transition: all 0.2s ease;
+    justify-content: center;
+}
+
+.upload-btn:hover {
+    background: #e67e22;
+    transform: translateY(-1px);
+}
+
+.file-status {
+    color: var(--text-muted);
+    font-size: 0.55rem;
+    font-style: italic;
+    text-align: center;
+    padding: 1px 0;
+}
+
+.analyze-btn {
+    padding: 4px 8px;
+    background: var(--secondary-color);
+    color: var(--text-light);
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.65rem;
+    margin-top: 4px;
+}
+
+.analyze-btn:hover {
+    background: #c0392b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+/* 反馈控制样式 */
+.feedback-controls {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--bg-light);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.rating-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.rating-buttons span {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-right: 8px;
+    font-weight: 500;
+}
+
+.rating-btn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-white);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.rating-btn:hover {
+    background: var(--primary-color);
+    color: var(--text-light);
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+.feedback-thanks {
+    font-size: 0.8rem;
+    color: var(--success-color);
+    font-weight: 600;
+    text-align: center;
+}
+
+/* 主内容区 */
+.main-content-wrapper {
+    grid-area: main;
+    background: var(--bg-white);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-medium);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+/* 聊天消息区 */
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: linear-gradient(to bottom, var(--bg-light), var(--bg-white));
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.message {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: 85%;
+    animation: messageSlideIn 0.3s ease-out;
+}
+
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.user-message {
+    flex-direction: row-reverse;
+    align-self: flex-end;
+}
+
+.ai-message {
+    align-self: flex-start;
+}
+
+.avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: 600;
+    box-shadow: var(--shadow-light);
+}
+
+.user-avatar {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+    color: var(--text-light);
+}
+
+.user-avatar::before {
+    content: '👤';
+}
+
+.ai-avatar {
+    background: linear-gradient(135deg, var(--accent-color), #e67e22);
+    color: var(--text-light);
+}
+
+.ai-avatar::before {
+    content: '🤖';
+}
+
+.message .content {
+    padding: 14px 18px;
+    border-radius: 16px;
+    line-height: 1.6;
+    font-size: 0.95rem;
+    box-shadow: var(--shadow-light);
+    position: relative;
+}
+
+.user-message .content {
+    background: var(--user-message-bg);
+    color: var(--text-light);
+    border-bottom-right-radius: 4px;
+}
+
+.ai-message .content {
+    background: var(--ai-message-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-bottom-left-radius: 4px;
+}
+
+/* 输入区域 - 紧凑但功能完整 */
+.input-area {
+    background: var(--bg-white);
+    padding: 10px 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.input-wrapper {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    background: var(--bg-light);
+    border: 2px solid var(--border-color);
+    border-radius: 24px;
+    padding: 4px;
+    transition: all 0.2s ease;
+}
+
+.input-wrapper:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(44, 62, 80, 0.1);
+}
+
+#userInput {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    resize: none;
+    max-height: 100px;
+    min-height: 18px;
+    font-family: inherit;
+    color: var(--text-primary);
+}
+
+#userInput:focus {
+    outline: none;
+}
+
+#userInput::placeholder {
+    color: var(--text-muted);
+}
+
+#sendButton {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary-color);
+    color: var(--text-light);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.send-icon {
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+#sendButton:hover:not(:disabled) {
+    background: var(--primary-light);
+    transform: scale(1.05);
+    box-shadow: var(--shadow-medium);
+}
+
+#sendButton:disabled {
+    background: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.5;
+    transform: none;
+}
+
+/* 声明区域 - 压缩高度 */
+.disclaimer {
+    grid-area: footer;
+    background: var(--bg-white);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-light);
+    padding: 8px 12px;
+}
+
+.disclaimer-content {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    text-align: center;
+}
+
+.disclaimer-icon {
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.disclaimer-text {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    line-height: 1.3;
+}
+
+.disclaimer-text strong {
+    color: var(--secondary-color);
+    font-weight: 600;
+}
+
+/* 加载动画和其他样式 */
+.loader-container {
+    display: none;
+    padding: 20px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 12px;
+    box-shadow: var(--shadow-medium);
+    z-index: 9999;
+    min-width: 120px;
+}
+
+.loader {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border-color);
+    border-top: 3px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#startSpeechButton.recording {
+    background: var(--secondary-color) !important;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* 滚动条样式 */
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: var(--bg-light);
+    border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+/* AI回复的诊疗方案排版美化 */
+.tcm-report {
+    background-color: #fcfaf6;
+    border-left: 4px solid var(--primary-color);
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin-top: 10px;
+}
+
+.tcm-item {
+    margin-top: 16px;
+}
+
+.tcm-item:first-child {
+    margin-top: 0;
+}
+
+.tcm-item::before {
+    content: attr(data-title);
+    display: block;
+    font-weight: bold;
+    font-size: 1.05em;
+    color: var(--primary-color);
+    margin-bottom: 6px;
+}
+
+.tcm-main-complaint::before { content: "主诉"; }
+.tcm-history::before { content: "现病史"; }
+.tcm-observation::before { content: "望诊所见"; }
+.tcm-analysis::before { content: "病机分析"; }
+.tcm-diagnosis::before { content: "证型诊断"; }
+.tcm-treatment-principle::before { content: "治法"; }
+.tcm-formula::before { content: "方剂选用"; }
+.tcm-prescription::before { content: "处方建议"; }
+.tcm-method::before { content: "煎服方法"; }
+.tcm-modifications::before { content: "随证加减"; }
+.tcm-lifestyle::before { content: "生活调摄"; }
+.tcm-followup::before { content: "复诊建议"; }
+
+.tcm-item > div {
+    color: #4a4a4a;
+    line-height: 1.8;
+    padding-left: 10px;
+    border-left: 2px solid #e8e2d5;
+}
+
+/* TCM报告中的重点内容样式 */
+.tcm-item strong {
+    color: var(--primary-color);
+    font-weight: 600;
+    font-size: 1.02em;
+}
+
+.tcm-item em {
+    color: #d97706;
+    font-style: normal;
+    font-weight: 500;
+}
+
+/* 特殊术语高亮 */
+.tcm-item > div {
+    text-rendering: optimizeLegibility;
+}
+
+.tcm-item > div:not(.prescription-vertical) {
+    text-indent: 0;
+}
+
+/* 现代化TCM报告样式 */
+.modern-tcm-report {
+    background: linear-gradient(135deg, #fefbf3 0%, #f8f5eb 100%);
+    border-radius: 16px;
+    padding: 24px;
+    margin: 16px 0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e8dcc6;
+}
+
+.modern-tcm-section {
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border-left: 4px solid var(--section-color);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modern-tcm-section:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.section-header {
+    background: linear-gradient(135deg, var(--section-color), rgba(var(--section-color), 0.8));
+    color: white;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 1.05em;
+}
+
+.section-icon {
+    font-size: 1.2em;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.section-content {
+    padding: 20px;
+    line-height: 1.7;
+    color: #374151;
+}
+
+.highlight-term {
+    background: linear-gradient(120deg, #fef3c7 0%, #fde68a 100%);
+    color: #92400e;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 1.02em;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 现代化处方网格 */
+.modern-prescription-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+    padding: 20px;
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 2px dashed #bbf7d0;
+    border-radius: 12px;
+}
+
+.herb-card {
+    background: white;
+    border: 2px solid #10b981;
+    border-radius: 10px;
+    padding: 12px 8px;
+    text-align: center;
+    transition: all 0.3s ease;
+    animation: fadeInUp 0.5s ease forwards;
+    opacity: 0;
+    transform: translateY(20px);
+    position: relative;
+    overflow: hidden;
+}
+
+.herb-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.herb-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.2);
+    border-color: #059669;
+}
+
+@keyframes fadeInUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.herb-name-modern {
+    font-weight: 700;
+    color: #065f46;
+    font-size: 1.1em;
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.herb-dosage-inline {
+    color: #10b981;
+    font-weight: 600;
+    font-size: 0.9em;
+    background: #f0fdf4;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 4px;
+    display: inline-block;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.herb-dosage-modern {
+    color: #10b981;
+    font-weight: 600;
+    font-size: 0.95em;
+    background: #f0fdf4;
+    padding: 4px 8px;
+    border-radius: 6px;
+    display: inline-block;
+}
+
+.prescription-notes {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    border-radius: 0 8px 8px 0;
+    color: #92400e;
+    font-style: italic;
+    line-height: 1.6;
+}
+
+.prescription-text {
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 8px;
+    line-height: 1.7;
+    color: #374151;
+}
+
+/* 文本格式报告样式 */
+.text-tcm-report {
+    background: #fefefe;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 16px 0;
+    border: 1px solid #e5e7eb;
+}
+
+.text-section-header {
+    font-weight: 700;
+    font-size: 1.15em;
+    color: var(--primary-color);
+    margin: 20px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.text-section-content {
+    margin-bottom: 16px;
+    line-height: 1.7;
+    color: #374151;
+}
+
+.pre-prescription, .post-prescription {
+    margin: 12px 0;
+    padding: 16px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .modern-prescription-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px;
+        padding: 16px;
+    }
+    
+    .herb-card {
+        padding: 10px 6px;
+    }
+    
+    .section-header {
+        padding: 10px 16px;
+        font-size: 1em;
+    }
+    
+    .section-content {
+        padding: 16px;
+    }
+}
+
+/* AI回复消息中的 Markdown 内容的通用样式 */
+.markdown-content {
+    line-height: 1.7;
+}
+
+/* 处方竖排显示样式 */
+.prescription-vertical {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+    padding: 15px;
+    background: linear-gradient(135deg, #f8f6f0 0%, #f5f2ea 100%);
+    border-radius: 8px;
+    border: 1px solid #e8e2d5;
+}
+
+.prescription-item {
+    background: #ffffff;
+    border: 2px solid #d4c5a9;
+    border-radius: 6px;
+    padding: 10px 8px;
+    text-align: center;
+    font-family: '楷体', 'KaiTi', '华文楷体', serif;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+}
+
+.prescription-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    border-color: #c19a6b;
+}
+
+.herb-name {
+    font-weight: bold;
+    color: #8b4513;
+    font-size: 1.1em;
+    margin-bottom: 4px;
+    line-height: 1.2;
+}
+
+.herb-dosage {
+    font-size: 0.9em;
+    color: #666;
+    font-weight: 500;
+    background: #f0ede7;
+    padding: 2px 6px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .prescription-vertical {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 8px;
+        margin-top: 8px;
+        padding: 10px;
+    }
+    
+    .prescription-item {
+        padding: 8px 6px;
+    }
+    
+    .herb-name {
+        font-size: 1em;
+    }
+    
+    .herb-dosage {
+        font-size: 0.8em;
+    }
+}
+
+.markdown-content h3 {
+    font-size: 1.1em;
+    color: #7d603a;
+    margin-top: 12px;
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #eee;
+}
+
+.markdown-content strong {
+    color: #c75c5c;
+    font-weight: 600;
+}
+
+.markdown-content p {
+    margin-bottom: 8px;
+}
+
+/* 超大屏幕 PC 端 - 最大化对话区域 */
+@media (min-width: 1440px) {
+    .page-wrapper {
+        max-width: 1800px;
+        padding: 8px 20px;
+        gap: 6px;
+    }
+    
+    /* 压缩头部 */
+    .header-content {
+        padding: 12px 30px;
+    }
+    
+    .header-title h1 {
+        font-size: 2rem;
+    }
+    
+    .header-subtitle {
+        font-size: 0.75rem;
+    }
+    
+    #newChatButton {
+        padding: 8px 16px;
+        font-size: 0.8rem;
+    }
+    
+    /* 最大化聊天区域 */
+    .chat-messages {
+        padding: 25px 40px;
+        gap: 18px;
+    }
+    
+    .message {
+        max-width: 80%;
+    }
+    
+    .message .content {
+        font-size: 1rem;
+        padding: 16px 22px;
+    }
+    
+    /* 极简工具栏 */
+    .toolbar {
+        padding: 6px 30px;
+        gap: 15px;
+    }
+    
+    .toolbar-section {
+        padding: 6px 8px;
+    }
+    
+    .section-title {
+        font-size: 0.65rem;
+    }
+    
+    /* 紧凑输入区 */
+    .input-area {
+        padding: 8px 30px;
+    }
+    
+    #userInput {
+        font-size: 1rem;
+        padding: 12px 16px;
+    }
+    
+    #sendButton {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+/* 标准 PC 端 - 平衡布局 */
+@media (min-width: 1024px) and (max-width: 1439px) {
+    .page-wrapper {
+        max-width: 1400px;
+        padding: 8px 16px;
+        gap: 6px;
+    }
+    
+    /* 压缩头部 */
+    .header-content {
+        padding: 10px 25px;
+    }
+    
+    .header-title h1 {
+        font-size: 1.7rem;
+    }
+    
+    .header-subtitle {
+        font-size: 0.7rem;
+    }
+    
+    #newChatButton {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+    
+    /* 扩大聊天区域 */
+    .chat-messages {
+        padding: 20px 30px;
+        gap: 16px;
+    }
+    
+    .message {
+        max-width: 82%;
+    }
+    
+    .message .content {
+        font-size: 0.95rem;
+        padding: 14px 18px;
+    }
+    
+    /* 压缩工具栏 */
+    .toolbar {
+        padding: 6px 25px;
+        gap: 12px;
+    }
+    
+    .toolbar-section {
+        padding: 6px 8px;
+    }
+    
+    /* 紧凑输入区 */
+    .input-area {
+        padding: 8px 25px;
+    }
+    
+    #userInput {
+        font-size: 0.9rem;
+        padding: 10px 14px;
+    }
+    
+    #sendButton {
+        width: 42px;
+        height: 42px;
+    }
+}
+
+/* 大平板端（横屏） - 最大化对话区 */
+@media (min-width: 768px) and (max-width: 1023px) and (orientation: landscape) {
+    .page-wrapper {
+        padding: 4px 8px;
+        gap: 4px;
+    }
+    
+    /* 压缩头部 */
+    .header-content {
+        padding: 6px 12px;
+        flex-direction: row;
+    }
+    
+    .header-title h1 {
+        font-size: 1.3rem;
+    }
+    
+    .header-subtitle {
+        font-size: 0.65rem;
+    }
+    
+    #newChatButton {
+        padding: 4px 8px;
+        font-size: 0.7rem;
+    }
+    
+    /* 压缩工具栏 */
+    .toolbar {
+        grid-template-columns: 2fr 1fr 1fr;
+        gap: 8px;
+        padding: 4px 12px;
+    }
+    
+    .toolbar-section {
+        padding: 4px 6px;
+    }
+    
+    .section-title {
+        font-size: 0.6rem;
+    }
+    
+    /* 扩大对话区域 */
+    .chat-messages {
+        padding: 12px 16px;
+        gap: 12px;
+    }
+    
+    .message {
+        max-width: 88%;
+    }
+    
+    .message .content {
+        font-size: 0.85rem;
+        padding: 10px 14px;
+    }
+    
+    /* 紧凑输入区 */
+    .input-area {
+        padding: 6px 12px;
+    }
+    
+    #userInput {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+    }
+    
+    #sendButton {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+/* 平板端（竖屏） - 最大化对话空间 */
+@media (min-width: 768px) and (max-width: 1023px) and (orientation: portrait) {
+    .page-wrapper {
+        padding: 6px;
+        gap: 4px;
+    }
+    
+    /* 紧凑头部 */
+    .header-content {
+        padding: 8px 12px;
+        flex-direction: column;
+        gap: 4px;
+        text-align: center;
+    }
+    
+    .header-title h1 {
+        font-size: 1.2rem;
+    }
+    
+    .header-subtitle {
+        font-size: 0.6rem;
+    }
+    
+    #newChatButton {
+        padding: 4px 10px;
+        font-size: 0.7rem;
+    }
+    
+    /* 压缩工具栏 */
+    .toolbar {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        padding: 6px 10px;
+    }
+    
+    .toolbar-section {
+        padding: 6px 8px;
+    }
+    
+    .section-title {
+        font-size: 0.65rem;
+    }
+    
+    /* 扩大对话区域 */
+    .chat-messages {
+        padding: 12px;
+        gap: 10px;
+    }
+    
+    .message {
+        max-width: 94%;
+    }
+    
+    .message .content {
+        font-size: 0.85rem;
+        padding: 10px 14px;
+    }
+    
+    /* 紧凑输入区 */
+    .input-area {
+        padding: 6px 10px;
+    }
+    
+    #userInput {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+    }
+    
+    #sendButton {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+/* 大屏手机（横屏） */
+@media (max-width: 767px) and (orientation: landscape) {
+    .page-wrapper {
+        padding: 4px;
+        gap: 4px;
+    }
+    
+    .header-content {
+        padding: 8px 12px;
+        flex-direction: row;
+        justify-content: space-between;
+    }
+    
+    .header-title h1 {
+        font-size: 1.2rem;
+        margin-bottom: 0;
+    }
+    
+    .header-subtitle {
+        font-size: 0.7rem;
+    }
+    
+    #newChatButton {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+    
+    .toolbar {
+        grid-template-columns: 2fr 1fr 1fr;
+        padding: 8px 12px;
+        gap: 8px;
+    }
+    
+    .toolbar-section {
+        padding: 6px 8px;
+    }
+    
+    .section-header {
+        margin-bottom: 4px;
+        padding-bottom: 4px;
+    }
+    
+    .section-title {
+        font-size: 0.75rem;
+    }
+    
+    .chat-messages {
+        padding: 8px 12px;
+        gap: 8px;
+    }
+    
+    .message {
+        max-width: 90%;
+    }
+    
+    .message .content {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+    }
+    
+    .avatar {
+        width: 28px;
+        height: 28px;
+        font-size: 0.9rem;
+    }
+    
+    .input-area {
+        padding: 8px 12px;
+    }
+    
+    .input-wrapper {
+        padding: 3px;
+    }
+    
+    #userInput {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+    }
+    
+    #sendButton {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .send-icon {
+        font-size: 0.9rem;
+    }
+}
+
+/* 标准手机（竖屏） - 主要优化对话区域 */
+@media (max-width: 767px) and (orientation: portrait) {
+    .page-wrapper {
+        padding: 4px;
+        gap: 3px;
+    }
+    
+    /* 最小化头部 */
+    .header-content {
+        flex-direction: column;
+        gap: 4px;
+        padding: 6px 10px;
+        text-align: center;
+    }
+    
+    .header-title h1 {
+        font-size: 1.1rem;
+    }
+    
+    .header-subtitle {
+        font-size: 0.6rem;
+    }
+    
+    #newChatButton {
+        padding: 4px 8px;
+        font-size: 0.65rem;
+    }
+    
+    /* 最小化工具栏 */
+    .toolbar {
+        grid-template-columns: 1fr;
+        padding: 4px 6px;
+        gap: 4px;
+    }
+    
+    .toolbar-section {
+        padding: 4px 6px;
+    }
+    
+    .section-header {
+        margin-bottom: 3px;
+        padding-bottom: 2px;
+    }
+    
+    .section-title {
+        font-size: 0.6rem;
+    }
+    
+    /* 最大化对话区域 */
+    .chat-messages {
+        padding: 8px 10px;
+        gap: 8px;
+    }
+    
+    .message {
+        max-width: 96%;
+    }
+    
+    .message .content {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+    }
+    
+    .avatar {
+        width: 28px;
+        height: 28px;
+        font-size: 0.9rem;
+    }
+    
+    /* 最小化输入区 */
+    .input-area {
+        padding: 4px 6px;
+    }
+    
+    .input-wrapper {
+        border-radius: 16px;
+        padding: 2px;
+    }
+    
+    #userInput {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+    }
+    
+    #sendButton {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .send-icon {
+        font-size: 0.9rem;
+    }
+    
+    /* 最小化声明区 */
+    .disclaimer {
+        padding: 4px 6px;
+    }
+    
+    .disclaimer-content {
+        flex-direction: column;
+        gap: 3px;
+    }
+    
+    .disclaimer-text {
+        font-size: 0.6rem;
+    }
+    
+    .rating-buttons {
+        justify-content: center;
+        gap: 2px;
+        flex-wrap: wrap;
+    }
+    
+    .rating-btn {
+        padding: 2px 4px;
+        font-size: 0.55rem;
+    }
+}
+
+/* 小屏手机特殊适配 */
+@media (max-width: 375px) {
+    .header-title h1 {
+        font-size: 1.1rem;
+    }
+    
+    .header-subtitle {
+        font-size: 0.7rem;
+    }
+    
+    .toolbar-section {
+        padding: 8px;
+    }
+    
+    .chat-messages {
+        padding: 10px;
+    }
+    
+    .message .content {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+    }
+    
+    .upload-btn,
+    .voice-btn,
+    .analyze-btn {
+        font-size: 0.65rem;
+        padding: 5px 8px;
+    }
+    
+    #userInput {
+        font-size: 0.8rem;
+    }
+    
+    #sendButton {
+        width: 34px;
+        height: 34px;
+    }
+}
+
+/* 超小屏设备 */
+@media (max-width: 320px) {
+    .page-wrapper {
+        padding: 4px;
+        gap: 4px;
+    }
+    
+    .header-content {
+        padding: 8px 10px;
+    }
+    
+    .header-title h1 {
+        font-size: 1rem;
+    }
+    
+    .toolbar {
+        padding: 6px 8px;
+        gap: 6px;
+    }
+    
+    .toolbar-section {
+        padding: 6px;
+    }
+    
+    .chat-messages {
+        padding: 8px;
+    }
+    
+    .message .content {
+        font-size: 0.75rem;
+        padding: 6px 10px;
+    }
+    
+    .input-area {
+        padding: 6px 8px;
+    }
+    
+    .upload-btn span,
+    .voice-btn,
+    .analyze-btn {
+        font-size: 0.6rem;
+    }
+    
+    #sendButton {
+        width: 32px;
+        height: 32px;
+    }
+}

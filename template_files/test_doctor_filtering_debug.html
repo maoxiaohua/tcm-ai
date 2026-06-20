@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>医生筛选调试工具</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        h3 { color: #333; margin-top: 0; }
+    </style>
+</head>
+<body>
+    <h1>🔍 医生筛选问题调试工具</h1>
+
+    <div class="section">
+        <h3>1. 检查 /api/doctor/list API 返回</h3>
+        <button onclick="checkDoctorListAPI()">🔄 检查医生列表API</button>
+        <pre id="doctorListResult">等待执行...</pre>
+    </div>
+
+    <div class="section">
+        <h3>2. 检查 /api/consultation/patient/history API 返回</h3>
+        <button onclick="checkHistoryAPI()">🔄 检查历史记录API</button>
+        <pre id="historyResult">等待执行...</pre>
+    </div>
+
+    <div class="section">
+        <h3>3. 模拟 doctorInfo 对象构建</h3>
+        <button onclick="simulateDoctorInfo()">🔄 模拟构建</button>
+        <pre id="doctorInfoResult">等待执行...</pre>
+    </div>
+
+    <div class="section">
+        <h3>4. 模拟 allSessions 数据映射</h3>
+        <button onclick="simulateAllSessions()">🔄 模拟映射</button>
+        <pre id="allSessionsResult">等待执行...</pre>
+    </div>
+
+    <div class="section">
+        <h3>5. 模拟筛选逻辑</h3>
+        <button onclick="simulateFiltering()">🔄 模拟筛选</button>
+        <pre id="filteringResult">等待执行...</pre>
+    </div>
+
+    <script>
+        let doctorInfo = {};
+        let allSessions = [];
+
+        async function checkDoctorListAPI() {
+            try {
+                const response = await fetch('/api/doctor/list');
+                const data = await response.json();
+                document.getElementById('doctorListResult').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('doctorListResult').textContent = '❌ 错误: ' + error.message;
+            }
+        }
+
+        async function checkHistoryAPI() {
+            try {
+                // 使用实际用户ID
+                const userId = 'usr_20250920_5741e17a78e8';
+                const response = await fetch(`/api/consultation/patient/history?user_id=${userId}`);
+                const data = await response.json();
+                document.getElementById('historyResult').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('historyResult').textContent = '❌ 错误: ' + error.message;
+            }
+        }
+
+        async function simulateDoctorInfo() {
+            try {
+                const response = await fetch('/api/doctor/list');
+                const data = await response.json();
+
+                doctorInfo = {};
+                if (data.success && data.doctors) {
+                    data.doctors.forEach(doctor => {
+                        if (doctor.doctor_code) {
+                            doctorInfo[doctor.doctor_code] = {
+                                name: doctor.name,
+                                emoji: '👨‍⚕️',
+                                description: '中医专家'
+                            };
+                        }
+                    });
+                }
+
+                const result = {
+                    "说明": "这是模拟的 doctorInfo 对象",
+                    "键列表": Object.keys(doctorInfo),
+                    "完整对象": doctorInfo
+                };
+
+                document.getElementById('doctorInfoResult').textContent = JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('doctorInfoResult').textContent = '❌ 错误: ' + error.message;
+            }
+        }
+
+        async function simulateAllSessions() {
+            try {
+                const userId = 'usr_20250920_5741e17a78e8';
+                const response = await fetch(`/api/consultation/patient/history?user_id=${userId}`);
+                const data = await response.json();
+
+                if (data.success && data.data) {
+                    const consultations = data.data.consultation_history || [];
+
+                    allSessions = consultations.map((consultation, index) => ({
+                        session_id: consultation.consultation_id,
+                        doctor_name: consultation.doctor_id,  // 🔑 关键字段
+                        doctor_display_name: consultation.doctor_name,
+                        session_count: index + 1
+                    }));
+                }
+
+                const result = {
+                    "说明": "这是模拟的 allSessions 数组",
+                    "总记录数": allSessions.length,
+                    "医生ID列表": [...new Set(allSessions.map(s => s.doctor_name))],
+                    "完整数据": allSessions
+                };
+
+                document.getElementById('allSessionsResult').textContent = JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('allSessionsResult').textContent = '❌ 错误: ' + error.message;
+            }
+        }
+
+        async function simulateFiltering() {
+            // 确保先执行了前面的步骤
+            if (Object.keys(doctorInfo).length === 0 || allSessions.length === 0) {
+                document.getElementById('filteringResult').textContent = '❌ 请先执行步骤3和步骤4';
+                return;
+            }
+
+            // 获取所有有数据的医生
+            const doctorsWithData = [...new Set(allSessions.map(session => session.doctor_name))];
+            console.log('🔍 有历史记录的医生:', doctorsWithData);
+            console.log('🔍 活跃医生键列表:', Object.keys(doctorInfo));
+
+            // 筛选出活跃且有历史记录的医生 (这是原始的筛选逻辑)
+            const validDoctors = doctorsWithData.filter(doctorKey => doctorInfo[doctorKey]);
+
+            const result = {
+                "说明": "这是筛选逻辑的结果",
+                "有历史记录的医生ID": doctorsWithData,
+                "doctorInfo中的键": Object.keys(doctorInfo),
+                "筛选后的医生ID": validDoctors,
+                "详细检查": doctorsWithData.map(doctorKey => ({
+                    "doctor_id": doctorKey,
+                    "在doctorInfo中": doctorKey in doctorInfo,
+                    "doctorInfo值": doctorInfo[doctorKey] || null
+                }))
+            };
+
+            document.getElementById('filteringResult').textContent = JSON.stringify(result, null, 2);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智汇中医 - 医生工作台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 2.2em;
+            font-weight: 600;
+        }
+        
+        .doctor-info {
+            text-align: right;
+            color: #666;
+        }
+        
+        .doctor-info h3 {
+            margin-bottom: 5px;
+            color: #333;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+            height: calc(100vh - 120px);
+        }
+        
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+        }
+        
+        .content-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card h3 {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card p {
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+        
+        .nav-menu {
+            list-style: none;
+        }
+        
+        .nav-menu li {
+            margin-bottom: 8px;
+        }
+        
+        .nav-menu a {
+            display: block;
+            padding: 12px 15px;
+            color: #333;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .nav-menu a:hover, .nav-menu a.active {
+            background: #667eea;
+            color: white;
+            transform: translateX(5px);
+        }
+        
+        .consultation-list {
+            margin-top: 20px;
+        }
+        
+        .consultation-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            transition: transform 0.2s ease;
+        }
+        
+        .consultation-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .consultation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .patient-name {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .consultation-time {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .consultation-status {
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-in-progress {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .status-completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .consultation-symptoms {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+        }
+        
+        .review-section {
+            margin-top: 20px;
+        }
+        
+        .review-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .review-rating {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .stars {
+            color: #ffc107;
+            margin-right: 10px;
+        }
+        
+        .review-text {
+            color: #666;
+            font-style: italic;
+            margin-bottom: 8px;
+        }
+        
+        .review-patient {
+            color: #999;
+            font-size: 0.8em;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .section-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .notification-badge {
+            background: #dc3545;
+            color: white;
+            border-radius: 10px;
+            padding: 2px 8px;
+            font-size: 0.7em;
+            margin-left: 5px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-style: italic;
+        }
+        
+        .workload-chart {
+            margin: 20px 0;
+            height: 200px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+        
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 250px 1fr;
+            }
+            
+            .sidebar:last-child {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            
+            .sidebar {
+                order: -1;
+                margin-bottom: 20px;
+            }
+            
+            .header {
+                flex-direction: column;
+                text-align: center;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- 顶部头部 -->
+        <div class="header">
+            <h1>🏥 智汇中医工作台</h1>
+            <div class="doctor-info">
+                <h3>张三医生</h3>
+                <p>内科 | 主治医师</p>
+                <p>执业证号: 110********</p>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <!-- 左侧导航 -->
+            <div class="sidebar">
+                <h3 class="section-title">📋 功能导航</h3>
+                <ul class="nav-menu">
+                    <li><a href="#" class="active" onclick="showSection('dashboard')">🏠 工作台首页</a></li>
+                    <li><a href="#" onclick="showSection('consultations')">💬 待处理问诊 <span class="notification-badge">3</span></a></li>
+                    <li><a href="#" onclick="showSection('prescriptions')">📝 处方审查</a></li>
+                    <li><a href="#" onclick="showSection('reviews')">⭐ 患者评价</a></li>
+                    <li><a href="#" onclick="showSection('patients')">👥 患者管理</a></li>
+                    <li><a href="#" onclick="showSection('schedule')">📅 排班管理</a></li>
+                    <li><a href="#" onclick="showSection('analytics')">📊 数据分析</a></li>
+                    <li><a href="#" onclick="showSection('settings')">⚙️ 个人设置</a></li>
+                </ul>
+                
+                <div style="margin-top: 30px;">
+                    <h3 class="section-title">📈 今日统计</h3>
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 10px;">
+                        <p><strong>问诊数:</strong> 12</p>
+                        <p><strong>处方数:</strong> 8</p>
+                        <p><strong>平均评分:</strong> 4.8 ⭐</p>
+                        <p><strong>在线时长:</strong> 6小时</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中央内容面板 -->
+            <div class="content-panel">
+                <!-- 工作台首页 -->
+                <div id="dashboard-section">
+                    <h2 class="section-title">📊 工作概览</h2>
+                    
+                    <!-- 统计卡片 -->
+                    <div class="stats-grid">
+                        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <h3>15</h3>
+                            <p>今日问诊</p>
+                        </div>
+                        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <h3>28</h3>
+                            <p>待审处方</p>
+                        </div>
+                        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                            <h3>4.9</h3>
+                            <p>患者评分</p>
+                        </div>
+                        <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                            <h3>¥2,450</h3>
+                            <p>今日收入</p>
+                        </div>
+                    </div>
+
+                    <!-- 工作负荷图表 -->
+                    <h3 class="section-title">📈 本周工作负荷</h3>
+                    <div class="workload-chart">
+                        <p>📊 工作负荷图表展示区域<br>
+                        <small>（集成Chart.js或类似图表库）</small></p>
+                    </div>
+
+                    <!-- 最近问诊列表 -->
+                    <h3 class="section-title">🕒 最近问诊</h3>
+                    <div class="consultation-list">
+                        <div class="consultation-item">
+                            <div class="consultation-header">
+                                <span class="patient-name">王女士 (28岁)</span>
+                                <span class="consultation-time">10:30</span>
+                                <span class="consultation-status status-pending">待处理</span>
+                            </div>
+                            <div class="consultation-symptoms">主诉：失眠多梦，心烦不安</div>
+                            <div class="action-buttons">
+                                <button class="btn btn-primary">开始问诊</button>
+                                <button class="btn btn-info">查看详情</button>
+                            </div>
+                        </div>
+                        
+                        <div class="consultation-item">
+                            <div class="consultation-header">
+                                <span class="patient-name">李先生 (45岁)</span>
+                                <span class="consultation-time">09:15</span>
+                                <span class="consultation-status status-in-progress">进行中</span>
+                            </div>
+                            <div class="consultation-symptoms">主诉：胃痛，食欲不振</div>
+                            <div class="action-buttons">
+                                <button class="btn btn-success">继续问诊</button>
+                                <button class="btn btn-info">开具处方</button>
+                            </div>
+                        </div>
+                        
+                        <div class="consultation-item">
+                            <div class="consultation-header">
+                                <span class="patient-name">陈女士 (35岁)</span>
+                                <span class="consultation-time">昨天 16:20</span>
+                                <span class="consultation-status status-completed">已完成</span>
+                            </div>
+                            <div class="consultation-symptoms">主诉：头痛，眩晕</div>
+                            <div class="action-buttons">
+                                <button class="btn btn-info">查看处方</button>
+                                <button class="btn btn-info">患者回访</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 问诊管理 -->
+                <div id="consultations-section" style="display: none;">
+                    <h2 class="section-title">💬 待处理问诊</h2>
+                    <div class="consultation-list">
+                        <!-- 动态加载的问诊列表 -->
+                        <div class="empty-state">正在加载问诊列表...</div>
+                    </div>
+                </div>
+
+                <!-- 处方审查 -->
+                <div id="prescriptions-section" style="display: none;">
+                    <h2 class="section-title">📝 处方审查</h2>
+                    <div class="consultation-list">
+                        <div class="empty-state">暂无待审查处方</div>
+                    </div>
+                </div>
+
+                <!-- 患者评价 -->
+                <div id="reviews-section" style="display: none;">
+                    <h2 class="section-title">⭐ 患者评价管理</h2>
+                    <div class="review-section">
+                        <!-- 动态加载的评价列表 -->
+                        <div class="empty-state">正在加载患者评价...</div>
+                    </div>
+                </div>
+
+                <!-- 其他部分... -->
+                <div id="patients-section" style="display: none;">
+                    <h2 class="section-title">👥 患者管理</h2>
+                    <div class="empty-state">患者管理功能开发中...</div>
+                </div>
+
+                <div id="schedule-section" style="display: none;">
+                    <h2 class="section-title">📅 排班管理</h2>
+                    <div class="empty-state">排班管理功能开发中...</div>
+                </div>
+
+                <div id="analytics-section" style="display: none;">
+                    <h2 class="section-title">📊 数据分析</h2>
+                    <div class="empty-state">数据分析功能开发中...</div>
+                </div>
+
+                <div id="settings-section" style="display: none;">
+                    <h2 class="section-title">⚙️ 个人设置</h2>
+                    <div class="empty-state">个人设置功能开发中...</div>
+                </div>
+            </div>
+
+            <!-- 右侧信息面板 -->
+            <div class="sidebar">
+                <h3 class="section-title">🌟 最新评价</h3>
+                <div class="review-section">
+                    <div class="review-item">
+                        <div class="review-rating">
+                            <span class="stars">⭐⭐⭐⭐⭐</span>
+                            <span>5.0分</span>
+                        </div>
+                        <div class="review-text">"张医生的诊断很准确，药方效果很好！"</div>
+                        <div class="review-patient">王女士 - 2小时前</div>
+                    </div>
+                    
+                    <div class="review-item">
+                        <div class="review-rating">
+                            <span class="stars">⭐⭐⭐⭐⭐</span>
+                            <span>5.0分</span>
+                        </div>
+                        <div class="review-text">"态度很好，解释很详细，值得推荐！"</div>
+                        <div class="review-patient">李先生 - 昨天</div>
+                    </div>
+                </div>
+
+                <h3 class="section-title" style="margin-top: 30px;">🔔 系统通知</h3>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 10px;">
+                    <div style="margin-bottom: 10px; padding: 8px; background: #fff3cd; border-radius: 5px; font-size: 0.9em;">
+                        <strong>📋 处方提醒:</strong> 您有3个处方待审查
+                    </div>
+                    <div style="margin-bottom: 10px; padding: 8px; background: #d1ecf1; border-radius: 5px; font-size: 0.9em;">
+                        <strong>💬 新问诊:</strong> 有新的患者等待问诊
+                    </div>
+                    <div style="margin-bottom: 10px; padding: 8px; background: #d4edda; border-radius: 5px; font-size: 0.9em;">
+                        <strong>⭐ 新评价:</strong> 收到1条新的患者评价
+                    </div>
+                </div>
+
+                <h3 class="section-title" style="margin-top: 30px;">📚 快速工具</h3>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button class="btn btn-primary" onclick="openDecisionTree()">🌳 可视化决策树</button>
+                    <button class="btn btn-info" onclick="openSymptomAnalysis()">🔍 症状智能分析</button>
+                    <button class="btn btn-success" onclick="openHerbDatabase()">🌿 中药材数据库</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 当前活跃的医生ID（实际应用中从登录信息获取）
+        let currentDoctorId = 'doctor-001';
+        
+        // 显示指定的内容区域
+        function showSection(sectionName) {
+            // 隐藏所有内容区域
+            const sections = document.querySelectorAll('[id$="-section"]');
+            sections.forEach(section => section.style.display = 'none');
+            
+            // 显示指定区域
+            document.getElementById(sectionName + '-section').style.display = 'block';
+            
+            // 更新导航状态
+            const navLinks = document.querySelectorAll('.nav-menu a');
+            navLinks.forEach(link => link.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // 根据不同区域加载相应数据
+            switch(sectionName) {
+                case 'consultations':
+                    loadConsultations();
+                    break;
+                case 'prescriptions':
+                    loadPrescriptions();
+                    break;
+                case 'reviews':
+                    loadReviews();
+                    break;
+            }
+        }
+        
+        // 加载待处理问诊
+        async function loadConsultations() {
+            try {
+                const response = await fetch(`/api/doctor-matching/available?patient_id=${currentDoctorId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayConsultations(data.data.doctors);
+                }
+            } catch (error) {
+                console.error('加载问诊列表失败:', error);
+            }
+        }
+        
+        // 加载待审查处方
+        async function loadPrescriptions() {
+            try {
+                // 这里应该调用实际的处方API
+                console.log('加载处方列表...');
+            } catch (error) {
+                console.error('加载处方列表失败:', error);
+            }
+        }
+        
+        // 加载患者评价
+        async function loadReviews() {
+            try {
+                const response = await fetch(`/api/reviews/doctor/${currentDoctorId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayReviews(data.data.reviews);
+                }
+            } catch (error) {
+                console.error('加载评价列表失败:', error);
+            }
+        }
+        
+        // 显示问诊列表
+        function displayConsultations(consultations) {
+            const container = document.querySelector('#consultations-section .consultation-list');
+            
+            if (!consultations || consultations.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无待处理问诊</div>';
+                return;
+            }
+            
+            container.innerHTML = consultations.map(consultation => `
+                <div class="consultation-item">
+                    <div class="consultation-header">
+                        <span class="patient-name">${consultation.name || '患者'}</span>
+                        <span class="consultation-time">${new Date().toLocaleTimeString()}</span>
+                        <span class="consultation-status status-pending">待处理</span>
+                    </div>
+                    <div class="consultation-symptoms">专科：${consultation.specialties.join(', ')}</div>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="startConsultation('${consultation.uuid}')">开始问诊</button>
+                        <button class="btn btn-info" onclick="viewDetails('${consultation.uuid}')">查看详情</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 显示评价列表
+        function displayReviews(reviews) {
+            const container = document.querySelector('#reviews-section .review-section');
+            
+            if (!reviews || reviews.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无患者评价</div>';
+                return;
+            }
+            
+            container.innerHTML = reviews.map(review => {
+                const stars = '⭐'.repeat(review.overall_rating);
+                return `
+                    <div class="review-item">
+                        <div class="review-rating">
+                            <span class="stars">${stars}</span>
+                            <span>${review.overall_rating}.0分</span>
+                        </div>
+                        <div class="review-text">"${review.review_content || '患者给出了好评'}"</div>
+                        <div class="review-patient">${review.is_anonymous ? '匿名患者' : '患者'} - ${new Date(review.created_at).toLocaleDateString()}</div>
+                        ${!review.doctor_reply ? `
+                            <div class="action-buttons">
+                                <button class="btn btn-primary" onclick="replyToReview('${review.uuid}')">回复评价</button>
+                            </div>
+                        ` : `
+                            <div style="margin-top: 10px; padding: 10px; background: #e9ecef; border-radius: 5px;">
+                                <strong>医生回复：</strong>${review.doctor_reply}
+                            </div>
+                        `}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // 回复评价
+        async function replyToReview(reviewId) {
+            const replyContent = prompt('请输入您的回复内容：');
+            if (!replyContent || !replyContent.trim()) return;
+            
+            try {
+                const response = await fetch('/api/reviews/reply', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        review_id: reviewId,
+                        doctor_id: currentDoctorId,
+                        reply_content: replyContent.trim()
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('回复成功！');
+                    loadReviews(); // 刷新评价列表
+                } else {
+                    alert('回复失败：' + data.message);
+                }
+            } catch (error) {
+                console.error('回复评价失败:', error);
+                alert('回复失败，请稍后重试');
+            }
+        }
+        
+        // 打开可视化决策树
+        function openDecisionTree() {
+            window.open('/static/decision_tree_visual_builder.html', '_blank');
+        }
+        
+        // 打开症状智能分析
+        function openSymptomAnalysis() {
+            window.open('/static/symptom_analysis.html', '_blank');
+        }
+        
+        // 打开中药材数据库
+        function openHerbDatabase() {
+            alert('中药材数据库功能开发中...');
+        }
+        
+        // 开始问诊
+        function startConsultation(consultationId) {
+            alert('开始问诊功能正在开发中...');
+        }
+        
+        // 查看详情
+        function viewDetails(id) {
+            alert('查看详情功能正在开发中...');
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 加载初始数据
+            loadReviews();
+            
+            // 定期刷新数据（每30秒）
+            setInterval(() => {
+                loadReviews();
+            }, 30000);
+        });
+    </script>
+</body>
+</html>

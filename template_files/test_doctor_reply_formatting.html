@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医生回复格式测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        
+        .test-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .test-title {
+            color: #2d5aa0;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .message {
+            display: flex;
+            margin-bottom: 15px;
+            align-items: flex-start;
+        }
+        
+        .message.ai {
+            flex-direction: row;
+        }
+        
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-right: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .message-content {
+            flex: 1;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .message-text {
+            line-height: 1.6;
+            color: #374151;
+        }
+        
+        .message-time {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+        
+        .test-button {
+            background: linear-gradient(135deg, #2d5aa0, #4a7bc8);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(45, 90, 160, 0.3);
+        }
+        
+        .raw-content {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 13px;
+            color: #374151;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-title">🔧 医生回复格式化测试</div>
+        
+        <p><strong>测试目的:</strong> 验证修复后的医生回复格式化是否正确处理换行和结构化显示。</p>
+        
+        <div class="test-controls">
+            <button class="test-button" onclick="testSimpleDiagnosis()">测试简单诊断</button>
+            <button class="test-button" onclick="testStructuredDiagnosis()">测试结构化诊断</button>
+            <button class="test-button" onclick="testPrescriptionContent()">测试处方内容</button>
+            <button class="test-button" onclick="testMixedContent()">测试混合内容</button>
+            <button class="test-button" onclick="clearResults()">清空结果</button>
+        </div>
+    </div>
+    
+    <div id="testResults"></div>
+
+    <script src="/static/js/prescription_renderer.js"></script>
+    <script>
+        // 模拟医生数据
+        window.selectedDoctor = 'zhang_zhongjing';
+        const doctors = {
+            'zhang_zhongjing': { name: '张仲景', avatar: '👨‍⚕️' }
+        };
+
+        // 测试数据
+        const testCases = {
+            simpleDiagnosis: `根据您描述的症状，我初步分析如下：
+
+**症状分析**
+您的头痛伴有恶心症状，考虑可能与肝阳上亢或痰浊上蒙有关。
+
+**辨证论治**
+初步辨证为肝阳上亢证，建议平肝潜阳，清热化痰。
+
+**生活建议**
+1. 保持情绪稳定，避免过度劳累
+2. 饮食宜清淡，少食辛辣刺激
+3. 规律作息，保证充足睡眠
+
+如需进一步诊疗，建议提供舌象脉象信息。`,
+
+            structuredDiagnosis: `## 中医四诊分析
+
+### 1. 望诊
+根据您的描述，面色偏黄，精神不振，符合脾虚湿困的表现。
+
+### 2. 闻诊  
+您提到食欲不振，腹胀嗳气，这些都是脾胃虚弱的典型症状。
+
+### 3. 问诊
+- **主症**：腹胀、食欲不振
+- **兼症**：乏力、便溏
+- **病程**：3个月余
+
+### 4. 切诊
+建议您上传舌象图片，以便进行准确的望诊分析。
+
+---
+
+## 辨证分析
+
+**证候**：脾胃虚弱，湿困中焦
+**病机**：脾虚失运，水湿内停，清阳不升
+**治法**：健脾益气，化湿和胃`,
+
+            prescriptionContent: `## 辨证论治
+
+**证候诊断**：脾胃虚弱证
+**治法**：健脾益气，和胃化湿
+
+## 处方建议
+
+### 【君药】
+党参 15g - 大补元气，健脾养胃
+白术 12g - 健脾燥湿，益气止汗
+
+### 【臣药】  
+茯苓 15g - 健脾渗湿，宁心安神
+山药 20g - 补脾养胃，生津益肺
+
+### 【佐药】
+陈皮 10g - 理气健脾，燥湿化痰
+半夏 10g - 燥湿化痰，降逆止呕
+
+### 【使药】
+甘草 6g - 调和诸药，益气和中
+
+### 煎服方法
+**用法用量**：每日1剂，水煎服，分2次温服
+**煎煮方法**：先煎30分钟，取汁300ml
+**服用时间**：饭前半小时服用
+
+### 注意事项
+1. 服药期间忌食生冷、油腻食物
+2. 保持心情舒畅，避免情绪波动  
+3. 如有不适反应，请及时联系医生`,
+
+            mixedContent: `您好！我是张仲景，根据您的症状描述，我来为您分析：
+
+**初步印象**
+从您描述的"经常感到疲劳，食欲不振，偶有腹胀"来看，这很符合中医所说的脾胃虚弱证候。
+
+**详细分析**
+### 症状特点
+1. **疲劳乏力** - 提示脾气虚弱，运化失司
+2. **食欲不振** - 脾胃功能减退，纳运失常  
+3. **腹胀** - 气机不畅，脾虚气滞
+
+### 病机分析
+- **根本原因**：脾胃虚弱，运化失职
+- **病理变化**：清阳不升，浊阴不降
+- **发展趋势**：若不及时调治，可能发展为更严重的脾胃病证
+
+**建议下一步**
+为了给您制定更精准的治疗方案，建议您：
+1. 上传舌象照片（伸舌拍照，光线充足）
+2. 详细描述大便性状和频次
+3. 告知是否有其他不适症状
+
+待信息完善后，我将为您开具个性化的中药处方。`
+        };
+
+        function displayTest(title, content, rawContent) {
+            const container = document.getElementById('testResults');
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-container';
+            
+            // 使用处方渲染器处理内容
+            let processedContent = content;
+            if (window.prescriptionRenderer) {
+                processedContent = window.prescriptionRenderer.renderContent(content, false, null);
+            } else {
+                // 备用格式化
+                processedContent = formatMessage(content);
+            }
+            
+            testDiv.innerHTML = `
+                <div class="test-title">${title}</div>
+                <div class="message ai">
+                    <div class="message-avatar">👨‍⚕️</div>
+                    <div class="message-content">
+                        <div class="message-text">${processedContent}</div>
+                        <div class="message-time">${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                </div>
+                <details>
+                    <summary style="cursor: pointer; color: #6b7280; font-size: 13px;">查看原始内容</summary>
+                    <div class="raw-content">${rawContent}</div>
+                </details>
+            `;
+            
+            container.appendChild(testDiv);
+        }
+
+        // 备用格式化函数（从主页面复制）
+        function formatMessage(content) {
+            if (!content) return '';
+            
+            return content
+                .replace(/\*\*【处方】\*\*/g, '<div style="background: linear-gradient(135deg, #2d5aa0, #4a7bc8); color: white; padding: 10px 15px; border-radius: 8px; margin: 15px 0; font-weight: bold; font-size: 16px; text-align: center;">📋 中药处方</div>')
+                .replace(/\*\*【(用法|注意|禁忌|功效)】\*\*/g, '<div style="background: #f3f4f6; color: #374151; padding: 8px 12px; border-radius: 6px; margin: 10px 0; font-weight: bold; border-left: 4px solid #6b7280;">$1</div>')
+                .replace(/\*\*【(.*?)】\*\*/g, '<strong style="color: #2d5aa0; font-size: 15px; background: #e0f2fe; padding: 2px 6px; border-radius: 4px;">【$1】</strong>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #1f2937; font-weight: bold;">$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em style="color: #6b7280;">$1</em>')
+                .replace(/#{5,}/g, '<hr style="margin: 20px 0; border: none; border-top: 2px solid #e5e7eb; background: linear-gradient(to right, #e5e7eb, transparent);">')
+                .replace(/###\s*(.*?)(?=\n|$)/g, '<h4 style="margin: 20px 0 12px 0; color: #2d5aa0; font-size: 17px; font-weight: bold; padding-left: 8px; border-left: 4px solid #2d5aa0; background: #f8fafc;">$1</h4>')
+                .replace(/##\s*(.*?)(?=\n|$)/g, '<h3 style="margin: 25px 0 15px 0; color: #1f2937; font-size: 19px; font-weight: bold; padding: 8px 12px; background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border-radius: 6px;">$1</h3>')
+                .replace(/^#\s*(.*?)(?=\n|$)/gm, '<h2 style="margin: 30px 0 20px 0; color: #111827; font-size: 22px; font-weight: bold; text-align: center; padding: 12px; background: linear-gradient(135deg, #dbeafe, #bfdbfe); border-radius: 8px;">$1</h2>')
+                .replace(/([一-龟\u4e00-\u9fff]+)\s+(\d+)g/g, '<span style="display: inline-block; background: #ecfdf5; color: #065f46; padding: 2px 6px; margin: 1px 3px; border-radius: 4px; font-weight: 500; border: 1px solid #d1fae5;">$1 <strong>$2g</strong></span>')
+                .replace(/\n\n/g, '<br><br>')
+                .replace(/\n/g, '<br>')
+                .replace(/(\d+\.\s)/g, '<br><span style="color: #2d5aa0; font-weight: bold;">$1</span>')
+                .replace(/^<br>/, '');
+        }
+
+        function testSimpleDiagnosis() {
+            displayTest('📝 简单诊断测试', testCases.simpleDiagnosis, testCases.simpleDiagnosis);
+        }
+
+        function testStructuredDiagnosis() {
+            displayTest('🏗️ 结构化诊断测试', testCases.structuredDiagnosis, testCases.structuredDiagnosis);
+        }
+
+        function testPrescriptionContent() {
+            displayTest('💊 处方内容测试', testCases.prescriptionContent, testCases.prescriptionContent);
+        }
+
+        function testMixedContent() {
+            displayTest('🔀 混合内容测试', testCases.mixedContent, testCases.mixedContent);
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+        }
+
+        // 页面加载完成后显示状态
+        window.addEventListener('load', function() {
+            console.log('✅ 测试页面加载完成');
+            console.log('📋 处方渲染器状态:', window.prescriptionRenderer ? '已加载' : '未加载');
+        });
+    </script>
+</body>
+</html>
