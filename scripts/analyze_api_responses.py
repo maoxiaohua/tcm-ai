@@ -38,7 +38,7 @@ def analyze_api_responses():
     inconsistencies = []
     
     # 扫描API文件
-    api_dirs = ['/opt/tcm-ai/api/routes/', '/opt/tcm-ai/api/']
+    api_dirs = ['/home/ute/tcm-ai/api/routes/', '/home/ute/tcm-ai/api/']
     
     for api_dir in api_dirs:
         if not os.path.exists(api_dir):
@@ -241,7 +241,7 @@ def main():
     helper_code = generate_response_helper()
     
     # 保存辅助代码
-    helper_file = "/opt/tcm-ai/api/utils/api_response.py"
+    helper_file = "/home/ute/tcm-ai/api/utils/api_response.py"
     os.makedirs(os.path.dirname(helper_file), exist_ok=True)
     
     with open(helper_file, 'w', encoding='utf-8') as f:

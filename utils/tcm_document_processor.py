@@ -319,7 +319,7 @@ if __name__ == "__main__":
     processor = TCMDocumentProcessor()
     
     # 测试单个文档
-    test_file = "/opt/tcm-ai/all_tcm_docs/感冒.docx"
+    test_file = "/home/ute/tcm-ai/all_tcm_docs/感冒.docx"
     if os.path.exists(test_file):
         result = processor.process_tcm_document(test_file)
         if result['success']:

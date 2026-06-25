@@ -61,7 +61,7 @@ def get_current_admin(authorization: str = Header(None)):
     token = authorization.split(" ")[1]
 
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         cursor = conn.cursor()
 
         cursor.execute("""

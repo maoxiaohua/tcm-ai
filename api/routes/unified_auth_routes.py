@@ -24,7 +24,7 @@ from datetime import datetime
 
 # 导入统一账户管理器
 import sys
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 from core.unified_account.account_manager import (
     unified_account_manager,
     UnifiedUser,

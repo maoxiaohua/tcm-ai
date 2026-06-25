@@ -15,7 +15,7 @@ import logging
 from pathlib import Path
 
 # 添加项目路径
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 
 from utils.tcm_document_processor import TCMDocumentProcessor
 from core.knowledge_retrieval.enhanced_retrieval import EnhancedKnowledgeRetrieval
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class EnhancedTCMRAG:
     """增强的中医RAG系统"""
     
-    def __init__(self, knowledge_db_path: str = "/opt/tcm-ai/knowledge_db"):
+    def __init__(self, knowledge_db_path: str = "/home/ute/tcm-ai/knowledge_db"):
         self.knowledge_db_path = knowledge_db_path
         self.documents_file = os.path.join(knowledge_db_path, "tcm_documents.pkl")
         self.metadata_file = os.path.join(knowledge_db_path, "tcm_metadata.pkl")
@@ -322,11 +322,11 @@ def main():
     
     # 测试文件列表
     test_files = [
-        '/opt/tcm-ai/all_tcm_docs/感冒.docx',
-        '/opt/tcm-ai/all_tcm_docs/高血压.docx',
-        '/opt/tcm-ai/all_tcm_docs/咳嗽.docx',
-        '/opt/tcm-ai/all_tcm_docs/糖尿病.docx',
-        '/opt/tcm-ai/all_tcm_docs/月经失调.docx'
+        '/home/ute/tcm-ai/all_tcm_docs/感冒.docx',
+        '/home/ute/tcm-ai/all_tcm_docs/高血压.docx',
+        '/home/ute/tcm-ai/all_tcm_docs/咳嗽.docx',
+        '/home/ute/tcm-ai/all_tcm_docs/糖尿病.docx',
+        '/home/ute/tcm-ai/all_tcm_docs/月经失调.docx'
     ]
     
     # 过滤存在的文件

@@ -5,10 +5,10 @@ import os
 import sys
 
 # 添加项目根目录到Python路径
-sys.path.insert(0, '/opt/tcm-ai')
-sys.path.insert(0, '/opt/tcm-ai/core')
-sys.path.insert(0, '/opt/tcm-ai/services')
-sys.path.insert(0, '/opt/tcm-ai/database')
+sys.path.insert(0, '/home/ute/tcm-ai')
+sys.path.insert(0, '/home/ute/tcm-ai/core')
+sys.path.insert(0, '/home/ute/tcm-ai/services')
+sys.path.insert(0, '/home/ute/tcm-ai/database')
 
 # 导入统一配置
 from app.core.settings import PATHS, API_CONFIG, DATABASE_CONFIG, AI_CONFIG, SECURITY_CONFIG
@@ -3045,7 +3045,7 @@ async def prescription_checker_page():
     # 使用完整功能版本
     try:
         from fastapi.responses import FileResponse
-        return FileResponse("/opt/tcm-ai/static/prescription_checker_v2.html")
+        return FileResponse("/home/ute/tcm-ai/static/prescription_checker_v2.html")
     except FileNotFoundError:
         return HTMLResponse("""
             <html><body>
@@ -3059,7 +3059,7 @@ async def prescription_checker_page():
 async def prescription_learning_dashboard():
     """处方学习统计面板"""
     try:
-        return FileResponse("/opt/tcm-ai/static/prescription_learning_dashboard.html")
+        return FileResponse("/home/ute/tcm-ai/static/prescription_learning_dashboard.html")
     except FileNotFoundError:
         from fastapi.responses import HTMLResponse
         return HTMLResponse("""
@@ -3219,7 +3219,7 @@ async def get_medical_records_list(request: Request):
                 pass
 
         import sqlite3 as _sqlite3
-        conn = _sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = _sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         conn.row_factory = _sqlite3.Row
         cursor = conn.cursor()
 
@@ -3314,7 +3314,7 @@ async def reorder_prescription(record_id: str, request: Request):
     """复诊 - 基于已有处方重新下单"""
     try:
         import sqlite3 as _sqlite3
-        conn = _sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = _sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         conn.row_factory = _sqlite3.Row
         cursor = conn.cursor()
 
@@ -3800,7 +3800,7 @@ async def export_conversation_api(conversation_id: str, request: Request, format
 async def user_history_page():
     """用户历史记录页面"""
     try:
-        return FileResponse("/opt/tcm-ai/static/user_history.html")
+        return FileResponse("/home/ute/tcm-ai/static/user_history.html")
     except Exception as e:
         logger.error(f"加载历史记录页面失败: {e}")
         return HTMLResponse("<h1>页面加载失败</h1>", status_code=500)
@@ -3822,7 +3822,7 @@ async def export_user_sessions_api(request: Request):
                 pass
 
         import sqlite3 as _sqlite3
-        conn = _sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = _sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         conn.row_factory = _sqlite3.Row
         cursor = conn.cursor()
 
@@ -4668,7 +4668,7 @@ async def admin_get_prescriptions_stats():
     """获取处方统计数据"""
     try:
         import sqlite3 as _sqlite3
-        conn = _sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = _sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         cursor = conn.cursor()
 
         cursor.execute("SELECT COUNT(*) FROM prescriptions")
@@ -4734,7 +4734,7 @@ async def admin_get_settings():
     import json
     import os
     
-    config_file_path = "/opt/tcm-ai/data/system_settings.json"
+    config_file_path = "/home/ute/tcm-ai/data/system_settings.json"
     
     try:
         # 获取默认配置作为基础
@@ -4773,12 +4773,12 @@ async def admin_save_settings(settings_data: dict):
     import os
     from datetime import datetime
     
-    config_file_path = "/opt/tcm-ai/data/system_settings.json"
-    backup_file_path = f"/opt/tcm-ai/data/system_settings_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    config_file_path = "/home/ute/tcm-ai/data/system_settings.json"
+    backup_file_path = f"/home/ute/tcm-ai/data/system_settings_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     
     try:
         # 创建数据目录（如果不存在）
-        os.makedirs("/opt/tcm-ai/data", exist_ok=True)
+        os.makedirs("/home/ute/tcm-ai/data", exist_ok=True)
         
         # 如果已有配置文件，先备份
         if os.path.exists(config_file_path):
@@ -4800,7 +4800,7 @@ async def admin_save_settings(settings_data: dict):
             json.dump(validated_settings, f, ensure_ascii=False, indent=2)
         
         # 清理旧备份文件（只保留最近5个备份）
-        cleanup_old_backups("/opt/tcm-ai/data", "system_settings_backup_", 5)
+        cleanup_old_backups("/home/ute/tcm-ai/data", "system_settings_backup_", 5)
         
         logger.info("系统配置已成功保存")
         
@@ -4825,7 +4825,7 @@ def get_default_system_settings():
             "system_version": "v2.6.0",
             "server_port": 8000,
             "domain_name": "mxh0510.cn",
-            "database_path": "/opt/tcm-ai/data/user_history.sqlite",
+            "database_path": "/home/ute/tcm-ai/data/user_history.sqlite",
             "backup_retention": 30,
             "log_level": "INFO",
             "log_retention": 90,
@@ -4902,7 +4902,7 @@ def validate_system_settings(settings):
             'system_version': str(basic.get('system_version', 'v2.6.0')),
             'server_port': max(1000, min(65535, int(basic.get('server_port', 8000)))),
             'domain_name': str(basic.get('domain_name', ''))[:200],
-            'database_path': str(basic.get('database_path', '/opt/tcm-ai/data/user_history.sqlite')),
+            'database_path': str(basic.get('database_path', '/home/ute/tcm-ai/data/user_history.sqlite')),
             'backup_retention': max(1, min(365, int(basic.get('backup_retention', 30)))),
             'log_level': basic.get('log_level', 'INFO') if basic.get('log_level') in ['DEBUG', 'INFO', 'WARNING', 'ERROR'] else 'INFO',
             'log_retention': max(7, min(365, int(basic.get('log_retention', 90)))),
@@ -5064,7 +5064,7 @@ async def admin_get_logs(
         
         # 如果数据库没有日志，尝试读取文件日志
         if not logs:
-            log_file = "/opt/tcm-ai/api.log"
+            log_file = "/home/ute/tcm-ai/api.log"
             if os.path.exists(log_file):
                 with open(log_file, 'r', encoding='utf-8') as f:
                     lines = f.readlines()

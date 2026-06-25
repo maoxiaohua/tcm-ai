@@ -9,7 +9,7 @@ Date: 2025-10-12
 """
 
 import sys
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 
 import sqlite3
 from datetime import datetime
@@ -18,7 +18,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DB_PATH = "/opt/tcm-ai/data/user_history.sqlite"
+DB_PATH = "/home/ute/tcm-ai/data/user_history.sqlite"
 
 def rebuild_consultations_table():
     """重建consultations表，修复外键引用"""

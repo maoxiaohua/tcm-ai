@@ -12,14 +12,14 @@ from core.doctor_management.doctor_auth import doctor_auth_manager
 
 # 使用内联导入避免模块路径问题
 import sys
-sys.path.insert(0, '/opt/tcm-ai')
+sys.path.insert(0, '/home/ute/tcm-ai')
 from database.models.doctor_portal_models import Doctor, Prescription, PrescriptionStatus
 
 router = APIRouter(prefix="/api/prescription", tags=["处方管理"])
 
 # 导入统一认证系统
 import sys
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 from core.unified_account.account_manager import unified_account_manager
 
 # 认证助手函数
@@ -63,7 +63,7 @@ def _first_non_empty(*values: Any) -> Optional[Any]:
 async def get_prescriptions_by_consultation(consultation_id: str):
     """根据问诊ID获取相关处方"""
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -116,7 +116,7 @@ async def get_pending_prescriptions(authorization: Optional[str] = Header(None))
     
     # 暂时跳过详细权限检查，专注于修复数据加载问题
     
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     try:
         cursor = conn.cursor()
@@ -169,7 +169,7 @@ async def get_doctor_prescription_stats(authorization: Optional[str] = Header(No
     if user.primary_role not in ['doctor', 'admin', 'superadmin']:
         raise HTTPException(status_code=403, detail="需要医生权限")
     
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     try:
         cursor = conn.cursor()
@@ -306,7 +306,7 @@ class PatientConfirmRequest(BaseModel):
 
 def get_db_connection():
     """获取数据库连接"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     return conn
 

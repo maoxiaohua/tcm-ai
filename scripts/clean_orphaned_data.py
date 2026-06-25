@@ -67,7 +67,7 @@ def backup_orphaned_data(db_path: str) -> str:
     
     # 保存备份文件
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_file = f"/opt/tcm-ai/backups/orphaned_data_backup_{timestamp}.json"
+    backup_file = f"/home/ute/tcm-ai/backups/orphaned_data_backup_{timestamp}.json"
     
     os.makedirs(os.path.dirname(backup_file), exist_ok=True)
     
@@ -196,7 +196,7 @@ def clean_orphaned_data(db_path: str, clean_test_data: bool = True, clean_real_d
 
 def main():
     """主函数"""
-    db_path = "/opt/tcm-ai/data/user_history.sqlite"
+    db_path = "/home/ute/tcm-ai/data/user_history.sqlite"
     
     print("🗄️ TCM-AI 数据库孤立数据清理工具")
     print("=" * 60)

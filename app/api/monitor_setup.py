@@ -73,7 +73,7 @@ def register_monitor_and_debug_routes(app: FastAPI, logger: Any) -> None:
     async def unified_system_monitor():
         """统一系统监控面板 - 集成性能和安全监控"""
         try:
-            return FileResponse("/opt/tcm-ai/static/unified_system_monitor.html")
+            return FileResponse("/home/ute/tcm-ai/static/unified_system_monitor.html")
         except Exception as e:
             return HTMLResponse(f"<h1>统一监控面板加载失败</h1><p>{str(e)}</p>")
 
@@ -81,7 +81,7 @@ def register_monitor_and_debug_routes(app: FastAPI, logger: Any) -> None:
     async def debug_layout():
         """页面布局调试工具"""
         try:
-            return FileResponse("/opt/tcm-ai/static/debug_layout.html")
+            return FileResponse("/home/ute/tcm-ai/static/debug_layout.html")
         except Exception as e:
             return HTMLResponse(f"<h1>调试工具加载失败</h1><p>{str(e)}</p>")
 

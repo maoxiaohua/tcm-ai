@@ -29,7 +29,7 @@ from contextlib import contextmanager
 import sys
 
 # 导入统一数据库连接模块
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 from core.database import get_db_connection_context
 
 logger = logging.getLogger(__name__)
@@ -122,7 +122,7 @@ class SecurityEvent:
 class UnifiedAccountManager:
     """统一账户管理器"""
     
-    def __init__(self, db_path: str = "/opt/tcm-ai/data/user_history.sqlite"):
+    def __init__(self, db_path: str = "/home/ute/tcm-ai/data/user_history.sqlite"):
         self.db_path = db_path
         self._init_database()
         
@@ -143,8 +143,8 @@ class UnifiedAccountManager:
                 # 为了安全，我们选择抛出异常，要求手动迁移
                 raise Exception(
                     "统一账户系统未初始化。请先运行迁移脚本: "
-                    "sqlite3 /opt/tcm-ai/data/user_history.sqlite < "
-                    "/opt/tcm-ai/database/migrations/010_unified_account_system.sql"
+                    "sqlite3 /home/ute/tcm-ai/data/user_history.sqlite < "
+                    "/home/ute/tcm-ai/database/migrations/010_unified_account_system.sql"
                 )
     
     @contextmanager

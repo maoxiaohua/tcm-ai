@@ -15,7 +15,7 @@ import statistics
 from collections import defaultdict, Counter
 
 import sys
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 from core.prescription.prescription_checker import Prescription, PrescriptionParser, PrescriptionSafetyChecker
 from core.knowledge_retrieval.tcm_knowledge_graph import TCMKnowledgeGraph
 
@@ -60,7 +60,7 @@ class ClinicalCase:
 class FamousDoctorLearningSystem:
     """名医处方学习系统"""
     
-    def __init__(self, db_path: str = "/opt/tcm-ai/data/famous_doctors.sqlite"):
+    def __init__(self, db_path: str = "/home/ute/tcm-ai/data/famous_doctors.sqlite"):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(exist_ok=True)
         

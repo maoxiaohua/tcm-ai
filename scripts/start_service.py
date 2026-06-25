@@ -7,16 +7,16 @@ import sys
 import os
 
 # 设置工作目录
-os.chdir('/opt/tcm-ai/api')
+os.chdir('/home/ute/tcm-ai/api')
 
 # 设置Python路径 (顺序很重要!)
-sys.path.insert(0, '/opt/tcm-ai/database')
-sys.path.insert(0, '/opt/tcm-ai/services')
-sys.path.insert(0, '/opt/tcm-ai/core')
-sys.path.insert(0, '/opt/tcm-ai')
+sys.path.insert(0, '/home/ute/tcm-ai/database')
+sys.path.insert(0, '/home/ute/tcm-ai/services')
+sys.path.insert(0, '/home/ute/tcm-ai/core')
+sys.path.insert(0, '/home/ute/tcm-ai')
 
 # 设置环境变量
-os.environ['PYTHONPATH'] = '/opt/tcm-ai:/opt/tcm-ai/core:/opt/tcm-ai/services:/opt/tcm-ai/database'
+os.environ['PYTHONPATH'] = '/home/ute/tcm-ai:/home/ute/tcm-ai/core:/home/ute/tcm-ai/services:/home/ute/tcm-ai/database'
 os.environ['PYTHONUNBUFFERED'] = '1'
 
 if __name__ == "__main__":

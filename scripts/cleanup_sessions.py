@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import logging
 
 # 添加项目路径
-sys.path.insert(0, '/opt/tcm-ai')
+sys.path.insert(0, '/home/ute/tcm-ai')
 
 # 配置日志
 logging.basicConfig(
@@ -20,7 +20,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-DB_PATH = '/opt/tcm-ai/data/user_history.sqlite'
+DB_PATH = '/home/ute/tcm-ai/data/user_history.sqlite'
 
 def cleanup_anonymous_sessions(days_to_keep=3):
     """清理超过指定天数的匿名会话"""

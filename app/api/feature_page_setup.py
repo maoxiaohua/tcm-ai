@@ -12,72 +12,72 @@ def register_console_and_test_page_routes(app: FastAPI) -> None:
     @app.get("/doctor")
     async def doctor_main():
         """医生工作台主页 - 完整功能版本"""
-        return FileResponse("/opt/tcm-ai/static/doctor/index.html")
+        return FileResponse("/home/ute/tcm-ai/static/doctor/index.html")
 
     @app.get("/admin")
     async def admin_main():
         """管理员系统主页"""
-        return FileResponse("/opt/tcm-ai/static/admin/index.html")
+        return FileResponse("/home/ute/tcm-ai/static/admin/index.html")
 
     @app.get("/mindmap")
     async def mindmap_main():
         """AI智能思维导图生成器"""
-        return FileResponse("/opt/tcm-ai/static/mindmap/index.html")
+        return FileResponse("/home/ute/tcm-ai/static/mindmap/index.html")
 
     @app.get("/decision_tree_visual_builder.html")
     async def decision_tree_builder():
         """决策树可视化构建器 - 向后兼容路由"""
-        return FileResponse("/opt/tcm-ai/static/decision_tree_visual_builder.html")
+        return FileResponse("/home/ute/tcm-ai/static/decision_tree_visual_builder.html")
 
     @app.get("/debug-doctor")
     async def get_debug_doctor_page():
         """医生工作台调试页面"""
-        return FileResponse("/opt/tcm-ai/debug_doctor.html")
+        return FileResponse("/home/ute/tcm-ai/debug_doctor.html")
 
     @app.get("/test-prescription")
     async def get_test_prescription_page():
         """处方解锁功能测试页面"""
-        return FileResponse("/opt/tcm-ai/static/test_prescription_unlock.html")
+        return FileResponse("/home/ute/tcm-ai/static/test_prescription_unlock.html")
 
     @app.get("/test-persistence")
     async def test_persistence_page():
         """测试页面刷新持久性"""
-        return FileResponse("/opt/tcm-ai/test_persistence.html")
+        return FileResponse("/home/ute/tcm-ai/test_persistence.html")
 
     @app.get("/test-cross-device")
     async def test_cross_device_page():
         """测试跨设备支付同步"""
-        return FileResponse("/opt/tcm-ai/test_cross_device.html")
+        return FileResponse("/home/ute/tcm-ai/test_cross_device.html")
 
     @app.get("/test-history-sync")
     async def test_history_sync_page():
         """测试跨设备历史记录同步"""
-        return FileResponse("/opt/tcm-ai/test_cross_device_history.html")
+        return FileResponse("/home/ute/tcm-ai/test_cross_device_history.html")
 
     @app.get("/test-history-load")
     async def test_history_load_page():
         """测试历史记录从数据库加载"""
-        return FileResponse("/opt/tcm-ai/template_files/test_history_load.html")
+        return FileResponse("/home/ute/tcm-ai/template_files/test_history_load.html")
 
     @app.get("/test-quick-chat")
     async def test_quick_chat_page():
         """快速测试问诊功能"""
-        return FileResponse("/opt/tcm-ai/template_files/quick_test_chat.html")
+        return FileResponse("/home/ute/tcm-ai/template_files/quick_test_chat.html")
 
     @app.get("/test-consultation-detail")
     async def test_consultation_detail_page():
         """测试问诊详情显示功能"""
-        return FileResponse("/opt/tcm-ai/template_files/test_consultation_detail.html")
+        return FileResponse("/home/ute/tcm-ai/template_files/test_consultation_detail.html")
 
     @app.get("/test-prescription-status")
     async def test_prescription_status_page():
         """测试处方状态显示功能"""
-        return FileResponse("/opt/tcm-ai/template_files/test_prescription_status.html")
+        return FileResponse("/home/ute/tcm-ai/template_files/test_prescription_status.html")
 
     @app.get("/debug-user-api")
     async def debug_user_api_page():
         """调试用户API"""
-        return FileResponse("/opt/tcm-ai/debug_user_api.html")
+        return FileResponse("/home/ute/tcm-ai/debug_user_api.html")
 
 
 def register_doctor_tool_page_routes(app: FastAPI) -> None:
@@ -86,37 +86,37 @@ def register_doctor_tool_page_routes(app: FastAPI) -> None:
     @app.get("/doctor/portal")
     async def doctor_portal():
         """医生门户 - 友好URL"""
-        return FileResponse("/opt/tcm-ai/static/doctor_portal.html")
+        return FileResponse("/home/ute/tcm-ai/static/doctor_portal.html")
 
     @app.get("/doctor/review")
     async def doctor_review_portal():
         """医生处方审查门户"""
-        return FileResponse("/opt/tcm-ai/static/doctor_review_portal.html")
+        return FileResponse("/home/ute/tcm-ai/static/doctor_review_portal.html")
 
     @app.get("/prescription/confirm")
     async def patient_prescription_confirm():
         """患者处方确认页面"""
-        return FileResponse("/opt/tcm-ai/static/patient_prescription_confirm.html")
+        return FileResponse("/home/ute/tcm-ai/static/patient_prescription_confirm.html")
 
     @app.get("/doctor/thinking")
     async def doctor_thinking():
         """医生思维录入 - 友好URL"""
-        return FileResponse("/opt/tcm-ai/static/doctor_thinking_input.html")
+        return FileResponse("/home/ute/tcm-ai/static/doctor_thinking_input.html")
 
     @app.get("/doctor/thinking-v2")
     async def doctor_thinking_v2():
         """医生思维录入V2 - 友好URL (推荐)"""
-        return FileResponse("/opt/tcm-ai/static/doctor_thinking_input_v2.html")
+        return FileResponse("/home/ute/tcm-ai/static/doctor_thinking_input_v2.html")
 
     @app.get("/doctor/management")
     async def doctor_management():
         """医生管理 - 友好URL"""
-        return FileResponse("/opt/tcm-ai/static/doctor_management.html")
+        return FileResponse("/home/ute/tcm-ai/static/doctor_management.html")
 
     @app.get("/doctor-test")
     async def doctor_selection_test():
         """医生选择测试页面"""
-        return FileResponse("/opt/tcm-ai/static/doctor_test.html")
+        return FileResponse("/home/ute/tcm-ai/static/doctor_test.html")
 
     @app.get("/test-doctor-selection")
     async def test_doctor_selection_simple():
@@ -126,17 +126,17 @@ def register_doctor_tool_page_routes(app: FastAPI) -> None:
     @app.get("/doctor_portal")
     async def doctor_portal_direct():
         """医生门户 - 直接URL (兼容性)"""
-        return FileResponse("/opt/tcm-ai/static/doctor_portal.html")
+        return FileResponse("/home/ute/tcm-ai/static/doctor_portal.html")
 
     @app.get("/user_history")
     async def user_history_page():
         """用户历史记录页面"""
-        return FileResponse("/opt/tcm-ai/static/user_history.html")
+        return FileResponse("/home/ute/tcm-ai/static/user_history.html")
 
     @app.get("/qr_gallery")
     async def qr_gallery_page():
         """二维码管理页面"""
-        return FileResponse("/opt/tcm-ai/static/qr_code_gallery.html")
+        return FileResponse("/home/ute/tcm-ai/static/qr_code_gallery.html")
 
 
 def register_auth_entry_routes(app: FastAPI, logger: Any) -> None:
@@ -146,7 +146,7 @@ def register_auth_entry_routes(app: FastAPI, logger: Any) -> None:
     async def phone_binding_page():
         """手机号绑定页面"""
         try:
-            with open("/opt/tcm-ai/static/phone_binding.html", "r", encoding="utf-8") as f:
+            with open("/home/ute/tcm-ai/static/phone_binding.html", "r", encoding="utf-8") as f:
                 html_content = f.read()
             return HTMLResponse(html_content)
         except Exception as e:

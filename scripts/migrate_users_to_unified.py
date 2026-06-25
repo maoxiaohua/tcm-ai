@@ -20,11 +20,11 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 # 添加项目路径
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 
 def get_db_connection():
     """获取数据库连接"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     return conn
 

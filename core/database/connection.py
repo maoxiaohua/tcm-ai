@@ -24,7 +24,7 @@ import time
 logger = logging.getLogger(__name__)
 
 # 数据库路径配置
-DEFAULT_DB_PATH = "/opt/tcm-ai/data/user_history.sqlite"
+DEFAULT_DB_PATH = "/home/ute/tcm-ai/data/user_history.sqlite"
 
 class DatabaseConnectionManager:
     """数据库连接管理器"""

@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/user", tags=["用户会话"])
 
 # 导入统一认证系统
 import sys
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 from core.unified_account.account_manager import unified_account_manager
 
 async def get_current_user_from_header(authorization: Optional[str] = Header(None)):

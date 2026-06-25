@@ -131,7 +131,7 @@ class RolePermissionManager:
 class SessionManager:
     """会话管理器"""
     
-    def __init__(self, db_path: str = "/opt/tcm-ai/data/user_history.sqlite"):
+    def __init__(self, db_path: str = "/home/ute/tcm-ai/data/user_history.sqlite"):
         self.db_path = db_path
         self.active_sessions: Dict[str, UserSession] = {}
         self.security_bearer = HTTPBearer(auto_error=False)

@@ -11,7 +11,7 @@ Emergency Password Security Fix
 4. 清理过期会话
 
 使用方法：
-python /opt/tcm-ai/scripts/emergency_password_fix.py
+python /home/ute/tcm-ai/scripts/emergency_password_fix.py
 
 Author: TCM-AI Security Team
 Date: 2025-09-22
@@ -28,17 +28,17 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('/opt/tcm-ai/logs/password_fix.log'),
+        logging.FileHandler('/home/ute/tcm-ai/logs/password_fix.log'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
 
 class PasswordSecurityFixer:
-    def __init__(self, db_path="/opt/tcm-ai/data/user_history.sqlite"):
+    def __init__(self, db_path="/home/ute/tcm-ai/data/user_history.sqlite"):
         self.db_path = db_path
         self.fixes_applied = 0
-        self.backup_file = f"/opt/tcm-ai/data/backup_before_password_fix_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+        self.backup_file = f"/home/ute/tcm-ai/data/backup_before_password_fix_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
     
     def create_backup(self):
         """创建数据库备份"""

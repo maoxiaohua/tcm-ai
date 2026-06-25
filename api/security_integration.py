@@ -34,7 +34,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             # 1. 安全路由检查和用户分发  
             if request.url.path == "/":
                 # 主页恢复早期问诊界面
-                return FileResponse("/opt/tcm-ai/static/index_v2.html")
+                return FileResponse("/home/ute/tcm-ai/static/index_v2.html")
             elif request.url.path in ["/patient", "/patient/", "/patient-portal"]:
                 # 重定向患者相关页面到智能工作流
                 return RedirectResponse(url="/smart", status_code=302)
@@ -68,7 +68,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 # 验证token并检查用户角色 - 使用统一认证系统
                 import sqlite3
                 try:
-                    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+                    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
                     cursor = conn.cursor()
                     
                     logger.info(f"验证token: {session_token[:20]}...")
@@ -113,7 +113,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                     
                     logger.info(f"管理员权限验证成功，用户: {user_id}, 角色: {role_row[0]}")
                     # 权限验证成功，直接返回管理员页面
-                    return FileResponse('/opt/tcm-ai/static/admin/index.html')
+                    return FileResponse('/home/ute/tcm-ai/static/admin/index.html')
                         
                 except Exception as e:
                     logger.error(f"Admin auth check error: {e}")
@@ -306,7 +306,7 @@ def setup_security_routes(app: FastAPI):
             # 如果会话中没有详细信息，从统一users表获取
             import sqlite3
             try:
-                conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+                conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
                 cursor = conn.cursor()
                 
                 # 从统一的users表获取用户信息
@@ -394,7 +394,7 @@ def setup_security_routes(app: FastAPI):
     #     """医生界面（需要医生权限）"""
     #     if current_user.role not in [UserRole.DOCTOR, UserRole.ADMIN, UserRole.SUPERADMIN]:
     #         return {"success": False, "detail": f"Access denied. Required roles: ['doctor', 'admin', 'superadmin']. Your role: {current_user.role.value}"}
-    #     return FileResponse("/opt/tcm-ai/static/doctor/index.html")
+    #     return FileResponse("/home/ute/tcm-ai/static/doctor/index.html")
     
     # 管理员路由已在main.py中定义，此处移除以避免冲突
     # 中间件会处理权限检查

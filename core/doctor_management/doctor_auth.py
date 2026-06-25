@@ -35,7 +35,7 @@ class Doctor:
 class DoctorAuthManager:
     """医生认证管理器"""
     
-    def __init__(self, db_path: str = "/opt/tcm-ai/data/user_history.sqlite"):
+    def __init__(self, db_path: str = "/home/ute/tcm-ai/data/user_history.sqlite"):
         self.db_path = db_path
         self.secret_key = "tcm_doctor_portal_secret_2025"  # 生产环境应使用环境变量
         

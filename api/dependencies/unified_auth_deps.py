@@ -153,7 +153,7 @@ async def _convert_doctor_jwt_to_session(
     from datetime import datetime, timedelta
 
     try:
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 

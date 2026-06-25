@@ -15,7 +15,7 @@ Date: 2025-10-12
 """
 
 import sys
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 
 from core.database import get_db_connection_context, verify_database_integrity
 import logging

@@ -7,7 +7,7 @@ from datetime import datetime
 from dataclasses import asdict
 
 import sys
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 from core.doctor_system.doctor_thinking_patterns import (
     DoctorMindDatabase, 
     PrescriptionLogicEngine,

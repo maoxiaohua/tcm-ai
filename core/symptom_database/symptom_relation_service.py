@@ -36,7 +36,7 @@ class SymptomCluster:
 class SymptomRelationService:
     """症状关系服务 - 三层智能架构"""
     
-    def __init__(self, db_path: str = "/opt/tcm-ai/data/user_history.sqlite"):
+    def __init__(self, db_path: str = "/home/ute/tcm-ai/data/user_history.sqlite"):
         self.db_path = db_path
         self.cache = {}  # 内存缓存
         self.cache_expiry = 300  # 5分钟缓存

@@ -14,7 +14,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 import asyncio
 
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 
 from services.famous_doctor_learning_system import FamousDoctorLearningSystem, ClinicalCase, DoctorProfile
 from template_files.lightweight_tcm_vector_db import LightweightTCMVectorDatabase

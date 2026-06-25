@@ -6,8 +6,8 @@
 
 set -e
 
-STATIC_DIR="/opt/tcm-ai/static"
-BACKUP_DIR="/opt/tcm-ai/.backups"
+STATIC_DIR="/home/ute/tcm-ai/static"
+BACKUP_DIR="/home/ute/tcm-ai/.backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 echo "============================================"

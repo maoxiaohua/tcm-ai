@@ -47,7 +47,7 @@ class MindMapResponse(BaseModel):
 
 
 # 数据库路径
-DB_PATH = "/opt/tcm-ai/data/user_history.sqlite"
+DB_PATH = "/home/ute/tcm-ai/data/user_history.sqlite"
 
 
 def init_mindmap_table():

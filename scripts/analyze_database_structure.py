@@ -186,10 +186,10 @@ def main():
     print("=" * 60)
     
     databases = [
-        "/opt/tcm-ai/data/user_history.sqlite",
-        "/opt/tcm-ai/data/famous_doctors.sqlite", 
-        "/opt/tcm-ai/data/cache.sqlite",
-        "/opt/tcm-ai/data/intelligent_cache.db"
+        "/home/ute/tcm-ai/data/user_history.sqlite",
+        "/home/ute/tcm-ai/data/famous_doctors.sqlite", 
+        "/home/ute/tcm-ai/data/cache.sqlite",
+        "/home/ute/tcm-ai/data/intelligent_cache.db"
     ]
     
     all_analyses = {}
@@ -210,7 +210,7 @@ def main():
     
     # 保存修复SQL文件
     if all_sql_fixes:
-        sql_file = f"/opt/tcm-ai/database/migrations/007_fix_constraints_{timestamp}.sql"
+        sql_file = f"/home/ute/tcm-ai/database/migrations/007_fix_constraints_{timestamp}.sql"
         os.makedirs(os.path.dirname(sql_file), exist_ok=True)
         
         with open(sql_file, 'w', encoding='utf-8') as f:

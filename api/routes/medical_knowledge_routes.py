@@ -21,7 +21,7 @@ def load_tcm_database():
         return knowledge_cache
     
     try:
-        db_path = Path("/opt/tcm-ai/template_files/complete_tcm_database.json")
+        db_path = Path("/home/ute/tcm-ai/template_files/complete_tcm_database.json")
         if db_path.exists():
             with open(db_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)

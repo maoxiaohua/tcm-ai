@@ -9,7 +9,7 @@
 
 import sys
 import os
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 
 import pytest
 from core.prescription.tcm_formula_analyzer import TCMFormulaAnalyzer, analyze_formula_with_ai

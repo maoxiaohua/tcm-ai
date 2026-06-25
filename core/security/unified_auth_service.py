@@ -90,7 +90,7 @@ class LoginResponse(BaseModel):
 class UnifiedAuthService:
     """统一认证服务"""
 
-    def __init__(self, db_path: str = "/opt/tcm-ai/data/user_history.sqlite"):
+    def __init__(self, db_path: str = "/home/ute/tcm-ai/data/user_history.sqlite"):
         self.db_path = db_path
         logger.info("🔐 统一认证服务初始化...")
 

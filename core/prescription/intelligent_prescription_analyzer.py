@@ -73,7 +73,7 @@ class ChineseMedicineDatabase:
         # 如果文件不存在，从tcm_formula_analyzer中动态加载
         try:
             import sys
-            sys.path.append('/opt/tcm-ai')
+            sys.path.append('/home/ute/tcm-ai')
             from core.prescription.tcm_formula_analyzer import TCMFormulaAnalyzer
             
             analyzer = TCMFormulaAnalyzer()

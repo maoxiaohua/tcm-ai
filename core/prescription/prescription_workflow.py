@@ -24,7 +24,7 @@ class PrescriptionStatus(Enum):
 class PrescriptionWorkflow:
     """处方工作流管理器"""
     
-    def __init__(self, db_path: str = "/opt/tcm-ai/data/user_history.sqlite"):
+    def __init__(self, db_path: str = "/home/ute/tcm-ai/data/user_history.sqlite"):
         self.db_path = db_path
         
         # 定义状态转换规则

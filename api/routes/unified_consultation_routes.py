@@ -16,7 +16,7 @@ from datetime import datetime
 
 # 导入统一问诊服务
 import sys
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 from core.consultation.unified_consultation_service import (
     get_consultation_service, 
     ConsultationRequest,
@@ -30,7 +30,7 @@ router = APIRouter(prefix="/api/consultation", tags=["unified-consultation"])
 
 def get_db_connection():
     """获取数据库连接"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -729,7 +729,7 @@ async def _store_consultation_record(user_id: str, request: ChatMessage, respons
         import uuid
         from datetime import datetime
         
-        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
+        conn = sqlite3.connect('/home/ute/tcm-ai/data/user_history.sqlite')
         cursor = conn.cursor()
         
         # 1. 存储到 consultations 表（问诊主记录）
@@ -1040,7 +1040,7 @@ async def _sync_prescription_status_to_patient(prescription_id: int, new_status:
     实现医生审核结果的实时同步
     """
     try:
-        conn = sqlite3.connect('/opt/tcm-ai/data/user_history.sqlite')
+        conn = sqlite3.connect('/home/ute/tcm-ai/data/user_history.sqlite')
         cursor = conn.cursor()
         
         # 根据审核结果更新患者端可见性

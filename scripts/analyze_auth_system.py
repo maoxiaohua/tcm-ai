@@ -11,7 +11,7 @@ import hashlib
 
 def analyze_user_tables():
     """分析用户表结构和数据"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     cursor = conn.cursor()
     
     print("🔐 TCM-AI 认证系统分析")
@@ -191,7 +191,7 @@ def generate_migration_sql(analysis):
 
 def main():
     """主函数"""
-    if not os.path.exists("/opt/tcm-ai/data/user_history.sqlite"):
+    if not os.path.exists("/home/ute/tcm-ai/data/user_history.sqlite"):
         print("❌ 数据库文件不存在")
         return
     
@@ -206,7 +206,7 @@ def main():
     
     # 保存迁移脚本
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    migration_file = f"/opt/tcm-ai/database/migrations/009_unify_auth_system_{timestamp}.sql"
+    migration_file = f"/home/ute/tcm-ai/database/migrations/009_unify_auth_system_{timestamp}.sql"
     
     os.makedirs(os.path.dirname(migration_file), exist_ok=True)
     

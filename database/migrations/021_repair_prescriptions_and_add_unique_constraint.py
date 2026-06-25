@@ -15,7 +15,7 @@ import sys
 from datetime import datetime
 from typing import Dict, List, Tuple
 
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 
 from core.database import get_db_connection_context  # noqa: E402
 

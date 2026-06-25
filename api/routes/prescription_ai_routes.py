@@ -37,7 +37,7 @@ async def get_current_user_from_header(authorization: Optional[str] = Header(Non
         token = authorization.replace('Bearer ', '')
 
         # 直接从unified_sessions表验证token（与doctor_routes.py保持一致）
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         cursor = conn.cursor()
 
         # 查询session和用户信息
@@ -90,7 +90,7 @@ async def analyze_prescription_with_ai(
     """使用AI分析处方"""
     user, session = await get_current_user_from_header(authorization)
     
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     try:
         cursor = conn.cursor()
@@ -162,7 +162,7 @@ async def batch_prescription_operation(
     if not request.prescription_ids:
         raise HTTPException(status_code=400, detail="未选择处方")
     
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     try:
         cursor = conn.cursor()
         
@@ -249,7 +249,7 @@ async def get_risk_analysis(authorization: Optional[str] = Header(None)):
     """
     user, session = await get_current_user_from_header(authorization)
 
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     try:
         cursor = conn.cursor()
@@ -364,7 +364,7 @@ async def get_ai_insights(authorization: Optional[str] = Header(None)):
     """获取AI洞察分析"""
     user, session = await get_current_user_from_header(authorization)
     
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     try:
         cursor = conn.cursor()
@@ -417,7 +417,7 @@ async def get_ai_recommendation(
     """获取AI推荐意见"""
     user, session = await get_current_user_from_header(authorization)
     
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     try:
         cursor = conn.cursor()

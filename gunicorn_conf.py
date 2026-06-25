@@ -1,5 +1,5 @@
 # 项目目录
-chdir = '/opt/tcm-ai'
+chdir = '/home/ute/tcm-ai'
 
 # 指定进程数
 workers = 4
@@ -17,7 +17,7 @@ worker_class = 'uvicorn.workers.UvicornWorker'
 bind = '0.0.0.0:7999' 
 
 # 设置进程文件目录（用于停止服务和重启服务，请勿删除）
-pidfile = '/opt/tcm-ai/gunicorn.pid'
+pidfile = '/home/ute/tcm-ai/gunicorn.pid'
 
 # 设置访问日志和错误信息日志路径
 accesslog = '/www/wwwlogs/python/tcm-ai/gunicorn_acess.log'

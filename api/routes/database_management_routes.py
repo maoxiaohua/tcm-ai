@@ -22,10 +22,10 @@ router = APIRouter(prefix="/api/database", tags=["database-management"])
 
 # 数据库文件路径映射
 DATABASE_PATHS = {
-    'user_history': '/opt/tcm-ai/data/user_history.sqlite',
-    'famous_doctors': '/opt/tcm-ai/data/famous_doctors.sqlite', 
-    'cache': '/opt/tcm-ai/data/cache.sqlite',
-    'intelligent_cache': '/opt/tcm-ai/data/intelligent_cache.db'
+    'user_history': '/home/ute/tcm-ai/data/user_history.sqlite',
+    'famous_doctors': '/home/ute/tcm-ai/data/famous_doctors.sqlite', 
+    'cache': '/home/ute/tcm-ai/data/cache.sqlite',
+    'intelligent_cache': '/home/ute/tcm-ai/data/intelligent_cache.db'
 }
 
 # Pydantic模型

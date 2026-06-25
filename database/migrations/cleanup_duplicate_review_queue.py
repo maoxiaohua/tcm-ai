@@ -8,12 +8,12 @@
 """
 
 import sys
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 
 import sqlite3
 from datetime import datetime
 
-DB_PATH = "/opt/tcm-ai/data/user_history.sqlite"
+DB_PATH = "/home/ute/tcm-ai/data/user_history.sqlite"
 
 def cleanup_duplicate_queue_entries():
     """清理重复的审核队列记录"""

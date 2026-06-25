@@ -1144,7 +1144,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('/var/log/tcm_api.log'),
+        logging.FileHandler('/home/ute/tcm-ai/logs/tcm_api.log'),
         logging.StreamHandler(sys.stdout)
     ]
 )

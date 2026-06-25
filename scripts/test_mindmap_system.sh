@@ -156,7 +156,7 @@ echo "------------------------------"
 
 # 测试8: 检查数据库表
 echo -n "检查mindmaps表... "
-table_exists=$(sqlite3 /opt/tcm-ai/data/user_history.sqlite "SELECT name FROM sqlite_master WHERE type='table' AND name='mindmaps';" 2>/dev/null)
+table_exists=$(sqlite3 /home/ute/tcm-ai/data/user_history.sqlite "SELECT name FROM sqlite_master WHERE type='table' AND name='mindmaps';" 2>/dev/null)
 
 if [ "$table_exists" == "mindmaps" ]; then
     test_case "数据库表存在" "PASS"
@@ -166,7 +166,7 @@ fi
 
 # 测试9: 统计记录数
 echo -n "统计思维导图记录... "
-count=$(sqlite3 /opt/tcm-ai/data/user_history.sqlite "SELECT COUNT(*) FROM mindmaps;" 2>/dev/null)
+count=$(sqlite3 /home/ute/tcm-ai/data/user_history.sqlite "SELECT COUNT(*) FROM mindmaps;" 2>/dev/null)
 
 if [ -n "$count" ]; then
     test_case "数据库记录统计 - 共 $count 条记录" "PASS"
@@ -180,10 +180,10 @@ echo "------------------------------"
 
 # 测试10: 检查核心文件
 files=(
-    "/opt/tcm-ai/core/mindmap/ai_mindmap_generator.py"
-    "/opt/tcm-ai/core/mindmap/__init__.py"
-    "/opt/tcm-ai/api/routes/mindmap_routes.py"
-    "/opt/tcm-ai/static/mindmap/index.html"
+    "/home/ute/tcm-ai/core/mindmap/ai_mindmap_generator.py"
+    "/home/ute/tcm-ai/core/mindmap/__init__.py"
+    "/home/ute/tcm-ai/api/routes/mindmap_routes.py"
+    "/home/ute/tcm-ai/static/mindmap/index.html"
 )
 
 for file in "${files[@]}"; do

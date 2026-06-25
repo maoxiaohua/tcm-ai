@@ -28,9 +28,9 @@ class SmartRouter:
         
         # 界面对应的静态文件
         self.static_files = {
-            "/smart": "/opt/tcm-ai/static/index_smart_workflow.html",
-            "/doctor": "/opt/tcm-ai/static/doctor/index.html", 
-            "/admin": "/opt/tcm-ai/static/admin/index.html"
+            "/smart": "/home/ute/tcm-ai/static/index_smart_workflow.html",
+            "/doctor": "/home/ute/tcm-ai/static/doctor/index.html", 
+            "/admin": "/home/ute/tcm-ai/static/admin/index.html"
         }
         
         # 受保护的路由（需要特定角色才能访问）
@@ -219,7 +219,7 @@ class AuthenticationHandler:
         import sqlite3
         import hashlib
         
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         cursor = conn.cursor()
         
         # 统一查询users表（已包含所有用户）

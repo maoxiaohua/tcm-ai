@@ -54,7 +54,7 @@ class DecisionTreeMatch:
 class DecisionTreeMatcher:
     """决策树智能匹配服务 - AI语义匹配版"""
 
-    def __init__(self, db_path: str = "/opt/tcm-ai/data/user_history.sqlite"):
+    def __init__(self, db_path: str = "/home/ute/tcm-ai/data/user_history.sqlite"):
         """初始化决策树匹配服务"""
         self.db_path = db_path
         self.api_key = AI_CONFIG.get("dashscope_api_key", "")

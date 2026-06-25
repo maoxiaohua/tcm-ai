@@ -10,7 +10,7 @@ from core.doctor_management.doctor_auth import doctor_auth_manager
 
 # 使用内联导入避免模块路径问题
 import sys
-sys.path.insert(0, '/opt/tcm-ai')
+sys.path.insert(0, '/home/ute/tcm-ai')
 from database.models.doctor_portal_models import Doctor, Prescription
 
 router = APIRouter(prefix="/api/doctor", tags=["医生端"])
@@ -47,7 +47,7 @@ def get_current_doctor(authorization: str = Header(None)) -> Doctor:
     # 直接从unified_sessions表验证token
     try:
         import sqlite3
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         cursor = conn.cursor()
         
         # 查询session和用户信息
@@ -223,7 +223,7 @@ async def update_doctor_profile(
     import logging
     logger = logging.getLogger(__name__)
     
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     cursor = conn.cursor()
     
     try:
@@ -310,7 +310,7 @@ async def change_password(
     import logging
     logger = logging.getLogger(__name__)
     
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     cursor = conn.cursor()
     
     try:
@@ -371,7 +371,7 @@ async def change_password(
 @router.get("/pending-prescriptions")
 async def get_pending_prescriptions(current_doctor: Doctor = Depends(get_current_doctor)):
     """获取待审查处方列表"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
@@ -428,7 +428,7 @@ async def get_prescription_detail(
     current_doctor: Doctor = Depends(get_current_doctor)
 ):
     """获取处方详情"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
@@ -460,7 +460,7 @@ async def review_prescription(
     current_doctor: Doctor = Depends(get_current_doctor)
 ):
     """审查处方"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     cursor = conn.cursor()
     
     try:
@@ -562,7 +562,7 @@ async def get_current_doctor_info(current_doctor: Doctor = Depends(get_current_d
 @router.get("/today-reviewed")
 async def get_today_reviewed_prescriptions(current_doctor: Doctor = Depends(get_current_doctor)):
     """获取今日已审查处方列表"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
@@ -603,7 +603,7 @@ async def get_all_prescriptions(
     Args:
         prescription_ids: 可选，逗号分隔的处方ID列表，用于高风险处方筛选
     """
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -697,7 +697,7 @@ async def get_all_prescriptions(
 @router.get("/statistics")
 async def get_doctor_statistics(current_doctor: Doctor = Depends(get_current_doctor)):
     """获取医生工作统计"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     cursor = conn.cursor()
 
     try:
@@ -761,7 +761,7 @@ async def get_doctor_statistics(current_doctor: Doctor = Depends(get_current_doc
 @router.get("/list")
 async def get_doctor_list():
     """获取所有可用医生列表（用于问诊页面医生选择）"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     

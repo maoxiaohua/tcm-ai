@@ -18,7 +18,7 @@ from pathlib import Path
 from dashscope import MultiModalConversation
 from dashscope.api_entities.dashscope_response import DashScopeAPIResponse
 import sys
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 from core.prescription.tcm_formula_analyzer import analyze_formula_with_ai
 from config.settings import AI_CONFIG
 

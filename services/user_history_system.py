@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class UserHistorySystem:
     """用户历史记录系统 - MVP版本"""
     
-    def __init__(self, db_path: str = "/opt/tcm-ai/data/user_history.sqlite"):
+    def __init__(self, db_path: str = "/home/ute/tcm-ai/data/user_history.sqlite"):
         self.db_path = db_path
         self.init_database()
         logger.info("用户历史系统初始化完成")

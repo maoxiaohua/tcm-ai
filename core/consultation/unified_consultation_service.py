@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import sys
-sys.path.append('/opt/tcm-ai')
+sys.path.append('/home/ute/tcm-ai')
 
 # 核心依赖导入
 from core.doctor_system.tcm_doctor_personas import PersonalizedTreatmentGenerator
@@ -463,7 +463,7 @@ class UnifiedConsultationService:
             doctor_id = doctor_id_mapping.get(request.selected_doctor, 1)
             
             # 连接数据库
-            conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+            conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
             cursor = conn.cursor()
             
             # 🔑 从AI响应和对话历史中提取症状和诊断
@@ -598,7 +598,7 @@ class UnifiedConsultationService:
                 return None, 0.0
 
             # 连接数据库查询该医生的决策树
-            conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+            conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
@@ -739,7 +739,7 @@ class UnifiedConsultationService:
         import sqlite3
 
         try:
-            conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+            conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
             cursor = conn.cursor()
 
             # 更新usage_count和last_used_at

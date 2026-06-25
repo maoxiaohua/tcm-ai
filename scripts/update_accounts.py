@@ -37,7 +37,7 @@ def hash_password_pbkdf2(password: str, salt: str = None) -> tuple:
 
 def update_accounts():
     """更新账户信息"""
-    db_path = "/opt/tcm-ai/data/user_history.sqlite"
+    db_path = "/home/ute/tcm-ai/data/user_history.sqlite"
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     

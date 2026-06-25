@@ -14,7 +14,7 @@ def test_database_integrity():
     print("🔍 测试数据库完整性")
     print("-" * 30)
     
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     cursor = conn.cursor()
     
     # 检查是否还有admin_accounts表
@@ -116,7 +116,7 @@ def test_auth_api(username: str, password: str, expected_role: str = None):
 
 def get_test_users():
     """获取测试用户列表"""
-    conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+    conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
     cursor = conn.cursor()
     
     cursor.execute("""

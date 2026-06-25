@@ -315,7 +315,7 @@ async def list_decisions(query: DecisionListQuery):
     try:
         import sqlite3
 
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -380,7 +380,7 @@ async def delete_decision(decision_id: str, doctor_id: str):
     try:
         import sqlite3
 
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         cursor = conn.cursor()
 
         cursor.execute("""
@@ -418,7 +418,7 @@ async def get_decision_history(decision_id: str, doctor_id: str):
     try:
         import sqlite3
 
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -471,7 +471,7 @@ async def get_decision_history_version(decision_id: str, version: int, doctor_id
     try:
         import sqlite3
 
-        conn = sqlite3.connect("/opt/tcm-ai/data/user_history.sqlite")
+        conn = sqlite3.connect("/home/ute/tcm-ai/data/user_history.sqlite")
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 

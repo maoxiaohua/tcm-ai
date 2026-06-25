@@ -68,7 +68,7 @@ class PrescriptionStatusManager:
     4. 提供统一的状态查询接口
     """
 
-    def __init__(self, db_path: str = "/opt/tcm-ai/data/user_history.sqlite"):
+    def __init__(self, db_path: str = "/home/ute/tcm-ai/data/user_history.sqlite"):
         self.db_path = db_path
 
     def get_db_connection(self):

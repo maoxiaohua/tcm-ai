@@ -25,7 +25,7 @@ from pathlib import Path
 class DecisionTreeDataService:
     """决策树数据转换和同步服务"""
 
-    def __init__(self, db_path: str = "/opt/tcm-ai/data/user_history.sqlite"):
+    def __init__(self, db_path: str = "/home/ute/tcm-ai/data/user_history.sqlite"):
         """初始化服务
 
         Args:
