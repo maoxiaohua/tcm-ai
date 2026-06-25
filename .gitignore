@@ -56,3 +56,5 @@ data/*_backup_*.sqlite
 # --- 系统文件 ---
 *.pid
 .cache/
+.claude/
+.codex/
